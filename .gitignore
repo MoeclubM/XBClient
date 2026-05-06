@@ -1,0 +1,27 @@
+# Android / Gradle
+.gradle/
+.kotlin/
+**/build/
+local.properties
+*.local.properties
+*.local.txt
+app/config/*.local.*
+app/config/release-signing.local.txt
+*.hprof
+*-log*.txt
+*.log
+*.jks
+*.keystore
+*.p12
+!app/config/release-signing.jks
+
+# Rust
+rust/xbclient-core/target/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
