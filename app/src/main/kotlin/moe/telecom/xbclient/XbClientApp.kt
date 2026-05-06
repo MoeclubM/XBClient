@@ -350,7 +350,7 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             style = MaterialTheme.typography.displaySmall
         )
         Text(
-            if (state.anyTlsNodes.isEmpty()) "节点正在同步。" else "AnyTLS",
+            if (selectedNode == null) "节点正在同步。" else selectedNode.protocolLabel,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(14.dp))
@@ -395,6 +395,7 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 
 @Composable
 private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
     PageHeader("我的", "账户、积分与邀请信息。")
     EditorialSection("账户") {
         Text("已登录", style = MaterialTheme.typography.titleLarge)
@@ -410,7 +411,13 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
         if (state.adEnabled) {
             Spacer(Modifier.height(8.dp))
             Button(onClick = viewModel::requestRewardAd, modifier = Modifier.fillMaxWidth()) {
-                Text(if (state.adRewardAmount > 0) "看广告领 ${state.adRewardAmount}${state.adRewardItem}" else "看广告领积分")
+                Text("看广告领奖励")
+            }
+        }
+        if (state.paymentEnabled) {
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = { viewModel.openPaymentPage(context) }, modifier = Modifier.fillMaxWidth()) {
+                Text("网页支付")
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -554,6 +561,8 @@ private fun NodeRow(
     ) {
         Text((if (selected) "✓ " else "") + node.displayName(index), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(4.dp))
+        Text(node.protocolLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(4.dp))
         Text(testText ?: "未测试", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -653,7 +662,7 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
                 itemsIndexed(state.anyTlsNodes, key = { index, node -> "${node.displayName(index)}-$index" }) { index, node ->
                     ListItem(
                         headlineContent = { Text(node.displayName(index)) },
-                        supportingContent = { Text(state.nodeTestResults[index] ?: "未测试") },
+                        supportingContent = { Text("${node.protocolLabel} · ${state.nodeTestResults[index] ?: "未测试"}") },
                         trailingContent = { if (index == state.selectedNodeIndex) Text("已选择") },
                         modifier = Modifier.clickable { viewModel.chooseNodeFromDialog(index) }
                     )

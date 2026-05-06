@@ -29,6 +29,7 @@ enum class PassScreen {
 }
 
 data class AnyTlsNode(
+    val protocol: String,
     val name: String,
     val host: String,
     val port: Int,
@@ -41,6 +42,9 @@ data class AnyTlsNode(
         }
         return trimmed
     }
+
+    val protocolLabel: String
+        get() = if (protocol == "hysteria2" || protocol == "hy2") "Hysteria2" else "AnyTLS"
 }
 
 data class InviteItem(
@@ -55,9 +59,10 @@ data class InstalledAppItem(
 
 fun JSONObject.toAnyTlsNode(): AnyTlsNode =
     AnyTlsNode(
+        protocol = optString("type", optString("protocol", "anytls")).lowercase(Locale.US),
         name = optString("name"),
-        host = optString("host"),
-        port = optInt("port"),
+        host = optString("host", optString("server")),
+        port = optInt("port", optInt("server_port")),
         rawJson = toString()
     )
 
@@ -143,6 +148,9 @@ fun subscriptionSummary(data: JSONObject): String {
 fun readableNodeTestError(error: String): String {
     if (error.contains("read AnyTLS frame header")) {
         return "失败：AnyTLS 服务器关闭连接（$error）"
+    }
+    if (error.contains("Hysteria2 target test")) {
+        return "失败：Hysteria2 连接失败（$error）"
     }
     if (error.contains("timed out")) {
         return "失败：连接超时（$error）"

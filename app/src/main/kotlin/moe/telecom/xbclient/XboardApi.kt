@@ -11,6 +11,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.Locale
 
 object XboardApi {
     private const val USER_AGENT = "XBClient"
@@ -69,7 +70,7 @@ object XboardApi {
             "admob_reward_config" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/config", authData, emptyMap())
 
             // 非站点 API：订阅内容解析
-            "anytls_nodes" -> fetchAnyTlsNodes(params.getString("subscribe_url"), params.optString("flag", "meta"))
+            "anytls_nodes" -> fetchProxyNodes(params.getString("subscribe_url"), params.optString("flag", "meta"))
             else -> throw IllegalArgumentException("unsupported Xboard action: $action")
         }
     }
@@ -184,10 +185,10 @@ object XboardApi {
             }
     }
 
-    private fun fetchAnyTlsNodes(subscribeUrl: String, flag: String): JSONObject {
+    private fun fetchProxyNodes(subscribeUrl: String, flag: String): JSONObject {
         val url = Uri.parse(subscribeUrl)
             .buildUpon()
-            .appendQueryParameter("types", "anytls")
+            .appendQueryParameter("types", "anytls,hysteria")
             .appendQueryParameter("flag", flag)
             .build()
             .toString()
@@ -213,14 +214,15 @@ object XboardApi {
         val nodes = JSONArray()
         for (item in proxies) {
             val proxy = item as Map<*, *>
-            if (proxy["type"]?.toString() != "anytls") {
+            val type = proxy["type"]?.toString()?.lowercase(Locale.US).orEmpty()
+            if (type != "anytls" && type != "hysteria2" && type != "hy2") {
                 continue
             }
             val name = proxy["name"]?.toString().orEmpty()
             if (name.startsWith("剩余流量：") || name.startsWith("距离下次重置剩余：") || name.startsWith("套餐到期：")) {
                 continue
             }
-            nodes.put(anyTlsNode(proxy))
+            nodes.put(if (type == "anytls") anyTlsNode(proxy) else hysteria2Node(proxy))
         }
         return JSONObject()
             .put("ok", true)
@@ -234,6 +236,7 @@ object XboardApi {
     private fun anyTlsNode(proxy: Map<*, *>): JSONObject {
         val host = proxy["server"].toString()
         return JSONObject()
+            .put("type", "anytls")
             .put("name", proxy["name"]?.toString().orEmpty())
             .put("raw", toJson(proxy).toString())
             .put("host", host)
@@ -242,6 +245,43 @@ object XboardApi {
             .put("sni", proxy["sni"]?.toString().takeUnless { it.isNullOrEmpty() } ?: host)
             .put("insecure", proxy["skip-cert-verify"] == true)
             .put("udp", proxy["udp"] == true)
+    }
+
+    private fun hysteria2Node(proxy: Map<*, *>): JSONObject {
+        val host = proxy["server"].toString()
+        val obfs = proxy["obfs"]
+        val obfsType = when (obfs) {
+            is Map<*, *> -> obfs["type"]?.toString().orEmpty()
+            null -> ""
+            else -> obfs.toString()
+        }
+        val obfsPassword = proxy["obfs-password"]?.toString()
+            ?: proxy["obfs_password"]?.toString()
+            ?: proxy["obfsPassword"]?.toString()
+            ?: if (obfs is Map<*, *>) obfs["password"]?.toString() else null
+        val port = (proxy["port"] ?: proxy["server-port"] ?: proxy["server_port"]).toString().toInt()
+        val node = JSONObject()
+            .put("type", "hysteria2")
+            .put("name", proxy["name"]?.toString().orEmpty())
+            .put("raw", toJson(proxy).toString())
+            .put("host", host)
+            .put("server", host)
+            .put("port", port)
+            .put("password", proxy["password"].toString())
+            .put("sni", proxy["sni"]?.toString().takeUnless { it.isNullOrEmpty() } ?: proxy["servername"]?.toString().takeUnless { it.isNullOrEmpty() } ?: host)
+            .put("insecure", proxy["skip-cert-verify"] == true || proxy["insecure"] == true)
+            .put("udp", proxy["udp"] != false)
+        if (obfsType.isNotEmpty()) {
+            node.put("obfs", obfsType)
+        }
+        if (!obfsPassword.isNullOrEmpty()) {
+            node.put("obfs-password", obfsPassword)
+        }
+        val down = proxy["down"] ?: proxy["download"] ?: proxy["down_mbps"] ?: proxy["down-mbps"]
+        if (down != null) {
+            node.put("down", down.toString().toLong())
+        }
+        return node
     }
 
     private fun toJson(value: Any?): Any = when (value) {
@@ -315,4 +355,3 @@ object XboardApi {
         }
     }
 }
-

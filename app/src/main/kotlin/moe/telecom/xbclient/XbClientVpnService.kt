@@ -196,6 +196,10 @@ class XbClientVpnService : VpnService() {
             node.put("sni", originalHost)
         }
         node.put("host", resolvedHost)
+        val protocol = node.optString("type")
+        if (protocol == "hysteria2" || protocol == "hy2") {
+            node.put("server", resolvedHost)
+        }
         currentNodeJson = node.toString()
         val tun: ParcelFileDescriptor = builder.establish() ?: throw IllegalStateException("连接权限未授予")
         tunInterface = tun

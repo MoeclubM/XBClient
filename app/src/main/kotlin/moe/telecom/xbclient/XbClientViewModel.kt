@@ -344,15 +344,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun onRewardAdEarned(amount: Int, type: String) {
-        val state = _uiState.value
-        val rewardText = if (state.adRewardAmount > 0) {
-            "${state.adRewardAmount}${state.adRewardItem}"
-        } else {
-            "$amount${type.ifBlank { state.adRewardItem }}"
-        }
-        emitMessage("广告观看完成，服务端正在发放：$rewardText")
+        emitMessage("广告观看完成：$amount${type.ifBlank { _uiState.value.adRewardItem }}")
         refreshSubscriptionAndNodes()
         refreshRewardConfig()
+    }
+
+    fun openPaymentPage(context: Context) {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(defaultApiUrl())))
     }
 
     private fun loadRewardConfig(authData: String): Triple<String, String, String> {
@@ -604,6 +602,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 testNode.put("sni", originalHost)
             }
             testNode.put("host", resolvedHost)
+            val protocol = testNode.optString("type")
+            if (protocol == "hysteria2" || protocol == "hy2") {
+                testNode.put("server", resolvedHost)
+            }
             val (targetHost, targetPort, targetTls) = targetHostPort(_uiState.value.nodeTestTarget.trim().ifEmpty { DEFAULT_NODE_TEST_TARGET })
             val result = JSONObject(
                 RustCore.testAnyTlsNode(
