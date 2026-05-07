@@ -57,6 +57,11 @@ data class InstalledAppItem(
     val packageName: String
 )
 
+data class OAuthProvider(
+    val driver: String,
+    val label: String
+)
+
 fun JSONObject.toAnyTlsNode(): AnyTlsNode =
     AnyTlsNode(
         protocol = optString("type", optString("protocol", "anytls")).lowercase(Locale.US),
@@ -72,11 +77,20 @@ fun JSONObject.toInviteItem(): InviteItem =
         status = optInt("status")
     )
 
+fun JSONObject.toOAuthProvider(): OAuthProvider =
+    OAuthProvider(
+        driver = getString("driver"),
+        label = optString("label", getString("driver"))
+    )
+
 fun JSONArray.toAnyTlsNodeList(): List<AnyTlsNode> =
     List(length()) { index -> getJSONObject(index).toAnyTlsNode() }
 
 fun JSONArray.toInviteItemList(): List<InviteItem> =
     List(length()) { index -> getJSONObject(index).toInviteItem() }
+
+fun JSONArray.toOAuthProviderList(): List<OAuthProvider> =
+    List(length()) { index -> getJSONObject(index).toOAuthProvider() }
 
 fun resultError(result: JSONObject): String {
     val body = result.optJSONObject("body")

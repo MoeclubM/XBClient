@@ -63,7 +63,11 @@ data class XbClientUiState(
     val adRewardAmount: Int = 0,
     val adRewardItem: String = "⭐",
     val adSsvUserId: String = "",
-    val adSsvCustomData: String = ""
+    val adSsvCustomData: String = "",
+    val oauthProviders: List<OAuthProvider> = emptyList(),
+    val oauthConfirmToken: String = "",
+    val oauthConfirmProvider: String = "",
+    val oauthConfirmEmail: String = ""
 ) {
     val isLoggedIn: Boolean
         get() = authData.isNotEmpty()
@@ -90,6 +94,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             loadStoredState()
             loadInstalledApps()
+            refreshOAuthProviders()
             val state = _uiState.value
             if (state.authData.isNotEmpty()) {
                 refreshSubscriptionAndNodes()
@@ -226,8 +231,88 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun refreshOAuthProviders() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val result = XboardApi.request("guest_config", defaultApiUrl(), "", JSONObject())
+                val body = requireSuccessfulBody("访客配置", result)
+                val providers = body.optJSONObject("data")
+                    ?.optJSONArray("oauth_providers")
+                    ?.toOAuthProviderList()
+                    ?: emptyList()
+                _uiState.update { it.copy(oauthProviders = providers) }
+            } catch (error: Exception) {
+                emitMessage("OAuth 配置加载失败：${error.message}")
+            }
+        }
+    }
+
+    fun openOAuthPage(context: Context, scene: String, driver: String, inviteCode: String = "") {
+        val builder = Uri.parse("${defaultApiUrl().trimEnd('/')}/api/v1/passport/auth/oauth/$driver/redirect")
+            .buildUpon()
+            .appendQueryParameter("scene", scene)
+            .appendQueryParameter("redirect", "dashboard")
+            .appendQueryParameter("client", "app")
+        if (scene == "register" && inviteCode.trim().isNotEmpty()) {
+            builder.appendQueryParameter("invite_code", inviteCode.trim())
+        }
+        context.startActivity(Intent(Intent.ACTION_VIEW, builder.build()))
+    }
+
+    fun handleOAuthCallback(uri: Uri) {
+        val error = uri.getQueryParameter("oauth_error").orEmpty()
+        if (error.isNotEmpty()) {
+            emitMessage("OAuth 失败：$error")
+            return
+        }
+        val success = uri.getQueryParameter("oauth_success").orEmpty()
+        if (success.isNotEmpty()) {
+            emitMessage(success)
+            return
+        }
+        val confirmToken = uri.getQueryParameter("oauth_confirm_token").orEmpty()
+        if (confirmToken.isNotEmpty()) {
+            _uiState.update {
+                it.copy(
+                    authMode = AuthMode.REGISTER,
+                    oauthConfirmToken = confirmToken,
+                    oauthConfirmProvider = uri.getQueryParameter("oauth_provider").orEmpty(),
+                    oauthConfirmEmail = uri.getQueryParameter("oauth_email").orEmpty()
+                )
+            }
+            emitMessage("请确认 OAuth 注册。")
+            return
+        }
+        val verify = uri.getQueryParameter("verify").orEmpty()
+        if (verify.isNotEmpty()) {
+            completeOAuthLogin(verify)
+        }
+    }
+
+    fun confirmOAuthRegister() {
+        val token = _uiState.value.oauthConfirmToken
+        if (token.isEmpty()) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody(
+                    "OAuth 注册确认",
+                    XboardApi.request("confirm_oauth_register", defaultApiUrl(), "", JSONObject().put("token", token))
+                )
+                completeOAuthLogin(verifyFromQuickLoginUrl(body.getString("data")))
+            } catch (error: Exception) {
+                emitMessage("OAuth 注册失败：${error.message}")
+            }
+        }
+    }
+
+    fun clearOAuthConfirm() {
+        _uiState.update { it.copy(oauthConfirmToken = "", oauthConfirmProvider = "", oauthConfirmEmail = "") }
+    }
+
     fun logout() {
-        val next = XbClientUiState(loaded = true)
+        val next = XbClientUiState(loaded = true, oauthProviders = _uiState.value.oauthProviders)
         _uiState.value = next
         persistState(next)
     }
@@ -373,6 +458,41 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
+
+    private fun completeOAuthLogin(verify: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val result = XboardApi.request("token_login", defaultApiUrl(), "", JSONObject().put("verify", verify))
+                val body = requireSuccessfulBody("OAuth 登录", result)
+                val data = body.getJSONObject("data")
+                val next = _uiState.value.copy(
+                    authMode = AuthMode.LOGIN,
+                    screen = PassScreen.NODES,
+                    authData = data.getString("auth_data"),
+                    subscribeToken = data.optString("token", _uiState.value.subscribeToken),
+                    oauthConfirmToken = "",
+                    oauthConfirmProvider = "",
+                    oauthConfirmEmail = ""
+                )
+                _uiState.value = next
+                persistStoredState(next)
+                emitMessage("OAuth 登录成功。")
+                refreshSubscriptionAndNodes()
+                refreshInvites()
+                refreshRewardConfig()
+            } catch (error: Exception) {
+                emitMessage("OAuth 登录失败：${error.message}")
+            }
+        }
+    }
+
+    private fun verifyFromQuickLoginUrl(url: String): String =
+        Regex("[?&]verify=([^&]+)")
+            .find(url)
+            ?.groupValues
+            ?.get(1)
+            ?.let(Uri::decode)
+            ?: throw IllegalStateException("快捷登录地址缺少 verify。")
 
     private fun loadRewardConfig(authData: String): Triple<String, String, String> {
         val result = XboardApi.request("admob_reward_config", defaultApiUrl(), authData, JSONObject())

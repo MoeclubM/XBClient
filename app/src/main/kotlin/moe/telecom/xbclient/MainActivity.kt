@@ -118,6 +118,11 @@ class MainActivity : ComponentActivity() {
     private fun handleLaunchIntent(intent: Intent?) {
         if (intent?.action == ACTION_SELECT_NODE) {
             viewModel.requestNodeSwitchDialog(connectAfterSelect = true)
+            return
+        }
+        val uri = intent?.data
+        if (uri?.scheme == "xbclient" && uri.host == "oauth") {
+            viewModel.handleOAuthCallback(uri)
         }
     }
 

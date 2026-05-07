@@ -188,9 +188,9 @@ private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                     label = "auth-mode"
                 ) { authMode ->
                     if (authMode == AuthMode.LOGIN) {
-                        LoginContent(viewModel)
+                        LoginContent(state, viewModel)
                     } else {
-                        RegisterContent(viewModel)
+                        RegisterContent(state, viewModel)
                     }
                 }
             }
@@ -199,15 +199,16 @@ private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 }
 
 @Composable
-private fun LoginContent(viewModel: XbClientViewModel) {
+private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    PageHeader("账号登录")
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 18.dp)
     ) {
+        PageHeader("账号登录")
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -232,45 +233,93 @@ private fun LoginContent(viewModel: XbClientViewModel) {
         OutlinedButton(onClick = viewModel::showRegister, modifier = Modifier.fillMaxWidth()) {
             Text("注册账号")
         }
+        if (state.oauthProviders.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Text("第三方登录", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
+            for (provider in state.oauthProviders) {
+                OutlinedButton(
+                    onClick = { viewModel.openOAuthPage(context, "login", provider.driver) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("使用 ${provider.label} 登录")
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
     }
 }
 
 @Composable
-private fun RegisterContent(viewModel: XbClientViewModel) {
+private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var inviteCode by rememberSaveable { mutableStateOf("") }
     var emailCode by rememberSaveable { mutableStateOf("") }
     var captcha by rememberSaveable { mutableStateOf("") }
-    PageHeader("账号注册", "创建账号后会直接进入节点页面。")
-    EditorialSection("账户") {
-        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("邮箱") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("密码") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(value = inviteCode, onValueChange = { inviteCode = it }, label = { Text("邀请码，可为空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(value = emailCode, onValueChange = { emailCode = it }, label = { Text("邮箱验证码，可为空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(value = captcha, onValueChange = { captcha = it }, label = { Text("验证码令牌，可为空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(14.dp))
-        OutlinedButton(onClick = { viewModel.sendEmailVerify(email, captcha) }, modifier = Modifier.fillMaxWidth()) {
-            Text("发送邮箱验证码")
-        }
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = { viewModel.register(email, password, inviteCode, emailCode, captcha) }, modifier = Modifier.fillMaxWidth()) {
-            Text("注册")
-        }
-        Spacer(Modifier.height(8.dp))
-        TextButton(onClick = viewModel::showLogin, modifier = Modifier.fillMaxWidth()) {
-            Text("返回登录")
+    Column(modifier = Modifier.fillMaxWidth()) {
+        PageHeader("账号注册", "创建账号后会直接进入节点页面。")
+        EditorialSection("账户") {
+            OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("邮箱") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("密码") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(value = inviteCode, onValueChange = { inviteCode = it }, label = { Text("邀请码，可为空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(value = emailCode, onValueChange = { emailCode = it }, label = { Text("邮箱验证码，可为空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(value = captcha, onValueChange = { captcha = it }, label = { Text("验证码令牌，可为空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(14.dp))
+            OutlinedButton(onClick = { viewModel.sendEmailVerify(email, captcha) }, modifier = Modifier.fillMaxWidth()) {
+                Text("发送邮箱验证码")
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = { viewModel.register(email, password, inviteCode, emailCode, captcha) }, modifier = Modifier.fillMaxWidth()) {
+                Text("注册")
+            }
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = viewModel::showLogin, modifier = Modifier.fillMaxWidth()) {
+                Text("返回登录")
+            }
+            if (state.oauthConfirmToken.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Text("OAuth 注册确认", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "确认使用 ${state.oauthConfirmProvider.ifEmpty { "OAuth" }} 创建或绑定账号：${state.oauthConfirmEmail}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = viewModel::confirmOAuthRegister, modifier = Modifier.fillMaxWidth()) {
+                    Text("确认注册并登录")
+                }
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = viewModel::clearOAuthConfirm, modifier = Modifier.fillMaxWidth()) {
+                    Text("取消 OAuth 注册")
+                }
+            }
+            if (state.oauthProviders.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Text("第三方注册", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(8.dp))
+                for (provider in state.oauthProviders) {
+                    OutlinedButton(
+                        onClick = { viewModel.openOAuthPage(context, "register", provider.driver, inviteCode) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("使用 ${provider.label} 注册")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
         }
     }
 }
