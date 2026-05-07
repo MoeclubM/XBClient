@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
@@ -350,7 +351,27 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun openPaymentPage(context: Context) {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(defaultApiUrl())))
+        val authData = _uiState.value.authData
+        if (authData.isEmpty()) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val result = XboardApi.request(
+                    "quick_login_url",
+                    defaultApiUrl(),
+                    authData,
+                    JSONObject().put("redirect", "plan")
+                )
+                val body = requireSuccessfulBody("网页登录", result)
+                val loginUrl = body.getString("data")
+                withContext(Dispatchers.Main) {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
+                }
+            } catch (error: Exception) {
+                emitMessage("网页支付打开失败：${error.message}")
+            }
+        }
     }
 
     private fun loadRewardConfig(authData: String): Triple<String, String, String> {
