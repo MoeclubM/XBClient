@@ -1,5 +1,7 @@
 package moe.telecom.xbclient
 
+import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -30,6 +33,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -74,16 +78,22 @@ import java.util.Locale
 fun XbClientApp(viewModel: XbClientViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var backProgress by remember { mutableFloatStateOf(0f) }
-    PredictiveBackHandler(enabled = state.canHandleBack) { progress ->
-        try {
-            progress.collect { event ->
-                backProgress = event.progress
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        PredictiveBackHandler(enabled = state.canHandleBack) { progress ->
+            try {
+                progress.collect { event ->
+                    backProgress = event.progress
+                }
+                backProgress = 0f
+                viewModel.navigateBack()
+            } catch (error: CancellationException) {
+                backProgress = 0f
+                throw error
             }
-            backProgress = 0f
+        }
+    } else {
+        BackHandler(enabled = state.canHandleBack) {
             viewModel.navigateBack()
-        } catch (error: CancellationException) {
-            backProgress = 0f
-            throw error
         }
     }
     XbClientTheme {
@@ -93,6 +103,7 @@ fun XbClientApp(viewModel: XbClientViewModel) {
                 alpha = 1f - backProgress * 0.06f
                 scaleX = 1f - backProgress * 0.02f
                 scaleY = 1f - backProgress * 0.02f
+                translationX = backProgress * 48f
             }
         ) {
             if (!state.loaded) {
@@ -609,7 +620,7 @@ private fun NodeRow(
     Column(
         modifier = Modifier
             .clickable(onClick = onSelect)
-            .padding(horizontal = 20.dp, vertical = 14.dp)
+            .padding(vertical = 12.dp)
             .fillMaxWidth()
     ) {
         Text((if (selected) "✓ " else "") + node.displayName(index), style = MaterialTheme.typography.titleLarge)
@@ -617,13 +628,9 @@ private fun NodeRow(
         Text(node.protocolLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(4.dp))
         Text(testText ?: "未测试", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(onClick = onTest, modifier = Modifier.weight(1f)) {
-                Text("测试")
-            }
-            Button(onClick = onSelect, modifier = Modifier.weight(1f)) {
-                Text(if (selected) "已选择" else "选择")
+        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+            IconButton(onClick = onTest, modifier = Modifier.size(34.dp)) {
+                Text("↻")
             }
         }
     }

@@ -402,11 +402,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                loadRewardConfig(authData)
-            } catch (error: Exception) {
-                emitMessage("广告配置加载失败：${error.message}")
-            }
+            loadRewardConfig(authData)
         }
     }
 
@@ -424,7 +420,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 }
                 emitEvent(XbClientEvent.ShowRewardAd(config.first, config.second, config.third))
             } catch (error: Exception) {
-                emitMessage("广告配置加载失败：${error.message}")
+                clearRewardConfig()
+                emitMessage("广告暂未开启。")
             }
         }
     }
@@ -495,9 +492,26 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             ?: throw IllegalStateException("快捷登录地址缺少 verify。")
 
     private fun loadRewardConfig(authData: String): Triple<String, String, String> {
-        val result = XboardApi.request("admob_reward_config", defaultApiUrl(), authData, JSONObject())
-        val body = requireSuccessfulBody("广告配置", result)
-        val data = body.getJSONObject("data")
+        val result = try {
+            XboardApi.request("admob_reward_config", defaultApiUrl(), authData, JSONObject())
+        } catch (_: Exception) {
+            clearRewardConfig()
+            return Triple("", "", "")
+        }
+        if (!result.optBoolean("ok")) {
+            clearRewardConfig()
+            return Triple("", "", "")
+        }
+        val body = result.optJSONObject("body")
+        if (body == null || body.optString("status") == "fail") {
+            clearRewardConfig()
+            return Triple("", "", "")
+        }
+        val data = body.optJSONObject("data")
+        if (data == null) {
+            clearRewardConfig()
+            return Triple("", "", "")
+        }
         if (!data.optBoolean("ad_enabled")) {
             _uiState.update {
                 it.copy(
@@ -511,9 +525,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             }
             return Triple("", "", "")
         }
-        val adUnitId = data.getString("rewarded_ad_unit_id")
-        val userId = data.getString("ssv_user_id")
-        val customData = data.getString("ssv_custom_data")
+        val adUnitId = data.optString("rewarded_ad_unit_id")
+        val userId = data.optString("ssv_user_id")
+        val customData = data.optString("ssv_custom_data")
+        if (adUnitId.isEmpty() || userId.isEmpty() || customData.isEmpty()) {
+            _uiState.update { it.copy(adEnabled = false, paymentEnabled = data.optBoolean("payment_enabled")) }
+            return Triple("", "", "")
+        }
         _uiState.update {
             it.copy(
                 adEnabled = true,
@@ -526,6 +544,19 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             )
         }
         return Triple(adUnitId, userId, customData)
+    }
+
+    private fun clearRewardConfig() {
+        _uiState.update {
+            it.copy(
+                adEnabled = false,
+                paymentEnabled = false,
+                adRewardedAdUnitId = "",
+                adRewardAmount = 0,
+                adSsvUserId = "",
+                adSsvCustomData = ""
+            )
+        }
     }
 
     fun saveDnsAndTestSettings(nodeDns: String, overseasDns: String, directDns: String, nodeTestTarget: String) {
