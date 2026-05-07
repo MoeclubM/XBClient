@@ -72,8 +72,9 @@ val userAgentRaw = providers.gradleProperty("xbclient.userAgent")
     ?: providers.environmentVariable("XBCLIENT_USER_AGENT").orNull
     ?: rootLocalProperties.getProperty("xbclient.userAgent")
     ?: rootLocalProperties.getProperty("XBCLIENT_USER_AGENT")
-    ?: "XBClient"
-val userAgent = userAgentRaw.trim().ifEmpty { "XBClient" }
+    ?: error("XBCLIENT_USER_AGENT, -Pxbclient.userAgent or local.properties xbclient.userAgent is required")
+val userAgent = userAgentRaw.trim().takeIf { it.isNotEmpty() }
+    ?: error("User-Agent is empty")
 val localSigningProperties = Properties()
 val localSigningPropertiesFile = rootProject.file("app/config/release-signing.local.txt")
 if (localSigningPropertiesFile.isFile) {
