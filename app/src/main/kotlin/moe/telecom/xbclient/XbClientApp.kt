@@ -203,7 +203,11 @@ private fun LoginContent(viewModel: XbClientViewModel) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     PageHeader("账号登录")
-    EditorialSection("账户") {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 18.dp)
+    ) {
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },

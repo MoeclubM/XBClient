@@ -16,6 +16,10 @@ import java.util.Locale
 object XboardApi {
     private const val USER_AGENT = "XBClient"
     private const val SUBSCRIPTION_USER_AGENT = "mihomo"
+    private val subscriptionUserAgent: String
+        get() = listOf(SUBSCRIPTION_USER_AGENT, BuildConfig.SUBSCRIPTION_USER_AGENT_EXTRA.trim())
+            .filter { it.isNotEmpty() }
+            .joinToString(" ")
 
     fun request(action: String, baseUrl: String, authData: String, params: JSONObject): JSONObject {
         val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
@@ -196,7 +200,7 @@ object XboardApi {
             requestMethod = "GET"
             connectTimeout = 30000
             readTimeout = 30000
-            setRequestProperty("User-Agent", SUBSCRIPTION_USER_AGENT)
+            setRequestProperty("User-Agent", subscriptionUserAgent)
             setRequestProperty("Accept", "text/yaml, application/yaml, text/plain, */*")
         }
         val status = connection.responseCode

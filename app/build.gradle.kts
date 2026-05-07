@@ -67,6 +67,12 @@ val admobAppId = admobAppIdRaw
     .trim()
     .takeIf { it.isNotEmpty() }
     ?: error("AdMob App ID is empty")
+val subscriptionUserAgentExtra = (providers.gradleProperty("xbclient.extraUserAgent")
+    .orNull
+    ?: providers.environmentVariable("XBCLIENT_EXTRA_USER_AGENT").orNull
+    ?: rootLocalProperties.getProperty("xbclient.extraUserAgent")
+    ?: rootLocalProperties.getProperty("XBCLIENT_EXTRA_USER_AGENT")
+    ?: "").trim()
 val localSigningProperties = Properties()
 val localSigningPropertiesFile = rootProject.file("app/config/release-signing.local.txt")
 if (localSigningPropertiesFile.isFile) {
@@ -127,6 +133,7 @@ android {
         manifestPlaceholders["admobApplicationId"] = admobAppId
         resValue("string", "app_name", appName)
         buildConfigField("String", "DEFAULT_API_URL", "\"${defaultApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "SUBSCRIPTION_USER_AGENT_EXTRA", "\"${subscriptionUserAgentExtra.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     signingConfigs {

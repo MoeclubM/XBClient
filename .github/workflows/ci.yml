@@ -24,6 +24,7 @@ jobs:
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
       XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
       XBCLIENT_ADMOB_APP_ID: ${{ secrets.XBCLIENT_ADMOB_APP_ID }}
+      XBCLIENT_EXTRA_USER_AGENT: ${{ secrets.XBCLIENT_EXTRA_USER_AGENT }}
       XBCLIENT_RELEASE_STORE_PASSWORD: ${{ secrets.XBCLIENT_RELEASE_STORE_PASSWORD }}
       XBCLIENT_RELEASE_KEY_PASSWORD: ${{ secrets.XBCLIENT_RELEASE_KEY_PASSWORD }}
 
@@ -77,3 +78,38 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleDebug --build-cache --stacktrace
+
+      - name: Upload debug arm64-v8a APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-debug-arm64-v8a-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+          if-no-files-found: error
+
+      - name: Upload debug armeabi-v7a APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-debug-armeabi-v7a-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
+          if-no-files-found: error
+
+      - name: Upload debug x86 APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-debug-x86-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-x86-debug.apk
+          if-no-files-found: error
+
+      - name: Upload debug x86_64 APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-debug-x86_64-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-x86_64-debug.apk
+          if-no-files-found: error
+
+      - name: Upload debug universal APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-debug-universal-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-universal-debug.apk
+          if-no-files-found: error

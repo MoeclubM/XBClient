@@ -7,7 +7,6 @@ on:
     tags:
       - 'v*'
       - '*.*.*'
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -24,6 +23,7 @@ jobs:
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
       XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
       XBCLIENT_ADMOB_APP_ID: ${{ secrets.XBCLIENT_ADMOB_APP_ID }}
+      XBCLIENT_EXTRA_USER_AGENT: ${{ secrets.XBCLIENT_EXTRA_USER_AGENT }}
       XBCLIENT_RELEASE_STORE_PASSWORD: ${{ secrets.XBCLIENT_RELEASE_STORE_PASSWORD }}
       XBCLIENT_RELEASE_KEY_PASSWORD: ${{ secrets.XBCLIENT_RELEASE_KEY_PASSWORD }}
 
@@ -65,24 +65,45 @@ jobs:
             i686-linux-android \
             x86_64-linux-android
 
-      - name: Build signed debug and release APKs
+      - name: Build signed release APKs
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleDebug :app:assembleRelease --build-cache --stacktrace
+          ./gradlew :app:assembleRelease --build-cache --stacktrace
 
-      - name: Upload debug APKs
+      - name: Upload release arm64-v8a APK
         uses: actions/upload-artifact@v6
         with:
-          name: xbclient-debug-${{ github.ref_name }}
-          path: app/build/outputs/apk/debug/*.apk
+          name: xbclient-release-arm64-v8a-${{ github.ref_name }}
+          path: app/build/outputs/apk/release/app-arm64-v8a-release.apk
           if-no-files-found: error
 
-      - name: Upload release APKs
+      - name: Upload release armeabi-v7a APK
         uses: actions/upload-artifact@v6
         with:
-          name: xbclient-release-${{ github.ref_name }}
-          path: app/build/outputs/apk/release/*.apk
+          name: xbclient-release-armeabi-v7a-${{ github.ref_name }}
+          path: app/build/outputs/apk/release/app-armeabi-v7a-release.apk
+          if-no-files-found: error
+
+      - name: Upload release x86 APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-release-x86-${{ github.ref_name }}
+          path: app/build/outputs/apk/release/app-x86-release.apk
+          if-no-files-found: error
+
+      - name: Upload release x86_64 APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-release-x86_64-${{ github.ref_name }}
+          path: app/build/outputs/apk/release/app-x86_64-release.apk
+          if-no-files-found: error
+
+      - name: Upload release universal APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-release-universal-${{ github.ref_name }}
+          path: app/build/outputs/apk/release/app-universal-release.apk
           if-no-files-found: error
 
       - name: Publish GitHub release
@@ -90,6 +111,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
           generate_release_notes: true
