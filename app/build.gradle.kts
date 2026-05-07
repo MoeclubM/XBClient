@@ -67,12 +67,13 @@ val admobAppId = admobAppIdRaw
     .trim()
     .takeIf { it.isNotEmpty() }
     ?: error("AdMob App ID is empty")
-val extraUserAgent = (providers.gradleProperty("xbclient.extraUserAgent")
+val userAgentRaw = providers.gradleProperty("xbclient.userAgent")
     .orNull
-    ?: providers.environmentVariable("XBCLIENT_EXTRA_USER_AGENT").orNull
-    ?: rootLocalProperties.getProperty("xbclient.extraUserAgent")
-    ?: rootLocalProperties.getProperty("XBCLIENT_EXTRA_USER_AGENT")
-    ?: "").trim()
+    ?: providers.environmentVariable("XBCLIENT_USER_AGENT").orNull
+    ?: rootLocalProperties.getProperty("xbclient.userAgent")
+    ?: rootLocalProperties.getProperty("XBCLIENT_USER_AGENT")
+    ?: "XBClient"
+val userAgent = userAgentRaw.trim().ifEmpty { "XBClient" }
 val localSigningProperties = Properties()
 val localSigningPropertiesFile = rootProject.file("app/config/release-signing.local.txt")
 if (localSigningPropertiesFile.isFile) {
@@ -133,7 +134,7 @@ android {
         manifestPlaceholders["admobApplicationId"] = admobAppId
         resValue("string", "app_name", appName)
         buildConfigField("String", "DEFAULT_API_URL", "\"${defaultApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        buildConfigField("String", "EXTRA_USER_AGENT", "\"${extraUserAgent.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "USER_AGENT", "\"${userAgent.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     signingConfigs {

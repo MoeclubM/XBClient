@@ -14,12 +14,9 @@ import java.net.URLEncoder
 import java.util.Locale
 
 object XboardApi {
-    private const val USER_AGENT = "XBClient"
     private const val SUBSCRIPTION_USER_AGENT = "mihomo"
     private val userAgent: String
-        get() = listOf(USER_AGENT, BuildConfig.EXTRA_USER_AGENT.trim())
-            .filter { it.isNotEmpty() }
-            .joinToString(" ")
+        get() = BuildConfig.USER_AGENT
 
     fun request(action: String, baseUrl: String, authData: String, params: JSONObject): JSONObject {
         val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
