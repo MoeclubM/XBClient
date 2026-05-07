@@ -9,7 +9,8 @@ XBClient 是一个面向 Xboard 的 Android 客户端。Android 层使用 Kotlin
 - 系统 VPN 连接、重连、停止、通知栏快捷操作、IPv4/IPv6。
 - 节点真连接延迟测试：默认目标 `cp.cloudflare.com`，同一连接测试两次并使用第二次延迟。
 - 应用排除/白名单规则，支持本机应用列表搜索。
-- 激励广告参数、广告开关、支付开关、奖励数量由服务端插件下发，客户端不写死广告单元 ID。
+- 激励广告默认关闭；网页套餐/支付入口默认开启，即使未安装 Xboard-XBClient 插件也可通过 Xboard 原版快捷登录进入套餐页。
+- 安装 Xboard-XBClient 插件后，可由服务端下发广告开关、支付入口开关和 AdMob SSV 参数，客户端不写死广告单元 ID。
 
 ## 包名与项目名
 
@@ -50,26 +51,22 @@ $env:XBCLIENT_ADMOB_APP_ID="ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx"
 
 ## 签名
 
-Debug 与 Release 共用同一签名配置，以便相同版本线互相覆盖安装。
+仓库不提交任何 keystore。Debug 构建使用 Android 默认 debug 签名；Release 构建必须显式提供签名文件和密码。
 
-默认读取：
-
-```text
-app/config/release-signing.jks
-```
-
-签名密码不要提交。可在本机创建被忽略的：
+本机 Release 构建可使用被 `.gitignore` 忽略的 keystore，例如：
 
 ```text
-app/config/release-signing.local.txt
+app/config/release-signing.local.jks
 ```
 
-内容示例：
+构建时传入：
 
-```properties
-XBCLIENT_RELEASE_STORE_PASSWORD=<keystore password>
-XBCLIENT_RELEASE_KEY_PASSWORD=<key password>
-XBCLIENT_RELEASE_KEY_ALIAS=xbclient
+```powershell
+$env:XBCLIENT_RELEASE_STORE_FILE="app/config/release-signing.local.jks"
+$env:XBCLIENT_RELEASE_STORE_PASSWORD="<keystore password>"
+$env:XBCLIENT_RELEASE_KEY_ALIAS="xbclient"
+$env:XBCLIENT_RELEASE_KEY_PASSWORD="<key password>"
+.\gradlew.bat :app:assembleRelease
 ```
 
 如果需要重新生成签名文件：
@@ -77,7 +74,7 @@ XBCLIENT_RELEASE_KEY_ALIAS=xbclient
 ```powershell
 keytool -genkeypair `
   -v `
-  -keystore app\config\release-signing.jks `
+  -keystore app\config\release-signing.local.jks `
   -storetype PKCS12 `
   -alias xbclient `
   -keyalg RSA `
@@ -95,7 +92,9 @@ keytool -genkeypair `
 ```text
 XBCLIENT_DEFAULT_API_URL
 XBCLIENT_ADMOB_APP_ID
+XBCLIENT_RELEASE_STORE_BASE64
 XBCLIENT_RELEASE_STORE_PASSWORD
+XBCLIENT_RELEASE_KEY_ALIAS
 XBCLIENT_RELEASE_KEY_PASSWORD
 ```
 
@@ -103,6 +102,7 @@ XBCLIENT_RELEASE_KEY_PASSWORD
 
 ```text
 XBCLIENT_APP_NAME
+XBCLIENT_USER_AGENT
 ```
 
 
@@ -114,7 +114,9 @@ XBCLIENT_APP_NAME
 gh secret set XBCLIENT_DEFAULT_API_URL
 gh secret set XBCLIENT_APP_NAME
 gh secret set XBCLIENT_ADMOB_APP_ID
+gh secret set XBCLIENT_RELEASE_STORE_BASE64
 gh secret set XBCLIENT_RELEASE_STORE_PASSWORD
+gh secret set XBCLIENT_RELEASE_KEY_ALIAS
 gh secret set XBCLIENT_RELEASE_KEY_PASSWORD
 ```
 

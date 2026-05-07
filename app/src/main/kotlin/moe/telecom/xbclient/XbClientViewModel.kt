@@ -58,7 +58,7 @@ data class XbClientUiState(
     val nodeSwitchSheet: Boolean = false,
     val nodeSwitchConnect: Boolean = false,
     val adEnabled: Boolean = false,
-    val paymentEnabled: Boolean = false,
+    val paymentEnabled: Boolean = true,
     val adRewardedAdUnitId: String = "",
     val adRewardAmount: Int = 0,
     val adRewardItem: String = "⭐",
@@ -550,7 +550,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         _uiState.update {
             it.copy(
                 adEnabled = false,
-                paymentEnabled = false,
+                paymentEnabled = true,
                 adRewardedAdUnitId = "",
                 adRewardAmount = 0,
                 adSsvUserId = "",

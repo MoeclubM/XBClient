@@ -24,7 +24,10 @@ jobs:
       XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
       XBCLIENT_ADMOB_APP_ID: ${{ secrets.XBCLIENT_ADMOB_APP_ID }}
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
+      XBCLIENT_RELEASE_STORE_FILE: app/config/release-signing.jks
+      XBCLIENT_RELEASE_STORE_BASE64: ${{ secrets.XBCLIENT_RELEASE_STORE_BASE64 }}
       XBCLIENT_RELEASE_STORE_PASSWORD: ${{ secrets.XBCLIENT_RELEASE_STORE_PASSWORD }}
+      XBCLIENT_RELEASE_KEY_ALIAS: ${{ secrets.XBCLIENT_RELEASE_KEY_ALIAS }}
       XBCLIENT_RELEASE_KEY_PASSWORD: ${{ secrets.XBCLIENT_RELEASE_KEY_PASSWORD }}
 
     steps:
@@ -65,6 +68,17 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Prepare release keystore
+        shell: bash
+        run: |
+          for name in XBCLIENT_RELEASE_STORE_BASE64 XBCLIENT_RELEASE_STORE_PASSWORD XBCLIENT_RELEASE_KEY_ALIAS XBCLIENT_RELEASE_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is empty or not available to this workflow"
+              exit 1
+            fi
+          done
+          printf '%s' "$XBCLIENT_RELEASE_STORE_BASE64" | base64 -d > "$XBCLIENT_RELEASE_STORE_FILE"
 
       - name: Set up Rust Android targets
         shell: bash

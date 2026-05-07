@@ -106,11 +106,9 @@ val appVersionName = gitExactTag.removePrefix("v").ifEmpty { "0.0.$gitCommitTime
 val debugVersionNameSuffix = ".debug"
 val releaseStoreFile = providers.gradleProperty("xbclient.releaseStoreFile")
     .orElse(providers.environmentVariable("XBCLIENT_RELEASE_STORE_FILE"))
-    .orElse(rootProject.file("app/config/release-signing.jks").absolutePath)
 val releaseStorePassword = signingValue("xbclient.releaseStorePassword", "XBCLIENT_RELEASE_STORE_PASSWORD")
 val releaseKeyAlias = providers.gradleProperty("xbclient.releaseKeyAlias")
     .orElse(providers.environmentVariable("XBCLIENT_RELEASE_KEY_ALIAS"))
-    .orElse("xbclient")
 val releaseKeyPassword = signingValue("xbclient.releaseKeyPassword", "XBCLIENT_RELEASE_KEY_PASSWORD")
 
 val rustTargets = listOf(
@@ -149,7 +147,6 @@ android {
 
     buildTypes {
         getByName("debug") {
-            signingConfig = signingConfigs.getByName("release")
             versionNameSuffix = debugVersionNameSuffix
         }
         getByName("release") {
@@ -245,11 +242,8 @@ val validateSharedSigning = tasks.register("validateSharedSigning") {
 }
 
 tasks.matching {
-    it.name == "assembleDebug" ||
-        it.name == "assembleRelease" ||
-        it.name == "bundleDebug" ||
+    it.name == "assembleRelease" ||
         it.name == "bundleRelease" ||
-        it.name == "packageDebug" ||
         it.name == "packageRelease"
 }.configureEach {
     dependsOn(validateSharedSigning)

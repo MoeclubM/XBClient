@@ -13,7 +13,6 @@ app/config/release-signing.local.txt
 *.jks
 *.keystore
 *.p12
-!app/config/release-signing.jks
 
 # Rust
 rust/xbclient-core/target/
