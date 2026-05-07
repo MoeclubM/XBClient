@@ -15,7 +15,7 @@ struct TestNodeRequest {
 #[cfg(target_os = "android")]
 mod platform {
     use super::*;
-    use crate::hysteria2::protocol::{Hysteria2Stream, SocksTarget};
+    use crate::hysteria2::protocol::{Hysteria2Client, Hysteria2Stream, SocksTarget};
     use rustls::pki_types::ServerName;
     use rustls::{ClientConfig, ClientConnection, RootCertStore};
     use serde_json::json;
@@ -75,42 +75,50 @@ mod platform {
         target_port: u16,
         target_tls: bool,
     ) -> Result<(u64, u64)> {
-        let mut stream =
-            Hysteria2Stream::connect(node, SocksTarget::Domain(target_host.clone(), target_port))
-                .await?;
-        if target_tls {
-            probe_https(&mut stream, &target_host, target_port).await
+        let target = SocksTarget::Domain(target_host.clone(), target_port);
+        let client = Hysteria2Client::connect(node).await?;
+        let mut stream = client.open_tcp(target.clone()).await?;
+        let first_latency = if target_tls {
+            probe_https(&mut stream, &target_host, target_port)
+                .await
+                .context("first HTTPS HEAD probe")?
         } else {
-            probe_http(&mut stream, &target_host, target_port).await
-        }
+            probe_http(&mut stream, &target_host, target_port)
+                .await
+                .context("first HTTP HEAD probe")?
+        };
+        let (send, recv, client) = stream.into_parts();
+        drop(send);
+        drop(recv);
+        let mut stream = client.open_tcp(target).await?;
+        let second_latency = if target_tls {
+            probe_https(&mut stream, &target_host, target_port)
+                .await
+                .context("second HTTPS HEAD probe")?
+        } else {
+            probe_http(&mut stream, &target_host, target_port)
+                .await
+                .context("second HTTP HEAD probe")?
+        };
+        Ok((first_latency, second_latency))
     }
 
     async fn probe_http(
         stream: &mut Hysteria2Stream,
         target_host: &str,
         target_port: u16,
-    ) -> Result<(u64, u64)> {
+    ) -> Result<u64> {
         let host_header = if target_port == 80 {
             target_host.to_string()
         } else {
             format!("{target_host}:{target_port}")
         };
-        let first_latency = send_http_probe(stream, &host_header, "keep-alive")
-            .await
-            .context("first HTTP HEAD probe")?;
-        let second_latency = send_http_probe(stream, &host_header, "close")
-            .await
-            .context("second HTTP HEAD probe")?;
-        Ok((first_latency, second_latency))
+        send_http_probe(stream, &host_header).await
     }
 
-    async fn send_http_probe(
-        stream: &mut Hysteria2Stream,
-        host_header: &str,
-        connection: &str,
-    ) -> Result<u64> {
+    async fn send_http_probe(stream: &mut Hysteria2Stream, host_header: &str) -> Result<u64> {
         let request = format!(
-            "HEAD / HTTP/1.1\r\nHost: {host_header}\r\nUser-Agent: XBClient\r\nConnection: {connection}\r\n\r\n"
+            "HEAD / HTTP/1.1\r\nHost: {host_header}\r\nUser-Agent: XBClient\r\nConnection: close\r\n\r\n"
         );
         let started = Instant::now();
         stream
@@ -143,7 +151,7 @@ mod platform {
         stream: &mut Hysteria2Stream,
         target_host: &str,
         target_port: u16,
-    ) -> Result<(u64, u64)> {
+    ) -> Result<u64> {
         let mut roots = RootCertStore::empty();
         roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
         let config = ClientConfig::builder()
@@ -164,23 +172,16 @@ mod platform {
         } else {
             format!("{target_host}:{target_port}")
         };
-        let first_latency = send_https_probe(&mut tls, stream, &host_header, "keep-alive")
-            .await
-            .context("first HTTPS HEAD probe")?;
-        let second_latency = send_https_probe(&mut tls, stream, &host_header, "close")
-            .await
-            .context("second HTTPS HEAD probe")?;
-        Ok((first_latency, second_latency))
+        send_https_probe(&mut tls, stream, &host_header).await
     }
 
     async fn send_https_probe(
         tls: &mut ClientConnection,
         stream: &mut Hysteria2Stream,
         host_header: &str,
-        connection: &str,
     ) -> Result<u64> {
         let request = format!(
-            "HEAD / HTTP/1.1\r\nHost: {host_header}\r\nUser-Agent: XBClient\r\nConnection: {connection}\r\n\r\n"
+            "HEAD / HTTP/1.1\r\nHost: {host_header}\r\nUser-Agent: XBClient\r\nConnection: close\r\n\r\n"
         );
         let started = Instant::now();
         tls.writer()

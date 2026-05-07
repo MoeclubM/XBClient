@@ -402,17 +402,13 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             if (state.vpnRequested) "已连接" else "未连接",
             style = MaterialTheme.typography.displaySmall
         )
-        Text(
-            if (selectedNode == null) "节点正在同步。" else selectedNode.protocolLabel,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
         Spacer(Modifier.height(14.dp))
         Button(
             onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
             enabled = !state.vpnStarting,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(if (state.vpnStarting) "正在连接" else if (state.vpnRequested) "停止连接" else "开始连接")
+            Text(if (state.vpnStarting) "正在连接" else if (state.vpnRequested) "断开" else "开始连接")
         }
     }
     EditorialSection("当前节点") {
@@ -425,24 +421,28 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(onClick = { viewModel.openScreen(PassScreen.NODE_SELECT) }, modifier = Modifier.weight(1f)) {
-                Text("选择节点")
-            }
-            Button(onClick = { viewModel.testNode(state.selectedNodeIndex) }, modifier = Modifier.weight(1f)) {
-                Text("测试当前节点")
-            }
+        Button(onClick = { viewModel.testNode(state.selectedNodeIndex) }, modifier = Modifier.fillMaxWidth()) {
+            Text("测试当前节点")
         }
     }
-    EditorialSection("节点") {
-        Text(
-            when {
-                state.anyTlsNodes.isEmpty() && state.nodesLoading -> "节点正在同步。"
-                state.anyTlsNodes.isEmpty() -> "暂无可用节点。"
-                else -> "已同步 ${state.anyTlsNodes.size} 个节点。"
-            },
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    EditorialSection("可用节点") {
+        if (state.anyTlsNodes.isEmpty()) {
+            Text(if (state.nodesLoading) "节点正在同步。" else "暂无可用节点。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            for ((index, node) in state.anyTlsNodes.withIndex()) {
+                NodeRow(
+                    index = index,
+                    node = node,
+                    selected = index == state.selectedNodeIndex,
+                    testText = state.nodeTestResults[index],
+                    onTest = { viewModel.testNode(index) },
+                    onSelect = { viewModel.selectNode(index, returnToNodes = true) }
+                )
+                if (index != state.anyTlsNodes.lastIndex) {
+                    HorizontalDivider()
+                }
+            }
+        }
     }
 }
 
@@ -538,7 +538,7 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
         OutlinedTextField(value = nodeTestTarget, onValueChange = { nodeTestTarget = it }, label = { Text("测试目标网站") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
         Text(
-            "可填写域名、域名:端口或 http/https 地址。节点测试会在同一连接内连续发送两次 HEAD 请求并显示第二次延迟。",
+            "可填写域名、域名:端口或 http/https 地址。节点测试会连续完成两次 HEAD 请求并显示第二次延迟。",
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(14.dp))

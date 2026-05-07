@@ -394,6 +394,25 @@ impl AnyTlsStream {
         Ok(())
     }
 
+    pub async fn close_payload(&self) -> Result<()> {
+        write_frame(&self.writer, CMD_FIN, self.stream_id, &[]).await
+    }
+
+    pub async fn open_target(&mut self, target: SocksTarget) -> Result<()> {
+        self.stream_id += 1;
+        let first_payload = encode_target(&target)?;
+        let mut packet = Vec::new();
+        packet.extend_from_slice(&encode_frame(CMD_SYN, self.stream_id, &[]));
+        packet.extend_from_slice(&encode_frame(CMD_PSH, self.stream_id, &first_payload));
+        let mut guard = self.writer.lock().await;
+        guard
+            .write_packet(&packet)
+            .await
+            .context("write AnyTLS stream open")?;
+        drop(guard);
+        self.wait_synack().await
+    }
+
     async fn wait_synack(&mut self) -> Result<()> {
         loop {
             let (cmd, stream_id, payload) = self.read_frame().await?;
