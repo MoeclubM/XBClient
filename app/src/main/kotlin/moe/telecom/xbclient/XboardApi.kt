@@ -16,8 +16,8 @@ import java.util.Locale
 object XboardApi {
     private const val USER_AGENT = "XBClient"
     private const val SUBSCRIPTION_USER_AGENT = "mihomo"
-    private val subscriptionUserAgent: String
-        get() = listOf(SUBSCRIPTION_USER_AGENT, BuildConfig.SUBSCRIPTION_USER_AGENT_EXTRA.trim())
+    private val userAgent: String
+        get() = listOf(USER_AGENT, BuildConfig.EXTRA_USER_AGENT.trim())
             .filter { it.isNotEmpty() }
             .joinToString(" ")
 
@@ -99,7 +99,7 @@ object XboardApi {
                 requestMethod = "GET"
                 connectTimeout = 10000
                 readTimeout = 10000
-                setRequestProperty("User-Agent", USER_AGENT)
+                setRequestProperty("User-Agent", userAgent)
                 setRequestProperty("Accept", "application/dns-json, application/json")
             }
             val status = connection.responseCode
@@ -162,7 +162,7 @@ object XboardApi {
             requestMethod = method
             connectTimeout = 30000
             readTimeout = 30000
-            setRequestProperty("User-Agent", USER_AGENT)
+            setRequestProperty("User-Agent", userAgent)
             setRequestProperty("Accept", "application/json")
             if (authData.isNotEmpty()) {
                 setRequestProperty("Authorization", authData)
@@ -200,7 +200,7 @@ object XboardApi {
             requestMethod = "GET"
             connectTimeout = 30000
             readTimeout = 30000
-            setRequestProperty("User-Agent", subscriptionUserAgent)
+            setRequestProperty("User-Agent", SUBSCRIPTION_USER_AGENT)
             setRequestProperty("Accept", "text/yaml, application/yaml, text/plain, */*")
         }
         val status = connection.responseCode
