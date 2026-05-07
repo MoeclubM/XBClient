@@ -121,7 +121,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         val uri = intent?.data
-        if (uri?.scheme == "xbclient" && uri.host == "oauth") {
+        if (uri?.scheme == BuildConfig.OAUTH_CALLBACK_SCHEME && uri.host == "oauth") {
             viewModel.handleOAuthCallback(uri)
         }
     }

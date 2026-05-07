@@ -29,6 +29,8 @@ sdk.dir=C:/Users/<你>/AppData/Local/Android/Sdk
 xbclient.defaultApiUrl=https://example.com
 xbclient.appName=XBClient
 xbclient.admobAppId=ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx
+xbclient.userAgent=SecOneApp
+xbclient.oauthCallbackScheme=xbclient
 ```
 
 也可以通过环境变量或 Gradle 参数传入：
@@ -37,6 +39,8 @@ xbclient.admobAppId=ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx
 $env:XBCLIENT_DEFAULT_API_URL="https://example.com"
 $env:XBCLIENT_APP_NAME="XBClient"
 $env:XBCLIENT_ADMOB_APP_ID="ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx"
+$env:XBCLIENT_USER_AGENT="SecOneApp"
+$env:XBCLIENT_OAUTH_CALLBACK_SCHEME="xbclient"
 .\gradlew.bat :app:assembleDebug
 ```
 
@@ -46,7 +50,9 @@ $env:XBCLIENT_ADMOB_APP_ID="ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx"
 .\gradlew.bat :app:assembleDebug `
   -Pxbclient.defaultApiUrl=https://example.com `
   -Pxbclient.appName=XBClient `
-  -Pxbclient.admobAppId=ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx
+  -Pxbclient.admobAppId=ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx `
+  -Pxbclient.userAgent=SecOneApp `
+  -Pxbclient.oauthCallbackScheme=xbclient
 ```
 
 ## 签名
@@ -103,6 +109,7 @@ XBCLIENT_RELEASE_KEY_PASSWORD
 ```text
 XBCLIENT_APP_NAME
 XBCLIENT_USER_AGENT
+XBCLIENT_OAUTH_CALLBACK_SCHEME
 ```
 
 
@@ -114,6 +121,8 @@ XBCLIENT_USER_AGENT
 gh secret set XBCLIENT_DEFAULT_API_URL
 gh secret set XBCLIENT_APP_NAME
 gh secret set XBCLIENT_ADMOB_APP_ID
+gh secret set XBCLIENT_USER_AGENT
+gh secret set XBCLIENT_OAUTH_CALLBACK_SCHEME
 gh secret set XBCLIENT_RELEASE_STORE_BASE64
 gh secret set XBCLIENT_RELEASE_STORE_PASSWORD
 gh secret set XBCLIENT_RELEASE_KEY_ALIAS

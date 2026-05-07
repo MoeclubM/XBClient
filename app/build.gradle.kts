@@ -75,6 +75,13 @@ val userAgentRaw = providers.gradleProperty("xbclient.userAgent")
     ?: error("XBCLIENT_USER_AGENT, -Pxbclient.userAgent or local.properties xbclient.userAgent is required")
 val userAgent = userAgentRaw.trim().takeIf { it.isNotEmpty() }
     ?: error("User-Agent is empty")
+val oauthCallbackSchemeRaw = providers.gradleProperty("xbclient.oauthCallbackScheme")
+    .orNull
+    ?: providers.environmentVariable("XBCLIENT_OAUTH_CALLBACK_SCHEME").orNull
+    ?: rootLocalProperties.getProperty("xbclient.oauthCallbackScheme")
+    ?: rootLocalProperties.getProperty("XBCLIENT_OAUTH_CALLBACK_SCHEME")
+    ?: "xbclient"
+val oauthCallbackScheme = oauthCallbackSchemeRaw.trim().ifEmpty { "xbclient" }
 val localSigningProperties = Properties()
 val localSigningPropertiesFile = rootProject.file("app/config/release-signing.local.txt")
 if (localSigningPropertiesFile.isFile) {
@@ -131,9 +138,11 @@ android {
         versionCode = appVersionCode
         versionName = appVersionName
         manifestPlaceholders["admobApplicationId"] = admobAppId
+        manifestPlaceholders["oauthCallbackScheme"] = oauthCallbackScheme
         resValue("string", "app_name", appName)
         buildConfigField("String", "DEFAULT_API_URL", "\"${defaultApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "USER_AGENT", "\"${userAgent.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"${oauthCallbackScheme.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     signingConfigs {
