@@ -14,6 +14,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -75,6 +76,8 @@ data class XbClientUiState(
     val appOpenAdUnitId: String = "",
     val adSsvUserId: String = "",
     val adSsvCustomData: String = "",
+    val adRewardLogs: List<AdRewardLogItem> = emptyList(),
+    val adRewardLogsLoading: Boolean = false,
     val configUpdatedAt: Long = 0L,
     val githubProjectUrl: String = "",
     val updateAvailable: Boolean = false,
@@ -122,6 +125,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
+                refreshAdRewardHistory()
             }
         }
     }
@@ -142,11 +146,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
+                refreshAdRewardHistory()
             }
             PassScreen.PLANS -> {
                 refreshPlans()
                 refreshRewardConfig()
                 refreshUserInfo()
+                refreshAdRewardHistory()
             }
             PassScreen.NODE_SELECT -> refreshSubscriptionAndNodes()
             PassScreen.APP_RULES -> Unit
@@ -162,11 +168,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
+                refreshAdRewardHistory()
             }
             PassScreen.PLANS -> {
                 refreshPlans()
                 refreshRewardConfig()
                 refreshUserInfo()
+                refreshAdRewardHistory()
             }
             PassScreen.NODE_SELECT -> refreshSubscriptionAndNodes()
             PassScreen.SETTINGS, PassScreen.APP_RULES -> Unit
@@ -176,6 +184,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     fun navigateBack() {
         val state = _uiState.value
+        if (state.startupConfigDialogVisible) {
+            dismissStartupConfigDialog()
+            return
+        }
+        if (state.updateAvailable) {
+            dismissUpdateDialog()
+            return
+        }
         if (state.oauthWebViewUrl.isNotEmpty()) {
             closeOAuthWebView()
             return
@@ -218,6 +234,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
+                refreshAdRewardHistory()
             } catch (error: Exception) {
                 emitMessage("登录失败：${error.message}")
             }
@@ -250,6 +267,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
+                refreshAdRewardHistory()
             } catch (error: Exception) {
                 emitMessage("注册失败：${error.message}")
             }
@@ -501,6 +519,27 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun refreshAdRewardHistory() {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty()) {
+            return
+        }
+        _uiState.update { it.copy(adRewardLogsLoading = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody(
+                    "广告奖励记录",
+                    XboardApi.request("xbclient_reward_history", defaultApiUrl(), authData, JSONObject())
+                )
+                _uiState.update {
+                    it.copy(adRewardLogs = extractDataArray(body).toAdRewardLogItemList(), adRewardLogsLoading = false)
+                }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(adRewardLogsLoading = false) }
+            }
+        }
+    }
+
     fun refreshUserInfo() {
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
@@ -547,10 +586,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun onRewardAdEarned(_amount: Int, _type: String) {
-        emitMessage("广告观看完成，正在同步奖励。")
-        refreshSubscriptionAndNodes()
-        refreshUserInfo()
-        refreshRewardConfig()
+        emitMessage("广告观看完成，等待服务端验证。")
+        viewModelScope.launch(Dispatchers.IO) {
+            delay(5000)
+            refreshSubscriptionAndNodes()
+            refreshUserInfo()
+            refreshRewardConfig()
+            refreshAdRewardHistory()
+        }
     }
 
     fun openPlanPage(context: Context, planId: Int) {
@@ -644,6 +687,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
+                refreshAdRewardHistory()
             } catch (error: Exception) {
                 emitMessage("OAuth 登录失败：${error.message}")
             }

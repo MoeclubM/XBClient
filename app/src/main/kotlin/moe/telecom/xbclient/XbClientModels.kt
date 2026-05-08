@@ -77,6 +77,17 @@ data class PlanItem(
     val prices: List<PlanPrice>
 )
 
+data class AdRewardLogItem(
+    val id: Int,
+    val transactionId: String,
+    val status: String,
+    val giftCardCode: String,
+    val giftCardCodeId: Int,
+    val giftCardTemplateId: Int,
+    val usedAt: Long,
+    val createdAt: Long
+)
+
 fun JSONObject.toAnyTlsNode(): AnyTlsNode =
     AnyTlsNode(
         protocol = optString("type", optString("protocol", "anytls")).lowercase(Locale.US),
@@ -133,6 +144,21 @@ fun JSONArray.toOAuthProviderList(): List<OAuthProvider> =
 
 fun JSONArray.toPlanItemList(): List<PlanItem> =
     List(length()) { index -> getJSONObject(index).toPlanItem() }
+
+fun JSONArray.toAdRewardLogItemList(): List<AdRewardLogItem> =
+    List(length()) { index ->
+        val item = getJSONObject(index)
+        AdRewardLogItem(
+            id = item.optInt("id"),
+            transactionId = item.optString("transaction_id"),
+            status = item.optString("status"),
+            giftCardCode = item.optString("gift_card_code"),
+            giftCardCodeId = item.optInt("gift_card_code_id"),
+            giftCardTemplateId = item.optInt("gift_card_template_id"),
+            usedAt = numericValue(item.opt("used_at")).toLong(),
+            createdAt = numericValue(item.opt("created_at")).toLong()
+        )
+    }
 
 fun resultError(result: JSONObject): String {
     val body = result.optJSONObject("body")

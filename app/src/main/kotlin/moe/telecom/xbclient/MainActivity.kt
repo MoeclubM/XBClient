@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
     private var appOpenAdLoading = false
     private var appOpenAdShowing = false
     private var appOpenAdShown = false
+    private var startupConfigHandled = false
+    private var startupSplashHold = true
 
     private val vpnPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -79,7 +81,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        splashScreen.setKeepOnScreenCondition { !viewModel.uiState.value.loaded }
+        splashScreen.setKeepOnScreenCondition { !viewModel.uiState.value.loaded || startupSplashHold }
         enableEdgeToEdge()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -106,8 +108,21 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
-                    if (state.isLoggedIn && state.appOpenAdEnabled && state.appOpenAdUnitId.isNotEmpty()) {
+                    if (!state.loaded) {
+                        return@collect
+                    }
+                    if (!startupConfigHandled) {
+                        startupConfigHandled = true
+                        if (state.isLoggedIn && state.appOpenAdEnabled && state.appOpenAdUnitId.isNotEmpty()) {
+                            showAppOpenAdOnce(state.appOpenAdUnitId)
+                        } else {
+                            startupSplashHold = false
+                        }
+                    } else if (state.isLoggedIn && state.appOpenAdEnabled && state.appOpenAdUnitId.isNotEmpty()) {
                         showAppOpenAdOnce(state.appOpenAdUnitId)
+                    }
+                    if (state.isLoggedIn && state.adEnabled && state.adRewardedAdUnitId.isNotEmpty()) {
+                        loadRewardedAd(state.adRewardedAdUnitId)
                     }
                 }
             }
@@ -253,6 +268,7 @@ class MainActivity : ComponentActivity() {
                     runOnUiThread {
                         appOpenAd = ad
                         appOpenAdLoading = false
+                        startupSplashHold = false
                         if (!appOpenAdShown && appOpenAdUnitId == adUnitId) {
                             showAppOpenAdOnce(adUnitId)
                         }
@@ -263,6 +279,7 @@ class MainActivity : ComponentActivity() {
                     runOnUiThread {
                         appOpenAd = null
                         appOpenAdLoading = false
+                        startupSplashHold = false
                         Toast.makeText(this@MainActivity, "开屏广告加载失败：${adError.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -279,6 +296,7 @@ class MainActivity : ComponentActivity() {
             loadAppOpenAd(adUnitId)
             return
         }
+        startupSplashHold = false
         ad.setImmersiveMode(false)
         ad.adEventCallback = object : AppOpenAdEventCallback {
             override fun onAdDismissedFullScreenContent() {

@@ -1,5 +1,6 @@
 package moe.telecom.xbclient
 
+import android.app.Activity
 import android.net.Uri
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -58,6 +59,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -65,6 +67,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -82,17 +85,33 @@ import java.util.Locale
 @Composable
 fun XbClientApp(viewModel: XbClientViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    PredictiveBackHandler(enabled = state.canHandleBack) { progress ->
+    val context = LocalContext.current
+    var backProgress by remember { mutableFloatStateOf(0f) }
+    PredictiveBackHandler(enabled = state.loaded) { progress ->
         try {
-            progress.collect { }
-            viewModel.navigateBack()
+            progress.collect { event ->
+                backProgress = event.progress
+            }
+            backProgress = 0f
+            if (state.canHandleBack) {
+                viewModel.navigateBack()
+            } else {
+                (context as Activity).finish()
+            }
         } catch (error: CancellationException) {
+            backProgress = 0f
             throw error
         }
     }
     XbClientTheme {
         XbClientDialogs(state, viewModel)
-        Box {
+        Box(
+            modifier = Modifier.graphicsLayer {
+                alpha = 1f - backProgress * 0.08f
+                scaleX = 1f - backProgress * 0.025f
+                scaleY = 1f - backProgress * 0.025f
+            }
+        ) {
             if (!state.loaded) {
                 LoadingScreen()
             } else if (!state.isLoggedIn) {
@@ -512,6 +531,7 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     PageHeader("套餐", "选择可用套餐。")
+    RewardAdSection(state, viewModel)
     EditorialSection("套餐") {
         if (!state.paymentEnabled) {
             Text(
@@ -579,6 +599,48 @@ private fun PlanRow(
 }
 
 @Composable
+private fun RewardAdSection(state: XbClientUiState, viewModel: XbClientViewModel) {
+    if (!state.adEnabled) {
+        return
+    }
+    EditorialSection("广告奖励") {
+        Text(
+            "观看激励广告后由服务端验证，并通过礼品卡自动兑换到账户。",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = viewModel::requestRewardAd, modifier = Modifier.weight(1f)) {
+                Text("观看广告")
+            }
+            OutlinedButton(onClick = viewModel::refreshAdRewardHistory, modifier = Modifier.weight(1f)) {
+                Text(if (state.adRewardLogsLoading) "刷新中" else "刷新记录")
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        if (state.adRewardLogs.isEmpty()) {
+            Text(
+                if (state.adRewardLogsLoading) "奖励记录正在加载。" else "暂无已验证的广告奖励记录。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            for ((index, log) in state.adRewardLogs.take(3).withIndex()) {
+                Text(if (log.status == "credited") "已发放" else log.status, style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(4.dp))
+                Text("兑换码 ${log.giftCardCode.ifEmpty { "未生成" }}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "模板 ${log.giftCardTemplateId} · 记录 ${log.id} · ${formatUnixTime(log.createdAt)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (index != state.adRewardLogs.take(3).lastIndex) {
+                    HorizontalDivider(Modifier.padding(vertical = 10.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     PageHeader("我的", "账户、积分与邀请信息。")
     EditorialSection("账户") {
@@ -603,16 +665,11 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
             Text("设置")
         }
         Spacer(Modifier.height(8.dp))
-        if (state.adEnabled) {
-            Button(onClick = viewModel::requestRewardAd, modifier = Modifier.fillMaxWidth()) {
-                Text("观看激励广告")
-            }
-            Spacer(Modifier.height(8.dp))
-        }
         Button(onClick = viewModel::logout, modifier = Modifier.fillMaxWidth()) {
             Text("退出登录")
         }
     }
+    RewardAdSection(state, viewModel)
     EditorialSection("邀请") {
         if (state.invites.isEmpty()) {
             Text(if (state.invitesLoading) "邀请码正在加载。" else "暂无邀请码。", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -938,13 +995,18 @@ private fun formatMoney(amount: Int, symbol: String): String =
 private fun formatConfigTime(value: Long): String =
     if (value <= 0L) "尚未同步" else SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(value))
 
+private fun formatUnixTime(value: Long): String =
+    if (value <= 0L) "" else SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(value * 1000))
+
 private fun planPriceText(plan: PlanItem, symbol: String): String =
     if (plan.prices.isEmpty()) "价格未设置" else plan.prices.joinToString(" · ") {
         "${it.label} ${formatMoney(it.amount, symbol)}"
     }
 
 private val XbClientUiState.canHandleBack: Boolean
-    get() = oauthWebViewUrl.isNotEmpty() ||
+    get() = startupConfigDialogVisible ||
+        updateAvailable ||
+        oauthWebViewUrl.isNotEmpty() ||
         !isLoggedIn && authMode == AuthMode.REGISTER ||
         isLoggedIn && screen !in setOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE)
 
