@@ -2,7 +2,12 @@ package moe.telecom.xbclient
 
 import android.app.Activity
 import android.net.Uri
+import android.os.Build
+import android.os.Message
+import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.PredictiveBackHandler
@@ -66,6 +71,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.autofill.contentType
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -204,8 +211,15 @@ private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
         AndroidView(
             factory = { context ->
                 WebView(context).apply {
+                    CookieManager.getInstance().setAcceptCookie(true)
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
+                    settings.javaScriptCanOpenWindowsAutomatically = true
+                    settings.setSupportMultipleWindows(true)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                    }
                     settings.userAgentString = BuildConfig.USER_AGENT
                     webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
@@ -214,6 +228,44 @@ private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
                         @Deprecated("Deprecated in Java")
                         override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
                             handleOAuthWebUrl(Uri.parse(url), viewModel)
+                    }
+                    webChromeClient = object : WebChromeClient() {
+                        override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
+                            val parent = view
+                            val popup = WebView(view.context).apply {
+                                CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                                settings.javaScriptEnabled = true
+                                settings.domStorageEnabled = true
+                                settings.javaScriptCanOpenWindowsAutomatically = true
+                                settings.userAgentString = BuildConfig.USER_AGENT
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                    settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                                }
+                                webViewClient = object : WebViewClient() {
+                                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                                        if (handleOAuthWebUrl(request.url, viewModel)) {
+                                            return true
+                                        }
+                                        parent.loadUrl(request.url.toString())
+                                        return true
+                                    }
+
+                                    @Deprecated("Deprecated in Java")
+                                    override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                                        val uri = Uri.parse(url)
+                                        if (handleOAuthWebUrl(uri, viewModel)) {
+                                            return true
+                                        }
+                                        parent.loadUrl(url)
+                                        return true
+                                    }
+                                }
+                            }
+                            val transport = resultMsg.obj as WebView.WebViewTransport
+                            transport.webView = popup
+                            resultMsg.sendToTarget()
+                            return true
+                        }
                     }
                     loadUrl(url)
                 }
@@ -288,7 +340,9 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
             onValueChange = { email = it },
             label = { Text("邮箱") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .contentType(ContentType.Username + ContentType.EmailAddress)
+                .fillMaxWidth()
         )
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(
@@ -297,7 +351,9 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
             label = { Text("密码") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .contentType(ContentType.Password)
+                .fillMaxWidth()
         )
         Spacer(Modifier.height(14.dp))
         Button(onClick = { viewModel.login(email, password) }, modifier = Modifier.fillMaxWidth()) {
@@ -334,7 +390,15 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
     Column(modifier = Modifier.fillMaxWidth()) {
         PageHeader("账号注册", "创建账号后会直接进入节点页面。")
         EditorialSection("账户") {
-            OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("邮箱") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("邮箱") },
+                singleLine = true,
+                modifier = Modifier
+                    .contentType(ContentType.NewUsername + ContentType.EmailAddress)
+                    .fillMaxWidth()
+            )
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 value = password,
@@ -342,7 +406,9 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
                 label = { Text("密码") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .contentType(ContentType.NewPassword)
+                    .fillMaxWidth()
             )
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(value = inviteCode, onValueChange = { inviteCode = it }, label = { Text("邀请码，可为空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
