@@ -1,5 +1,9 @@
 package moe.telecom.xbclient
 
+import android.net.Uri
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -68,6 +72,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collect
@@ -106,6 +111,9 @@ fun XbClientApp(viewModel: XbClientViewModel) {
             } else {
                 MainShell(state, viewModel)
             }
+        }
+        if (state.oauthWebViewUrl.isNotEmpty()) {
+            OAuthWebView(state.oauthWebViewUrl, viewModel)
         }
     }
 }
@@ -169,6 +177,61 @@ private fun LoadingScreen() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text("第三方登录") },
+                actions = {
+                    TextButton(onClick = viewModel::closeOAuthWebView) {
+                        Text("关闭")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
+        AndroidView(
+            factory = { context ->
+                WebView(context).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.userAgentString = BuildConfig.USER_AGENT
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                            handleOAuthWebUrl(request.url, viewModel)
+
+                        @Deprecated("Deprecated in Java")
+                        override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
+                            handleOAuthWebUrl(Uri.parse(url), viewModel)
+                    }
+                    loadUrl(url)
+                }
+            },
+            update = { webView ->
+                if (webView.url != url) {
+                    webView.loadUrl(url)
+                }
+            },
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        )
+    }
+}
+
+private fun handleOAuthWebUrl(uri: Uri, viewModel: XbClientViewModel): Boolean {
+    if (uri.scheme == BuildConfig.OAUTH_CALLBACK_SCHEME && uri.host == "oauth") {
+        viewModel.handleOAuthCallback(uri)
+        return true
+    }
+    return false
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     Scaffold(
         topBar = {
@@ -204,7 +267,6 @@ private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 
 @Composable
 private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val context = LocalContext.current
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     Column(
@@ -243,7 +305,7 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
             Spacer(Modifier.height(8.dp))
             for (provider in state.oauthProviders) {
                 OutlinedButton(
-                    onClick = { viewModel.openOAuthPage(context, "login", provider.driver) },
+                    onClick = { viewModel.openOAuthPage("login", provider.driver) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("使用 ${provider.label} 登录")
@@ -256,7 +318,6 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
 
 @Composable
 private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val context = LocalContext.current
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var inviteCode by rememberSaveable { mutableStateOf("") }
@@ -316,7 +377,7 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
                 Spacer(Modifier.height(8.dp))
                 for (provider in state.oauthProviders) {
                     OutlinedButton(
-                        onClick = { viewModel.openOAuthPage(context, "register", provider.driver, inviteCode) },
+                        onClick = { viewModel.openOAuthPage("register", provider.driver, inviteCode) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("使用 ${provider.label} 注册")
@@ -850,7 +911,8 @@ private fun planPriceText(plan: PlanItem, symbol: String): String =
     }
 
 private val XbClientUiState.canHandleBack: Boolean
-    get() = !isLoggedIn && authMode == AuthMode.REGISTER ||
+    get() = oauthWebViewUrl.isNotEmpty() ||
+        !isLoggedIn && authMode == AuthMode.REGISTER ||
         isLoggedIn && screen !in setOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE)
 
 private fun AnimatedContentTransitionScope<*>.editorialTransition() =
@@ -858,22 +920,5 @@ private fun AnimatedContentTransitionScope<*>.editorialTransition() =
         fadeOut(animationSpec = tween(140))).using(SizeTransform(clip = false))
 
 private fun AnimatedContentTransitionScope<PassScreen>.screenTransition() =
-    (if (targetState.ordinal < initialState.ordinal) {
-        (slideIntoContainer(
-            AnimatedContentTransitionScope.SlideDirection.Right,
-            animationSpec = tween(220)
-        ) + fadeIn(animationSpec = tween(180))) togetherWith
-            (slideOutOfContainer(
-                AnimatedContentTransitionScope.SlideDirection.Right,
-                animationSpec = tween(180)
-            ) + fadeOut(animationSpec = tween(140)))
-    } else {
-        (slideIntoContainer(
-            AnimatedContentTransitionScope.SlideDirection.Left,
-            animationSpec = tween(220)
-        ) + fadeIn(animationSpec = tween(180))) togetherWith
-            (slideOutOfContainer(
-                AnimatedContentTransitionScope.SlideDirection.Left,
-                animationSpec = tween(180)
-            ) + fadeOut(animationSpec = tween(140)))
-    }).using(SizeTransform(clip = false))
+    (fadeIn(animationSpec = tween(120)) togetherWith
+        fadeOut(animationSpec = tween(90))).using(SizeTransform(clip = false))

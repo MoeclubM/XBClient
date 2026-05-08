@@ -75,7 +75,8 @@ data class XbClientUiState(
     val oauthProviders: List<OAuthProvider> = emptyList(),
     val oauthConfirmToken: String = "",
     val oauthConfirmProvider: String = "",
-    val oauthConfirmEmail: String = ""
+    val oauthConfirmEmail: String = "",
+    val oauthWebViewUrl: String = ""
 ) {
     val isLoggedIn: Boolean
         get() = authData.isNotEmpty()
@@ -164,6 +165,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     fun navigateBack() {
         val state = _uiState.value
+        if (state.oauthWebViewUrl.isNotEmpty()) {
+            closeOAuthWebView()
+            return
+        }
         if (!state.isLoggedIn && state.authMode == AuthMode.REGISTER) {
             showLogin()
             return
@@ -271,7 +276,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun openOAuthPage(context: Context, scene: String, driver: String, inviteCode: String = "") {
+    fun openOAuthPage(scene: String, driver: String, inviteCode: String = "") {
         val builder = Uri.parse("${defaultApiUrl().trimEnd('/')}/api/v1/passport/auth/oauth/$driver/redirect")
             .buildUpon()
             .appendQueryParameter("scene", scene)
@@ -281,7 +286,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (scene == "register" && inviteCode.trim().isNotEmpty()) {
             builder.appendQueryParameter("invite_code", inviteCode.trim())
         }
-        context.startActivity(Intent(Intent.ACTION_VIEW, builder.build()))
+        _uiState.update { it.copy(oauthWebViewUrl = builder.build().toString()) }
+    }
+
+    fun closeOAuthWebView() {
+        _uiState.update { it.copy(oauthWebViewUrl = "") }
     }
 
     fun handleOAuthCallback(uri: Uri) {
@@ -289,6 +298,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             pendingOAuthCallback = uri
             return
         }
+        closeOAuthWebView()
         val error = uri.getQueryParameter("oauth_error").orEmpty()
         if (error.isNotEmpty()) {
             emitMessage("OAuth 失败：$error")
