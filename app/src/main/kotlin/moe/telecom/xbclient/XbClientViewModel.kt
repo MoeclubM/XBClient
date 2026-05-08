@@ -39,6 +39,7 @@ data class XbClientUiState(
     val balance: Int = 0,
     val commissionBalance: Int = 0,
     val currencySymbol: String = "¥",
+    val plans: List<PlanItem> = emptyList(),
     val anyTlsNodes: List<AnyTlsNode> = emptyList(),
     val selectedNodeIndex: Int = 0,
     val nodeTestResults: Map<Int, String> = emptyMap(),
@@ -55,6 +56,7 @@ data class XbClientUiState(
     val vpnRequested: Boolean = false,
     val vpnStarting: Boolean = false,
     val nodesLoading: Boolean = false,
+    val plansLoading: Boolean = false,
     val nodesTesting: Boolean = false,
     val invitesLoading: Boolean = false,
     val installedApps: List<InstalledAppItem> = emptyList(),
@@ -77,7 +79,7 @@ data class XbClientUiState(
         get() = authData.isNotEmpty()
 
     val isRefreshing: Boolean
-        get() = nodesLoading || invitesLoading || nodesTesting
+        get() = nodesLoading || plansLoading || invitesLoading || nodesTesting
 }
 
 sealed interface XbClientEvent {
@@ -127,6 +129,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshRewardConfig()
             }
             PassScreen.PLANS -> {
+                refreshPlans()
                 refreshRewardConfig()
                 refreshUserInfo()
             }
@@ -146,6 +149,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshRewardConfig()
             }
             PassScreen.PLANS -> {
+                refreshPlans()
                 refreshRewardConfig()
                 refreshUserInfo()
             }
@@ -270,6 +274,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .appendQueryParameter("scene", scene)
             .appendQueryParameter("redirect", "dashboard")
             .appendQueryParameter("client", "app")
+            .appendQueryParameter("app_scheme", BuildConfig.OAUTH_CALLBACK_SCHEME)
         if (scene == "register" && inviteCode.trim().isNotEmpty()) {
             builder.appendQueryParameter("invite_code", inviteCode.trim())
         }
@@ -377,6 +382,24 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun refreshPlans() {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty() || _uiState.value.plansLoading) {
+            return
+        }
+        _uiState.update { it.copy(plansLoading = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val result = XboardApi.request("plan_fetch", defaultApiUrl(), authData, JSONObject())
+                val body = requireSuccessfulBody("套餐加载", result)
+                _uiState.update { it.copy(plans = extractDataArray(body).toPlanItemList(), plansLoading = false) }
+            } catch (error: Exception) {
+                _uiState.update { it.copy(plansLoading = false) }
+                emitMessage("套餐加载失败：${error.message}")
+            }
+        }
+    }
+
     fun refreshInvites() {
         val authData = _uiState.value.authData
         if (authData.isEmpty() || _uiState.value.invitesLoading) {
@@ -475,7 +498,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         refreshRewardConfig()
     }
 
-    fun openPaymentPage(context: Context) {
+    fun openPlanPage(context: Context, planId: Int) {
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
             return
@@ -486,7 +509,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     "quick_login_url",
                     defaultApiUrl(),
                     authData,
-                    JSONObject().put("redirect", "plan")
+                    JSONObject().put("redirect", "plan/$planId")
                 )
                 val body = requireSuccessfulBody("网页登录", result)
                 val loginUrl = body.getString("data")
@@ -494,7 +517,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
                 }
             } catch (error: Exception) {
-                emitMessage("网页支付打开失败：${error.message}")
+                emitMessage("套餐打开失败：${error.message}")
             }
         }
     }

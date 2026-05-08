@@ -79,6 +79,7 @@ jobs:
               exit 1
             fi
           done
+          mkdir -p "$(dirname "$XBCLIENT_RELEASE_STORE_FILE")"
           printf '%s' "$XBCLIENT_RELEASE_STORE_BASE64" | base64 -d > "$XBCLIENT_RELEASE_STORE_FILE"
 
       - name: Set up Rust Android targets

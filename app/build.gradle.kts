@@ -111,11 +111,9 @@ val gitExactTag = gitText("describe", "--tags", "--exact-match", "HEAD", require
 val appVersionCode = gitCommitTimestamp
 val appVersionName = gitExactTag.removePrefix("v").ifEmpty { "0.0.$gitCommitTimestamp-$gitShortHash" }
 val debugVersionNameSuffix = ".debug"
-val releaseStoreFile = providers.gradleProperty("xbclient.releaseStoreFile")
-    .orElse(providers.environmentVariable("XBCLIENT_RELEASE_STORE_FILE"))
+val releaseStoreFile = signingValue("xbclient.releaseStoreFile", "XBCLIENT_RELEASE_STORE_FILE")
 val releaseStorePassword = signingValue("xbclient.releaseStorePassword", "XBCLIENT_RELEASE_STORE_PASSWORD")
-val releaseKeyAlias = providers.gradleProperty("xbclient.releaseKeyAlias")
-    .orElse(providers.environmentVariable("XBCLIENT_RELEASE_KEY_ALIAS"))
+val releaseKeyAlias = signingValue("xbclient.releaseKeyAlias", "XBCLIENT_RELEASE_KEY_ALIAS")
 val releaseKeyPassword = signingValue("xbclient.releaseKeyPassword", "XBCLIENT_RELEASE_KEY_PASSWORD")
 
 val rustTargets = listOf(
@@ -147,9 +145,9 @@ android {
 
     signingConfigs {
         create("release") {
-            releaseStoreFile.orNull?.let { storeFile = rootProject.file(it) }
+            releaseStoreFile?.let { storeFile = rootProject.file(it) }
             storePassword = releaseStorePassword
-            keyAlias = releaseKeyAlias.orNull
+            keyAlias = releaseKeyAlias
             keyPassword = releaseKeyPassword
         }
     }
@@ -233,7 +231,7 @@ tasks.matching { it.name.startsWith("merge") && it.name.endsWith("JniLibFolders"
 
 val validateSharedSigning = tasks.register("validateSharedSigning") {
     doLast {
-        val storePath = releaseStoreFile.orNull
+        val storePath = releaseStoreFile
             ?: error("xbclient.releaseStoreFile or XBCLIENT_RELEASE_STORE_FILE is required for APK signing")
         if (!rootProject.file(storePath).isFile) {
             error("APK signing keystore not found: $storePath")
@@ -241,7 +239,7 @@ val validateSharedSigning = tasks.register("validateSharedSigning") {
         if (releaseStorePassword.isNullOrEmpty()) {
             error("xbclient.releaseStorePassword or XBCLIENT_RELEASE_STORE_PASSWORD is required for APK signing")
         }
-        if (releaseKeyAlias.orNull.isNullOrEmpty()) {
+        if (releaseKeyAlias.isNullOrEmpty()) {
             error("xbclient.releaseKeyAlias or XBCLIENT_RELEASE_KEY_ALIAS is required for APK signing")
         }
         if (releaseKeyPassword.isNullOrEmpty()) {

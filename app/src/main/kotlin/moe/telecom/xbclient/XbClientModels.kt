@@ -63,6 +63,20 @@ data class OAuthProvider(
     val label: String
 )
 
+data class PlanPrice(
+    val field: String,
+    val label: String,
+    val amount: Int
+)
+
+data class PlanItem(
+    val id: Int,
+    val name: String,
+    val content: String,
+    val transferEnable: Double,
+    val prices: List<PlanPrice>
+)
+
 fun JSONObject.toAnyTlsNode(): AnyTlsNode =
     AnyTlsNode(
         protocol = optString("type", optString("protocol", "anytls")).lowercase(Locale.US),
@@ -84,6 +98,30 @@ fun JSONObject.toOAuthProvider(): OAuthProvider =
         label = optString("label", getString("driver"))
     )
 
+fun JSONObject.toPlanItem(): PlanItem {
+    val periodFields = listOf(
+        "month_price" to "月付",
+        "quarter_price" to "季付",
+        "half_year_price" to "半年付",
+        "year_price" to "年付",
+        "two_year_price" to "两年付",
+        "three_year_price" to "三年付",
+        "onetime_price" to "一次性",
+        "reset_price" to "重置流量"
+    )
+    val prices = periodFields.mapNotNull { (field, label) ->
+        val amount = numericValue(opt(field)).toInt()
+        if (isNull(field) || amount <= 0) null else PlanPrice(field, label, amount)
+    }
+    return PlanItem(
+        id = getInt("id"),
+        name = optString("name", "套餐 ${getInt("id")}"),
+        content = optString("content"),
+        transferEnable = numericValue(opt("transfer_enable")),
+        prices = prices
+    )
+}
+
 fun JSONArray.toAnyTlsNodeList(): List<AnyTlsNode> =
     List(length()) { index -> getJSONObject(index).toAnyTlsNode() }
 
@@ -92,6 +130,9 @@ fun JSONArray.toInviteItemList(): List<InviteItem> =
 
 fun JSONArray.toOAuthProviderList(): List<OAuthProvider> =
     List(length()) { index -> getJSONObject(index).toOAuthProvider() }
+
+fun JSONArray.toPlanItemList(): List<PlanItem> =
+    List(length()) { index -> getJSONObject(index).toPlanItem() }
 
 fun resultError(result: JSONObject): String {
     val body = result.optJSONObject("body")

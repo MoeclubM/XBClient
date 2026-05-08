@@ -1,6 +1,6 @@
-name: Debug Builds
+name: Beta Builds
 
-run-name: Debug Builds · ${{ github.head_ref || github.ref_name }} · @${{ github.actor }} · #${{ github.run_number }}
+run-name: Beta Builds · ${{ github.head_ref || github.ref_name }} · @${{ github.actor }} · #${{ github.run_number }}
 
 on:
   push:
@@ -12,11 +12,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: debug-${{ github.ref }}
+  group: beta-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-debug:
+  build-beta:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
@@ -25,6 +25,11 @@ jobs:
       XBCLIENT_ADMOB_APP_ID: ${{ secrets.XBCLIENT_ADMOB_APP_ID }}
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
       XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
+      XBCLIENT_RELEASE_STORE_FILE: app/config/release-signing.jks
+      XBCLIENT_RELEASE_STORE_BASE64: ${{ secrets.XBCLIENT_RELEASE_STORE_BASE64 }}
+      XBCLIENT_RELEASE_STORE_PASSWORD: ${{ secrets.XBCLIENT_RELEASE_STORE_PASSWORD }}
+      XBCLIENT_RELEASE_KEY_ALIAS: ${{ secrets.XBCLIENT_RELEASE_KEY_ALIAS }}
+      XBCLIENT_RELEASE_KEY_PASSWORD: ${{ secrets.XBCLIENT_RELEASE_KEY_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -64,6 +69,18 @@ jobs:
             fi
           done
 
+      - name: Prepare release keystore
+        shell: bash
+        run: |
+          for name in XBCLIENT_RELEASE_STORE_BASE64 XBCLIENT_RELEASE_STORE_PASSWORD XBCLIENT_RELEASE_KEY_ALIAS XBCLIENT_RELEASE_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is empty or not available to this workflow"
+              exit 1
+            fi
+          done
+          mkdir -p "$(dirname "$XBCLIENT_RELEASE_STORE_FILE")"
+          printf '%s' "$XBCLIENT_RELEASE_STORE_BASE64" | base64 -d > "$XBCLIENT_RELEASE_STORE_FILE"
+
       - name: Set up Rust Android targets
         shell: bash
         run: |
@@ -73,43 +90,43 @@ jobs:
             i686-linux-android \
             x86_64-linux-android
 
-      - name: Build signed debug APKs
+      - name: Build signed beta APKs
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleDebug --build-cache --stacktrace
+          ./gradlew :app:assembleRelease --build-cache --stacktrace
 
-      - name: Upload debug arm64-v8a APK
+      - name: Upload beta arm64-v8a APK
         uses: actions/upload-artifact@v6
         with:
-          name: xbclient-debug-arm64-v8a-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+          name: xbclient-beta-arm64-v8a-${{ github.run_number }}
+          path: app/build/outputs/apk/release/app-arm64-v8a-release.apk
           if-no-files-found: error
 
-      - name: Upload debug armeabi-v7a APK
+      - name: Upload beta armeabi-v7a APK
         uses: actions/upload-artifact@v6
         with:
-          name: xbclient-debug-armeabi-v7a-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
+          name: xbclient-beta-armeabi-v7a-${{ github.run_number }}
+          path: app/build/outputs/apk/release/app-armeabi-v7a-release.apk
           if-no-files-found: error
 
-      - name: Upload debug x86 APK
+      - name: Upload beta x86 APK
         uses: actions/upload-artifact@v6
         with:
-          name: xbclient-debug-x86-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/app-x86-debug.apk
+          name: xbclient-beta-x86-${{ github.run_number }}
+          path: app/build/outputs/apk/release/app-x86-release.apk
           if-no-files-found: error
 
-      - name: Upload debug x86_64 APK
+      - name: Upload beta x86_64 APK
         uses: actions/upload-artifact@v6
         with:
-          name: xbclient-debug-x86_64-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/app-x86_64-debug.apk
+          name: xbclient-beta-x86_64-${{ github.run_number }}
+          path: app/build/outputs/apk/release/app-x86_64-release.apk
           if-no-files-found: error
 
-      - name: Upload debug universal APK
+      - name: Upload beta universal APK
         uses: actions/upload-artifact@v6
         with:
-          name: xbclient-debug-universal-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/app-universal-debug.apk
+          name: xbclient-beta-universal-${{ github.run_number }}
+          path: app/build/outputs/apk/release/app-universal-release.apk
           if-no-files-found: error

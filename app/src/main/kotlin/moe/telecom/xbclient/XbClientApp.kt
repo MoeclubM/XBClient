@@ -472,15 +472,26 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     PageHeader("套餐", "购买套餐，或通过激励广告领取奖励。")
-    EditorialSection("购买套餐") {
+    EditorialSection("套餐") {
         if (state.paymentEnabled) {
-            Text("支付将打开 Xboard 网页，使用当前 App 登录凭据快捷登录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(14.dp))
-            Button(onClick = { viewModel.openPaymentPage(context) }, modifier = Modifier.fillMaxWidth()) {
-                Text("打开网页套餐")
+            if (state.plansLoading) {
+                Text("套餐正在加载。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else if (state.plans.isEmpty()) {
+                Text("暂无可购买套餐。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                for ((index, plan) in state.plans.withIndex()) {
+                    PlanRow(
+                        plan = plan,
+                        currencySymbol = state.currencySymbol,
+                        onClick = { viewModel.openPlanPage(context, plan.id) }
+                    )
+                    if (index != state.plans.lastIndex) {
+                        HorizontalDivider()
+                    }
+                }
             }
         } else {
-            Text("网页套餐入口已关闭。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("套餐入口已关闭。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     EditorialSection("广告奖励") {
@@ -492,6 +503,29 @@ private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             }
         } else {
             Text("广告奖励暂未开启。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun PlanRow(plan: PlanItem, currencySymbol: String, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+    ) {
+        Text(plan.name, style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(4.dp))
+        Text(planPriceText(plan, currencySymbol), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (plan.transferEnable > 0.0) {
+            Spacer(Modifier.height(4.dp))
+            Text("流量 ${formatTrafficGb(plan.transferEnable)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        val content = plan.content.trim()
+        if (content.isNotEmpty() && !content.startsWith("[") && !content.startsWith("{")) {
+            Spacer(Modifier.height(4.dp))
+            Text(content, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -805,6 +839,11 @@ private fun selectedPackages(state: XbClientUiState): Set<String> =
 
 private fun formatMoney(amount: Int, symbol: String): String =
     symbol + String.format(Locale.US, "%.2f", amount / 100.0)
+
+private fun planPriceText(plan: PlanItem, symbol: String): String =
+    if (plan.prices.isEmpty()) "价格未设置" else plan.prices.joinToString(" · ") {
+        "${it.label} ${formatMoney(it.amount, symbol)}"
+    }
 
 private val XbClientUiState.canHandleBack: Boolean
     get() = !isLoggedIn && authMode == AuthMode.REGISTER ||
