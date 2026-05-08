@@ -22,6 +22,7 @@ enum class AuthMode {
 
 enum class PassScreen {
     NODES,
+    PLANS,
     PROFILE,
     SETTINGS,
     NODE_SELECT,

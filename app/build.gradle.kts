@@ -80,8 +80,8 @@ val oauthCallbackSchemeRaw = providers.gradleProperty("xbclient.oauthCallbackSch
     ?: providers.environmentVariable("XBCLIENT_OAUTH_CALLBACK_SCHEME").orNull
     ?: rootLocalProperties.getProperty("xbclient.oauthCallbackScheme")
     ?: rootLocalProperties.getProperty("XBCLIENT_OAUTH_CALLBACK_SCHEME")
-    ?: "xbclient"
-val oauthCallbackScheme = oauthCallbackSchemeRaw.trim().ifEmpty { "xbclient" }
+    ?: "secone"
+val oauthCallbackScheme = oauthCallbackSchemeRaw.trim().ifEmpty { "secone" }
 val localSigningProperties = Properties()
 val localSigningPropertiesFile = rootProject.file("app/config/release-signing.local.txt")
 if (localSigningPropertiesFile.isFile) {

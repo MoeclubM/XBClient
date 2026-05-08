@@ -35,6 +35,10 @@ data class XbClientUiState(
     val subscribeToken: String = "",
     val subscribeUrl: String = "",
     val subscriptionSummary: String = "",
+    val userEmail: String = "",
+    val balance: Int = 0,
+    val commissionBalance: Int = 0,
+    val currencySymbol: String = "¥",
     val anyTlsNodes: List<AnyTlsNode> = emptyList(),
     val selectedNodeIndex: Int = 0,
     val nodeTestResults: Map<Int, String> = emptyMap(),
@@ -98,6 +102,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             val state = _uiState.value
             if (state.authData.isNotEmpty()) {
                 refreshSubscriptionAndNodes()
+                refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
             }
@@ -117,8 +122,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         when (screen) {
             PassScreen.PROFILE -> {
                 refreshSubscriptionAndNodes()
+                refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
+            }
+            PassScreen.PLANS -> {
+                refreshRewardConfig()
+                refreshUserInfo()
             }
             PassScreen.NODE_SELECT -> refreshSubscriptionAndNodes()
             PassScreen.APP_RULES -> Unit
@@ -131,8 +141,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         when (_uiState.value.screen) {
             PassScreen.PROFILE -> {
                 refreshSubscriptionAndNodes()
+                refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
+            }
+            PassScreen.PLANS -> {
+                refreshRewardConfig()
+                refreshUserInfo()
             }
             PassScreen.NODE_SELECT -> refreshSubscriptionAndNodes()
             PassScreen.SETTINGS, PassScreen.APP_RULES -> Unit
@@ -153,7 +168,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             PassScreen.NODE_SELECT -> openScreen(PassScreen.NODES)
             PassScreen.APP_RULES -> openScreen(PassScreen.SETTINGS)
             PassScreen.SETTINGS -> openScreen(PassScreen.PROFILE)
-            PassScreen.NODES, PassScreen.PROFILE -> Unit
+            PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE -> Unit
         }
     }
 
@@ -177,6 +192,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 persistStoredState(next)
                 emitMessage("登录成功。")
                 refreshSubscriptionAndNodes()
+                refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
             } catch (error: Exception) {
@@ -208,6 +224,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 persistStoredState(next)
                 emitMessage("注册成功。")
                 refreshSubscriptionAndNodes()
+                refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
             } catch (error: Exception) {
@@ -406,6 +423,31 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun refreshUserInfo() {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty()) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val info = requireSuccessfulBody("用户信息", XboardApi.request("user_info", defaultApiUrl(), authData, JSONObject()))
+                    .getJSONObject("data")
+                val config = requireSuccessfulBody("用户配置", XboardApi.request("user_config", defaultApiUrl(), authData, JSONObject()))
+                    .getJSONObject("data")
+                _uiState.update {
+                    it.copy(
+                        userEmail = info.optString("email"),
+                        balance = info.optInt("balance"),
+                        commissionBalance = info.optInt("commission_balance"),
+                        currencySymbol = config.optString("currency_symbol", it.currencySymbol).ifBlank { it.currencySymbol }
+                    )
+                }
+            } catch (error: Exception) {
+                emitMessage("用户信息加载失败：${error.message}")
+            }
+        }
+    }
+
     fun requestRewardAd() {
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
@@ -429,6 +471,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun onRewardAdEarned(amount: Int, type: String) {
         emitMessage("广告观看完成：$amount${type.ifBlank { _uiState.value.adRewardItem }}")
         refreshSubscriptionAndNodes()
+        refreshUserInfo()
         refreshRewardConfig()
     }
 
@@ -475,6 +518,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 persistStoredState(next)
                 emitMessage("OAuth 登录成功。")
                 refreshSubscriptionAndNodes()
+                refreshUserInfo()
                 refreshInvites()
                 refreshRewardConfig()
             } catch (error: Exception) {
@@ -516,7 +560,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             _uiState.update {
                 it.copy(
                     adEnabled = false,
-                    paymentEnabled = data.optBoolean("payment_enabled"),
+                    paymentEnabled = data.optBoolean("payment_enabled", true),
                     adRewardedAdUnitId = "",
                     adRewardAmount = 0,
                     adSsvUserId = "",
@@ -529,13 +573,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val userId = data.optString("ssv_user_id")
         val customData = data.optString("ssv_custom_data")
         if (adUnitId.isEmpty() || userId.isEmpty() || customData.isEmpty()) {
-            _uiState.update { it.copy(adEnabled = false, paymentEnabled = data.optBoolean("payment_enabled")) }
+            _uiState.update { it.copy(adEnabled = false, paymentEnabled = data.optBoolean("payment_enabled", true)) }
             return Triple("", "", "")
         }
         _uiState.update {
             it.copy(
                 adEnabled = true,
-                paymentEnabled = data.optBoolean("payment_enabled"),
+                paymentEnabled = data.optBoolean("payment_enabled", true),
                 adRewardedAdUnitId = adUnitId,
                 adRewardAmount = data.optInt("reward_amount"),
                 adRewardItem = data.optString("reward_item", it.adRewardItem).ifBlank { it.adRewardItem },

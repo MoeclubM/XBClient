@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -370,6 +371,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
                         item {
                             when (screen) {
                                 PassScreen.PROFILE -> ProfileScreen(state, viewModel)
+                                PassScreen.PLANS -> PlansScreen(state, viewModel)
                                 PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
                                 else -> NodesScreen(state, viewModel)
                             }
@@ -385,6 +387,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
 private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewModel) {
     val selected = when (state.screen) {
         PassScreen.PROFILE, PassScreen.SETTINGS, PassScreen.APP_RULES -> PassScreen.PROFILE
+        PassScreen.PLANS -> PassScreen.PLANS
         else -> PassScreen.NODES
     }
     NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
@@ -394,6 +397,14 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
             icon = {},
             label = { Text("节点") }
         )
+        if (state.paymentEnabled || state.adEnabled) {
+            NavigationBarItem(
+                selected = selected == PassScreen.PLANS,
+                onClick = { viewModel.openScreen(PassScreen.PLANS) },
+                icon = {},
+                label = { Text("套餐") }
+            )
+        }
         NavigationBarItem(
             selected = selected == PassScreen.PROFILE,
             onClick = { viewModel.openScreen(PassScreen.PROFILE) },
@@ -458,12 +469,49 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 }
 
 @Composable
-private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
+    PageHeader("套餐", "购买套餐，或通过激励广告领取奖励。")
+    EditorialSection("购买套餐") {
+        if (state.paymentEnabled) {
+            Text("支付将打开 Xboard 网页，使用当前 App 登录凭据快捷登录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(14.dp))
+            Button(onClick = { viewModel.openPaymentPage(context) }, modifier = Modifier.fillMaxWidth()) {
+                Text("打开网页套餐")
+            }
+        } else {
+            Text("网页套餐入口已关闭。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    EditorialSection("广告奖励") {
+        if (state.adEnabled) {
+            Text("奖励内容以 AdMob 激励广告实际下发和服务端验证结果为准。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(14.dp))
+            Button(onClick = viewModel::requestRewardAd, modifier = Modifier.fillMaxWidth()) {
+                Text("看广告领取")
+            }
+        } else {
+            Text("广告奖励暂未开启。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     PageHeader("我的", "账户、积分与邀请信息。")
     EditorialSection("账户") {
-        Text("已登录", style = MaterialTheme.typography.titleLarge)
+        Text(state.userEmail.ifEmpty { "已登录" }, style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(6.dp))
+        Text(
+            "余额 ${formatMoney(state.balance, state.currencySymbol)}",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "佣金 ${formatMoney(state.commissionBalance, state.currencySymbol)}",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
         Text(
             state.subscriptionSummary.ifEmpty { if (state.subscribeUrl.isEmpty()) "订阅未同步" else "订阅已同步" },
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -471,18 +519,6 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
         Spacer(Modifier.height(14.dp))
         Button(onClick = { viewModel.openScreen(PassScreen.SETTINGS) }, modifier = Modifier.fillMaxWidth()) {
             Text("设置")
-        }
-        if (state.adEnabled) {
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = viewModel::requestRewardAd, modifier = Modifier.fillMaxWidth()) {
-                Text("看广告领奖励")
-            }
-        }
-        if (state.paymentEnabled) {
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = { viewModel.openPaymentPage(context) }, modifier = Modifier.fillMaxWidth()) {
-                Text("网页支付")
-            }
         }
         Spacer(Modifier.height(8.dp))
         Button(onClick = viewModel::logout, modifier = Modifier.fillMaxWidth()) {
@@ -617,21 +653,21 @@ private fun NodeRow(
     onTest: () -> Unit,
     onSelect: () -> Unit
 ) {
-    Column(
+    Row(
         modifier = Modifier
             .clickable(onClick = onSelect)
-            .padding(vertical = 12.dp)
             .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text((if (selected) "✓ " else "") + node.displayName(index), style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(4.dp))
-        Text(node.protocolLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(4.dp))
-        Text(testText ?: "未测试", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-            IconButton(onClick = onTest, modifier = Modifier.size(34.dp)) {
-                Text("↻")
-            }
+        Column(Modifier.weight(1f)) {
+            Text((if (selected) "✓ " else "") + node.displayName(index), style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(2.dp))
+            Text(testText ?: "未测试", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.width(8.dp))
+        IconButton(onClick = onTest, modifier = Modifier.size(32.dp)) {
+            Text("↻")
         }
     }
 }
@@ -767,9 +803,12 @@ private fun selectedPackages(state: XbClientUiState): Set<String> =
         .filter { it.isNotEmpty() }
         .toSet()
 
+private fun formatMoney(amount: Int, symbol: String): String =
+    symbol + String.format(Locale.US, "%.2f", amount / 100.0)
+
 private val XbClientUiState.canHandleBack: Boolean
     get() = !isLoggedIn && authMode == AuthMode.REGISTER ||
-        isLoggedIn && screen !in setOf(PassScreen.NODES, PassScreen.PROFILE)
+        isLoggedIn && screen !in setOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE)
 
 private fun AnimatedContentTransitionScope<*>.editorialTransition() =
     (fadeIn(animationSpec = tween(180)) togetherWith

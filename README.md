@@ -30,7 +30,7 @@ xbclient.defaultApiUrl=https://example.com
 xbclient.appName=XBClient
 xbclient.admobAppId=ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx
 xbclient.userAgent=SecOneApp
-xbclient.oauthCallbackScheme=xbclient
+xbclient.oauthCallbackScheme=secone
 ```
 
 也可以通过环境变量或 Gradle 参数传入：
@@ -40,7 +40,7 @@ $env:XBCLIENT_DEFAULT_API_URL="https://example.com"
 $env:XBCLIENT_APP_NAME="XBClient"
 $env:XBCLIENT_ADMOB_APP_ID="ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx"
 $env:XBCLIENT_USER_AGENT="SecOneApp"
-$env:XBCLIENT_OAUTH_CALLBACK_SCHEME="xbclient"
+$env:XBCLIENT_OAUTH_CALLBACK_SCHEME="secone"
 .\gradlew.bat :app:assembleDebug
 ```
 
@@ -52,7 +52,7 @@ $env:XBCLIENT_OAUTH_CALLBACK_SCHEME="xbclient"
   -Pxbclient.appName=XBClient `
   -Pxbclient.admobAppId=ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx `
   -Pxbclient.userAgent=SecOneApp `
-  -Pxbclient.oauthCallbackScheme=xbclient
+  -Pxbclient.oauthCallbackScheme=secone
 ```
 
 ## 签名
