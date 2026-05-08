@@ -498,8 +498,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun onRewardAdEarned(amount: Int, type: String) {
-        emitMessage("广告观看完成：$amount${type.ifBlank { _uiState.value.adRewardItem }}")
+    fun onRewardAdEarned(_amount: Int, _type: String) {
+        emitMessage("广告观看完成，正在同步奖励。")
         refreshSubscriptionAndNodes()
         refreshUserInfo()
         refreshRewardConfig()
@@ -513,10 +513,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = XboardApi.request(
-                    "quick_login_url",
+                    "xbclient_plan_payment",
                     defaultApiUrl(),
                     authData,
-                    JSONObject().put("redirect", "plan/$planId")
+                    JSONObject().put("plan_id", planId)
                 )
                 val body = requireSuccessfulBody("网页登录", result)
                 val loginUrl = body.getString("data")

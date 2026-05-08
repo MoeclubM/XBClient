@@ -858,11 +858,22 @@ private fun AnimatedContentTransitionScope<*>.editorialTransition() =
         fadeOut(animationSpec = tween(140))).using(SizeTransform(clip = false))
 
 private fun AnimatedContentTransitionScope<PassScreen>.screenTransition() =
-    ((slideIntoContainer(
-        AnimatedContentTransitionScope.SlideDirection.Left,
-        animationSpec = tween(220)
-    ) + fadeIn(animationSpec = tween(180))) togetherWith
-        (slideOutOfContainer(
+    (if (targetState.ordinal < initialState.ordinal) {
+        (slideIntoContainer(
+            AnimatedContentTransitionScope.SlideDirection.Right,
+            animationSpec = tween(220)
+        ) + fadeIn(animationSpec = tween(180))) togetherWith
+            (slideOutOfContainer(
+                AnimatedContentTransitionScope.SlideDirection.Right,
+                animationSpec = tween(180)
+            ) + fadeOut(animationSpec = tween(140)))
+    } else {
+        (slideIntoContainer(
             AnimatedContentTransitionScope.SlideDirection.Left,
-            animationSpec = tween(180)
-        ) + fadeOut(animationSpec = tween(140)))).using(SizeTransform(clip = false))
+            animationSpec = tween(220)
+        ) + fadeIn(animationSpec = tween(180))) togetherWith
+            (slideOutOfContainer(
+                AnimatedContentTransitionScope.SlideDirection.Left,
+                animationSpec = tween(180)
+            ) + fadeOut(animationSpec = tween(140)))
+    }).using(SizeTransform(clip = false))
