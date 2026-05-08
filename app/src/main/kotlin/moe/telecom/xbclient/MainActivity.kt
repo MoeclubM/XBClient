@@ -130,6 +130,13 @@ class MainActivity : ComponentActivity() {
             registerReceiver(vpnStateReceiver, filter)
         }
         receiverRegistered = true
+        val state = viewModel.uiState.value
+        if (state.loaded) {
+            val running = getSharedPreferences(XBCLIENT_PREFS, MODE_PRIVATE).getBoolean("vpn_running", false)
+            if (state.vpnRequested != running) {
+                viewModel.onVpnStateChanged(running, -1, "")
+            }
+        }
     }
 
     override fun onStop() {
@@ -201,6 +208,7 @@ class MainActivity : ComponentActivity() {
                 customData = customData
             )
         )
+        ad.setImmersiveMode(false)
         ad.adEventCallback = object : RewardedAdEventCallback {
             override fun onAdDismissedFullScreenContent() {
                 runOnUiThread {
@@ -268,6 +276,7 @@ class MainActivity : ComponentActivity() {
             loadAppOpenAd(adUnitId)
             return
         }
+        ad.setImmersiveMode(false)
         ad.adEventCallback = object : AppOpenAdEventCallback {
             override fun onAdDismissedFullScreenContent() {
                 runOnUiThread {

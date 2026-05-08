@@ -976,7 +976,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 nodeTestTarget = prefs[Keys.NODE_TEST_TARGET] ?: DEFAULT_NODE_TEST_TARGET,
                 vpnDnsMode = prefs[Keys.VPN_DNS_MODE] ?: DNS_MODE_OVER_TCP,
                 vpnIpv6Enabled = prefs[Keys.VPN_IPV6_ENABLED] ?: true,
-                vpnRequested = prefs[Keys.VPN_RUNNING] ?: legacy.getBoolean("vpn_running", false)
+                vpnRequested = legacy.getBoolean("vpn_running", false)
             )
         } else {
             XbClientUiState(

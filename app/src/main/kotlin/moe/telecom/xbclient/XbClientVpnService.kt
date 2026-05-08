@@ -285,7 +285,7 @@ class XbClientVpnService : VpnService() {
     }
 
     private fun publishVpnState(running: Boolean, error: String = "") {
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("vpn_running", running).apply()
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("vpn_running", running).commit()
         val intent = Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_RUNNING, running)
         if (error.isNotEmpty()) {
             intent.putExtra(EXTRA_ERROR, error)
