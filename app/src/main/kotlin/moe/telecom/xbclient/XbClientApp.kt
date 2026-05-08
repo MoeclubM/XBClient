@@ -1,7 +1,5 @@
 package moe.telecom.xbclient
 
-import android.os.Build
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -79,22 +77,16 @@ import java.util.Locale
 fun XbClientApp(viewModel: XbClientViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var backProgress by remember { mutableFloatStateOf(0f) }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-        PredictiveBackHandler(enabled = state.canHandleBack) { progress ->
-            try {
-                progress.collect { event ->
-                    backProgress = event.progress
-                }
-                backProgress = 0f
-                viewModel.navigateBack()
-            } catch (error: CancellationException) {
-                backProgress = 0f
-                throw error
+    PredictiveBackHandler(enabled = state.canHandleBack) { progress ->
+        try {
+            progress.collect { event ->
+                backProgress = event.progress
             }
-        }
-    } else {
-        BackHandler(enabled = state.canHandleBack) {
+            backProgress = 0f
             viewModel.navigateBack()
+        } catch (error: CancellationException) {
+            backProgress = 0f
+            throw error
         }
     }
     XbClientTheme {
@@ -469,7 +461,7 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 @Composable
 private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
-    PageHeader("套餐", "购买套餐，或通过激励广告领取奖励。")
+    PageHeader("套餐", "选择可用套餐。")
     EditorialSection("套餐") {
         if (!state.paymentEnabled) {
             Text(
@@ -481,7 +473,7 @@ private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
         if (state.plansLoading) {
             Text("套餐正在加载。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else if (state.plans.isEmpty()) {
-            Text("暂无可购买套餐。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("暂无可用套餐。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             for ((index, plan) in state.plans.withIndex()) {
                 PlanRow(
@@ -495,17 +487,6 @@ private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                     HorizontalDivider()
                 }
             }
-        }
-    }
-    EditorialSection("广告奖励") {
-        if (state.adEnabled) {
-            Text("奖励内容以 AdMob 激励广告实际下发和服务端验证结果为准。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(14.dp))
-            Button(onClick = viewModel::requestRewardAd, modifier = Modifier.fillMaxWidth()) {
-                Text("看广告领取")
-            }
-        } else {
-            Text("广告奖励暂未开启。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -540,7 +521,7 @@ private fun PlanRow(
             Spacer(Modifier.height(8.dp))
             for (price in plan.prices) {
                 TextButton(onClick = { onBalancePurchase(price) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("余额购买 ${price.label} ${formatMoney(price.amount, currencySymbol)}")
+                    Text("${price.label} ${formatMoney(price.amount, currencySymbol)}")
                 }
             }
         }
@@ -572,6 +553,12 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
             Text("设置")
         }
         Spacer(Modifier.height(8.dp))
+        if (state.adEnabled) {
+            Button(onClick = viewModel::requestRewardAd, modifier = Modifier.fillMaxWidth()) {
+                Text("观看激励广告")
+            }
+            Spacer(Modifier.height(8.dp))
+        }
         Button(onClick = viewModel::logout, modifier = Modifier.fillMaxWidth()) {
             Text("退出登录")
         }
