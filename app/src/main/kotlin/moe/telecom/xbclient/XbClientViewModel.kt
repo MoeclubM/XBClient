@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
@@ -23,6 +24,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Locale
 
 private val Context.passVpnDataStore by preferencesDataStore(name = XBCLIENT_PREFS)
@@ -72,6 +75,13 @@ data class XbClientUiState(
     val appOpenAdUnitId: String = "",
     val adSsvUserId: String = "",
     val adSsvCustomData: String = "",
+    val configUpdatedAt: Long = 0L,
+    val githubProjectUrl: String = "",
+    val updateAvailable: Boolean = false,
+    val latestReleaseVersion: String = "",
+    val latestReleaseUrl: String = "",
+    val latestDownloadUrl: String = "",
+    val startupConfigDialogVisible: Boolean = false,
     val oauthProviders: List<OAuthProvider> = emptyList(),
     val oauthConfirmToken: String = "",
     val oauthConfirmProvider: String = "",
@@ -106,6 +116,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             loadInstalledApps()
             refreshOAuthProviders()
             val state = _uiState.value
+            checkGithubReleaseUpdate(state.githubProjectUrl)
             if (state.authData.isNotEmpty()) {
                 refreshSubscriptionAndNodes()
                 refreshUserInfo()
@@ -350,8 +361,35 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(oauthConfirmToken = "", oauthConfirmProvider = "", oauthConfirmEmail = "") }
     }
 
+    fun dismissStartupConfigDialog() {
+        _uiState.update { it.copy(startupConfigDialogVisible = false) }
+    }
+
+    fun dismissUpdateDialog() {
+        _uiState.update { it.copy(updateAvailable = false) }
+    }
+
+    fun openUpdatePage(context: Context) {
+        val url = _uiState.value.latestDownloadUrl.ifEmpty { _uiState.value.latestReleaseUrl }
+        if (url.isNotEmpty()) {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }
+        dismissUpdateDialog()
+    }
+
     fun logout() {
-        val next = XbClientUiState(loaded = true, oauthProviders = _uiState.value.oauthProviders)
+        val current = _uiState.value
+        val next = XbClientUiState(
+            loaded = true,
+            adEnabled = current.adEnabled,
+            paymentEnabled = current.paymentEnabled,
+            adRewardedAdUnitId = current.adRewardedAdUnitId,
+            appOpenAdEnabled = current.appOpenAdEnabled,
+            appOpenAdUnitId = current.appOpenAdUnitId,
+            configUpdatedAt = current.configUpdatedAt,
+            githubProjectUrl = current.githubProjectUrl,
+            oauthProviders = current.oauthProviders
+        )
         _uiState.value = next
         persistState(next)
     }
@@ -620,7 +658,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             ?.let(Uri::decode)
             ?: throw IllegalStateException("快捷登录地址缺少 verify。")
 
-    private fun loadRewardConfig(authData: String): Triple<String, String, String> {
+    private suspend fun loadRewardConfig(authData: String): Triple<String, String, String> {
         val result = try {
             XboardApi.request("admob_reward_config", defaultApiUrl(), authData, JSONObject())
         } catch (_: Exception) {
@@ -641,6 +679,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             clearRewardConfig()
             return Triple("", "", "")
         }
+        val githubProjectUrl = data.optString("github_project_url")
+        val configUpdatedAt = System.currentTimeMillis()
         if (!data.optBoolean("ad_enabled")) {
             _uiState.update {
                 it.copy(
@@ -648,12 +688,16 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     paymentEnabled = data.optBoolean("payment_enabled", true),
                     appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
                     appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
+                    githubProjectUrl = githubProjectUrl,
+                    configUpdatedAt = configUpdatedAt,
                     adRewardedAdUnitId = "",
                     adRewardAmount = 0,
                     adSsvUserId = "",
                     adSsvCustomData = ""
                 )
             }
+            persistStoredState(_uiState.value)
+            checkGithubReleaseUpdate(githubProjectUrl)
             return Triple("", "", "")
         }
         val adUnitId = data.optString("rewarded_ad_unit_id")
@@ -665,9 +709,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     adEnabled = false,
                     paymentEnabled = data.optBoolean("payment_enabled", true),
                     appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
-                    appOpenAdUnitId = data.optString("app_open_ad_unit_id")
+                    appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
+                    githubProjectUrl = githubProjectUrl,
+                    configUpdatedAt = configUpdatedAt
                 )
             }
+            persistStoredState(_uiState.value)
+            checkGithubReleaseUpdate(githubProjectUrl)
             return Triple("", "", "")
         }
         _uiState.update {
@@ -676,6 +724,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 paymentEnabled = data.optBoolean("payment_enabled", true),
                 appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
                 appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
+                githubProjectUrl = githubProjectUrl,
+                configUpdatedAt = configUpdatedAt,
                 adRewardedAdUnitId = adUnitId,
                 adRewardAmount = data.optInt("reward_amount"),
                 adRewardItem = data.optString("reward_item", it.adRewardItem).ifBlank { it.adRewardItem },
@@ -683,6 +733,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 adSsvCustomData = customData
             )
         }
+        persistStoredState(_uiState.value)
+        checkGithubReleaseUpdate(githubProjectUrl)
         return Triple(adUnitId, userId, customData)
     }
 
@@ -986,7 +1038,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 nodeTestTarget = prefs[Keys.NODE_TEST_TARGET] ?: DEFAULT_NODE_TEST_TARGET,
                 vpnDnsMode = prefs[Keys.VPN_DNS_MODE] ?: DNS_MODE_OVER_TCP,
                 vpnIpv6Enabled = prefs[Keys.VPN_IPV6_ENABLED] ?: true,
-                vpnRequested = legacy.getBoolean("vpn_running", false)
+                vpnRequested = legacy.getBoolean("vpn_running", false),
+                adEnabled = prefs[Keys.AD_ENABLED] ?: false,
+                paymentEnabled = prefs[Keys.PAYMENT_ENABLED] ?: true,
+                adRewardedAdUnitId = prefs[Keys.AD_REWARDED_AD_UNIT_ID].orEmpty(),
+                appOpenAdEnabled = prefs[Keys.APP_OPEN_AD_ENABLED] ?: false,
+                appOpenAdUnitId = prefs[Keys.APP_OPEN_AD_UNIT_ID].orEmpty(),
+                configUpdatedAt = prefs[Keys.CONFIG_UPDATED_AT] ?: 0L,
+                githubProjectUrl = prefs[Keys.GITHUB_PROJECT_URL].orEmpty()
             )
         } else {
             XbClientUiState(
@@ -1006,10 +1065,20 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 nodeTestTarget = legacy.getString("node_test_target", DEFAULT_NODE_TEST_TARGET).orEmpty(),
                 vpnDnsMode = legacy.getString("vpn_dns_mode", DNS_MODE_OVER_TCP).orEmpty(),
                 vpnIpv6Enabled = legacy.getBoolean("vpn_ipv6_enabled", true),
-                vpnRequested = legacy.getBoolean("vpn_running", false)
+                vpnRequested = legacy.getBoolean("vpn_running", false),
+                adEnabled = legacy.getBoolean("ad_enabled", false),
+                paymentEnabled = legacy.getBoolean("payment_enabled", true),
+                adRewardedAdUnitId = legacy.getString("ad_rewarded_ad_unit_id", "").orEmpty(),
+                appOpenAdEnabled = legacy.getBoolean("app_open_ad_enabled", false),
+                appOpenAdUnitId = legacy.getString("app_open_ad_unit_id", "").orEmpty(),
+                configUpdatedAt = legacy.getLong("config_updated_at", 0L),
+                githubProjectUrl = legacy.getString("github_project_url", "").orEmpty()
             )
         }
-        _uiState.value = state.copy(selectedNodeIndex = state.selectedNodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0)))
+        _uiState.value = state.copy(
+            selectedNodeIndex = state.selectedNodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0)),
+            startupConfigDialogVisible = true
+        )
         if (!hasDataStoreState) {
             persistStoredState(_uiState.value)
         }
@@ -1065,6 +1134,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.VPN_DNS_MODE] = state.vpnDnsMode
             prefs[Keys.VPN_IPV6_ENABLED] = state.vpnIpv6Enabled
             prefs[Keys.VPN_RUNNING] = state.vpnRequested
+            prefs[Keys.AD_ENABLED] = state.adEnabled
+            prefs[Keys.PAYMENT_ENABLED] = state.paymentEnabled
+            prefs[Keys.AD_REWARDED_AD_UNIT_ID] = state.adRewardedAdUnitId
+            prefs[Keys.APP_OPEN_AD_ENABLED] = state.appOpenAdEnabled
+            prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
+            prefs[Keys.CONFIG_UPDATED_AT] = state.configUpdatedAt
+            prefs[Keys.GITHUB_PROJECT_URL] = state.githubProjectUrl
         }
         app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
             .putString("auth_data", state.authData)
@@ -1083,6 +1159,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("vpn_dns_mode", state.vpnDnsMode)
             .putBoolean("vpn_ipv6_enabled", state.vpnIpv6Enabled)
             .putBoolean("vpn_running", state.vpnRequested)
+            .putBoolean("ad_enabled", state.adEnabled)
+            .putBoolean("payment_enabled", state.paymentEnabled)
+            .putString("ad_rewarded_ad_unit_id", state.adRewardedAdUnitId)
+            .putBoolean("app_open_ad_enabled", state.appOpenAdEnabled)
+            .putString("app_open_ad_unit_id", state.appOpenAdUnitId)
+            .putLong("config_updated_at", state.configUpdatedAt)
+            .putString("github_project_url", state.githubProjectUrl)
             .apply()
     }
 
@@ -1125,6 +1208,89 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private fun checkGithubReleaseUpdate(projectUrl: String) {
+        val value = projectUrl.trim()
+        if (value.isEmpty()) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val slug = githubRepoSlug(value)
+                val connection = (URL("https://api.github.com/repos/$slug/releases/latest").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 30000
+                    readTimeout = 30000
+                    setRequestProperty("User-Agent", BuildConfig.USER_AGENT)
+                    setRequestProperty("Accept", "application/vnd.github+json")
+                }
+                val status = connection.responseCode
+                val text = (if (status in 200..299) connection.inputStream else connection.errorStream)
+                    .bufferedReader(Charsets.UTF_8)
+                    .use { it.readText() }
+                if (status !in 200..299) {
+                    throw IllegalStateException("HTTP $status")
+                }
+                val release = JSONObject(text)
+                val latestVersion = release.optString("tag_name").ifBlank { release.optString("name") }
+                if (latestVersion.isEmpty()) {
+                    throw IllegalStateException("GitHub Release 缺少版本号。")
+                }
+                val currentVersion = BuildConfig.VERSION_NAME.removeSuffix(".debug")
+                if (normalizeVersion(latestVersion) == normalizeVersion(currentVersion)) {
+                    return@launch
+                }
+                val releaseUrl = release.optString("html_url").ifBlank { "https://github.com/$slug/releases/latest" }
+                val assets = release.optJSONArray("assets") ?: JSONArray()
+                var firstApkUrl = ""
+                var abiApkUrl = ""
+                var universalApkUrl = ""
+                for (index in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(index)
+                    val name = asset.optString("name")
+                    val url = asset.optString("browser_download_url")
+                    if (!name.endsWith(".apk", ignoreCase = true)) {
+                        continue
+                    }
+                    if (firstApkUrl.isEmpty()) {
+                        firstApkUrl = url
+                    }
+                    if (abiApkUrl.isEmpty() && Build.SUPPORTED_ABIS.any { name.contains(it, ignoreCase = true) }) {
+                        abiApkUrl = url
+                    }
+                    if (name.contains("universal", ignoreCase = true)) {
+                        universalApkUrl = url
+                    }
+                }
+                val downloadUrl = universalApkUrl.ifEmpty { abiApkUrl.ifEmpty { firstApkUrl } }
+                _uiState.update {
+                    it.copy(
+                        updateAvailable = true,
+                        latestReleaseVersion = latestVersion,
+                        latestReleaseUrl = releaseUrl,
+                        latestDownloadUrl = downloadUrl
+                    )
+                }
+            } catch (error: Exception) {
+                emitMessage("更新检查失败：${error.message}")
+            }
+        }
+    }
+
+    private fun githubRepoSlug(projectUrl: String): String {
+        val trimmed = projectUrl.trim().removeSuffix(".git")
+        if (trimmed.matches(Regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"))) {
+            return trimmed
+        }
+        val uri = Uri.parse(trimmed)
+        if (uri.host != "github.com" || uri.pathSegments.size < 2) {
+            throw IllegalStateException("GitHub 项目地址无效。")
+        }
+        return uri.pathSegments[0] + "/" + uri.pathSegments[1]
+    }
+
+    private fun normalizeVersion(value: String): String =
+        value.trim().removePrefix("v").removePrefix("V").removeSuffix(".debug")
+
     private fun defaultApiUrl(): String {
         val value = BuildConfig.DEFAULT_API_URL.trim()
         return if (value.startsWith("http://") || value.startsWith("https://")) value else "https://$value"
@@ -1157,5 +1323,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val VPN_DNS_MODE = stringPreferencesKey("vpn_dns_mode")
         val VPN_IPV6_ENABLED = booleanPreferencesKey("vpn_ipv6_enabled")
         val VPN_RUNNING = booleanPreferencesKey("vpn_running")
+        val AD_ENABLED = booleanPreferencesKey("ad_enabled")
+        val PAYMENT_ENABLED = booleanPreferencesKey("payment_enabled")
+        val AD_REWARDED_AD_UNIT_ID = stringPreferencesKey("ad_rewarded_ad_unit_id")
+        val APP_OPEN_AD_ENABLED = booleanPreferencesKey("app_open_ad_enabled")
+        val APP_OPEN_AD_UNIT_ID = stringPreferencesKey("app_open_ad_unit_id")
+        val CONFIG_UPDATED_AT = longPreferencesKey("config_updated_at")
+        val GITHUB_PROJECT_URL = stringPreferencesKey("github_project_url")
     }
 }

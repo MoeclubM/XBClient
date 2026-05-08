@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ColorScheme
@@ -74,6 +75,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collect
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 @Composable
@@ -828,6 +831,47 @@ private fun AppRulesScreen(state: XbClientUiState, viewModel: XbClientViewModel)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
+    if (state.startupConfigDialogVisible) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissStartupConfigDialog,
+            title = { Text("本地配置") },
+            text = {
+                Column {
+                    Text("面板：${BuildConfig.DEFAULT_API_URL}")
+                    Text("网页支付：${if (state.paymentEnabled) "开启" else "关闭"}")
+                    Text("激励广告：${if (state.adEnabled) "开启" else "关闭"}")
+                    Text("开屏广告：${if (state.appOpenAdEnabled) "开启" else "关闭"}")
+                    Text("更新项目：${state.githubProjectUrl.ifEmpty { "未配置" }}")
+                    Text("配置同步：${formatConfigTime(state.configUpdatedAt)}")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissStartupConfigDialog) {
+                    Text("知道了")
+                }
+            }
+        )
+    }
+    if (state.updateAvailable) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissUpdateDialog,
+            title = { Text("发现新版本") },
+            text = {
+                Text("当前版本 ${BuildConfig.VERSION_NAME.removeSuffix(".debug")}，最新版本 ${state.latestReleaseVersion}。")
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.openUpdatePage(context) }) {
+                    Text(if (state.latestDownloadUrl.isEmpty()) "打开 Release" else "下载更新")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissUpdateDialog) {
+                    Text("稍后")
+                }
+            }
+        )
+    }
     if (state.nodeSwitchSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
@@ -890,6 +934,9 @@ private fun selectedPackages(state: XbClientUiState): Set<String> =
 
 private fun formatMoney(amount: Int, symbol: String): String =
     symbol + String.format(Locale.US, "%.2f", amount / 100.0)
+
+private fun formatConfigTime(value: Long): String =
+    if (value <= 0L) "尚未同步" else SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(value))
 
 private fun planPriceText(plan: PlanItem, symbol: String): String =
     if (plan.prices.isEmpty()) "价格未设置" else plan.prices.joinToString(" · ") {
