@@ -57,7 +57,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -65,7 +64,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -81,29 +79,17 @@ import java.util.Locale
 @Composable
 fun XbClientApp(viewModel: XbClientViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var backProgress by remember { mutableFloatStateOf(0f) }
     PredictiveBackHandler(enabled = state.canHandleBack) { progress ->
         try {
-            progress.collect { event ->
-                backProgress = event.progress
-            }
-            backProgress = 0f
+            progress.collect { }
             viewModel.navigateBack()
         } catch (error: CancellationException) {
-            backProgress = 0f
             throw error
         }
     }
     XbClientTheme {
         XbClientDialogs(state, viewModel)
-        Box(
-            modifier = Modifier.graphicsLayer {
-                alpha = 1f - backProgress * 0.06f
-                scaleX = 1f - backProgress * 0.02f
-                scaleY = 1f - backProgress * 0.02f
-                translationX = backProgress * 48f
-            }
-        ) {
+        Box {
             if (!state.loaded) {
                 LoadingScreen()
             } else if (!state.isLoggedIn) {
