@@ -397,14 +397,12 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
             icon = {},
             label = { Text("节点") }
         )
-        if (state.paymentEnabled || state.adEnabled) {
-            NavigationBarItem(
-                selected = selected == PassScreen.PLANS,
-                onClick = { viewModel.openScreen(PassScreen.PLANS) },
-                icon = {},
-                label = { Text("套餐") }
-            )
-        }
+        NavigationBarItem(
+            selected = selected == PassScreen.PLANS,
+            onClick = { viewModel.openScreen(PassScreen.PLANS) },
+            icon = {},
+            label = { Text("套餐") }
+        )
         NavigationBarItem(
             selected = selected == PassScreen.PROFILE,
             onClick = { viewModel.openScreen(PassScreen.PROFILE) },
@@ -473,25 +471,30 @@ private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     PageHeader("套餐", "购买套餐，或通过激励广告领取奖励。")
     EditorialSection("套餐") {
-        if (state.paymentEnabled) {
-            if (state.plansLoading) {
-                Text("套餐正在加载。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else if (state.plans.isEmpty()) {
-                Text("暂无可购买套餐。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                for ((index, plan) in state.plans.withIndex()) {
-                    PlanRow(
-                        plan = plan,
-                        currencySymbol = state.currencySymbol,
-                        onClick = { viewModel.openPlanPage(context, plan.id) }
-                    )
-                    if (index != state.plans.lastIndex) {
-                        HorizontalDivider()
-                    }
+        if (!state.paymentEnabled) {
+            Text(
+                "网页支付入口已关闭；当前仅支持余额足额抵扣，余额 ${formatMoney(state.balance, state.currencySymbol)}。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(10.dp))
+        }
+        if (state.plansLoading) {
+            Text("套餐正在加载。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else if (state.plans.isEmpty()) {
+            Text("暂无可购买套餐。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            for ((index, plan) in state.plans.withIndex()) {
+                PlanRow(
+                    plan = plan,
+                    currencySymbol = state.currencySymbol,
+                    paymentEnabled = state.paymentEnabled,
+                    onOpenPayment = { viewModel.openPlanPage(context, plan.id) },
+                    onBalancePurchase = { price -> viewModel.buyPlanWithBalance(plan.id, price.field, price.amount) }
+                )
+                if (index != state.plans.lastIndex) {
+                    HorizontalDivider()
                 }
             }
-        } else {
-            Text("套餐入口已关闭。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     EditorialSection("广告奖励") {
@@ -508,10 +511,16 @@ private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 }
 
 @Composable
-private fun PlanRow(plan: PlanItem, currencySymbol: String, onClick: () -> Unit) {
+private fun PlanRow(
+    plan: PlanItem,
+    currencySymbol: String,
+    paymentEnabled: Boolean,
+    onOpenPayment: () -> Unit,
+    onBalancePurchase: (PlanPrice) -> Unit
+) {
     Column(
         modifier = Modifier
-            .clickable(onClick = onClick)
+            .clickable(enabled = paymentEnabled, onClick = onOpenPayment)
             .fillMaxWidth()
             .padding(vertical = 12.dp)
     ) {
@@ -526,6 +535,14 @@ private fun PlanRow(plan: PlanItem, currencySymbol: String, onClick: () -> Unit)
         if (content.isNotEmpty() && !content.startsWith("[") && !content.startsWith("{")) {
             Spacer(Modifier.height(4.dp))
             Text(content, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (!paymentEnabled && plan.prices.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            for (price in plan.prices) {
+                TextButton(onClick = { onBalancePurchase(price) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("余额购买 ${price.label} ${formatMoney(price.amount, currencySymbol)}")
+                }
+            }
         }
     }
 }

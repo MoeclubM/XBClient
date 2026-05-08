@@ -41,6 +41,8 @@ object XboardApi {
             "transfer" -> postAuth(normalizedBaseUrl, "/api/v1/user/transfer", authData, params)
             "quick_login_url" -> postAuth(normalizedBaseUrl, "/api/v1/user/getQuickLoginUrl", authData, params)
             "plan_fetch" -> getAuth(normalizedBaseUrl, "/api/v1/user/plan/fetch", authData, emptyMap())
+            "order_save" -> postAuth(normalizedBaseUrl, "/api/v1/user/order/save", authData, params)
+            "order_checkout" -> postAuth(normalizedBaseUrl, "/api/v1/user/order/checkout", authData, params)
             "oauth_bindings" -> getAuth(normalizedBaseUrl, "/api/v1/user/oauth/bindings", authData, emptyMap())
             "oauth_bind_prepare" -> postAuth(normalizedBaseUrl, "/api/v1/user/oauth/${params.getString("driver")}/bind", authData, JSONObject())
             "oauth_unbind" -> postAuth(normalizedBaseUrl, "/api/v1/user/oauth/${params.getString("driver")}/unbind", authData, JSONObject())

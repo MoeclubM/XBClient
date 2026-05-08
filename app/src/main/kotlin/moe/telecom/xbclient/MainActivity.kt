@@ -19,6 +19,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.libraries.ads.mobile.sdk.MobileAds
+import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAd
+import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdEventCallback
 import com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback
 import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
 import com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError
@@ -42,6 +44,11 @@ class MainActivity : ComponentActivity() {
     private var pendingRewardUserId = ""
     private var pendingRewardCustomData = ""
     private var pendingRewardShow = false
+    private var appOpenAd: AppOpenAd? = null
+    private var appOpenAdUnitId = ""
+    private var appOpenAdLoading = false
+    private var appOpenAdShowing = false
+    private var appOpenAdShown = false
 
     private val vpnPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -89,6 +96,15 @@ class MainActivity : ComponentActivity() {
                         is XbClientEvent.Message -> Toast.makeText(this@MainActivity, event.text, Toast.LENGTH_SHORT).show()
                         is XbClientEvent.RequestVpnPermission -> requestVpnPermission(event.nodeIndex)
                         is XbClientEvent.ShowRewardAd -> showRewardedAd(event.adUnitId, event.userId, event.customData)
+                    }
+                }
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    if (state.isLoggedIn && state.appOpenAdEnabled && state.appOpenAdUnitId.isNotEmpty()) {
+                        showAppOpenAdOnce(state.appOpenAdUnitId)
                     }
                 }
             }
@@ -211,6 +227,66 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
+    }
+
+    private fun loadAppOpenAd(adUnitId: String) {
+        if (appOpenAdLoading || appOpenAdShown) {
+            return
+        }
+        appOpenAdLoading = true
+        appOpenAdUnitId = adUnitId
+        AppOpenAd.load(
+            AdRequest.Builder(adUnitId).build(),
+            object : AdLoadCallback<AppOpenAd> {
+                override fun onAdLoaded(ad: AppOpenAd) {
+                    runOnUiThread {
+                        appOpenAd = ad
+                        appOpenAdLoading = false
+                        if (!appOpenAdShown && appOpenAdUnitId == adUnitId) {
+                            showAppOpenAdOnce(adUnitId)
+                        }
+                    }
+                }
+
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    runOnUiThread {
+                        appOpenAd = null
+                        appOpenAdLoading = false
+                        Toast.makeText(this@MainActivity, "开屏广告加载失败：${adError.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        )
+    }
+
+    private fun showAppOpenAdOnce(adUnitId: String) {
+        if (appOpenAdShown || appOpenAdShowing) {
+            return
+        }
+        val ad = appOpenAd
+        if (ad == null || appOpenAdUnitId != adUnitId) {
+            loadAppOpenAd(adUnitId)
+            return
+        }
+        ad.adEventCallback = object : AppOpenAdEventCallback {
+            override fun onAdDismissedFullScreenContent() {
+                runOnUiThread {
+                    appOpenAd = null
+                    appOpenAdShowing = false
+                }
+            }
+
+            override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
+                runOnUiThread {
+                    appOpenAd = null
+                    appOpenAdShowing = false
+                    Toast.makeText(this@MainActivity, "开屏广告展示失败：${fullScreenContentError.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        appOpenAdShown = true
+        appOpenAdShowing = true
+        ad.show(this)
     }
 
     private fun requestVpnPermission(nodeIndex: Int) {

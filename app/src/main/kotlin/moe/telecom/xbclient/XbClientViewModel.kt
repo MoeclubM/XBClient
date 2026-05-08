@@ -68,6 +68,8 @@ data class XbClientUiState(
     val adRewardedAdUnitId: String = "",
     val adRewardAmount: Int = 0,
     val adRewardItem: String = "⭐",
+    val appOpenAdEnabled: Boolean = false,
+    val appOpenAdUnitId: String = "",
     val adSsvUserId: String = "",
     val adSsvCustomData: String = "",
     val oauthProviders: List<OAuthProvider> = emptyList(),
@@ -95,6 +97,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private val _events = MutableSharedFlow<XbClientEvent>()
     val events = _events.asSharedFlow()
     private var pendingNodeSwitchConnect: Boolean? = null
+    private var pendingOAuthCallback: Uri? = null
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -282,6 +285,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun handleOAuthCallback(uri: Uri) {
+        if (!_uiState.value.loaded) {
+            pendingOAuthCallback = uri
+            return
+        }
         val error = uri.getQueryParameter("oauth_error").orEmpty()
         if (error.isNotEmpty()) {
             emitMessage("OAuth 失败：$error")
@@ -522,6 +529,51 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun buyPlanWithBalance(planId: Int, period: String, amount: Int) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty()) {
+            return
+        }
+        if (amount > _uiState.value.balance) {
+            emitMessage("余额不足，当前只允许余额足额抵扣。")
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val saveBody = requireSuccessfulBody(
+                    "创建订单",
+                    XboardApi.request(
+                        "order_save",
+                        defaultApiUrl(),
+                        authData,
+                        JSONObject()
+                            .put("plan_id", planId)
+                            .put("period", period)
+                    )
+                )
+                val tradeNo = saveBody.getString("data")
+                val checkoutBody = requireSuccessfulBody(
+                    "余额支付",
+                    XboardApi.request(
+                        "order_checkout",
+                        defaultApiUrl(),
+                        authData,
+                        JSONObject().put("trade_no", tradeNo)
+                    )
+                )
+                if (checkoutBody.optInt("type") != -1) {
+                    throw IllegalStateException("订单未完成余额抵扣。")
+                }
+                emitMessage("余额支付成功。")
+                refreshSubscriptionAndNodes()
+                refreshUserInfo()
+                refreshPlans()
+            } catch (error: Exception) {
+                emitMessage("余额支付失败：${error.message}")
+            }
+        }
+    }
+
     private fun completeOAuthLogin(verify: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -584,6 +636,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 it.copy(
                     adEnabled = false,
                     paymentEnabled = data.optBoolean("payment_enabled", true),
+                    appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
+                    appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
                     adRewardedAdUnitId = "",
                     adRewardAmount = 0,
                     adSsvUserId = "",
@@ -596,13 +650,22 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val userId = data.optString("ssv_user_id")
         val customData = data.optString("ssv_custom_data")
         if (adUnitId.isEmpty() || userId.isEmpty() || customData.isEmpty()) {
-            _uiState.update { it.copy(adEnabled = false, paymentEnabled = data.optBoolean("payment_enabled", true)) }
+            _uiState.update {
+                it.copy(
+                    adEnabled = false,
+                    paymentEnabled = data.optBoolean("payment_enabled", true),
+                    appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
+                    appOpenAdUnitId = data.optString("app_open_ad_unit_id")
+                )
+            }
             return Triple("", "", "")
         }
         _uiState.update {
             it.copy(
                 adEnabled = true,
                 paymentEnabled = data.optBoolean("payment_enabled", true),
+                appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
+                appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
                 adRewardedAdUnitId = adUnitId,
                 adRewardAmount = data.optInt("reward_amount"),
                 adRewardItem = data.optString("reward_item", it.adRewardItem).ifBlank { it.adRewardItem },
@@ -618,6 +681,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             it.copy(
                 adEnabled = false,
                 paymentEnabled = true,
+                appOpenAdEnabled = false,
+                appOpenAdUnitId = "",
                 adRewardedAdUnitId = "",
                 adRewardAmount = 0,
                 adSsvUserId = "",
@@ -941,6 +1006,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         pendingNodeSwitchConnect?.let { connectAfterSelect ->
             pendingNodeSwitchConnect = null
             requestNodeSwitchDialog(connectAfterSelect)
+        }
+        pendingOAuthCallback?.let { uri ->
+            pendingOAuthCallback = null
+            handleOAuthCallback(uri)
         }
     }
 
