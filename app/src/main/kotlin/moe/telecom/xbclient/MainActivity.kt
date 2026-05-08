@@ -18,14 +18,18 @@ import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.google.android.gms.ads.AdError
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.FullScreenContentCallback
-import com.google.android.gms.ads.LoadAdError
-import com.google.android.gms.ads.MobileAds
-import com.google.android.gms.ads.rewarded.RewardedAd
-import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
-import com.google.android.gms.ads.rewarded.ServerSideVerificationOptions
+import com.google.android.libraries.ads.mobile.sdk.MobileAds
+import com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback
+import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
+import com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError
+import com.google.android.libraries.ads.mobile.sdk.common.LoadAdError
+import com.google.android.libraries.ads.mobile.sdk.initialization.InitializationConfig
+import com.google.android.libraries.ads.mobile.sdk.rewarded.OnUserEarnedRewardListener
+import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardItem
+import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAd
+import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAdEventCallback
+import com.google.android.libraries.ads.mobile.sdk.rewarded.ServerSideVerificationOptions
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -72,7 +76,12 @@ class MainActivity : ComponentActivity() {
         ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        MobileAds.initialize(this) {}
+        lifecycleScope.launch(Dispatchers.IO) {
+            MobileAds.initialize(
+                this@MainActivity,
+                InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID).build()
+            )
+        }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.events.collect { event ->
@@ -133,25 +142,27 @@ class MainActivity : ComponentActivity() {
         rewardedAdLoading = true
         rewardedAdUnitId = adUnitId
         RewardedAd.load(
-            this,
-            adUnitId,
-            AdRequest.Builder().build(),
-            object : RewardedAdLoadCallback() {
+            AdRequest.Builder(adUnitId).build(),
+            object : AdLoadCallback<RewardedAd> {
                 override fun onAdLoaded(ad: RewardedAd) {
-                    rewardedAd = ad
-                    rewardedAdLoading = false
-                    if (pendingRewardShow && rewardedAdUnitId == adUnitId) {
-                        pendingRewardShow = false
-                        showRewardedAd(adUnitId, pendingRewardUserId, pendingRewardCustomData)
+                    runOnUiThread {
+                        rewardedAd = ad
+                        rewardedAdLoading = false
+                        if (pendingRewardShow && rewardedAdUnitId == adUnitId) {
+                            pendingRewardShow = false
+                            showRewardedAd(adUnitId, pendingRewardUserId, pendingRewardCustomData)
+                        }
                     }
                 }
 
-                override fun onAdFailedToLoad(error: LoadAdError) {
-                    rewardedAd = null
-                    rewardedAdLoading = false
-                    if (pendingRewardShow) {
-                        pendingRewardShow = false
-                        Toast.makeText(this@MainActivity, "广告加载失败：${error.message}", Toast.LENGTH_SHORT).show()
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    runOnUiThread {
+                        rewardedAd = null
+                        rewardedAdLoading = false
+                        if (pendingRewardShow) {
+                            pendingRewardShow = false
+                            Toast.makeText(this@MainActivity, "广告加载失败：${adError.message}", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }
@@ -169,26 +180,37 @@ class MainActivity : ComponentActivity() {
             return
         }
         ad.setServerSideVerificationOptions(
-            ServerSideVerificationOptions.Builder()
-                .setUserId(userId)
-                .setCustomData(customData)
-                .build()
+            ServerSideVerificationOptions(
+                userId = userId,
+                customData = customData
+            )
         )
-        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+        ad.adEventCallback = object : RewardedAdEventCallback {
             override fun onAdDismissedFullScreenContent() {
-                rewardedAd = null
-                loadRewardedAd(adUnitId)
+                runOnUiThread {
+                    rewardedAd = null
+                    loadRewardedAd(adUnitId)
+                }
             }
 
-            override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                rewardedAd = null
-                loadRewardedAd(adUnitId)
-                Toast.makeText(this@MainActivity, "广告展示失败：${error.message}", Toast.LENGTH_SHORT).show()
+            override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
+                runOnUiThread {
+                    rewardedAd = null
+                    loadRewardedAd(adUnitId)
+                    Toast.makeText(this@MainActivity, "广告展示失败：${fullScreenContentError.message}", Toast.LENGTH_SHORT).show()
+                }
             }
         }
-        ad.show(this) { reward ->
-            viewModel.onRewardAdEarned(reward.amount, reward.type)
-        }
+        ad.show(
+            this,
+            object : OnUserEarnedRewardListener {
+                override fun onUserEarnedReward(reward: RewardItem) {
+                    runOnUiThread {
+                        viewModel.onRewardAdEarned(reward.amount, reward.type)
+                    }
+                }
+            }
+        )
     }
 
     private fun requestVpnPermission(nodeIndex: Int) {

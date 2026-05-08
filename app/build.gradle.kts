@@ -135,9 +135,9 @@ android {
         targetSdk = latestAndroidApi
         versionCode = appVersionCode
         versionName = appVersionName
-        manifestPlaceholders["admobApplicationId"] = admobAppId
         manifestPlaceholders["oauthCallbackScheme"] = oauthCallbackScheme
         resValue("string", "app_name", appName)
+        buildConfigField("String", "ADMOB_APP_ID", "\"${admobAppId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "DEFAULT_API_URL", "\"${defaultApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "USER_AGENT", "\"${userAgent.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"${oauthCallbackScheme.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
@@ -268,7 +268,12 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0")
-    implementation("com.google.android.gms:play-services-ads:25.2.0")
+    implementation("com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:1.0.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("org.yaml:snakeyaml:2.5")
+}
+
+configurations.configureEach {
+    exclude(group = "com.google.android.gms", module = "play-services-ads")
+    exclude(group = "com.google.android.gms", module = "play-services-ads-lite")
 }
