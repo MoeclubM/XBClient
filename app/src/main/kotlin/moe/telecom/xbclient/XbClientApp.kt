@@ -632,20 +632,12 @@ private fun RewardAdSection(
     }
     val logs = state.adRewardLogs.filter { it.scene == scene }
     Section(title) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = { viewModel.requestRewardAd(scene) }, modifier = Modifier.weight(1f)) {
-                Text("观看广告")
-            }
-            OutlinedButton(onClick = viewModel::refreshAdRewardHistory, modifier = Modifier.weight(1f)) {
-                Text(if (state.adRewardLogsLoading) "刷新中" else "刷新记录")
-            }
+        Button(onClick = { viewModel.requestRewardAd(scene) }, modifier = Modifier.fillMaxWidth()) {
+            Text("观看广告")
         }
         Spacer(Modifier.height(12.dp))
         if (logs.isEmpty()) {
-            Text(
-                if (state.adRewardLogsLoading) "奖励记录正在加载。" else "暂无已验证的广告奖励记录。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text("暂无已验证的广告奖励记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             val visibleLogs = logs.take(3)
             for ((index, log) in visibleLogs.withIndex()) {

@@ -30,6 +30,7 @@ import java.net.URL
 import java.util.Locale
 
 private val Context.passVpnDataStore by preferencesDataStore(name = XBCLIENT_PREFS)
+private const val NODE_AUTO_REFRESH_INTERVAL_MS = 30L * 60L * 1000L
 
 data class XbClientUiState(
     val loaded: Boolean = false,
@@ -39,6 +40,7 @@ data class XbClientUiState(
     val subscribeToken: String = "",
     val subscribeUrl: String = "",
     val subscriptionSummary: String = "",
+    val nodesUpdatedAt: Long = 0L,
     val userEmail: String = "",
     val balance: Int = 0,
     val commissionBalance: Int = 0,
@@ -111,10 +113,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     val events = _events.asSharedFlow()
     private var pendingNodeSwitchConnect: Boolean? = null
     private var pendingOAuthCallback: Uri? = null
+    private var nodeAutoRefreshStarted = false
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
             loadStoredState()
+            ensureNodeAutoRefresh()
             loadInstalledApps()
             refreshOAuthProviders()
             val state = _uiState.value
@@ -122,9 +126,24 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             if (state.authData.isNotEmpty()) {
                 refreshSubscriptionAndNodes()
                 refreshUserInfo()
+                refreshPlans()
                 refreshInvites()
                 refreshRewardConfig()
-                refreshAdRewardHistory()
+            }
+        }
+    }
+
+    private fun ensureNodeAutoRefresh() {
+        if (nodeAutoRefreshStarted) {
+            return
+        }
+        nodeAutoRefreshStarted = true
+        viewModelScope.launch(Dispatchers.IO) {
+            while (true) {
+                delay(NODE_AUTO_REFRESH_INTERVAL_MS)
+                if (_uiState.value.authData.isNotEmpty()) {
+                    refreshSubscriptionAndNodes(force = true)
+                }
             }
         }
     }
@@ -140,19 +159,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun openScreen(screen: PassScreen) {
         _uiState.update { it.copy(screen = screen) }
         when (screen) {
-            PassScreen.PROFILE -> {
-                refreshSubscriptionAndNodes()
-                refreshUserInfo()
-                refreshInvites()
-                refreshRewardConfig()
-                refreshAdRewardHistory()
-            }
-            PassScreen.PLANS -> {
-                refreshPlans()
-                refreshRewardConfig()
-                refreshUserInfo()
-                refreshAdRewardHistory()
-            }
+            PassScreen.PROFILE -> Unit
+            PassScreen.PLANS -> Unit
             PassScreen.NODE_SELECT -> refreshSubscriptionAndNodes()
             PassScreen.APP_RULES -> Unit
             PassScreen.SETTINGS -> Unit
@@ -163,21 +171,24 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun refreshCurrentPage() {
         when (_uiState.value.screen) {
             PassScreen.PROFILE -> {
-                refreshSubscriptionAndNodes()
-                refreshUserInfo()
-                refreshInvites()
+                refreshUserInfo(showErrors = true)
+                refreshInvites(force = true, showLoading = true, showErrors = true)
                 refreshRewardConfig()
-                refreshAdRewardHistory()
             }
             PassScreen.PLANS -> {
-                refreshPlans()
+                refreshPlans(force = true, showLoading = true, showErrors = true)
                 refreshRewardConfig()
-                refreshUserInfo()
-                refreshAdRewardHistory()
+                refreshUserInfo(showErrors = true)
             }
-            PassScreen.NODE_SELECT -> refreshSubscriptionAndNodes()
-            PassScreen.SETTINGS, PassScreen.APP_RULES -> Unit
-            PassScreen.NODES -> refreshSubscriptionAndNodes()
+            PassScreen.NODE_SELECT -> {
+                refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
+                refreshUserInfo(showErrors = true)
+            }
+            PassScreen.SETTINGS, PassScreen.APP_RULES -> refreshUserInfo(showErrors = true)
+            PassScreen.NODES -> {
+                refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
+                refreshUserInfo(showErrors = true)
+            }
         }
     }
 
@@ -225,11 +236,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 _uiState.value = next
                 persistStoredState(next)
                 emitMessage("登录成功。")
-                refreshSubscriptionAndNodes()
+                refreshSubscriptionAndNodes(force = true)
                 refreshUserInfo()
-                refreshInvites()
+                refreshPlans(force = true)
+                refreshInvites(force = true)
                 refreshRewardConfig()
-                refreshAdRewardHistory()
             } catch (error: Exception) {
                 emitMessage("登录失败：${error.message}")
             }
@@ -258,11 +269,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 _uiState.value = next
                 persistStoredState(next)
                 emitMessage("注册成功。")
-                refreshSubscriptionAndNodes()
+                refreshSubscriptionAndNodes(force = true)
                 refreshUserInfo()
-                refreshInvites()
+                refreshPlans(force = true)
+                refreshInvites(force = true)
                 refreshRewardConfig()
-                refreshAdRewardHistory()
             } catch (error: Exception) {
                 emitMessage("注册失败：${error.message}")
             }
@@ -284,7 +295,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun refreshOAuthProviders() {
+    fun refreshOAuthProviders(showErrors: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = XboardApi.request("guest_config", defaultApiUrl(), "", JSONObject())
@@ -294,8 +305,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     ?.toOAuthProviderList()
                     ?: emptyList()
                 _uiState.update { it.copy(oauthProviders = providers) }
+                persistStoredState(_uiState.value)
             } catch (error: Exception) {
-                emitMessage("OAuth 配置加载失败：${error.message}")
+                if (showErrors) {
+                    emitMessage("OAuth 配置加载失败：${error.message}")
+                }
             }
         }
     }
@@ -406,12 +420,17 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         persistState(next)
     }
 
-    fun refreshSubscriptionAndNodes() {
+    fun refreshSubscriptionAndNodes(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
         val current = _uiState.value
         if (current.authData.isEmpty() || current.nodesLoading) {
             return
         }
-        _uiState.update { it.copy(nodesLoading = true) }
+        if (!force && current.anyTlsNodes.isNotEmpty() && System.currentTimeMillis() - current.nodesUpdatedAt < NODE_AUTO_REFRESH_INTERVAL_MS) {
+            return
+        }
+        if (showLoading) {
+            _uiState.update { it.copy(nodesLoading = true) }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val subscribeResult = XboardApi.request("user_subscribe", defaultApiUrl(), current.authData, JSONObject())
@@ -435,7 +454,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     if (!nodesResult.optBoolean("ok")) {
                         throw IllegalStateException(resultError(nodesResult))
                     }
-                    emitMessage("XBClient 节点接口不可用，已使用原订阅节点。")
+                    if (showErrors) {
+                        emitMessage("XBClient 节点接口不可用，已使用原订阅节点。")
+                    }
                     nodesResult.getJSONArray("nodes").toAnyTlsNodeList()
                 } else {
                     throw IllegalStateException(resultError(xbclientNodesResult))
@@ -446,6 +467,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     subscribeToken = data.optString("token", current.subscribeToken),
                     subscribeUrl = subscribeUrl,
                     subscriptionSummary = subscriptionSummary(data),
+                    nodesUpdatedAt = System.currentTimeMillis(),
                     anyTlsNodes = nodes,
                     selectedNodeIndex = if (nodes.getOrNull(selectedIndex)?.connectSupported == true || firstConnectableIndex < 0) selectedIndex else firstConnectableIndex,
                     nodeTestResults = emptyMap(),
@@ -454,45 +476,72 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 _uiState.value = next
                 persistStoredState(next)
             } catch (error: Exception) {
-                _uiState.update { it.copy(nodesLoading = false) }
-                emitMessage(if (_uiState.value.anyTlsNodes.isEmpty()) "节点同步失败：${error.message}" else "节点同步失败，继续使用本地缓存：${error.message}")
+                if (showLoading) {
+                    _uiState.update { it.copy(nodesLoading = false) }
+                }
+                if (showErrors) {
+                    emitMessage(if (_uiState.value.anyTlsNodes.isEmpty()) "节点同步失败：${error.message}" else "节点同步失败，继续使用本地缓存：${error.message}")
+                }
             }
         }
     }
 
-    fun refreshPlans() {
+    fun refreshPlans(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
         val authData = _uiState.value.authData
         if (authData.isEmpty() || _uiState.value.plansLoading) {
             return
         }
-        _uiState.update { it.copy(plansLoading = true) }
+        if (!force && _uiState.value.plans.isNotEmpty()) {
+            return
+        }
+        if (showLoading) {
+            _uiState.update { it.copy(plansLoading = true) }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = XboardApi.request("plan_fetch", defaultApiUrl(), authData, JSONObject())
                 val body = requireSuccessfulBody("套餐加载", result)
-                _uiState.update { it.copy(plans = extractDataArray(body).toPlanItemList(), plansLoading = false) }
+                val plans = extractDataArray(body).toPlanItemList()
+                val next = _uiState.value.copy(plans = plans, plansLoading = false)
+                _uiState.value = next
+                persistStoredState(next)
             } catch (error: Exception) {
-                _uiState.update { it.copy(plansLoading = false) }
-                emitMessage("套餐加载失败：${error.message}")
+                if (showLoading) {
+                    _uiState.update { it.copy(plansLoading = false) }
+                }
+                if (showErrors) {
+                    emitMessage("套餐加载失败：${error.message}")
+                }
             }
         }
     }
 
-    fun refreshInvites() {
+    fun refreshInvites(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
         val authData = _uiState.value.authData
         if (authData.isEmpty() || _uiState.value.invitesLoading) {
             return
         }
-        _uiState.update { it.copy(invitesLoading = true) }
+        if (!force && _uiState.value.invites.isNotEmpty()) {
+            return
+        }
+        if (showLoading) {
+            _uiState.update { it.copy(invitesLoading = true) }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = XboardApi.request("invite_fetch", defaultApiUrl(), authData, JSONObject())
                 val body = requireSuccessfulBody("邀请码加载", result)
                 val invites = extractDataArray(body).toInviteItemList()
-                _uiState.update { it.copy(invites = invites, invitesLoading = false) }
+                val next = _uiState.value.copy(invites = invites, invitesLoading = false)
+                _uiState.value = next
+                persistStoredState(next)
             } catch (error: Exception) {
-                _uiState.update { it.copy(invitesLoading = false) }
-                emitMessage("邀请码加载失败：${error.message}")
+                if (showLoading) {
+                    _uiState.update { it.copy(invitesLoading = false) }
+                }
+                if (showErrors) {
+                    emitMessage("邀请码加载失败：${error.message}")
+                }
             }
         }
     }
@@ -507,7 +556,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val result = XboardApi.request("invite_save", defaultApiUrl(), authData, JSONObject())
                 requireSuccessfulBody("生成邀请码", result)
                 emitMessage("邀请码已生成。")
-                refreshInvites()
+                refreshInvites(force = true, showErrors = true)
             } catch (error: Exception) {
                 emitMessage("生成邀请码失败：${error.message}")
             }
@@ -524,28 +573,34 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun refreshAdRewardHistory() {
+    fun refreshAdRewardHistory(showLoading: Boolean = false) {
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
             return
         }
-        _uiState.update { it.copy(adRewardLogsLoading = true) }
+        if (showLoading) {
+            _uiState.update { it.copy(adRewardLogsLoading = true) }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val body = requireSuccessfulBody(
                     "广告奖励记录",
                     XboardApi.request("xbclient_reward_history", defaultApiUrl(), authData, JSONObject())
                 )
+                val logs = extractDataArray(body).toAdRewardLogItemList()
                 _uiState.update {
-                    it.copy(adRewardLogs = extractDataArray(body).toAdRewardLogItemList(), adRewardLogsLoading = false)
+                    it.copy(adRewardLogs = logs, adRewardLogsLoading = false)
                 }
+                persistStoredState(_uiState.value)
             } catch (_: Exception) {
-                _uiState.update { it.copy(adRewardLogsLoading = false) }
+                if (showLoading) {
+                    _uiState.update { it.copy(adRewardLogsLoading = false) }
+                }
             }
         }
     }
 
-    fun refreshUserInfo() {
+    fun refreshUserInfo(showErrors: Boolean = false) {
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
             return
@@ -564,8 +619,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         currencySymbol = config.optString("currency_symbol", it.currencySymbol).ifBlank { it.currencySymbol }
                     )
                 }
+                persistStoredState(_uiState.value)
+                refreshAdRewardHistory()
             } catch (error: Exception) {
-                emitMessage("用户信息加载失败：${error.message}")
+                if (showErrors) {
+                    emitMessage("用户信息加载失败：${error.message}")
+                }
             }
         }
     }
@@ -584,7 +643,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 }
                 emitEvent(XbClientEvent.ShowRewardAd(config.first, config.second, config.third))
             } catch (error: Exception) {
-                clearRewardConfig()
                 emitMessage("广告暂未开启。")
             }
         }
@@ -600,16 +658,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     JSONObject().put("custom_data", customData)
                 )
                 requireSuccessfulBody("广告验证记录", result)
-                refreshAdRewardHistory()
+                refreshUserInfo()
             } catch (error: Exception) {
                 emitMessage("广告验证记录提交失败：${error.message}")
-            }
-            repeat(12) {
-                delay(15000)
-                refreshSubscriptionAndNodes()
-                refreshUserInfo()
-                refreshRewardConfig()
-                refreshAdRewardHistory()
             }
         }
     }
@@ -674,9 +725,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     throw IllegalStateException("订单未完成余额抵扣。")
                 }
                 emitMessage("余额支付成功。")
-                refreshSubscriptionAndNodes()
+                refreshSubscriptionAndNodes(force = true)
                 refreshUserInfo()
-                refreshPlans()
+                refreshPlans(force = true)
             } catch (error: Exception) {
                 emitMessage("余额支付失败：${error.message}")
             }
@@ -701,11 +752,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 _uiState.value = next
                 persistStoredState(next)
                 emitMessage("OAuth 登录成功。")
-                refreshSubscriptionAndNodes()
+                refreshSubscriptionAndNodes(force = true)
                 refreshUserInfo()
-                refreshInvites()
+                refreshPlans(force = true)
+                refreshInvites(force = true)
                 refreshRewardConfig()
-                refreshAdRewardHistory()
             } catch (error: Exception) {
                 emitMessage("OAuth 登录失败：${error.message}")
             }
@@ -724,7 +775,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val result = try {
             XboardApi.request("admob_reward_config", defaultApiUrl(), authData, JSONObject())
         } catch (_: Exception) {
-            clearRewardConfig()
             return Triple("", "", "")
         }
         if (!result.optBoolean("ok")) {
@@ -806,6 +856,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 pointsRewardedAdUnitId = ""
             )
         }
+        persistState(_uiState.value)
     }
 
     fun saveDnsAndTestSettings(nodeDns: String, overseasDns: String, directDns: String, nodeTestTarget: String) {
@@ -901,7 +952,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             return
         }
         if (state.anyTlsNodes.isEmpty()) {
-            refreshSubscriptionAndNodes()
+            refreshSubscriptionAndNodes(force = true, showErrors = true)
             emitMessage("节点正在同步，请稍后再试。")
             return
         }
@@ -1103,8 +1154,15 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 subscribeToken = prefs[Keys.SUBSCRIBE_TOKEN].orEmpty(),
                 subscribeUrl = prefs[Keys.SUBSCRIBE_URL].orEmpty(),
                 subscriptionSummary = prefs[Keys.SUBSCRIPTION_SUMMARY].orEmpty(),
+                nodesUpdatedAt = prefs[Keys.NODES_UPDATED_AT] ?: 0L,
+                userEmail = prefs[Keys.USER_EMAIL].orEmpty(),
+                balance = prefs[Keys.BALANCE] ?: 0,
+                commissionBalance = prefs[Keys.COMMISSION_BALANCE] ?: 0,
+                currencySymbol = (prefs[Keys.CURRENCY_SYMBOL] ?: "¥").ifBlank { "¥" },
+                plans = cachedPlans(prefs[Keys.PLANS].orEmpty()),
                 anyTlsNodes = cachedNodes(prefs[Keys.ANYTLS_NODES].orEmpty()),
                 selectedNodeIndex = prefs[Keys.SELECTED_NODE_INDEX] ?: 0,
+                invites = cachedInvites(prefs[Keys.INVITES].orEmpty()),
                 excludedApps = prefs[Keys.EXCLUDED_APPS].orEmpty(),
                 allowedApps = prefs[Keys.ALLOWED_APPS].orEmpty(),
                 appRuleMode = prefs[Keys.APP_RULE_MODE] ?: MODE_EXCLUDE,
@@ -1123,8 +1181,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 pointsRewardedAdUnitId = prefs[Keys.POINTS_REWARDED_AD_UNIT_ID].orEmpty(),
                 appOpenAdEnabled = prefs[Keys.APP_OPEN_AD_ENABLED] ?: false,
                 appOpenAdUnitId = prefs[Keys.APP_OPEN_AD_UNIT_ID].orEmpty(),
+                adRewardLogs = cachedAdRewardLogs(prefs[Keys.AD_REWARD_LOGS].orEmpty()),
                 configUpdatedAt = prefs[Keys.CONFIG_UPDATED_AT] ?: 0L,
-                githubProjectUrl = prefs[Keys.GITHUB_PROJECT_URL].orEmpty()
+                githubProjectUrl = prefs[Keys.GITHUB_PROJECT_URL].orEmpty(),
+                oauthProviders = cachedOAuthProviders(prefs[Keys.OAUTH_PROVIDERS].orEmpty())
             )
         } else {
             XbClientUiState(
@@ -1133,8 +1193,15 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 subscribeToken = legacy.getString("subscribe_token", "").orEmpty(),
                 subscribeUrl = legacy.getString("subscribe_url", "").orEmpty(),
                 subscriptionSummary = legacy.getString("subscription_summary", "").orEmpty(),
+                nodesUpdatedAt = legacy.getLong("nodes_updated_at", 0L),
+                userEmail = legacy.getString("user_email", "").orEmpty(),
+                balance = legacy.getInt("balance", 0),
+                commissionBalance = legacy.getInt("commission_balance", 0),
+                currencySymbol = legacy.getString("currency_symbol", "¥").orEmpty().ifBlank { "¥" },
+                plans = cachedPlans(legacy.getString("plans", "").orEmpty()),
                 anyTlsNodes = cachedNodes(legacy.getString("anytls_nodes", "").orEmpty()),
                 selectedNodeIndex = legacy.getInt("selected_node_index", 0),
+                invites = cachedInvites(legacy.getString("invites", "").orEmpty()),
                 excludedApps = legacy.getString("excluded_apps", "").orEmpty(),
                 allowedApps = legacy.getString("allowed_apps", "").orEmpty(),
                 appRuleMode = legacy.getString("app_rule_mode", if (legacy.getString("allowed_apps", "").orEmpty().isNotEmpty()) MODE_ALLOW else MODE_EXCLUDE).orEmpty(),
@@ -1153,8 +1220,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 pointsRewardedAdUnitId = legacy.getString("points_rewarded_ad_unit_id", "").orEmpty(),
                 appOpenAdEnabled = legacy.getBoolean("app_open_ad_enabled", false),
                 appOpenAdUnitId = legacy.getString("app_open_ad_unit_id", "").orEmpty(),
+                adRewardLogs = cachedAdRewardLogs(legacy.getString("ad_reward_logs", "").orEmpty()),
                 configUpdatedAt = legacy.getLong("config_updated_at", 0L),
-                githubProjectUrl = legacy.getString("github_project_url", "").orEmpty()
+                githubProjectUrl = legacy.getString("github_project_url", "").orEmpty(),
+                oauthProviders = cachedOAuthProviders(legacy.getString("oauth_providers", "").orEmpty())
             )
         }
         _uiState.value = state.copy(
@@ -1203,8 +1272,15 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.SUBSCRIBE_TOKEN] = state.subscribeToken
             prefs[Keys.SUBSCRIBE_URL] = state.subscribeUrl
             prefs[Keys.SUBSCRIPTION_SUMMARY] = state.subscriptionSummary
+            prefs[Keys.NODES_UPDATED_AT] = state.nodesUpdatedAt
+            prefs[Keys.USER_EMAIL] = state.userEmail
+            prefs[Keys.BALANCE] = state.balance
+            prefs[Keys.COMMISSION_BALANCE] = state.commissionBalance
+            prefs[Keys.CURRENCY_SYMBOL] = state.currencySymbol
+            prefs[Keys.PLANS] = plansJson(state.plans)
             prefs[Keys.ANYTLS_NODES] = nodesJson(state.anyTlsNodes)
             prefs[Keys.SELECTED_NODE_INDEX] = state.selectedNodeIndex
+            prefs[Keys.INVITES] = invitesJson(state.invites)
             prefs[Keys.EXCLUDED_APPS] = state.excludedApps
             prefs[Keys.ALLOWED_APPS] = state.allowedApps
             prefs[Keys.APP_RULE_MODE] = state.appRuleMode
@@ -1223,16 +1299,25 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.POINTS_REWARDED_AD_UNIT_ID] = state.pointsRewardedAdUnitId
             prefs[Keys.APP_OPEN_AD_ENABLED] = state.appOpenAdEnabled
             prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
+            prefs[Keys.AD_REWARD_LOGS] = adRewardLogsJson(state.adRewardLogs)
             prefs[Keys.CONFIG_UPDATED_AT] = state.configUpdatedAt
             prefs[Keys.GITHUB_PROJECT_URL] = state.githubProjectUrl
+            prefs[Keys.OAUTH_PROVIDERS] = oauthProvidersJson(state.oauthProviders)
         }
         app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
             .putString("auth_data", state.authData)
             .putString("subscribe_token", state.subscribeToken)
             .putString("subscribe_url", state.subscribeUrl)
             .putString("subscription_summary", state.subscriptionSummary)
+            .putLong("nodes_updated_at", state.nodesUpdatedAt)
+            .putString("user_email", state.userEmail)
+            .putInt("balance", state.balance)
+            .putInt("commission_balance", state.commissionBalance)
+            .putString("currency_symbol", state.currencySymbol)
+            .putString("plans", plansJson(state.plans))
             .putString("anytls_nodes", nodesJson(state.anyTlsNodes))
             .putInt("selected_node_index", state.selectedNodeIndex)
+            .putString("invites", invitesJson(state.invites))
             .putString("excluded_apps", state.excludedApps)
             .putString("allowed_apps", state.allowedApps)
             .putString("app_rule_mode", state.appRuleMode)
@@ -1251,8 +1336,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("points_rewarded_ad_unit_id", state.pointsRewardedAdUnitId)
             .putBoolean("app_open_ad_enabled", state.appOpenAdEnabled)
             .putString("app_open_ad_unit_id", state.appOpenAdUnitId)
+            .putString("ad_reward_logs", adRewardLogsJson(state.adRewardLogs))
             .putLong("config_updated_at", state.configUpdatedAt)
             .putString("github_project_url", state.githubProjectUrl)
+            .putString("oauth_providers", oauthProvidersJson(state.oauthProviders))
             .apply()
     }
 
@@ -1263,6 +1350,66 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         JSONArray().also { array ->
             for (node in nodes) {
                 array.put(JSONObject(node.rawJson))
+            }
+        }.toString()
+
+    private fun cachedPlans(value: String): List<PlanItem> =
+        if (value.isEmpty()) emptyList() else JSONArray(value).toPlanItemList()
+
+    private fun plansJson(plans: List<PlanItem>): String =
+        JSONArray().also { array ->
+            for (plan in plans) {
+                val item = JSONObject()
+                    .put("id", plan.id)
+                    .put("name", plan.name)
+                    .put("content", plan.content)
+                    .put("transfer_enable", plan.transferEnable)
+                for (price in plan.prices) {
+                    item.put(price.field, price.amount)
+                }
+                array.put(item)
+            }
+        }.toString()
+
+    private fun cachedInvites(value: String): List<InviteItem> =
+        if (value.isEmpty()) emptyList() else JSONArray(value).toInviteItemList()
+
+    private fun invitesJson(invites: List<InviteItem>): String =
+        JSONArray().also { array ->
+            for (invite in invites) {
+                array.put(JSONObject().put("code", invite.code).put("status", invite.status))
+            }
+        }.toString()
+
+    private fun cachedAdRewardLogs(value: String): List<AdRewardLogItem> =
+        if (value.isEmpty()) emptyList() else JSONArray(value).toAdRewardLogItemList()
+
+    private fun adRewardLogsJson(logs: List<AdRewardLogItem>): String =
+        JSONArray().also { array ->
+            for (log in logs) {
+                array.put(
+                    JSONObject()
+                        .put("id", log.id)
+                        .put("scene", log.scene)
+                        .put("transaction_id", log.transactionId)
+                        .put("status", log.status)
+                        .put("error", log.error)
+                        .put("gift_card_code", log.giftCardCode)
+                        .put("gift_card_code_id", log.giftCardCodeId)
+                        .put("gift_card_template_id", log.giftCardTemplateId)
+                        .put("used_at", log.usedAt)
+                        .put("created_at", log.createdAt)
+                )
+            }
+        }.toString()
+
+    private fun cachedOAuthProviders(value: String): List<OAuthProvider> =
+        if (value.isEmpty()) emptyList() else JSONArray(value).toOAuthProviderList()
+
+    private fun oauthProvidersJson(providers: List<OAuthProvider>): String =
+        JSONArray().also { array ->
+            for (provider in providers) {
+                array.put(JSONObject().put("driver", provider.driver).put("label", provider.label))
             }
         }.toString()
 
@@ -1398,8 +1545,15 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val SUBSCRIBE_TOKEN = stringPreferencesKey("subscribe_token")
         val SUBSCRIBE_URL = stringPreferencesKey("subscribe_url")
         val SUBSCRIPTION_SUMMARY = stringPreferencesKey("subscription_summary")
+        val NODES_UPDATED_AT = longPreferencesKey("nodes_updated_at")
+        val USER_EMAIL = stringPreferencesKey("user_email")
+        val BALANCE = intPreferencesKey("balance")
+        val COMMISSION_BALANCE = intPreferencesKey("commission_balance")
+        val CURRENCY_SYMBOL = stringPreferencesKey("currency_symbol")
+        val PLANS = stringPreferencesKey("plans")
         val ANYTLS_NODES = stringPreferencesKey("anytls_nodes")
         val SELECTED_NODE_INDEX = intPreferencesKey("selected_node_index")
+        val INVITES = stringPreferencesKey("invites")
         val EXCLUDED_APPS = stringPreferencesKey("excluded_apps")
         val ALLOWED_APPS = stringPreferencesKey("allowed_apps")
         val APP_RULE_MODE = stringPreferencesKey("app_rule_mode")
@@ -1418,7 +1572,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val POINTS_REWARDED_AD_UNIT_ID = stringPreferencesKey("points_rewarded_ad_unit_id")
         val APP_OPEN_AD_ENABLED = booleanPreferencesKey("app_open_ad_enabled")
         val APP_OPEN_AD_UNIT_ID = stringPreferencesKey("app_open_ad_unit_id")
+        val AD_REWARD_LOGS = stringPreferencesKey("ad_reward_logs")
         val CONFIG_UPDATED_AT = longPreferencesKey("config_updated_at")
         val GITHUB_PROJECT_URL = stringPreferencesKey("github_project_url")
+        val OAUTH_PROVIDERS = stringPreferencesKey("oauth_providers")
     }
 }
