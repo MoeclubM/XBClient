@@ -6,14 +6,8 @@
         <item name="android:windowActionBar">false</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:windowBackground">@color/editorial_paper</item>
-        <item name="android:statusBarColor">@color/editorial_paper</item>
-        <item name="android:navigationBarColor">@color/editorial_paper</item>
-    </style>
-
-    <style name="AppTheme.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/editorial_paper</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher</item>
-        <item name="postSplashScreenTheme">@style/AppTheme</item>
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 </resources>

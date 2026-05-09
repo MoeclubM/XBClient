@@ -16,7 +16,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -40,11 +39,11 @@ class MainActivity : ComponentActivity() {
     private val viewModel: XbClientViewModel by viewModels()
     private var pendingVpnNodeIndex = 0
     private var receiverRegistered = false
-    private var rewardedAd: RewardedAd? = null
-    private var rewardedAdUnitId = ""
-    private var rewardedAdLoading = false
+    private val rewardedAds = mutableMapOf<String, RewardedAd>()
+    private val rewardedAdLoading = mutableSetOf<String>()
     private var pendingRewardUserId = ""
     private var pendingRewardCustomData = ""
+    private var pendingRewardAdUnitId = ""
     private var pendingRewardShow = false
     private var appOpenAd: AppOpenAd? = null
     private var appOpenAdUnitId = ""
@@ -52,7 +51,6 @@ class MainActivity : ComponentActivity() {
     private var appOpenAdShowing = false
     private var appOpenAdShown = false
     private var startupConfigHandled = false
-    private var startupSplashHold = true
 
     private val vpnPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -80,9 +78,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        splashScreen.setKeepOnScreenCondition { !viewModel.uiState.value.loaded || startupSplashHold }
         enableEdgeToEdge()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -120,14 +116,15 @@ class MainActivity : ComponentActivity() {
                         startupConfigHandled = true
                         if (state.isLoggedIn && state.appOpenAdEnabled && state.appOpenAdUnitId.isNotEmpty()) {
                             showAppOpenAdOnce(state.appOpenAdUnitId)
-                        } else {
-                            startupSplashHold = false
                         }
                     } else if (state.isLoggedIn && state.appOpenAdEnabled && state.appOpenAdUnitId.isNotEmpty()) {
                         showAppOpenAdOnce(state.appOpenAdUnitId)
                     }
-                    if (state.isLoggedIn && state.adEnabled && state.adRewardedAdUnitId.isNotEmpty()) {
-                        loadRewardedAd(state.adRewardedAdUnitId)
+                    if (state.isLoggedIn && state.planRewardAdEnabled && state.planRewardedAdUnitId.isNotEmpty()) {
+                        loadRewardedAd(state.planRewardedAdUnitId)
+                    }
+                    if (state.isLoggedIn && state.pointsRewardAdEnabled && state.pointsRewardedAdUnitId.isNotEmpty()) {
+                        loadRewardedAd(state.pointsRewardedAdUnitId)
                     }
                 }
             }
@@ -182,19 +179,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun loadRewardedAd(adUnitId: String) {
-        if (rewardedAdLoading) {
+        if (rewardedAdLoading.contains(adUnitId) || rewardedAds.containsKey(adUnitId)) {
             return
         }
-        rewardedAdLoading = true
-        rewardedAdUnitId = adUnitId
+        rewardedAdLoading.add(adUnitId)
         RewardedAd.load(
             AdRequest.Builder(adUnitId).build(),
             object : AdLoadCallback<RewardedAd> {
                 override fun onAdLoaded(ad: RewardedAd) {
                     runOnUiThread {
-                        rewardedAd = ad
-                        rewardedAdLoading = false
-                        if (pendingRewardShow && rewardedAdUnitId == adUnitId) {
+                        rewardedAds[adUnitId] = ad
+                        rewardedAdLoading.remove(adUnitId)
+                        if (pendingRewardShow && pendingRewardAdUnitId == adUnitId) {
                             pendingRewardShow = false
                             showRewardedAd(adUnitId, pendingRewardUserId, pendingRewardCustomData)
                         }
@@ -203,9 +199,9 @@ class MainActivity : ComponentActivity() {
 
                 override fun onAdFailedToLoad(adError: LoadAdError) {
                     runOnUiThread {
-                        rewardedAd = null
-                        rewardedAdLoading = false
-                        if (pendingRewardShow) {
+                        rewardedAds.remove(adUnitId)
+                        rewardedAdLoading.remove(adUnitId)
+                        if (pendingRewardShow && pendingRewardAdUnitId == adUnitId) {
                             pendingRewardShow = false
                         }
                     }
@@ -215,10 +211,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showRewardedAd(adUnitId: String, userId: String, customData: String) {
-        val ad = rewardedAd
-        if (ad == null || rewardedAdUnitId != adUnitId) {
+        val ad = rewardedAds[adUnitId]
+        if (ad == null) {
             pendingRewardUserId = userId
             pendingRewardCustomData = customData
+            pendingRewardAdUnitId = adUnitId
             pendingRewardShow = true
             loadRewardedAd(adUnitId)
             return
@@ -233,14 +230,14 @@ class MainActivity : ComponentActivity() {
         ad.adEventCallback = object : RewardedAdEventCallback {
             override fun onAdDismissedFullScreenContent() {
                 runOnUiThread {
-                    rewardedAd = null
+                    rewardedAds.remove(adUnitId)
                     loadRewardedAd(adUnitId)
                 }
             }
 
             override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
                 runOnUiThread {
-                    rewardedAd = null
+                    rewardedAds.remove(adUnitId)
                     loadRewardedAd(adUnitId)
                 }
             }
@@ -270,7 +267,6 @@ class MainActivity : ComponentActivity() {
                     runOnUiThread {
                         appOpenAd = ad
                         appOpenAdLoading = false
-                        startupSplashHold = false
                         if (!appOpenAdShown && appOpenAdUnitId == adUnitId) {
                             showAppOpenAdOnce(adUnitId)
                         }
@@ -281,7 +277,6 @@ class MainActivity : ComponentActivity() {
                     runOnUiThread {
                         appOpenAd = null
                         appOpenAdLoading = false
-                        startupSplashHold = false
                     }
                 }
             }
@@ -297,7 +292,6 @@ class MainActivity : ComponentActivity() {
             loadAppOpenAd(adUnitId)
             return
         }
-        startupSplashHold = false
         ad.setImmersiveMode(false)
         ad.adEventCallback = object : AppOpenAdEventCallback {
             override fun onAdDismissedFullScreenContent() {

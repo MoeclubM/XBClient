@@ -69,13 +69,12 @@ data class XbClientUiState(
     val nodeSwitchConnect: Boolean = false,
     val adEnabled: Boolean = false,
     val paymentEnabled: Boolean = true,
-    val adRewardedAdUnitId: String = "",
-    val adRewardAmount: Int = 0,
-    val adRewardItem: String = "⭐",
+    val planRewardAdEnabled: Boolean = false,
+    val planRewardedAdUnitId: String = "",
+    val pointsRewardAdEnabled: Boolean = false,
+    val pointsRewardedAdUnitId: String = "",
     val appOpenAdEnabled: Boolean = false,
     val appOpenAdUnitId: String = "",
-    val adSsvUserId: String = "",
-    val adSsvCustomData: String = "",
     val adRewardLogs: List<AdRewardLogItem> = emptyList(),
     val adRewardLogsLoading: Boolean = false,
     val configUpdatedAt: Long = 0L,
@@ -393,7 +392,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             loaded = true,
             adEnabled = current.adEnabled,
             paymentEnabled = current.paymentEnabled,
-            adRewardedAdUnitId = current.adRewardedAdUnitId,
+            planRewardAdEnabled = current.planRewardAdEnabled,
+            planRewardedAdUnitId = current.planRewardedAdUnitId,
+            pointsRewardAdEnabled = current.pointsRewardAdEnabled,
+            pointsRewardedAdUnitId = current.pointsRewardedAdUnitId,
             appOpenAdEnabled = current.appOpenAdEnabled,
             appOpenAdUnitId = current.appOpenAdUnitId,
             configUpdatedAt = current.configUpdatedAt,
@@ -557,14 +559,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun requestRewardAd() {
+    fun requestRewardAd(scene: String) {
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val config = loadRewardConfig(authData)
+                val config = loadRewardConfig(authData, scene)
                 if (config.first.isEmpty()) {
                     emitMessage("广告暂未开启。")
                     return@launch
@@ -707,7 +709,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             ?.let(Uri::decode)
             ?: throw IllegalStateException("快捷登录地址缺少 verify。")
 
-    private suspend fun loadRewardConfig(authData: String): Triple<String, String, String> {
+    private suspend fun loadRewardConfig(authData: String, scene: String = REWARD_SCENE_PLAN): Triple<String, String, String> {
         val result = try {
             XboardApi.request("admob_reward_config", defaultApiUrl(), authData, JSONObject())
         } catch (_: Exception) {
@@ -739,52 +741,45 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
                     githubProjectUrl = githubProjectUrl,
                     configUpdatedAt = configUpdatedAt,
-                    adRewardedAdUnitId = "",
-                    adRewardAmount = 0,
-                    adSsvUserId = "",
-                    adSsvCustomData = ""
+                    planRewardAdEnabled = false,
+                    planRewardedAdUnitId = "",
+                    pointsRewardAdEnabled = false,
+                    pointsRewardedAdUnitId = ""
                 )
             }
             persistStoredState(_uiState.value)
             checkGithubReleaseUpdate(githubProjectUrl)
             return Triple("", "", "")
         }
-        val adUnitId = data.optString("rewarded_ad_unit_id")
-        val userId = data.optString("ssv_user_id")
-        val customData = data.optString("ssv_custom_data")
-        if (adUnitId.isEmpty() || userId.isEmpty() || customData.isEmpty()) {
-            _uiState.update {
-                it.copy(
-                    adEnabled = false,
-                    paymentEnabled = data.optBoolean("payment_enabled", true),
-                    appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
-                    appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
-                    githubProjectUrl = githubProjectUrl,
-                    configUpdatedAt = configUpdatedAt
-                )
-            }
-            persistStoredState(_uiState.value)
-            checkGithubReleaseUpdate(githubProjectUrl)
-            return Triple("", "", "")
-        }
+        val planEnabled = data.optBoolean("plan_reward_ad_enabled")
+        val planAdUnitId = data.optString("plan_rewarded_ad_unit_id")
+        val planUserId = data.optString("plan_ssv_user_id")
+        val planCustomData = data.optString("plan_ssv_custom_data")
+        val pointsEnabled = data.optBoolean("points_reward_ad_enabled")
+        val pointsAdUnitId = data.optString("points_rewarded_ad_unit_id")
+        val pointsUserId = data.optString("points_ssv_user_id")
+        val pointsCustomData = data.optString("points_ssv_custom_data")
         _uiState.update {
             it.copy(
-                adEnabled = true,
+                adEnabled = planEnabled || pointsEnabled,
                 paymentEnabled = data.optBoolean("payment_enabled", true),
                 appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
                 appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
                 githubProjectUrl = githubProjectUrl,
                 configUpdatedAt = configUpdatedAt,
-                adRewardedAdUnitId = adUnitId,
-                adRewardAmount = data.optInt("reward_amount"),
-                adRewardItem = data.optString("reward_item", it.adRewardItem).ifBlank { it.adRewardItem },
-                adSsvUserId = userId,
-                adSsvCustomData = customData
+                planRewardAdEnabled = planEnabled,
+                planRewardedAdUnitId = planAdUnitId,
+                pointsRewardAdEnabled = pointsEnabled,
+                pointsRewardedAdUnitId = pointsAdUnitId
             )
         }
         persistStoredState(_uiState.value)
         checkGithubReleaseUpdate(githubProjectUrl)
-        return Triple(adUnitId, userId, customData)
+        return if (scene == REWARD_SCENE_POINTS) {
+            Triple(pointsAdUnitId, pointsUserId, pointsCustomData)
+        } else {
+            Triple(planAdUnitId, planUserId, planCustomData)
+        }
     }
 
     private fun clearRewardConfig() {
@@ -794,10 +789,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 paymentEnabled = true,
                 appOpenAdEnabled = false,
                 appOpenAdUnitId = "",
-                adRewardedAdUnitId = "",
-                adRewardAmount = 0,
-                adSsvUserId = "",
-                adSsvCustomData = ""
+                planRewardAdEnabled = false,
+                planRewardedAdUnitId = "",
+                pointsRewardAdEnabled = false,
+                pointsRewardedAdUnitId = ""
             )
         }
     }
@@ -1090,7 +1085,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 vpnRequested = legacy.getBoolean("vpn_running", false),
                 adEnabled = prefs[Keys.AD_ENABLED] ?: false,
                 paymentEnabled = prefs[Keys.PAYMENT_ENABLED] ?: true,
-                adRewardedAdUnitId = prefs[Keys.AD_REWARDED_AD_UNIT_ID].orEmpty(),
+                planRewardAdEnabled = prefs[Keys.PLAN_REWARD_AD_ENABLED] ?: false,
+                planRewardedAdUnitId = prefs[Keys.PLAN_REWARDED_AD_UNIT_ID].orEmpty(),
+                pointsRewardAdEnabled = prefs[Keys.POINTS_REWARD_AD_ENABLED] ?: false,
+                pointsRewardedAdUnitId = prefs[Keys.POINTS_REWARDED_AD_UNIT_ID].orEmpty(),
                 appOpenAdEnabled = prefs[Keys.APP_OPEN_AD_ENABLED] ?: false,
                 appOpenAdUnitId = prefs[Keys.APP_OPEN_AD_UNIT_ID].orEmpty(),
                 configUpdatedAt = prefs[Keys.CONFIG_UPDATED_AT] ?: 0L,
@@ -1117,7 +1115,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 vpnRequested = legacy.getBoolean("vpn_running", false),
                 adEnabled = legacy.getBoolean("ad_enabled", false),
                 paymentEnabled = legacy.getBoolean("payment_enabled", true),
-                adRewardedAdUnitId = legacy.getString("ad_rewarded_ad_unit_id", "").orEmpty(),
+                planRewardAdEnabled = legacy.getBoolean("plan_reward_ad_enabled", false),
+                planRewardedAdUnitId = legacy.getString("plan_rewarded_ad_unit_id", "").orEmpty(),
+                pointsRewardAdEnabled = legacy.getBoolean("points_reward_ad_enabled", false),
+                pointsRewardedAdUnitId = legacy.getString("points_rewarded_ad_unit_id", "").orEmpty(),
                 appOpenAdEnabled = legacy.getBoolean("app_open_ad_enabled", false),
                 appOpenAdUnitId = legacy.getString("app_open_ad_unit_id", "").orEmpty(),
                 configUpdatedAt = legacy.getLong("config_updated_at", 0L),
@@ -1184,7 +1185,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.VPN_RUNNING] = state.vpnRequested
             prefs[Keys.AD_ENABLED] = state.adEnabled
             prefs[Keys.PAYMENT_ENABLED] = state.paymentEnabled
-            prefs[Keys.AD_REWARDED_AD_UNIT_ID] = state.adRewardedAdUnitId
+            prefs[Keys.PLAN_REWARD_AD_ENABLED] = state.planRewardAdEnabled
+            prefs[Keys.PLAN_REWARDED_AD_UNIT_ID] = state.planRewardedAdUnitId
+            prefs[Keys.POINTS_REWARD_AD_ENABLED] = state.pointsRewardAdEnabled
+            prefs[Keys.POINTS_REWARDED_AD_UNIT_ID] = state.pointsRewardedAdUnitId
             prefs[Keys.APP_OPEN_AD_ENABLED] = state.appOpenAdEnabled
             prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
             prefs[Keys.CONFIG_UPDATED_AT] = state.configUpdatedAt
@@ -1209,7 +1213,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putBoolean("vpn_running", state.vpnRequested)
             .putBoolean("ad_enabled", state.adEnabled)
             .putBoolean("payment_enabled", state.paymentEnabled)
-            .putString("ad_rewarded_ad_unit_id", state.adRewardedAdUnitId)
+            .putBoolean("plan_reward_ad_enabled", state.planRewardAdEnabled)
+            .putString("plan_rewarded_ad_unit_id", state.planRewardedAdUnitId)
+            .putBoolean("points_reward_ad_enabled", state.pointsRewardAdEnabled)
+            .putString("points_rewarded_ad_unit_id", state.pointsRewardedAdUnitId)
             .putBoolean("app_open_ad_enabled", state.appOpenAdEnabled)
             .putString("app_open_ad_unit_id", state.appOpenAdUnitId)
             .putLong("config_updated_at", state.configUpdatedAt)
@@ -1373,7 +1380,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val VPN_RUNNING = booleanPreferencesKey("vpn_running")
         val AD_ENABLED = booleanPreferencesKey("ad_enabled")
         val PAYMENT_ENABLED = booleanPreferencesKey("payment_enabled")
-        val AD_REWARDED_AD_UNIT_ID = stringPreferencesKey("ad_rewarded_ad_unit_id")
+        val PLAN_REWARD_AD_ENABLED = booleanPreferencesKey("plan_reward_ad_enabled")
+        val PLAN_REWARDED_AD_UNIT_ID = stringPreferencesKey("plan_rewarded_ad_unit_id")
+        val POINTS_REWARD_AD_ENABLED = booleanPreferencesKey("points_reward_ad_enabled")
+        val POINTS_REWARDED_AD_UNIT_ID = stringPreferencesKey("points_rewarded_ad_unit_id")
         val APP_OPEN_AD_ENABLED = booleanPreferencesKey("app_open_ad_enabled")
         val APP_OPEN_AD_UNIT_ID = stringPreferencesKey("app_open_ad_unit_id")
         val CONFIG_UPDATED_AT = longPreferencesKey("config_updated_at")

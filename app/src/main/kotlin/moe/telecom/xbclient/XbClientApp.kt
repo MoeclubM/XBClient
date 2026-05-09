@@ -1,6 +1,5 @@
 package moe.telecom.xbclient
 
-import android.app.Activity
 import android.net.Uri
 import android.os.Build
 import android.os.Message
@@ -19,7 +18,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,7 +38,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
@@ -57,9 +54,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -73,12 +67,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.autofill.contentType
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -92,19 +83,14 @@ import java.util.Locale
 @Composable
 fun XbClientApp(viewModel: XbClientViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     var backProgress by remember { mutableFloatStateOf(0f) }
-    PredictiveBackHandler(enabled = state.loaded) { progress ->
+    PredictiveBackHandler(enabled = state.loaded && state.canHandleBack) { progress ->
         try {
             progress.collect { event ->
                 backProgress = event.progress
             }
             backProgress = 0f
-            if (state.canHandleBack) {
-                viewModel.navigateBack()
-            } else {
-                (context as Activity).finish()
-            }
+            viewModel.navigateBack()
         } catch (error: CancellationException) {
             backProgress = 0f
             throw error
@@ -135,59 +121,12 @@ fun XbClientApp(viewModel: XbClientViewModel) {
 
 @Composable
 private fun XbClientTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
-    val baseTypography = Typography()
-    MaterialTheme(
-        colorScheme = editorialColorScheme(dark),
-        typography = baseTypography.copy(
-            displaySmall = baseTypography.displaySmall.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.Normal),
-            headlineMedium = baseTypography.headlineMedium.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.Normal),
-            titleLarge = baseTypography.titleLarge.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.Normal)
-        ),
-        content = content
-    )
+    MaterialTheme(content = content)
 }
-
-private fun editorialColorScheme(dark: Boolean): ColorScheme =
-    if (dark) {
-        darkColorScheme(
-            primary = Color(0xFFF0E1CF),
-            onPrimary = Color(0xFF221911),
-            background = Color(0xFF171411),
-            onBackground = Color(0xFFF4E8DA),
-            surface = Color(0xFF171411),
-            onSurface = Color(0xFFF4E8DA),
-            surfaceVariant = Color(0xFF27211B),
-            onSurfaceVariant = Color(0xFFE2D3C1),
-            outline = Color(0xFFBCA78F)
-        )
-    } else {
-        lightColorScheme(
-            primary = Color(0xFF2B2118),
-            onPrimary = Color(0xFFFFFBF3),
-            background = Color(0xFFFFFBF3),
-            onBackground = Color(0xFF211A14),
-            surface = Color(0xFFFFFBF3),
-            onSurface = Color(0xFF211A14),
-            surfaceVariant = Color(0xFFF2E6D6),
-            onSurfaceVariant = Color(0xFF534437),
-            outline = Color(0xFF756554)
-        )
-    }
 
 @Composable
 private fun LoadingScreen() {
-    Scaffold { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .padding(24.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text("正在读取本机配置", style = MaterialTheme.typography.headlineMedium)
-        }
-    }
+    Box(Modifier.fillMaxSize())
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -314,7 +253,7 @@ private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             item {
                 AnimatedContent(
                     targetState = state.authMode,
-                    transitionSpec = { editorialTransition() },
+                    transitionSpec = { contentTransition() },
                     label = "auth-mode"
                 ) { authMode ->
                     if (authMode == AuthMode.LOGIN) {
@@ -392,7 +331,7 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
     var captcha by rememberSaveable { mutableStateOf("") }
     Column(modifier = Modifier.fillMaxWidth()) {
         PageHeader("账号注册", "创建账号后会直接进入节点页面。")
-        EditorialSection("账户") {
+        Section("账户") {
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -547,7 +486,7 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
     PageHeader("节点", "节点来自当前账户订阅，登录后自动同步。")
-    EditorialSection("连接") {
+    Section("连接") {
         Text(
             if (state.vpnRequested) "已连接" else "未连接",
             style = MaterialTheme.typography.displaySmall
@@ -561,21 +500,28 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             Text(if (state.vpnStarting) "正在连接" else if (state.vpnRequested) "断开" else "开始连接")
         }
     }
-    EditorialSection("当前节点") {
-        Text(
-            selectedNode?.displayName(state.selectedNodeIndex) ?: if (state.nodesLoading) "节点正在同步。" else "暂无可用节点",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        state.nodeTestResults[state.selectedNodeIndex]?.let {
+    Section("当前节点") {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 78.dp)
+        ) {
+            Text(
+                selectedNode?.displayName(state.selectedNodeIndex) ?: if (state.nodesLoading) "节点正在同步。" else "暂无可用节点",
+                style = MaterialTheme.typography.headlineMedium
+            )
             Spacer(Modifier.height(6.dp))
-            Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                state.nodeTestResults[state.selectedNodeIndex] ?: "未测试",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         Spacer(Modifier.height(14.dp))
         Button(onClick = { viewModel.testNode(state.selectedNodeIndex) }, modifier = Modifier.fillMaxWidth()) {
             Text("测试当前节点")
         }
     }
-    EditorialSection("可用节点") {
+    Section("可用节点") {
         if (state.anyTlsNodes.isEmpty()) {
             Text(if (state.nodesLoading) "节点正在同步。" else "暂无可用节点。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
@@ -600,8 +546,14 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     PageHeader("套餐", "选择可用套餐。")
-    RewardAdSection(state, viewModel)
-    EditorialSection("套餐") {
+    RewardAdSection(
+        title = "套餐激励",
+        enabled = state.planRewardAdEnabled,
+        scene = REWARD_SCENE_PLAN,
+        state = state,
+        viewModel = viewModel
+    )
+    Section("套餐") {
         if (!state.paymentEnabled) {
             Text(
                 "网页支付入口已关闭；当前仅支持余额足额抵扣，余额 ${formatMoney(state.balance, state.currencySymbol)}。",
@@ -668,13 +620,20 @@ private fun PlanRow(
 }
 
 @Composable
-private fun RewardAdSection(state: XbClientUiState, viewModel: XbClientViewModel) {
-    if (!state.adEnabled) {
+private fun RewardAdSection(
+    title: String,
+    enabled: Boolean,
+    scene: String,
+    state: XbClientUiState,
+    viewModel: XbClientViewModel
+) {
+    if (!enabled) {
         return
     }
-    EditorialSection("广告奖励") {
+    val logs = state.adRewardLogs.filter { it.scene == scene }
+    Section(title) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = viewModel::requestRewardAd, modifier = Modifier.weight(1f)) {
+            Button(onClick = { viewModel.requestRewardAd(scene) }, modifier = Modifier.weight(1f)) {
                 Text("观看广告")
             }
             OutlinedButton(onClick = viewModel::refreshAdRewardHistory, modifier = Modifier.weight(1f)) {
@@ -682,21 +641,25 @@ private fun RewardAdSection(state: XbClientUiState, viewModel: XbClientViewModel
             }
         }
         Spacer(Modifier.height(12.dp))
-        if (state.adRewardLogs.isEmpty()) {
+        if (logs.isEmpty()) {
             Text(
                 if (state.adRewardLogsLoading) "奖励记录正在加载。" else "暂无已验证的广告奖励记录。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            for ((index, log) in state.adRewardLogs.take(3).withIndex()) {
+            val visibleLogs = logs.take(3)
+            for ((index, log) in visibleLogs.withIndex()) {
                 Text(rewardStatusText(log.status), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(4.dp))
                 Text("兑换码 ${log.giftCardCode.ifEmpty { "未生成" }}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (log.status == "failed" && log.error.isNotEmpty()) {
+                    Text(log.error, color = MaterialTheme.colorScheme.error)
+                }
                 Text(
                     "模板 ${log.giftCardTemplateId} · 记录 ${log.id} · ${formatUnixTime(log.createdAt)}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (index != state.adRewardLogs.take(3).lastIndex) {
+                if (index != visibleLogs.lastIndex) {
                     HorizontalDivider(Modifier.padding(vertical = 10.dp))
                 }
             }
@@ -707,7 +670,7 @@ private fun RewardAdSection(state: XbClientUiState, viewModel: XbClientViewModel
 @Composable
 private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     PageHeader("我的", "账户、积分与邀请信息。")
-    EditorialSection("账户") {
+    Section("账户") {
         Text(state.userEmail.ifEmpty { "已登录" }, style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(6.dp))
         Text(
@@ -733,8 +696,14 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
             Text("退出登录")
         }
     }
-    RewardAdSection(state, viewModel)
-    EditorialSection("邀请") {
+    RewardAdSection(
+        title = "积分激励",
+        enabled = state.pointsRewardAdEnabled,
+        scene = REWARD_SCENE_POINTS,
+        state = state,
+        viewModel = viewModel
+    )
+    Section("邀请") {
         if (state.invites.isEmpty()) {
             Text(if (state.invitesLoading) "邀请码正在加载。" else "暂无邀请码。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
@@ -760,7 +729,7 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     var directDns by rememberSaveable(state.directDns) { mutableStateOf(state.directDns) }
     var nodeTestTarget by rememberSaveable(state.nodeTestTarget) { mutableStateOf(state.nodeTestTarget) }
     PageHeader("设置", "设置 DNS、IPv6 与按应用规则。")
-    EditorialSection("应用规则") {
+    Section("应用规则") {
         val selectedCount = selectedPackages(state).size
         Text(
             if (state.appRuleMode == MODE_ALLOW) "白名单模式：只有已选择的应用使用连接。" else "黑名单模式：已选择的应用不使用连接。",
@@ -778,7 +747,7 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
             }
         }
     }
-    EditorialSection("DNS") {
+    Section("DNS") {
         OutlinedTextField(value = nodeDns, onValueChange = { nodeDns = it }, label = { Text("解析节点域名的本地 DNS") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(value = overseasDns, onValueChange = { overseasDns = it }, label = { Text("连接后解析域名的海外 DNS") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -790,7 +759,7 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
             Switch(checked = state.vpnIpv6Enabled, onCheckedChange = viewModel::setIpv6Enabled)
         }
     }
-    EditorialSection("节点测试") {
+    Section("节点测试") {
         OutlinedTextField(value = nodeTestTarget, onValueChange = { nodeTestTarget = it }, label = { Text("测试目标网站") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
         Text(
@@ -831,7 +800,7 @@ private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMode
         }
         if (state.anyTlsNodes.isEmpty()) {
             item {
-                EditorialSection("可用节点") {
+                Section("可用节点") {
                     Text(if (state.nodesLoading) "节点正在同步。" else "暂无可用节点。", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -1012,7 +981,7 @@ private fun PageHeader(title: String, subtitle: String = "") {
 }
 
 @Composable
-private fun EditorialSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1057,7 +1026,7 @@ private val XbClientUiState.canHandleBack: Boolean
         !isLoggedIn && authMode == AuthMode.REGISTER ||
         isLoggedIn && screen !in setOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE)
 
-private fun AnimatedContentTransitionScope<*>.editorialTransition() =
+private fun AnimatedContentTransitionScope<*>.contentTransition() =
     (fadeIn(animationSpec = tween(180)) togetherWith
         fadeOut(animationSpec = tween(140))).using(SizeTransform(clip = false))
 

@@ -14,6 +14,8 @@ const val DEFAULT_OVERSEAS_DNS = "https://cloudflare-dns.com/dns-query"
 const val DEFAULT_DIRECT_DNS = "223.5.5.5"
 const val DEFAULT_NODE_TEST_TARGET = "cp.cloudflare.com"
 const val DNS_MODE_OVER_TCP = "over_tcp"
+const val REWARD_SCENE_PLAN = "plan"
+const val REWARD_SCENE_POINTS = "points"
 
 enum class AuthMode {
     LOGIN,
@@ -79,8 +81,10 @@ data class PlanItem(
 
 data class AdRewardLogItem(
     val id: Int,
+    val scene: String,
     val transactionId: String,
     val status: String,
+    val error: String,
     val giftCardCode: String,
     val giftCardCodeId: Int,
     val giftCardTemplateId: Int,
@@ -150,8 +154,10 @@ fun JSONArray.toAdRewardLogItemList(): List<AdRewardLogItem> =
         val item = getJSONObject(index)
         AdRewardLogItem(
             id = item.optInt("id"),
+            scene = item.optString("scene"),
             transactionId = item.optString("transaction_id"),
             status = item.optString("status"),
+            error = item.optString("error"),
             giftCardCode = item.optString("gift_card_code"),
             giftCardCodeId = item.optInt("gift_card_code_id"),
             giftCardTemplateId = item.optInt("gift_card_template_id"),
