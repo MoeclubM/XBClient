@@ -689,7 +689,7 @@ private fun RewardAdSection(state: XbClientUiState, viewModel: XbClientViewModel
             )
         } else {
             for ((index, log) in state.adRewardLogs.take(3).withIndex()) {
-                Text(if (log.status == "credited") "已发放" else log.status, style = MaterialTheme.typography.titleLarge)
+                Text(rewardStatusText(log.status), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(4.dp))
                 Text("兑换码 ${log.giftCardCode.ifEmpty { "未生成" }}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
@@ -1041,6 +1041,14 @@ private fun formatUnixTime(value: Long): String =
 private fun planPriceText(plan: PlanItem, symbol: String): String =
     if (plan.prices.isEmpty()) "价格未设置" else plan.prices.joinToString(" · ") {
         "${it.label} ${formatMoney(it.amount, symbol)}"
+    }
+
+private fun rewardStatusText(status: String): String =
+    when (status) {
+        "credited" -> "已发放"
+        "pending" -> "验证中"
+        "failed" -> "发放失败"
+        else -> status
     }
 
 private val XbClientUiState.canHandleBack: Boolean

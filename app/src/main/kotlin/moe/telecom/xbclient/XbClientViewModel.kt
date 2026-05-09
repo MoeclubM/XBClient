@@ -577,13 +577,24 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun onRewardAdEarned(_amount: Int, _type: String) {
+    fun onRewardAdEarned(customData: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            delay(5000)
-            refreshSubscriptionAndNodes()
-            refreshUserInfo()
-            refreshRewardConfig()
-            refreshAdRewardHistory()
+            try {
+                XboardApi.request(
+                    "xbclient_reward_pending",
+                    defaultApiUrl(),
+                    _uiState.value.authData,
+                    JSONObject().put("custom_data", customData)
+                )
+            } catch (_: Exception) {
+            }
+            repeat(12) {
+                delay(15000)
+                refreshSubscriptionAndNodes()
+                refreshUserInfo()
+                refreshRewardConfig()
+                refreshAdRewardHistory()
+            }
         }
     }
 

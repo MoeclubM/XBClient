@@ -250,7 +250,7 @@ class MainActivity : ComponentActivity() {
             object : OnUserEarnedRewardListener {
                 override fun onUserEarnedReward(reward: RewardItem) {
                     runOnUiThread {
-                        viewModel.onRewardAdEarned(reward.amount, reward.type)
+                        viewModel.onRewardAdEarned(customData)
                     }
                 }
             }

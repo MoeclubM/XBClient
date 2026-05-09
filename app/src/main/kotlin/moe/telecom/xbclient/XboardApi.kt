@@ -74,6 +74,7 @@ object XboardApi {
             "admob_reward_config" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/config", authData, emptyMap())
             "xbclient_plan_payment" -> postAuth(normalizedBaseUrl, "/api/v1/admob/user/plan-payment", authData, params)
             "xbclient_reward_history" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/reward-history", authData, emptyMap())
+            "xbclient_reward_pending" -> postAuth(normalizedBaseUrl, "/api/v1/admob/user/reward-pending", authData, params)
 
             // 非站点 API：订阅内容解析
             "anytls_nodes" -> fetchProxyNodes(params.getString("subscribe_url"), params.optString("flag", "meta"))
