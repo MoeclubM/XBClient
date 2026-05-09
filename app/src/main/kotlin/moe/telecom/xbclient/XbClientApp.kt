@@ -47,6 +47,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -485,7 +486,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
 private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
-    PageHeader("节点", "节点来自面板接口，登录后自动同步并本地缓存。")
+    PageHeader("节点")
     Section("连接") {
         Text(
             if (state.vpnRequested) "已连接" else "未连接",
@@ -575,7 +576,7 @@ private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                     onBalancePurchase = { price -> viewModel.buyPlanWithBalance(plan.id, price.field, price.amount) }
                 )
                 if (index != state.plans.lastIndex) {
-                    HorizontalDivider()
+                    Spacer(Modifier.height(12.dp))
                 }
             }
         }
@@ -590,29 +591,30 @@ private fun PlanRow(
     onOpenPayment: () -> Unit,
     onBalancePurchase: (PlanPrice) -> Unit
 ) {
-    Column(
+    OutlinedCard(
         modifier = Modifier
             .clickable(enabled = paymentEnabled, onClick = onOpenPayment)
             .fillMaxWidth()
-            .padding(vertical = 12.dp)
     ) {
-        Text(plan.name, style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(4.dp))
-        Text(planPriceText(plan, currencySymbol), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (plan.transferEnable > 0.0) {
+        Column(Modifier.padding(16.dp)) {
+            Text(plan.name, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(4.dp))
-            Text("流量 ${formatTrafficGb(plan.transferEnable)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        val content = plan.content.trim()
-        if (content.isNotEmpty() && !content.startsWith("[") && !content.startsWith("{")) {
-            Spacer(Modifier.height(4.dp))
-            Text(content, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (!paymentEnabled && plan.prices.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            for (price in plan.prices) {
-                TextButton(onClick = { onBalancePurchase(price) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("${price.label} ${formatMoney(price.amount, currencySymbol)}")
+            Text(planPriceText(plan, currencySymbol), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (plan.transferEnable > 0.0) {
+                Spacer(Modifier.height(4.dp))
+                Text("流量 ${formatTrafficGb(plan.transferEnable)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            val content = plan.content.trim()
+            if (content.isNotEmpty() && !content.startsWith("[") && !content.startsWith("{")) {
+                Spacer(Modifier.height(8.dp))
+                Text(content, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (!paymentEnabled && plan.prices.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                for (price in plan.prices) {
+                    TextButton(onClick = { onBalancePurchase(price) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("${price.label} ${formatMoney(price.amount, currencySymbol)}")
+                    }
                 }
             }
         }

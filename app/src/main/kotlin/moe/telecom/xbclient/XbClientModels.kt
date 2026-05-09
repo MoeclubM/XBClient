@@ -110,13 +110,32 @@ data class AdRewardLogItem(
 )
 
 fun JSONObject.toAnyTlsNode(): AnyTlsNode =
-    AnyTlsNode(
-        protocol = optString("type", optString("protocol", "anytls")).lowercase(Locale.US),
-        name = optString("name"),
-        host = optString("host", optString("server")),
-        port = optInt("port", optInt("server_port")),
-        rawJson = toString()
-    )
+    optString("type", optString("protocol", "anytls")).lowercase(Locale.US).let { protocol ->
+        AnyTlsNode(
+            protocol = protocol,
+            name = optString("name"),
+            host = optString("host", optString("server")),
+            port = optInt("port", optInt("server_port")),
+            rawJson = normalizedNodeJson(protocol)
+        )
+    }
+
+private fun JSONObject.normalizedNodeJson(protocol: String): String {
+    val node = JSONObject(toString())
+    if (protocol == "anytls" || protocol == "hysteria2" || protocol == "hy2") {
+        if (node.optString("host").isEmpty() && node.optString("server").isNotEmpty()) {
+            node.put("host", node.optString("server"))
+        }
+        if (protocol == "hy2") {
+            node.put("type", "hysteria2")
+        }
+        if (!node.has("insecure")) {
+            node.put("insecure", node.optBoolean("skip-cert-verify", false))
+        }
+        node.remove("skip-cert-verify")
+    }
+    return node.toString()
+}
 
 fun JSONObject.toInviteItem(): InviteItem =
     InviteItem(
