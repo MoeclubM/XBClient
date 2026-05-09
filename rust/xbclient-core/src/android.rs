@@ -4,7 +4,8 @@ use jni::{Env, JValue, JavaVM, jni_sig, jni_str};
 use once_cell::sync::Lazy;
 use std::sync::Mutex as StdMutex;
 
-static PASS_VPN_SERVICE_CLASS: Lazy<StdMutex<Option<Global>>> = Lazy::new(|| StdMutex::new(None));
+static PASS_VPN_SERVICE_CLASS: Lazy<StdMutex<Option<Global<JClass<'static>>>>> =
+    Lazy::new(|| StdMutex::new(None));
 
 pub fn initialize_android(env: &Env<'_>, service_class: &JClass<'_>) -> jni::errors::Result<()> {
     let global_class = env.new_global_ref(service_class)?;
