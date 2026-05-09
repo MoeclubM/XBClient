@@ -1,5 +1,6 @@
-mod anytls;
-mod hysteria2;
+mod aerion_core;
+#[cfg(target_os = "android")]
+mod android;
 
 use anyhow::{Context, Result};
 use jni::errors::{Result as JniResult, ThrowRuntimeExAndDefault};
@@ -31,11 +32,8 @@ pub extern "system" fn Java_moe_telecom_xbclient_RustCore_initializeAndroid<'loc
     _object: JObject<'local>,
     service_class: JClass<'local>,
 ) {
-    env.with_env(|env| -> JniResult<()> {
-        anytls::initialize_android(env, &service_class)?;
-        hysteria2::initialize_android(env, &service_class)
-    })
-    .resolve::<ThrowRuntimeExAndDefault>();
+    env.with_env(|env| -> JniResult<()> { android::initialize_android(env, &service_class) })
+        .resolve::<ThrowRuntimeExAndDefault>();
 }
 
 #[unsafe(no_mangle)]
@@ -88,59 +86,16 @@ pub extern "system" fn Java_moe_telecom_xbclient_RustCore_stopAnyTlsVpn<'local>(
     .resolve::<ThrowRuntimeExAndDefault>()
 }
 
-const HYSTERIA2_SESSION_MASK: u64 = 1 << 62;
-
 async fn start_vpn_from_json(input: &str) -> Result<String> {
-    let protocol = request_protocol(input)?;
-    if protocol.eq_ignore_ascii_case("hysteria2") {
-        let output = hysteria2::start_vpn_from_json(input).await?;
-        let mut value: serde_json::Value =
-            serde_json::from_str(&output).context("parse Hysteria2 VPN start response")?;
-        let session_id = value
-            .get("session_id")
-            .and_then(serde_json::Value::as_u64)
-            .context("Hysteria2 VPN start response missing session_id")?;
-        value["session_id"] = json!(session_id | HYSTERIA2_SESSION_MASK);
-        return Ok(value.to_string());
-    }
-    if protocol.eq_ignore_ascii_case("anytls") {
-        return anytls::start_vpn_from_json(input).await;
-    }
-    anyhow::bail!("unsupported node protocol: {protocol}")
+    aerion_core::start_vpn_from_json(input).await
 }
 
 async fn test_node_from_json(input: &str) -> Result<String> {
-    let protocol = request_protocol(input)?;
-    if protocol.eq_ignore_ascii_case("hysteria2") {
-        return hysteria2::test_node_from_json(input).await;
-    }
-    if protocol.eq_ignore_ascii_case("anytls") {
-        return anytls::test_node_from_json(input).await;
-    }
-    anyhow::bail!("unsupported node protocol: {protocol}")
+    aerion_core::test_node_from_json(input).await
 }
 
 async fn stop_vpn(session_id: u64) -> Result<String> {
-    if session_id & HYSTERIA2_SESSION_MASK != 0 {
-        return hysteria2::stop_vpn(session_id & !HYSTERIA2_SESSION_MASK).await;
-    }
-    anytls::stop_vpn(session_id).await
-}
-
-fn request_protocol(input: &str) -> Result<String> {
-    let value: serde_json::Value = serde_json::from_str(input).context("parse core request")?;
-    let node = value.get("node").context("core request node is required")?;
-    let protocol = node
-        .get("type")
-        .or_else(|| node.get("protocol"))
-        .or_else(|| node.get("network"))
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("anytls");
-    Ok(if protocol.eq_ignore_ascii_case("hy2") {
-        "hysteria2".to_string()
-    } else {
-        protocol.to_ascii_lowercase()
-    })
+    aerion_core::stop_vpn(session_id).await
 }
 
 fn call_string<'local>(
