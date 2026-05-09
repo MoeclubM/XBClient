@@ -35,10 +35,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -50,6 +54,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -634,27 +639,75 @@ private fun RewardAdSection(
     }
     val logs = state.adRewardLogs.filter { it.scene == scene }
     Section(title) {
-        Button(onClick = { viewModel.requestRewardAd(scene) }, modifier = Modifier.fillMaxWidth()) {
-            Text("观看广告")
-        }
-        Spacer(Modifier.height(12.dp))
-        if (logs.isEmpty()) {
-            Text("暂无已验证的广告奖励记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            val visibleLogs = logs.take(3)
-            for ((index, log) in visibleLogs.withIndex()) {
-                Text(rewardStatusText(log.status), style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(4.dp))
-                Text("兑换码 ${log.giftCardCode.ifEmpty { "未生成" }}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (log.status == "failed" && log.error.isNotEmpty()) {
-                    Text(log.error, color = MaterialTheme.colorScheme.error)
+        ElevatedCard(
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.size(54.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("AD", style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(title, style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            if (scene == REWARD_SCENE_POINTS) "观看完整激励广告后领取积分奖励。" else "观看完整激励广告后领取套餐奖励。",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                Text(
-                    "模板 ${log.giftCardTemplateId} · 记录 ${log.id} · ${formatUnixTime(log.createdAt)}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (index != visibleLogs.lastIndex) {
-                    HorizontalDivider(Modifier.padding(vertical = 10.dp))
+                Spacer(Modifier.height(16.dp))
+                FilledTonalButton(onClick = { viewModel.requestRewardAd(scene) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("观看激励广告")
+                }
+                if (logs.isNotEmpty()) {
+                    val visibleLogs = logs.take(3)
+                    Spacer(Modifier.height(16.dp))
+                    Text("最近记录", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    for ((index, log) in visibleLogs.withIndex()) {
+                        val statusColor = when (log.status) {
+                            "credited" -> MaterialTheme.colorScheme.primary
+                            "failed" -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.tertiary
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.weight(1f)) {
+                                Text(log.giftCardCode.ifEmpty { "兑换码生成中" }, style = MaterialTheme.typography.titleMedium)
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    "模板 ${log.giftCardTemplateId} · ${formatUnixTime(log.createdAt)}",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (log.status == "failed" && log.error.isNotEmpty()) {
+                                    Text(log.error, color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                            Surface(
+                                color = statusColor.copy(alpha = 0.12f),
+                                contentColor = statusColor,
+                                shape = RoundedCornerShape(50)
+                            ) {
+                                Text(
+                                    rewardStatusText(log.status),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                        if (index != visibleLogs.lastIndex) {
+                            HorizontalDivider(Modifier.padding(vertical = 10.dp))
+                        }
+                    }
                 }
             }
         }

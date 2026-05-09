@@ -10,6 +10,7 @@ import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -50,6 +51,7 @@ class MainActivity : ComponentActivity() {
     private var appOpenAdLoading = false
     private var appOpenAdShowing = false
     private var appOpenAdShown = false
+    private var appOpenAdStartedAt = 0L
     private var startupConfigHandled = false
 
     private val vpnPermissionLauncher =
@@ -258,6 +260,9 @@ class MainActivity : ComponentActivity() {
         if (appOpenAdLoading || appOpenAdShown) {
             return
         }
+        if (appOpenAdStartedAt == 0L) {
+            appOpenAdStartedAt = SystemClock.elapsedRealtime()
+        }
         appOpenAdLoading = true
         appOpenAdUnitId = adUnitId
         AppOpenAd.load(
@@ -285,6 +290,15 @@ class MainActivity : ComponentActivity() {
 
     private fun showAppOpenAdOnce(adUnitId: String) {
         if (appOpenAdShown || appOpenAdShowing) {
+            return
+        }
+        if (appOpenAdStartedAt == 0L) {
+            appOpenAdStartedAt = SystemClock.elapsedRealtime()
+        }
+        if (SystemClock.elapsedRealtime() - appOpenAdStartedAt > APP_OPEN_AD_SHOW_WINDOW_MS) {
+            appOpenAd = null
+            appOpenAdLoading = false
+            appOpenAdShown = true
             return
         }
         val ad = appOpenAd
@@ -325,5 +339,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val ACTION_SELECT_NODE = "moe.telecom.xbclient.action.SELECT_NODE"
+        private const val APP_OPEN_AD_SHOW_WINDOW_MS = 4000L
     }
 }

@@ -82,6 +82,15 @@ jobs:
           mkdir -p "$(dirname "$XBCLIENT_RELEASE_STORE_FILE")"
           printf '%s' "$XBCLIENT_RELEASE_STORE_BASE64" | base64 -d > "$XBCLIENT_RELEASE_STORE_FILE"
 
+      - name: Verify shared release signing certificate
+        shell: bash
+        run: |
+          keytool -list -v \
+            -keystore "$XBCLIENT_RELEASE_STORE_FILE" \
+            -storepass "$XBCLIENT_RELEASE_STORE_PASSWORD" \
+            -alias "$XBCLIENT_RELEASE_KEY_ALIAS" \
+            | grep -E 'Alias name:|SHA256:'
+
       - name: Set up Rust Android targets
         shell: bash
         run: |
@@ -91,11 +100,11 @@ jobs:
             i686-linux-android \
             x86_64-linux-android
 
-      - name: Build signed release APKs
+      - name: Build signed release APKs and AAB
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleRelease --build-cache --stacktrace
+          ./gradlew :app:assembleRelease :app:bundleRelease --build-cache --stacktrace
 
       - name: Upload release arm64-v8a APK
         uses: actions/upload-artifact@v6
@@ -132,10 +141,18 @@ jobs:
           path: app/build/outputs/apk/release/app-universal-release.apk
           if-no-files-found: error
 
+      - name: Upload release AAB
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-release-aab-${{ github.ref_name }}
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
             app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
           generate_release_notes: true
