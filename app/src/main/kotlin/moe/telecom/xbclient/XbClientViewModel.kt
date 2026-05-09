@@ -101,6 +101,7 @@ sealed interface XbClientEvent {
     data class Message(val text: String) : XbClientEvent
     data class RequestVpnPermission(val nodeIndex: Int) : XbClientEvent
     data class ShowRewardAd(val adUnitId: String, val userId: String, val customData: String) : XbClientEvent
+    data class OpenExternalUrl(val url: String) : XbClientEvent
 }
 
 class XbClientViewModel(application: Application) : AndroidViewModel(application) {
@@ -310,7 +311,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (scene == "register" && inviteCode.trim().isNotEmpty()) {
             builder.appendQueryParameter("invite_code", inviteCode.trim())
         }
-        _uiState.update { it.copy(oauthWebViewUrl = builder.build().toString()) }
+        emitEvent(XbClientEvent.OpenExternalUrl(builder.build().toString()))
     }
 
     fun closeOAuthWebView() {

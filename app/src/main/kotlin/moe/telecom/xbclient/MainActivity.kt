@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -101,6 +102,10 @@ class MainActivity : ComponentActivity() {
                         is XbClientEvent.Message -> Toast.makeText(this@MainActivity, event.text, Toast.LENGTH_SHORT).show()
                         is XbClientEvent.RequestVpnPermission -> requestVpnPermission(event.nodeIndex)
                         is XbClientEvent.ShowRewardAd -> showRewardedAd(event.adUnitId, event.userId, event.customData)
+                        is XbClientEvent.OpenExternalUrl -> startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(event.url))
+                                .addCategory(Intent.CATEGORY_BROWSABLE)
+                        )
                     }
                 }
             }
@@ -216,7 +221,6 @@ class MainActivity : ComponentActivity() {
             pendingRewardCustomData = customData
             pendingRewardShow = true
             loadRewardedAd(adUnitId)
-            Toast.makeText(this, "广告正在加载，请稍后再试。", Toast.LENGTH_SHORT).show()
             return
         }
         ad.setServerSideVerificationOptions(
