@@ -210,6 +210,9 @@ private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
     ) { padding ->
         AndroidView(
             factory = { context ->
+                val webUserAgent = WebSettings.getDefaultUserAgent(context).let { defaultUserAgent ->
+                    if (defaultUserAgent.contains(BuildConfig.USER_AGENT)) defaultUserAgent else "$defaultUserAgent ${BuildConfig.USER_AGENT}"
+                }
                 WebView(context).apply {
                     CookieManager.getInstance().setAcceptCookie(true)
                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
@@ -220,7 +223,7 @@ private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                         settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                     }
-                    settings.userAgentString = BuildConfig.USER_AGENT
+                    settings.userAgentString = webUserAgent
                     webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                             handleOAuthWebUrl(request.url, viewModel)
@@ -237,7 +240,7 @@ private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
                                 settings.javaScriptCanOpenWindowsAutomatically = true
-                                settings.userAgentString = BuildConfig.USER_AGENT
+                                settings.userAgentString = webUserAgent
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                                     settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                                 }
@@ -670,11 +673,6 @@ private fun RewardAdSection(state: XbClientUiState, viewModel: XbClientViewModel
         return
     }
     EditorialSection("广告奖励") {
-        Text(
-            "观看激励广告后由服务端验证，并通过礼品卡自动兑换到账户。",
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             Button(onClick = viewModel::requestRewardAd, modifier = Modifier.weight(1f)) {
                 Text("观看广告")
@@ -955,27 +953,6 @@ private fun AppRulesScreen(state: XbClientUiState, viewModel: XbClientViewModel)
 @Composable
 private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
-    if (state.startupConfigDialogVisible) {
-        AlertDialog(
-            onDismissRequest = viewModel::dismissStartupConfigDialog,
-            title = { Text("本地配置") },
-            text = {
-                Column {
-                    Text("面板：${BuildConfig.DEFAULT_API_URL}")
-                    Text("网页支付：${if (state.paymentEnabled) "开启" else "关闭"}")
-                    Text("激励广告：${if (state.adEnabled) "开启" else "关闭"}")
-                    Text("开屏广告：${if (state.appOpenAdEnabled) "开启" else "关闭"}")
-                    Text("更新项目：${state.githubProjectUrl.ifEmpty { "未配置" }}")
-                    Text("配置同步：${formatConfigTime(state.configUpdatedAt)}")
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = viewModel::dismissStartupConfigDialog) {
-                    Text("知道了")
-                }
-            }
-        )
-    }
     if (state.updateAvailable) {
         AlertDialog(
             onDismissRequest = viewModel::dismissUpdateDialog,
@@ -1058,9 +1035,6 @@ private fun selectedPackages(state: XbClientUiState): Set<String> =
 private fun formatMoney(amount: Int, symbol: String): String =
     symbol + String.format(Locale.US, "%.2f", amount / 100.0)
 
-private fun formatConfigTime(value: Long): String =
-    if (value <= 0L) "尚未同步" else SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(value))
-
 private fun formatUnixTime(value: Long): String =
     if (value <= 0L) "" else SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(value * 1000))
 
@@ -1070,8 +1044,7 @@ private fun planPriceText(plan: PlanItem, symbol: String): String =
     }
 
 private val XbClientUiState.canHandleBack: Boolean
-    get() = startupConfigDialogVisible ||
-        updateAvailable ||
+    get() = updateAvailable ||
         oauthWebViewUrl.isNotEmpty() ||
         !isLoggedIn && authMode == AuthMode.REGISTER ||
         isLoggedIn && screen !in setOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE)

@@ -202,7 +202,6 @@ class MainActivity : ComponentActivity() {
                         rewardedAdLoading = false
                         if (pendingRewardShow) {
                             pendingRewardShow = false
-                            Toast.makeText(this@MainActivity, "广告加载失败：${adError.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -239,7 +238,6 @@ class MainActivity : ComponentActivity() {
                 runOnUiThread {
                     rewardedAd = null
                     loadRewardedAd(adUnitId)
-                    Toast.makeText(this@MainActivity, "广告展示失败：${fullScreenContentError.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -280,7 +278,6 @@ class MainActivity : ComponentActivity() {
                         appOpenAd = null
                         appOpenAdLoading = false
                         startupSplashHold = false
-                        Toast.makeText(this@MainActivity, "开屏广告加载失败：${adError.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -310,7 +307,6 @@ class MainActivity : ComponentActivity() {
                 runOnUiThread {
                     appOpenAd = null
                     appOpenAdShowing = false
-                    Toast.makeText(this@MainActivity, "开屏广告展示失败：${fullScreenContentError.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }

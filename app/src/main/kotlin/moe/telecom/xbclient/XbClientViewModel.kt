@@ -84,7 +84,6 @@ data class XbClientUiState(
     val latestReleaseVersion: String = "",
     val latestReleaseUrl: String = "",
     val latestDownloadUrl: String = "",
-    val startupConfigDialogVisible: Boolean = false,
     val oauthProviders: List<OAuthProvider> = emptyList(),
     val oauthConfirmToken: String = "",
     val oauthConfirmProvider: String = "",
@@ -184,10 +183,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     fun navigateBack() {
         val state = _uiState.value
-        if (state.startupConfigDialogVisible) {
-            dismissStartupConfigDialog()
-            return
-        }
         if (state.updateAvailable) {
             dismissUpdateDialog()
             return
@@ -377,10 +372,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     fun clearOAuthConfirm() {
         _uiState.update { it.copy(oauthConfirmToken = "", oauthConfirmProvider = "", oauthConfirmEmail = "") }
-    }
-
-    fun dismissStartupConfigDialog() {
-        _uiState.update { it.copy(startupConfigDialogVisible = false) }
     }
 
     fun dismissUpdateDialog() {
@@ -586,7 +577,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun onRewardAdEarned(_amount: Int, _type: String) {
-        emitMessage("广告观看完成，等待服务端验证。")
         viewModelScope.launch(Dispatchers.IO) {
             delay(5000)
             refreshSubscriptionAndNodes()
@@ -1120,8 +1110,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             )
         }
         _uiState.value = state.copy(
-            selectedNodeIndex = state.selectedNodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0)),
-            startupConfigDialogVisible = true
+            selectedNodeIndex = state.selectedNodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0))
         )
         if (!hasDataStoreState) {
             persistStoredState(_uiState.value)

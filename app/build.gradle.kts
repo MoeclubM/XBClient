@@ -25,8 +25,8 @@ fun sdkDirectory(): File {
 
 val rustCrateDir = rootProject.file("rust/xbclient-core")
 val minAndroidApi = 26
-val latestAndroidApi = 37
-val latestBuildTools = "37.0.0"
+val latestAndroidApi = 36
+val latestBuildTools = "36.1.0"
 val androidNdkVersion = "28.2.13676358"
 val androidSdkDir = sdkDirectory()
 val androidNdkDir = androidSdkDir.resolve("ndk/$androidNdkVersion")
