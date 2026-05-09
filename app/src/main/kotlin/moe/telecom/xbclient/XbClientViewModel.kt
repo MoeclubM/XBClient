@@ -80,6 +80,7 @@ data class XbClientUiState(
     val adRewardLogs: List<AdRewardLogItem> = emptyList(),
     val adRewardLogsLoading: Boolean = false,
     val configUpdatedAt: Long = 0L,
+    val appUrl: String = "",
     val githubProjectUrl: String = "",
     val updateAvailable: Boolean = false,
     val latestReleaseVersion: String = "",
@@ -300,11 +301,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             try {
                 val result = XboardApi.request("guest_config", defaultApiUrl(), "", JSONObject())
                 val body = requireSuccessfulBody("访客配置", result)
-                val providers = body.optJSONObject("data")
+                val data = body.optJSONObject("data")
+                val providers = data
                     ?.optJSONArray("oauth_providers")
                     ?.toOAuthProviderList()
                     ?: emptyList()
-                _uiState.update { it.copy(oauthProviders = providers) }
+                _uiState.update { it.copy(appUrl = data?.optString("app_url").orEmpty(), oauthProviders = providers) }
                 persistStoredState(_uiState.value)
             } catch (error: Exception) {
                 if (showErrors) {
@@ -315,7 +317,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun openOAuthPage(scene: String, driver: String, inviteCode: String = "") {
-        val builder = Uri.parse("${defaultApiUrl().trimEnd('/')}/api/v1/passport/auth/oauth/$driver/redirect")
+        val rawBaseUrl = _uiState.value.appUrl.trim().ifEmpty { defaultApiUrl() }
+        val oauthBaseUrl = (if (rawBaseUrl.startsWith("http://") || rawBaseUrl.startsWith("https://")) rawBaseUrl else "https://$rawBaseUrl").trimEnd('/')
+        val builder = Uri.parse("$oauthBaseUrl/api/v1/passport/auth/oauth/$driver/redirect")
             .buildUpon()
             .appendQueryParameter("scene", scene)
             .appendQueryParameter("redirect", "dashboard")
@@ -413,6 +417,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             appOpenAdEnabled = current.appOpenAdEnabled,
             appOpenAdUnitId = current.appOpenAdUnitId,
             configUpdatedAt = current.configUpdatedAt,
+            appUrl = current.appUrl,
             githubProjectUrl = current.githubProjectUrl,
             oauthProviders = current.oauthProviders
         )
@@ -1183,6 +1188,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 appOpenAdUnitId = prefs[Keys.APP_OPEN_AD_UNIT_ID].orEmpty(),
                 adRewardLogs = cachedAdRewardLogs(prefs[Keys.AD_REWARD_LOGS].orEmpty()),
                 configUpdatedAt = prefs[Keys.CONFIG_UPDATED_AT] ?: 0L,
+                appUrl = prefs[Keys.APP_URL].orEmpty(),
                 githubProjectUrl = prefs[Keys.GITHUB_PROJECT_URL].orEmpty(),
                 oauthProviders = cachedOAuthProviders(prefs[Keys.OAUTH_PROVIDERS].orEmpty())
             )
@@ -1222,6 +1228,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 appOpenAdUnitId = legacy.getString("app_open_ad_unit_id", "").orEmpty(),
                 adRewardLogs = cachedAdRewardLogs(legacy.getString("ad_reward_logs", "").orEmpty()),
                 configUpdatedAt = legacy.getLong("config_updated_at", 0L),
+                appUrl = legacy.getString("app_url", "").orEmpty(),
                 githubProjectUrl = legacy.getString("github_project_url", "").orEmpty(),
                 oauthProviders = cachedOAuthProviders(legacy.getString("oauth_providers", "").orEmpty())
             )
@@ -1301,6 +1308,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
             prefs[Keys.AD_REWARD_LOGS] = adRewardLogsJson(state.adRewardLogs)
             prefs[Keys.CONFIG_UPDATED_AT] = state.configUpdatedAt
+            prefs[Keys.APP_URL] = state.appUrl
             prefs[Keys.GITHUB_PROJECT_URL] = state.githubProjectUrl
             prefs[Keys.OAUTH_PROVIDERS] = oauthProvidersJson(state.oauthProviders)
         }
@@ -1338,6 +1346,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("app_open_ad_unit_id", state.appOpenAdUnitId)
             .putString("ad_reward_logs", adRewardLogsJson(state.adRewardLogs))
             .putLong("config_updated_at", state.configUpdatedAt)
+            .putString("app_url", state.appUrl)
             .putString("github_project_url", state.githubProjectUrl)
             .putString("oauth_providers", oauthProvidersJson(state.oauthProviders))
             .apply()
@@ -1574,6 +1583,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val APP_OPEN_AD_UNIT_ID = stringPreferencesKey("app_open_ad_unit_id")
         val AD_REWARD_LOGS = stringPreferencesKey("ad_reward_logs")
         val CONFIG_UPDATED_AT = longPreferencesKey("config_updated_at")
+        val APP_URL = stringPreferencesKey("app_url")
         val GITHUB_PROJECT_URL = stringPreferencesKey("github_project_url")
         val OAUTH_PROVIDERS = stringPreferencesKey("oauth_providers")
     }
