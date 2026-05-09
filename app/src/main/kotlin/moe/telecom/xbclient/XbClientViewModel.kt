@@ -580,13 +580,16 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun onRewardAdEarned(customData: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                XboardApi.request(
+                val result = XboardApi.request(
                     "xbclient_reward_pending",
                     defaultApiUrl(),
                     _uiState.value.authData,
                     JSONObject().put("custom_data", customData)
                 )
-            } catch (_: Exception) {
+                requireSuccessfulBody("广告验证记录", result)
+                refreshAdRewardHistory()
+            } catch (error: Exception) {
+                emitMessage("广告验证记录提交失败：${error.message}")
             }
             repeat(12) {
                 delay(15000)
