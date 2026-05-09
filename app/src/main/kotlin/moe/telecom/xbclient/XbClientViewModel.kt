@@ -418,25 +418,36 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val subscribeBody = requireSuccessfulBody("订阅同步", subscribeResult)
                 val data = subscribeBody.getJSONObject("data")
                 val subscribeUrl = data.optString("subscribe_url", current.subscribeUrl)
-                if (subscribeUrl.isEmpty()) {
-                    throw IllegalStateException("订阅地址为空。")
+                val xbclientNodesResult = XboardApi.request("xbclient_nodes", defaultApiUrl(), current.authData, JSONObject())
+                val nodes = if (xbclientNodesResult.optBoolean("ok")) {
+                    val nodesBody = requireSuccessfulBody("XBClient 节点同步", xbclientNodesResult)
+                    nodesBody.getJSONObject("data").getJSONArray("nodes").toAnyTlsNodeList()
+                } else if (xbclientNodesResult.optInt("status") == 404) {
+                    if (subscribeUrl.isEmpty()) {
+                        throw IllegalStateException("XBClient 节点接口不可用，且订阅地址为空。")
+                    }
+                    val nodesResult = XboardApi.request(
+                        "anytls_nodes",
+                        defaultApiUrl(),
+                        "",
+                        JSONObject().put("subscribe_url", subscribeUrl).put("flag", "meta")
+                    )
+                    if (!nodesResult.optBoolean("ok")) {
+                        throw IllegalStateException(resultError(nodesResult))
+                    }
+                    emitMessage("XBClient 节点接口不可用，已使用原订阅节点。")
+                    nodesResult.getJSONArray("nodes").toAnyTlsNodeList()
+                } else {
+                    throw IllegalStateException(resultError(xbclientNodesResult))
                 }
-                val nodesResult = XboardApi.request(
-                    "anytls_nodes",
-                    defaultApiUrl(),
-                    "",
-                    JSONObject().put("subscribe_url", subscribeUrl).put("flag", "meta")
-                )
-                if (!nodesResult.optBoolean("ok")) {
-                    throw IllegalStateException(resultError(nodesResult))
-                }
-                val nodes = nodesResult.getJSONArray("nodes").toAnyTlsNodeList()
+                val selectedIndex = _uiState.value.selectedNodeIndex.coerceIn(0, (nodes.size - 1).coerceAtLeast(0))
+                val firstConnectableIndex = nodes.indexOfFirst { it.connectSupported }
                 val next = _uiState.value.copy(
                     subscribeToken = data.optString("token", current.subscribeToken),
                     subscribeUrl = subscribeUrl,
                     subscriptionSummary = subscriptionSummary(data),
                     anyTlsNodes = nodes,
-                    selectedNodeIndex = _uiState.value.selectedNodeIndex.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)),
+                    selectedNodeIndex = if (nodes.getOrNull(selectedIndex)?.connectSupported == true || firstConnectableIndex < 0) selectedIndex else firstConnectableIndex,
                     nodeTestResults = emptyMap(),
                     nodesLoading = false
                 )
@@ -444,7 +455,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 persistStoredState(next)
             } catch (error: Exception) {
                 _uiState.update { it.copy(nodesLoading = false) }
-                emitMessage("节点同步失败：${error.message}")
+                emitMessage(if (_uiState.value.anyTlsNodes.isEmpty()) "节点同步失败：${error.message}" else "节点同步失败，继续使用本地缓存：${error.message}")
             }
         }
     }
@@ -867,6 +878,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (index !in nodes.indices) {
             return
         }
+        if (!nodes[index].connectSupported) {
+            emitMessage("当前内核暂不支持 ${nodes[index].protocolLabel} 节点。")
+            return
+        }
         updateAndPersist {
             it.copy(
                 selectedNodeIndex = index,
@@ -899,6 +914,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     fun chooseNodeFromDialog(index: Int) {
         val connectAfterSelect = _uiState.value.nodeSwitchConnect
+        val node = _uiState.value.anyTlsNodes.getOrNull(index) ?: return
+        if (!node.connectSupported) {
+            emitMessage("当前内核暂不支持 ${node.protocolLabel} 节点。")
+            return
+        }
         selectNode(index, returnToNodes = !connectAfterSelect)
         if (connectAfterSelect) {
             requestStartVpn()
@@ -908,6 +928,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun testNode(index: Int) {
         val nodes = _uiState.value.anyTlsNodes
         if (index !in nodes.indices) {
+            return
+        }
+        if (!nodes[index].connectSupported) {
+            _uiState.update { it.copy(nodeTestResults = it.nodeTestResults + (index to "当前内核暂不支持")) }
             return
         }
         _uiState.update { it.copy(nodeTestResults = it.nodeTestResults + (index to "测试中")) }
@@ -926,6 +950,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(nodesTesting = true, nodeTestResults = emptyMap()) }
         viewModelScope.launch(Dispatchers.IO) {
             for (index in nodes.indices) {
+                if (!nodes[index].connectSupported) {
+                    _uiState.update { it.copy(nodeTestResults = it.nodeTestResults + (index to "当前内核暂不支持")) }
+                    continue
+                }
                 _uiState.update { it.copy(nodeTestResults = it.nodeTestResults + (index to "测试中")) }
                 val text = testNodeBlocking(nodes[index])
                 _uiState.update { it.copy(nodeTestResults = it.nodeTestResults + (index to text)) }
@@ -948,6 +976,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 throw IllegalStateException("节点尚未同步完成。")
             }
             val selectedIndex = state.selectedNodeIndex.coerceIn(0, state.anyTlsNodes.size - 1)
+            val selectedNode = state.anyTlsNodes[selectedIndex]
+            if (!selectedNode.connectSupported) {
+                throw IllegalStateException("当前内核暂不支持 ${selectedNode.protocolLabel} 节点。")
+            }
             updateAndPersist { it.copy(selectedNodeIndex = selectedIndex) }
             emitEvent(XbClientEvent.RequestVpnPermission(selectedIndex))
         } catch (error: Exception) {

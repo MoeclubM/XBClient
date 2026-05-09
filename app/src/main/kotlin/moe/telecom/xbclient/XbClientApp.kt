@@ -485,7 +485,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
 private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
-    PageHeader("节点", "节点来自当前账户订阅，登录后自动同步。")
+    PageHeader("节点", "节点来自面板接口，登录后自动同步并本地缓存。")
     Section("连接") {
         Text(
             if (state.vpnRequested) "已连接" else "未连接",
@@ -841,7 +841,7 @@ private fun NodeRow(
         Column(Modifier.weight(1f)) {
             Text((if (selected) "✓ " else "") + node.displayName(index), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(2.dp))
-            Text(testText ?: "未测试", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${node.protocolLabel} · ${testText ?: "未测试"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.width(8.dp))
         IconButton(onClick = onTest, modifier = Modifier.size(32.dp)) {

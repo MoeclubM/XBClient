@@ -47,7 +47,24 @@ data class AnyTlsNode(
     }
 
     val protocolLabel: String
-        get() = if (protocol == "hysteria2" || protocol == "hy2") "Hysteria2" else "AnyTLS"
+        get() = when (protocol) {
+            "anytls" -> "AnyTLS"
+            "hysteria2", "hy2" -> "Hysteria2"
+            "hysteria" -> "Hysteria"
+            "ss", "shadowsocks" -> "Shadowsocks"
+            "vmess" -> "VMess"
+            "vless" -> "VLESS"
+            "trojan" -> "Trojan"
+            "tuic" -> "TUIC"
+            "socks", "socks5" -> "SOCKS5"
+            "naive" -> "Naive"
+            "http" -> "HTTP"
+            "mieru" -> "Mieru"
+            else -> protocol.uppercase(Locale.US)
+        }
+
+    val connectSupported: Boolean
+        get() = protocol == "anytls" || protocol == "hysteria2" || protocol == "hy2"
 }
 
 data class InviteItem(

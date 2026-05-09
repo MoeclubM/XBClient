@@ -91,7 +91,8 @@ pub extern "system" fn Java_moe_telecom_xbclient_RustCore_stopAnyTlsVpn<'local>(
 const HYSTERIA2_SESSION_MASK: u64 = 1 << 62;
 
 async fn start_vpn_from_json(input: &str) -> Result<String> {
-    if request_protocol(input)?.eq_ignore_ascii_case("hysteria2") {
+    let protocol = request_protocol(input)?;
+    if protocol.eq_ignore_ascii_case("hysteria2") {
         let output = hysteria2::start_vpn_from_json(input).await?;
         let mut value: serde_json::Value =
             serde_json::from_str(&output).context("parse Hysteria2 VPN start response")?;
@@ -102,14 +103,21 @@ async fn start_vpn_from_json(input: &str) -> Result<String> {
         value["session_id"] = json!(session_id | HYSTERIA2_SESSION_MASK);
         return Ok(value.to_string());
     }
-    anytls::start_vpn_from_json(input).await
+    if protocol.eq_ignore_ascii_case("anytls") {
+        return anytls::start_vpn_from_json(input).await;
+    }
+    anyhow::bail!("unsupported node protocol: {protocol}")
 }
 
 async fn test_node_from_json(input: &str) -> Result<String> {
-    if request_protocol(input)?.eq_ignore_ascii_case("hysteria2") {
+    let protocol = request_protocol(input)?;
+    if protocol.eq_ignore_ascii_case("hysteria2") {
         return hysteria2::test_node_from_json(input).await;
     }
-    anytls::test_node_from_json(input).await
+    if protocol.eq_ignore_ascii_case("anytls") {
+        return anytls::test_node_from_json(input).await;
+    }
+    anyhow::bail!("unsupported node protocol: {protocol}")
 }
 
 async fn stop_vpn(session_id: u64) -> Result<String> {
