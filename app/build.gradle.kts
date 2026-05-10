@@ -108,8 +108,20 @@ fun gitText(vararg args: String, required: Boolean = true): String {
 val gitCommitTimestamp = gitText("log", "-1", "--format=%ct").toInt()
 val gitShortHash = gitText("rev-parse", "--short=8", "HEAD")
 val gitExactTag = gitText("describe", "--tags", "--exact-match", "HEAD", required = false)
+val gitLatestTag = gitText("describe", "--tags", "--abbrev=0", required = false)
+val gitCommitsSinceLatestTag = if (gitLatestTag.isNotEmpty()) {
+    gitText("rev-list", "$gitLatestTag..HEAD", "--count", required = false).ifEmpty { "0" }
+} else {
+    ""
+}
 val appVersionCode = gitCommitTimestamp
-val appVersionName = gitExactTag.removePrefix("v").ifEmpty { "0.0.$gitCommitTimestamp-$gitShortHash" }
+val appVersionName = gitExactTag.removePrefix("v").ifEmpty {
+    if (gitLatestTag.isNotEmpty()) {
+        "${gitLatestTag.removePrefix("v")}-beta.$gitCommitsSinceLatestTag.$gitShortHash"
+    } else {
+        "0.0.$gitCommitTimestamp-$gitShortHash"
+    }
+}
 val debugVersionNameSuffix = ".debug"
 val releaseStoreFile = signingValue("xbclient.releaseStoreFile", "XBCLIENT_RELEASE_STORE_FILE")
 val releaseStorePassword = signingValue("xbclient.releaseStorePassword", "XBCLIENT_RELEASE_STORE_PASSWORD")

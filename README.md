@@ -113,7 +113,7 @@ XBCLIENT_OAUTH_CALLBACK_SCHEME
 ```
 
 
-版本号由 Git 自动生成：`versionCode` 使用当前提交的 Unix 时间戳，`versionName` 优先使用当前精确 tag 去掉前缀 `v`，非 tag 构建使用提交时间戳与短提交号。Debug 固定追加 `.debug` 后缀。
+版本号由 Git 自动生成：`versionCode` 使用当前提交的 Unix 时间戳；`versionName` 优先使用当前精确 tag 去掉前缀 `v`。非 tag 构建会基于最近 release tag 生成 `版本-beta.提交数.短提交号`，例如 `0.0.1-beta.2.e0418843`；没有任何 tag 时才使用提交时间戳与短提交号。Debug 固定追加 `.debug` 后缀。
 
 设置命令示例：
 

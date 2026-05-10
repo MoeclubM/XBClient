@@ -1545,7 +1545,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun normalizeVersion(value: String): String =
-        value.trim().removePrefix("v").removePrefix("V").removeSuffix(".debug")
+        value.trim().removePrefix("v").removePrefix("V").removeSuffix(".debug").substringBefore("-beta.")
 
     private fun defaultApiUrl(): String {
         val value = BuildConfig.DEFAULT_API_URL.trim()
