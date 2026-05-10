@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
     private var pendingRewardCustomData = ""
     private var pendingRewardAdUnitId = ""
     private var pendingRewardShow = false
+    private var redirectedToAuth = false
 
     private val vpnPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -108,6 +109,15 @@ class MainActivity : ComponentActivity() {
                         return@collect
                     }
                     applyEdgeToEdge(state.themeMode)
+                    if ((!state.isLoggedIn || !state.languageOnboardingDone) && !redirectedToAuth) {
+                        redirectedToAuth = true
+                        startActivity(
+                            Intent(this@MainActivity, AuthActivity::class.java)
+                                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        )
+                        finish()
+                        return@collect
+                    }
                     if (state.isLoggedIn && state.planRewardAdEnabled && state.planRewardedAdUnitId.isNotEmpty()) {
                         loadRewardedAd(state.planRewardedAdUnitId)
                     }

@@ -22,7 +22,7 @@ class AppOpenAdActivity : ComponentActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var appOpenAd: AppOpenAd? = null
     private var adShowing = false
-    private var mainOpened = false
+    private var nextOpened = false
     private val timeoutRunnable = Runnable {
         if (!adShowing) {
             openMainActivity()
@@ -34,7 +34,11 @@ class AppOpenAdActivity : ComponentActivity() {
         enableEdgeToEdge()
         val prefs = getSharedPreferences(XBCLIENT_PREFS, MODE_PRIVATE)
         val adUnitId = prefs.getString("app_open_ad_unit_id", "").orEmpty()
-        if (prefs.getString("auth_data", "").orEmpty().isEmpty() || !prefs.getBoolean("app_open_ad_enabled", false) || adUnitId.isEmpty()) {
+        if (prefs.getString("auth_data", "").orEmpty().isEmpty() || !prefs.getBoolean("language_onboarding_done", false)) {
+            openAuthActivity()
+            return
+        }
+        if (!prefs.getBoolean("app_open_ad_enabled", false) || adUnitId.isEmpty()) {
             openMainActivity()
             return
         }
@@ -55,7 +59,7 @@ class AppOpenAdActivity : ComponentActivity() {
     }
 
     private fun loadAppOpenAd(adUnitId: String) {
-        if (mainOpened || isFinishing) {
+        if (nextOpened || isFinishing) {
             return
         }
         AppOpenAd.load(
@@ -63,7 +67,7 @@ class AppOpenAdActivity : ComponentActivity() {
             object : AdLoadCallback<AppOpenAd> {
                 override fun onAdLoaded(ad: AppOpenAd) {
                     runOnUiThread {
-                        if (mainOpened || isFinishing) {
+                        if (nextOpened || isFinishing) {
                             return@runOnUiThread
                         }
                         handler.removeCallbacks(timeoutRunnable)
@@ -99,14 +103,22 @@ class AppOpenAdActivity : ComponentActivity() {
         ad.show(this)
     }
 
+    private fun openAuthActivity() {
+        openNextActivity(AuthActivity::class.java)
+    }
+
     private fun openMainActivity() {
-        if (mainOpened) {
+        openNextActivity(MainActivity::class.java)
+    }
+
+    private fun openNextActivity(activityClass: Class<*>) {
+        if (nextOpened) {
             return
         }
-        mainOpened = true
+        nextOpened = true
         handler.removeCallbacks(timeoutRunnable)
         startActivity(
-            Intent(this, MainActivity::class.java)
+            Intent(this, activityClass)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         )
         finish()

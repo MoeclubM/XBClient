@@ -31,7 +31,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".MainActivity"
+            android:name=".AuthActivity"
             android:enableOnBackInvokedCallback="true"
             android:exported="true">
             <intent-filter>
@@ -43,6 +43,10 @@
                     android:scheme="${oauthCallbackScheme}" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".MainActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:exported="false" />
         <activity
             android:name=".SettingsActivity"
             android:enableOnBackInvokedCallback="true"

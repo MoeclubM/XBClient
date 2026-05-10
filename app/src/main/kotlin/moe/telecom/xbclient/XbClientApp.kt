@@ -122,6 +122,54 @@ fun XbClientApp(viewModel: XbClientViewModel) {
         if (TextUtils.getLayoutDirectionFromLocale(appLocale) == View.LAYOUT_DIRECTION_RTL) LayoutDirection.Rtl else LayoutDirection.Ltr
     }
     var backProgress by remember { mutableFloatStateOf(0f) }
+    PredictiveBackHandler(enabled = state.loaded && state.isLoggedIn && state.canHandleBack) { progress ->
+        try {
+            progress.collect { event ->
+                backProgress = event.progress
+            }
+            backProgress = 0f
+            viewModel.navigateBack()
+        } catch (error: CancellationException) {
+            backProgress = 0f
+            throw error
+        }
+    }
+    CompositionLocalProvider(
+        LocalContext provides localizedContext,
+        LocalConfiguration provides localizedConfiguration,
+        LocalLayoutDirection provides layoutDirection
+    ) {
+        XbClientTheme(state.themeMode) {
+            XbClientDialogs(state, viewModel)
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    alpha = 1f - backProgress * 0.08f
+                    scaleX = 1f - backProgress * 0.025f
+                    scaleY = 1f - backProgress * 0.025f
+                }
+            ) {
+                if (state.loaded && state.isLoggedIn && state.languageOnboardingDone) {
+                    MainShell(state, viewModel)
+                } else {
+                    LoadingScreen()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun XbClientAuthApp(viewModel: XbClientViewModel) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val baseContext = LocalContext.current
+    val languageTag = effectiveLanguageTag(state.appLanguage)
+    val appLocale = remember(languageTag) { Locale.forLanguageTag(languageTag) }
+    val localizedContext = remember(baseContext, appLocale) { localizedContext(baseContext, appLocale) }
+    val localizedConfiguration = remember(localizedContext) { localizedContext.resources.configuration }
+    val layoutDirection = remember(appLocale) {
+        if (TextUtils.getLayoutDirectionFromLocale(appLocale) == View.LAYOUT_DIRECTION_RTL) LayoutDirection.Rtl else LayoutDirection.Ltr
+    }
+    var backProgress by remember { mutableFloatStateOf(0f) }
     PredictiveBackHandler(enabled = state.loaded && state.canHandleBack) { progress ->
         try {
             progress.collect { event ->
@@ -155,7 +203,7 @@ fun XbClientApp(viewModel: XbClientViewModel) {
                 } else if (!state.isLoggedIn) {
                     AuthScreen(state, viewModel)
                 } else {
-                    MainShell(state, viewModel)
+                    LoadingScreen()
                 }
             }
             if (state.oauthWebViewUrl.isNotEmpty()) {
@@ -1150,7 +1198,16 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
         }
         Text(subscriptionText, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(14.dp))
-        Button(onClick = { context.startActivity(Intent(context, SettingsActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = {
+                val intent = Intent(context, SettingsActivity::class.java)
+                if (context !is android.app.Activity) {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text(stringResource(R.string.common_settings))
         }
         Spacer(Modifier.height(8.dp))
