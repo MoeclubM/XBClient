@@ -142,7 +142,7 @@ fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientC
             &["obfs-password", "obfs_password", "obfsPassword"],
         )
         .or_else(|| obfs_nested_password(node)),
-        download_bandwidth: node_optional_u64(
+        download_bandwidth: node_optional_bandwidth_u64(
             node,
             &["down", "download", "down_mbps", "down-mbps"],
         )?,
@@ -405,15 +405,62 @@ fn node_optional_u64(node: &Value, keys: &[&str]) -> Result<Option<u64>> {
         return Ok(None);
     };
     match value {
+        Value::Null => Ok(None),
         Value::Number(number) => number
             .as_u64()
             .map(Some)
             .context("number field is out of range"),
+        Value::String(text) if text.trim().is_empty() => Ok(None),
         Value::String(text) => text
             .trim()
             .parse::<u64>()
             .map(Some)
             .with_context(|| format!("parse numeric node field {}", keys.join("/"))),
+        _ => bail!("node field {} must be a number or string", keys.join("/")),
+    }
+}
+
+fn node_optional_bandwidth_u64(node: &Value, keys: &[&str]) -> Result<Option<u64>> {
+    let Some(value) = field(node, keys) else {
+        return Ok(None);
+    };
+    match value {
+        Value::Null => Ok(None),
+        Value::Bool(false) => Ok(None),
+        Value::Number(number) => number
+            .as_u64()
+            .map(Some)
+            .context("bandwidth field is out of range"),
+        Value::String(text) => {
+            let text = text.trim();
+            if text.is_empty() {
+                return Ok(None);
+            }
+            let digits = text
+                .chars()
+                .take_while(|ch| ch.is_ascii_digit())
+                .collect::<String>();
+            ensure!(
+                !digits.is_empty(),
+                "parse bandwidth node field {}",
+                keys.join("/")
+            );
+            let suffix = text[digits.len()..]
+                .trim()
+                .trim_start_matches(|ch: char| ch == '/' || ch == '_')
+                .trim()
+                .to_ascii_lowercase();
+            ensure!(
+                suffix.is_empty()
+                    || matches!(suffix.as_str(), "m" | "mb" | "mbps" | "mib" | "mibps"),
+                "unsupported bandwidth unit {suffix} in node field {}",
+                keys.join("/")
+            );
+            digits
+                .parse::<u64>()
+                .map(Some)
+                .with_context(|| format!("parse bandwidth node field {}", keys.join("/")))
+        }
         _ => bail!("node field {} must be a number or string", keys.join("/")),
     }
 }
@@ -577,11 +624,13 @@ async fn socks_connect(stream: &mut TcpStream, target_host: &str, target_port: u
         .read_exact(&mut header)
         .await
         .context("read SOCKS connect response")?;
-    ensure!(
-        header[0] == 0x05 && header[1] == 0x00,
-        "SOCKS connect failed: {:02x?}",
-        header
-    );
+    if header[0] != 0x05 || header[1] != 0x00 {
+        bail!(
+            "SOCKS connect failed: {}: {:02x?}",
+            socks_reply_name(header[1]),
+            header
+        );
+    }
     match header[3] {
         0x01 => {
             let mut skip = [0u8; 6];
@@ -600,6 +649,20 @@ async fn socks_connect(stream: &mut TcpStream, target_host: &str, target_port: u
         atyp => bail!("unsupported SOCKS bind address type: {atyp}"),
     }
     Ok(())
+}
+
+fn socks_reply_name(code: u8) -> &'static str {
+    match code {
+        0x01 => "general failure",
+        0x02 => "connection not allowed",
+        0x03 => "network unreachable",
+        0x04 => "host unreachable",
+        0x05 => "connection refused by target",
+        0x06 => "TTL expired",
+        0x07 => "command not supported",
+        0x08 => "address type not supported",
+        _ => "unknown SOCKS reply",
+    }
 }
 
 async fn send_http_probe<S>(stream: &mut S, host_header: &str) -> Result<u64>
