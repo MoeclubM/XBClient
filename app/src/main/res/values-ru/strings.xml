@@ -58,6 +58,7 @@
     <string name="action_connect">Подключиться</string>
     <string name="action_disconnect">Отключиться</string>
     <string name="action_test_current_node">Проверить текущий узел</string>
+    <string name="action_test_all_nodes">Проверить все узлы</string>
     <string name="action_back_nodes">Назад к узлам</string>
     <string name="action_test_testing">Проверка</string>
     <string name="action_test_connection">Проверить соединение</string>
@@ -78,8 +79,8 @@
     <string name="plan_price_unset">Цена не задана</string>
     <string name="plan_traffic">Трафик %1$s</string>
 
-    <string name="reward_plan_title">Награды тарифов</string>
-    <string name="reward_points_title">Награды баллами</string>
+    <string name="reward_plan_title">Реклама тарифов</string>
+    <string name="reward_points_title">Реклама баллов</string>
     <string name="reward_plan_description">Посмотрите рекламу полностью, чтобы получить награду тарифа.</string>
     <string name="reward_points_description">Посмотрите рекламу полностью, чтобы получить баллы.</string>
     <string name="reward_watch">Смотреть рекламу</string>

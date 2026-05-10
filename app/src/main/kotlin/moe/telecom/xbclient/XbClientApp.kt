@@ -567,8 +567,27 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             }
         }
         Spacer(Modifier.height(14.dp))
-        Button(onClick = { viewModel.testNode(state.selectedNodeIndex) }, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.action_test_current_node))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = { viewModel.testNode(state.selectedNodeIndex) },
+                enabled = selectedNode != null,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(stringResource(R.string.action_test_current_node))
+            }
+            FilledTonalButton(
+                onClick = viewModel::testAllNodes,
+                enabled = !state.nodesTesting && state.anyTlsNodes.isNotEmpty(),
+                modifier = Modifier.weight(1f)
+            ) {
+                AnimatedContent(
+                    targetState = stringResource(id = if (state.nodesTesting) R.string.action_test_testing else R.string.action_test_all_nodes),
+                    transitionSpec = { contentTransition() },
+                    label = "test-all-main"
+                ) { text ->
+                    Text(text)
+                }
+            }
         }
     }
     Section(stringResource(R.string.section_available_nodes)) {
@@ -585,7 +604,7 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                     onSelect = { viewModel.selectNode(index, returnToNodes = true) }
                 )
                 if (index != state.anyTlsNodes.lastIndex) {
-                    HorizontalDivider()
+                    Spacer(Modifier.height(10.dp))
                 }
             }
         }
@@ -595,7 +614,7 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 @Composable
 private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
-    PageHeader(stringResource(R.string.nav_plans), stringResource(R.string.page_plans_subtitle))
+    PageHeader(stringResource(R.string.nav_plans))
     RewardAdSection(
         title = stringResource(R.string.reward_plan_title),
         enabled = state.planRewardAdEnabled,
@@ -603,26 +622,24 @@ private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
         state = state,
         viewModel = viewModel
     )
-    Section(stringResource(R.string.section_plans)) {
-        if (state.plansLoading) {
-            Text(stringResource(R.string.plans_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else if (state.plans.isEmpty()) {
-            Text(stringResource(R.string.plans_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            val noPriceText = stringResource(R.string.plan_price_unset)
-            for ((index, plan) in state.plans.withIndex()) {
-                PlanRow(
-                    plan = plan,
-                    currencySymbol = state.currencySymbol,
-                    currencyUnit = state.currencyUnit,
-                    noPriceText = noPriceText,
-                    paymentEnabled = state.paymentEnabled,
-                    onOpenPayment = { viewModel.openPlanPage(context, plan.id) },
-                    onBalancePurchase = { price -> viewModel.buyPlanWithBalance(plan.id, price.field, price.amount) }
-                )
-                if (index != state.plans.lastIndex) {
-                    Spacer(Modifier.height(12.dp))
-                }
+    if (state.plansLoading) {
+        Text(stringResource(R.string.plans_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    } else if (state.plans.isEmpty()) {
+        Text(stringResource(R.string.plans_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    } else {
+        val noPriceText = stringResource(R.string.plan_price_unset)
+        for ((index, plan) in state.plans.withIndex()) {
+            PlanRow(
+                plan = plan,
+                currencySymbol = state.currencySymbol,
+                currencyUnit = state.currencyUnit,
+                noPriceText = noPriceText,
+                paymentEnabled = state.paymentEnabled,
+                onOpenPayment = { viewModel.openPlanPage(context, plan.id) },
+                onBalancePurchase = { price -> viewModel.buyPlanWithBalance(plan.id, price.field, price.amount) }
+            )
+            if (index != state.plans.lastIndex) {
+                Spacer(Modifier.height(12.dp))
             }
         }
     }
@@ -638,30 +655,48 @@ private fun PlanRow(
     onOpenPayment: () -> Unit,
     onBalancePurchase: (PlanPrice) -> Unit
 ) {
-    OutlinedCard(
+    ElevatedCard(
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         modifier = Modifier
             .clickable(enabled = paymentEnabled, onClick = onOpenPayment)
             .fillMaxWidth()
             .animateContentSize(animationSpec = tween(180))
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(plan.name, style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(4.dp))
-            Text(planPriceText(plan, currencySymbol, currencyUnit, noPriceText), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (plan.transferEnable > 0.0) {
-                Spacer(Modifier.height(4.dp))
-                Text(stringResource(R.string.plan_traffic, formatTrafficGb(plan.transferEnable)), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f)) {
+                    Text(plan.name, style = MaterialTheme.typography.titleLarge)
+                    if (plan.transferEnable > 0.0) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(stringResource(R.string.plan_traffic, formatTrafficGb(plan.transferEnable)), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text(
+                        planPriceText(plan, currencySymbol, currencyUnit, noPriceText),
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                    )
+                }
             }
             val content = plan.content.trim()
             if (content.isNotEmpty() && !content.startsWith("[") && !content.startsWith("{")) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(content, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (!paymentEnabled && plan.prices.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                for (price in plan.prices) {
-                    TextButton(onClick = { onBalancePurchase(price) }, modifier = Modifier.fillMaxWidth()) {
+                Spacer(Modifier.height(14.dp))
+                for ((index, price) in plan.prices.withIndex()) {
+                    FilledTonalButton(onClick = { onBalancePurchase(price) }, modifier = Modifier.fillMaxWidth()) {
                         Text("${planPriceLabel(price.field)} ${formatMoney(price.amount, currencySymbol, currencyUnit)}")
+                    }
+                    if (index != plan.prices.lastIndex) {
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
             }
@@ -681,75 +716,69 @@ private fun RewardAdSection(
         return
     }
     val logs = state.adRewardLogs.filter { it.scene == scene }
-    Section(title) {
-        ElevatedCard(
-            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.size(54.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text("AD", style = MaterialTheme.typography.titleMedium)
-                        }
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(title, style = MaterialTheme.typography.titleLarge)
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            stringResource(id = if (scene == REWARD_SCENE_POINTS) R.string.reward_points_description else R.string.reward_plan_description),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+    ElevatedCard(
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 18.dp)
+            .animateContentSize(animationSpec = tween(180))
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier.size(50.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("AD", style = MaterialTheme.typography.titleMedium)
                     }
                 }
+                Spacer(Modifier.width(14.dp))
+                Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(16.dp))
+            FilledTonalButton(onClick = { viewModel.requestRewardAd(scene) }, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.reward_watch))
+            }
+            if (logs.isNotEmpty()) {
+                val visibleLogs = logs.take(3)
                 Spacer(Modifier.height(16.dp))
-                FilledTonalButton(onClick = { viewModel.requestRewardAd(scene) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.reward_watch))
-                }
-                if (logs.isNotEmpty()) {
-                    val visibleLogs = logs.take(3)
-                    Spacer(Modifier.height(16.dp))
-                    Text(stringResource(R.string.reward_recent), style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(8.dp))
-                    for ((index, log) in visibleLogs.withIndex()) {
-                        val statusColor = when (log.status) {
-                            "credited" -> MaterialTheme.colorScheme.primary
-                            "failed" -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.tertiary
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                            Column(Modifier.weight(1f)) {
-                                Text(log.giftCardCode.ifEmpty { stringResource(R.string.reward_code_generating) }, style = MaterialTheme.typography.titleMedium)
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    stringResource(R.string.reward_template_time, log.giftCardTemplateId, formatUnixTime(log.createdAt)),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (log.status == "failed" && log.error.isNotEmpty()) {
-                                    Text(log.error, color = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                            Surface(
-                                color = statusColor.copy(alpha = 0.12f),
-                                contentColor = statusColor,
-                                shape = RoundedCornerShape(50)
-                            ) {
-                                Text(
-                                    rewardStatusText(log.status),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                )
+                Text(stringResource(R.string.reward_recent), style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                for ((index, log) in visibleLogs.withIndex()) {
+                    val statusColor = when (log.status) {
+                        "credited" -> MaterialTheme.colorScheme.primary
+                        "failed" -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.tertiary
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.weight(1f)) {
+                            Text(log.giftCardCode.ifEmpty { stringResource(R.string.reward_code_generating) }, style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                stringResource(R.string.reward_template_time, log.giftCardTemplateId, formatUnixTime(log.createdAt)),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (log.status == "failed" && log.error.isNotEmpty()) {
+                                Text(log.error, color = MaterialTheme.colorScheme.error)
                             }
                         }
-                        if (index != visibleLogs.lastIndex) {
-                            HorizontalDivider(Modifier.padding(vertical = 10.dp))
+                        Surface(
+                            color = statusColor.copy(alpha = 0.12f),
+                            contentColor = statusColor,
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text(
+                                rewardStatusText(log.status),
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
                         }
+                    }
+                    if (index != visibleLogs.lastIndex) {
+                        HorizontalDivider(Modifier.padding(vertical = 10.dp))
                     }
                 }
             }
@@ -760,7 +789,7 @@ private fun RewardAdSection(
 @Composable
 private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
-    PageHeader(stringResource(R.string.nav_profile), stringResource(R.string.page_profile_subtitle))
+    PageHeader(stringResource(R.string.nav_profile))
     Section(stringResource(R.string.section_account)) {
         Text(state.userEmail.ifEmpty { stringResource(R.string.status_logged_in) }, style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(6.dp))
@@ -956,8 +985,12 @@ private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMode
                     OutlinedButton(onClick = { viewModel.openScreen(PassScreen.NODES) }, modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.action_back_nodes))
                     }
-                    Button(onClick = viewModel::testAllNodes, modifier = Modifier.weight(1f)) {
-                        AnimatedContent(targetState = stringResource(id = if (state.nodesTesting) R.string.action_test_testing else R.string.action_test_connection), transitionSpec = { contentTransition() }, label = "test-all") { text ->
+                    Button(
+                        onClick = viewModel::testAllNodes,
+                        enabled = !state.nodesTesting && state.anyTlsNodes.isNotEmpty(),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        AnimatedContent(targetState = stringResource(id = if (state.nodesTesting) R.string.action_test_testing else R.string.action_test_all_nodes), transitionSpec = { contentTransition() }, label = "test-all") { text ->
                             Text(text)
                         }
                     }
@@ -983,7 +1016,7 @@ private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMode
                         onSelect = { viewModel.selectNode(index, returnToNodes = true) }
                     )
                     if (index != state.anyTlsNodes.lastIndex) {
-                        HorizontalDivider(Modifier.padding(horizontal = 20.dp))
+                        Spacer(Modifier.height(10.dp))
                     }
                 }
             }
@@ -1000,22 +1033,42 @@ private fun NodeRow(
     onTest: () -> Unit,
     onSelect: () -> Unit
 ) {
-    Row(
+    OutlinedCard(
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f) else MaterialTheme.colorScheme.surfaceContainer
+        ),
         modifier = Modifier
             .clickable(onClick = onSelect)
             .fillMaxWidth()
             .animateContentSize(animationSpec = tween(180))
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.weight(1f)) {
-            Text((if (selected) "✓ " else "") + node.displayName(index, stringResource(R.string.node_default_name, index + 1)), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(2.dp))
-            Text("${node.protocolLabel} · ${testText ?: stringResource(R.string.status_not_tested)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Spacer(Modifier.width(8.dp))
-        IconButton(onClick = onTest, modifier = Modifier.size(32.dp)) {
-            Text("↻")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text((if (selected) "✓ " else "") + node.displayName(index, stringResource(R.string.node_default_name, index + 1)), style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(3.dp))
+                Text(node.protocolLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.width(8.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                shape = RoundedCornerShape(50)
+            ) {
+                Text(
+                    testText ?: stringResource(R.string.status_not_tested),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+            Spacer(Modifier.width(4.dp))
+            IconButton(onClick = onTest, modifier = Modifier.size(34.dp)) {
+                Text("↻")
+            }
         }
     }
 }
@@ -1140,14 +1193,12 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
 
 @Composable
 private fun PageHeader(title: String, subtitle: String = "") {
-    Text(title, style = MaterialTheme.typography.displaySmall)
+    Text(title, style = MaterialTheme.typography.headlineMedium)
     if (subtitle.isNotEmpty()) {
         Spacer(Modifier.height(6.dp))
         Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    Spacer(Modifier.height(16.dp))
-    HorizontalDivider()
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(20.dp))
 }
 
 @Composable
@@ -1156,12 +1207,10 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize(animationSpec = tween(180))
-            .padding(bottom = 18.dp)
+            .padding(bottom = 20.dp)
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(8.dp))
-        HorizontalDivider()
-        Spacer(Modifier.height(12.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(10.dp))
         content()
     }
 }

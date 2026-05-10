@@ -58,6 +58,7 @@
     <string name="action_connect">开始连接</string>
     <string name="action_disconnect">断开</string>
     <string name="action_test_current_node">测试当前节点</string>
+    <string name="action_test_all_nodes">测试全部节点</string>
     <string name="action_back_nodes">返回节点</string>
     <string name="action_test_testing">测试中</string>
     <string name="action_test_connection">测试连接</string>
@@ -78,11 +79,11 @@
     <string name="plan_price_unset">价格未设置</string>
     <string name="plan_traffic">流量 %1$s</string>
 
-    <string name="reward_plan_title">套餐激励</string>
-    <string name="reward_points_title">积分激励</string>
-    <string name="reward_plan_description">观看完整激励广告后领取套餐奖励。</string>
-    <string name="reward_points_description">观看完整激励广告后领取积分奖励。</string>
-    <string name="reward_watch">观看激励广告</string>
+    <string name="reward_plan_title">套餐广告</string>
+    <string name="reward_points_title">积分广告</string>
+    <string name="reward_plan_description">观看完整广告后领取套餐奖励。</string>
+    <string name="reward_points_description">观看完整广告后领取积分奖励。</string>
+    <string name="reward_watch">观看广告</string>
     <string name="reward_recent">最近记录</string>
     <string name="reward_code_generating">兑换码生成中</string>
     <string name="reward_template_time">模板 %1$d · %2$s</string>

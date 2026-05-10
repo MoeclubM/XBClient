@@ -58,6 +58,7 @@
     <string name="action_connect">Connect</string>
     <string name="action_disconnect">Disconnect</string>
     <string name="action_test_current_node">Test current node</string>
+    <string name="action_test_all_nodes">Test all nodes</string>
     <string name="action_back_nodes">Back to nodes</string>
     <string name="action_test_testing">Testing</string>
     <string name="action_test_connection">Test connection</string>
@@ -78,11 +79,11 @@
     <string name="plan_price_unset">Price not configured</string>
     <string name="plan_traffic">Traffic %1$s</string>
 
-    <string name="reward_plan_title">Plan rewards</string>
-    <string name="reward_points_title">Points rewards</string>
-    <string name="reward_plan_description">Watch a rewarded ad to claim a plan reward.</string>
-    <string name="reward_points_description">Watch a rewarded ad to claim points.</string>
-    <string name="reward_watch">Watch rewarded ad</string>
+    <string name="reward_plan_title">Plan ads</string>
+    <string name="reward_points_title">Points ads</string>
+    <string name="reward_plan_description">Watch a full ad to claim a plan reward.</string>
+    <string name="reward_points_description">Watch a full ad to claim points.</string>
+    <string name="reward_watch">Watch ad</string>
     <string name="reward_recent">Recent records</string>
     <string name="reward_code_generating">Generating redeem code</string>
     <string name="reward_template_time">Template %1$d · %2$s</string>
