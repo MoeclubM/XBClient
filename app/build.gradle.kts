@@ -40,6 +40,7 @@ val ndkHostTag = when {
 val executableSuffix = if (isWindows) ".cmd" else ""
 val toolSuffix = if (isWindows) ".exe" else ""
 val ndkBinDir = androidNdkDir.resolve("toolchains/llvm/prebuilt/$ndkHostTag/bin")
+val androidRustFlags = "-C link-arg=-Wl,-z,max-page-size=16384"
 val defaultApiUrlRaw = providers.gradleProperty("xbclient.defaultApiUrl")
     .orNull
     ?: providers.environmentVariable("XBCLIENT_DEFAULT_API_URL").orNull
@@ -82,6 +83,18 @@ val oauthCallbackSchemeRaw = providers.gradleProperty("xbclient.oauthCallbackSch
     ?: rootLocalProperties.getProperty("XBCLIENT_OAUTH_CALLBACK_SCHEME")
     ?: "secone"
 val oauthCallbackScheme = oauthCallbackSchemeRaw.trim().ifEmpty { "secone" }
+val websiteUrl = providers.gradleProperty("xbclient.websiteUrl")
+    .orNull
+    ?: providers.environmentVariable("XBCLIENT_WEBSITE_URL").orNull
+    ?: rootLocalProperties.getProperty("xbclient.websiteUrl")
+    ?: rootLocalProperties.getProperty("XBCLIENT_WEBSITE_URL")
+    ?: ""
+val privacyPolicyUrl = providers.gradleProperty("xbclient.privacyPolicyUrl")
+    .orNull
+    ?: providers.environmentVariable("XBCLIENT_PRIVACY_POLICY_URL").orNull
+    ?: rootLocalProperties.getProperty("xbclient.privacyPolicyUrl")
+    ?: rootLocalProperties.getProperty("XBCLIENT_PRIVACY_POLICY_URL")
+    ?: ""
 val localSigningProperties = Properties()
 val localSigningPropertiesFile = rootProject.file("app/config/release-signing.local.txt")
 if (localSigningPropertiesFile.isFile) {
@@ -153,6 +166,8 @@ android {
         buildConfigField("String", "DEFAULT_API_URL", "\"${defaultApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "USER_AGENT", "\"${userAgent.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"${oauthCallbackScheme.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "WEBSITE_URL", "\"${websiteUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "PRIVACY_POLICY_URL", "\"${privacyPolicyUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     signingConfigs {
@@ -214,6 +229,7 @@ rustTargets.forEach { (abi, target, clang) ->
         inputs.property("androidNdkVersion", androidNdkVersion)
         inputs.property("minAndroidApi", minAndroidApi)
         inputs.property("rustTarget", target)
+        inputs.property("androidRustFlags", androidRustFlags)
         outputs.file(rustCrateDir.resolve("target/$target/release/libxbclient_core.so"))
         val cc = ndkBinDir.resolve(clang).absolutePath
         val cxx = cc.removeSuffix("clang$executableSuffix") + "clang++$executableSuffix"
@@ -222,6 +238,7 @@ rustTargets.forEach { (abi, target, clang) ->
         environment(ccEnvName("CXX", target), cxx)
         environment(ccEnvName("AR", target), ndkBinDir.resolve("llvm-ar$toolSuffix").absolutePath)
         environment("ANDROID_NDK_HOME", androidNdkDir.absolutePath)
+        environment("RUSTFLAGS", androidRustFlags)
         commandLine("cargo", "build", "--release", "--target", target)
     }
 

@@ -305,7 +305,7 @@ fun subscriptionBlockReason(data: JSONObject): String {
 
 fun readableNodeTestError(error: String): String {
     if (error.contains("read AnyTLS frame header")) {
-        return "失败：AnyTLS 服务器关闭连接（$error）"
+        return "失败：AnyTLS 服务器断开连接（$error）"
     }
     if (error.contains("Hysteria2 target test")) {
         return "失败：Hysteria2 连接失败（$error）"

@@ -1,5 +1,6 @@
 package moe.telecom.xbclient
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Message
@@ -600,13 +601,6 @@ private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
         viewModel = viewModel
     )
     Section(stringResource(R.string.section_plans)) {
-        if (!state.paymentEnabled) {
-            Text(
-                stringResource(R.string.plans_payment_disabled, formatMoney(state.balance, state.currencySymbol)),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(10.dp))
-        }
         if (state.plansLoading) {
             Text(stringResource(R.string.plans_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else if (state.plans.isEmpty()) {
@@ -617,6 +611,7 @@ private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                 PlanRow(
                     plan = plan,
                     currencySymbol = state.currencySymbol,
+                    currencyUnit = state.currencyUnit,
                     noPriceText = noPriceText,
                     paymentEnabled = state.paymentEnabled,
                     onOpenPayment = { viewModel.openPlanPage(context, plan.id) },
@@ -634,6 +629,7 @@ private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 private fun PlanRow(
     plan: PlanItem,
     currencySymbol: String,
+    currencyUnit: String,
     noPriceText: String,
     paymentEnabled: Boolean,
     onOpenPayment: () -> Unit,
@@ -648,7 +644,7 @@ private fun PlanRow(
         Column(Modifier.padding(16.dp)) {
             Text(plan.name, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(4.dp))
-            Text(planPriceText(plan, currencySymbol, noPriceText), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(planPriceText(plan, currencySymbol, currencyUnit, noPriceText), color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (plan.transferEnable > 0.0) {
                 Spacer(Modifier.height(4.dp))
                 Text(stringResource(R.string.plan_traffic, formatTrafficGb(plan.transferEnable)), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -662,7 +658,7 @@ private fun PlanRow(
                 Spacer(Modifier.height(12.dp))
                 for (price in plan.prices) {
                     TextButton(onClick = { onBalancePurchase(price) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("${price.label} ${formatMoney(price.amount, currencySymbol)}")
+                        Text("${price.label} ${formatMoney(price.amount, currencySymbol, currencyUnit)}")
                     }
                 }
             }
@@ -765,12 +761,12 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
         Text(state.userEmail.ifEmpty { stringResource(R.string.status_logged_in) }, style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(6.dp))
         Text(
-            stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol)),
+            stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            stringResource(R.string.commission_amount, formatMoney(state.commissionBalance, state.currencySymbol)),
+            stringResource(R.string.commission_amount, formatMoney(state.commissionBalance, state.currencySymbol, state.currencyUnit)),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(8.dp))
@@ -815,6 +811,7 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
 
 @Composable
 private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
     var nodeDns by rememberSaveable(state.nodeDns) { mutableStateOf(state.nodeDns) }
     var overseasDns by rememberSaveable(state.overseasDns) { mutableStateOf(state.overseasDns) }
     var directDns by rememberSaveable(state.directDns) { mutableStateOf(state.directDns) }
@@ -867,6 +864,32 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
         Spacer(Modifier.height(8.dp))
         TextButton(onClick = { viewModel.openScreen(PassScreen.PROFILE) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.common_back_profile))
+        }
+    }
+    Section(stringResource(R.string.section_about)) {
+        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            stringResource(R.string.about_version, BuildConfig.VERSION_NAME.removeSuffix(".debug")),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        val links = listOf(
+            R.string.about_website to BuildConfig.WEBSITE_URL.trim(),
+            R.string.about_privacy_policy to BuildConfig.PRIVACY_POLICY_URL.trim()
+        ).filter { it.second.isNotEmpty() }
+        for ((label, url) in links) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            .addCategory(Intent.CATEGORY_BROWSABLE)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(label))
+            }
         }
     }
 }
@@ -1114,15 +1137,15 @@ private fun selectedPackages(state: XbClientUiState): Set<String> =
         .filter { it.isNotEmpty() }
         .toSet()
 
-private fun formatMoney(amount: Int, symbol: String): String =
-    symbol + String.format(Locale.US, "%.2f", amount / 100.0)
+private fun formatMoney(amount: Int, symbol: String, unit: String): String =
+    (symbol + String.format(Locale.US, "%.2f", amount / 100.0) + if (unit.isBlank()) "" else " $unit").trim()
 
 private fun formatUnixTime(value: Long): String =
     if (value <= 0L) "" else SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(value * 1000))
 
-private fun planPriceText(plan: PlanItem, symbol: String, noPriceText: String): String =
+private fun planPriceText(plan: PlanItem, symbol: String, unit: String, noPriceText: String): String =
     if (plan.prices.isEmpty()) noPriceText else plan.prices.joinToString(" · ") {
-        "${it.label} ${formatMoney(it.amount, symbol)}"
+        "${it.label} ${formatMoney(it.amount, symbol, unit)}"
     }
 
 @Composable

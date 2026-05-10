@@ -45,7 +45,8 @@ data class XbClientUiState(
     val userEmail: String = "",
     val balance: Int = 0,
     val commissionBalance: Int = 0,
-    val currencySymbol: String = "¥",
+    val currencySymbol: String = "",
+    val currencyUnit: String = "",
     val plans: List<PlanItem> = emptyList(),
     val anyTlsNodes: List<AnyTlsNode> = emptyList(),
     val selectedNodeIndex: Int = 0,
@@ -72,7 +73,7 @@ data class XbClientUiState(
     val nodeSwitchSheet: Boolean = false,
     val nodeSwitchConnect: Boolean = false,
     val adEnabled: Boolean = false,
-    val paymentEnabled: Boolean = true,
+    val paymentEnabled: Boolean = false,
     val planRewardAdEnabled: Boolean = false,
     val planRewardedAdUnitId: String = "",
     val pointsRewardAdEnabled: Boolean = false,
@@ -632,7 +633,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         userEmail = info.optString("email"),
                         balance = info.optInt("balance"),
                         commissionBalance = info.optInt("commission_balance"),
-                        currencySymbol = config.optString("currency_symbol", it.currencySymbol).ifBlank { it.currencySymbol },
+                        currencySymbol = config.optString("currency_symbol"),
+                        currencyUnit = config.optString("currency"),
                         userLoading = false
                     )
                 }
@@ -656,12 +658,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             try {
                 val config = loadRewardConfig(authData, scene)
                 if (config.first.isEmpty()) {
-                    emitMessage("广告暂未开启。")
                     return@launch
                 }
                 emitEvent(XbClientEvent.ShowRewardAd(config.first, config.second, config.third))
-            } catch (error: Exception) {
-                emitMessage("广告暂未开启。")
+            } catch (_: Exception) {
+                return@launch
             }
         }
     }
@@ -713,7 +714,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             return
         }
         if (amount > _uiState.value.balance) {
-            emitMessage("余额不足，当前只允许余额足额抵扣。")
+            emitMessage("账户金额不足，当前只允许账户金额足额抵扣。")
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -731,7 +732,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 )
                 val tradeNo = saveBody.getString("data")
                 val checkoutBody = requireSuccessfulBody(
-                    "余额支付",
+                    "账户金额支付",
                     XboardApi.request(
                         "order_checkout",
                         defaultApiUrl(),
@@ -740,14 +741,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     )
                 )
                 if (checkoutBody.optInt("type") != -1) {
-                    throw IllegalStateException("订单未完成余额抵扣。")
+                    throw IllegalStateException("订单未完成账户金额抵扣。")
                 }
-                emitMessage("余额支付成功。")
+                emitMessage("账户金额支付成功。")
                 refreshSubscriptionAndNodes(force = true)
                 refreshUserInfo()
                 refreshPlans(force = true)
             } catch (error: Exception) {
-                emitMessage("余额支付失败：${error.message}")
+                emitMessage("账户金额支付失败：${error.message}")
             }
         }
     }
@@ -793,6 +794,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val result = try {
             XboardApi.request("admob_reward_config", defaultApiUrl(), authData, JSONObject())
         } catch (_: Exception) {
+            clearRewardConfig()
             return Triple("", "", "")
         }
         if (!result.optBoolean("ok")) {
@@ -815,7 +817,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             _uiState.update {
                 it.copy(
                     adEnabled = false,
-                    paymentEnabled = data.optBoolean("payment_enabled", true),
+                    paymentEnabled = data.optBoolean("payment_enabled", false),
                     appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
                     appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
                     githubProjectUrl = githubProjectUrl,
@@ -841,7 +843,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         _uiState.update {
             it.copy(
                 adEnabled = planEnabled || pointsEnabled,
-                paymentEnabled = data.optBoolean("payment_enabled", true),
+                paymentEnabled = data.optBoolean("payment_enabled", false),
                 appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
                 appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
                 githubProjectUrl = githubProjectUrl,
@@ -865,7 +867,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         _uiState.update {
             it.copy(
                 adEnabled = false,
-                paymentEnabled = true,
+                paymentEnabled = false,
                 appOpenAdEnabled = false,
                 appOpenAdUnitId = "",
                 planRewardAdEnabled = false,
@@ -1177,7 +1179,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 userEmail = prefs[Keys.USER_EMAIL].orEmpty(),
                 balance = prefs[Keys.BALANCE] ?: 0,
                 commissionBalance = prefs[Keys.COMMISSION_BALANCE] ?: 0,
-                currencySymbol = (prefs[Keys.CURRENCY_SYMBOL] ?: "¥").ifBlank { "¥" },
+                currencySymbol = prefs[Keys.CURRENCY_SYMBOL].orEmpty(),
+                currencyUnit = prefs[Keys.CURRENCY_UNIT].orEmpty(),
                 plans = cachedPlans(prefs[Keys.PLANS].orEmpty()),
                 anyTlsNodes = cachedNodes(prefs[Keys.ANYTLS_NODES].orEmpty()),
                 selectedNodeIndex = prefs[Keys.SELECTED_NODE_INDEX] ?: 0,
@@ -1193,7 +1196,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 vpnIpv6Enabled = prefs[Keys.VPN_IPV6_ENABLED] ?: true,
                 vpnRequested = legacy.getBoolean("vpn_running", false),
                 adEnabled = prefs[Keys.AD_ENABLED] ?: false,
-                paymentEnabled = prefs[Keys.PAYMENT_ENABLED] ?: true,
+                paymentEnabled = false,
                 planRewardAdEnabled = prefs[Keys.PLAN_REWARD_AD_ENABLED] ?: false,
                 planRewardedAdUnitId = prefs[Keys.PLAN_REWARDED_AD_UNIT_ID].orEmpty(),
                 pointsRewardAdEnabled = prefs[Keys.POINTS_REWARD_AD_ENABLED] ?: false,
@@ -1217,7 +1220,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 userEmail = legacy.getString("user_email", "").orEmpty(),
                 balance = legacy.getInt("balance", 0),
                 commissionBalance = legacy.getInt("commission_balance", 0),
-                currencySymbol = legacy.getString("currency_symbol", "¥").orEmpty().ifBlank { "¥" },
+                currencySymbol = legacy.getString("currency_symbol", "").orEmpty(),
+                currencyUnit = legacy.getString("currency_unit", "").orEmpty(),
                 plans = cachedPlans(legacy.getString("plans", "").orEmpty()),
                 anyTlsNodes = cachedNodes(legacy.getString("anytls_nodes", "").orEmpty()),
                 selectedNodeIndex = legacy.getInt("selected_node_index", 0),
@@ -1233,7 +1237,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 vpnIpv6Enabled = legacy.getBoolean("vpn_ipv6_enabled", true),
                 vpnRequested = legacy.getBoolean("vpn_running", false),
                 adEnabled = legacy.getBoolean("ad_enabled", false),
-                paymentEnabled = legacy.getBoolean("payment_enabled", true),
+                paymentEnabled = false,
                 planRewardAdEnabled = legacy.getBoolean("plan_reward_ad_enabled", false),
                 planRewardedAdUnitId = legacy.getString("plan_rewarded_ad_unit_id", "").orEmpty(),
                 pointsRewardAdEnabled = legacy.getBoolean("points_reward_ad_enabled", false),
@@ -1298,6 +1302,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.BALANCE] = state.balance
             prefs[Keys.COMMISSION_BALANCE] = state.commissionBalance
             prefs[Keys.CURRENCY_SYMBOL] = state.currencySymbol
+            prefs[Keys.CURRENCY_UNIT] = state.currencyUnit
             prefs[Keys.PLANS] = plansJson(state.plans)
             prefs[Keys.ANYTLS_NODES] = nodesJson(state.anyTlsNodes)
             prefs[Keys.SELECTED_NODE_INDEX] = state.selectedNodeIndex
@@ -1336,6 +1341,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putInt("balance", state.balance)
             .putInt("commission_balance", state.commissionBalance)
             .putString("currency_symbol", state.currencySymbol)
+            .putString("currency_unit", state.currencyUnit)
             .putString("plans", plansJson(state.plans))
             .putString("anytls_nodes", nodesJson(state.anyTlsNodes))
             .putInt("selected_node_index", state.selectedNodeIndex)
@@ -1573,6 +1579,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val BALANCE = intPreferencesKey("balance")
         val COMMISSION_BALANCE = intPreferencesKey("commission_balance")
         val CURRENCY_SYMBOL = stringPreferencesKey("currency_symbol")
+        val CURRENCY_UNIT = stringPreferencesKey("currency_unit")
         val PLANS = stringPreferencesKey("plans")
         val ANYTLS_NODES = stringPreferencesKey("anytls_nodes")
         val SELECTED_NODE_INDEX = intPreferencesKey("selected_node_index")

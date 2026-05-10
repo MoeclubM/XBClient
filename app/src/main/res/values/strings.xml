@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="common_close">关闭</string>
+    <string name="common_close">返回</string>
     <string name="common_settings">设置</string>
     <string name="common_logout">退出登录</string>
     <string name="common_save_settings">保存设置</string>
@@ -45,6 +45,7 @@
     <string name="section_invite">邀请</string>
     <string name="section_app_rules">应用规则</string>
     <string name="section_node_test">节点测试</string>
+    <string name="section_about">关于</string>
 
     <string name="status_connected">已连接</string>
     <string name="status_disconnected">未连接</string>
@@ -72,7 +73,6 @@
     <string name="subscription_synced">订阅已同步</string>
 
     <string name="page_plans_subtitle">选择可用套餐。</string>
-    <string name="plans_payment_disabled">网页支付入口已关闭；当前仅支持余额足额抵扣，余额 %1$s。</string>
     <string name="plans_loading">套餐正在加载。</string>
     <string name="plans_empty">暂无可用套餐。</string>
     <string name="plan_price_unset">价格未设置</string>
@@ -91,7 +91,7 @@
     <string name="reward_failed">发放失败</string>
 
     <string name="page_profile_subtitle">账户、积分与邀请信息。</string>
-    <string name="balance_amount">余额 %1$s</string>
+    <string name="balance_amount">账户金额 %1$s</string>
     <string name="commission_amount">佣金 %1$s</string>
     <string name="invite_loading">邀请码正在加载。</string>
     <string name="invite_empty">暂无邀请码。</string>
@@ -106,9 +106,12 @@
     <string name="dns_node_label">解析节点域名的本地 DNS</string>
     <string name="dns_overseas_label">连接后解析域名的海外 DNS</string>
     <string name="dns_direct_label">连接后解析分流直连域名的 DNS</string>
-    <string name="enable_ipv6">启用 IPv6</string>
+    <string name="enable_ipv6">IPv6</string>
     <string name="node_test_target_label">测试目标网站</string>
     <string name="node_test_help">可填写域名、域名:端口或 http/https 地址。节点测试会连续完成两次 HEAD 请求并显示第二次延迟。</string>
+    <string name="about_version">版本 %1$s</string>
+    <string name="about_website">官网</string>
+    <string name="about_privacy_policy">隐私政策</string>
 
     <string name="page_node_select_title">选择节点</string>
     <string name="page_node_select_subtitle">可在此测试每个节点到目标网站的真实连接延迟。</string>
