@@ -1,7 +1,6 @@
 mod aerion_core;
 #[cfg(target_os = "android")]
 mod android;
-mod naive;
 
 use anyhow::{Context, Result};
 use jni::errors::{Result as JniResult, ThrowRuntimeExAndDefault};
