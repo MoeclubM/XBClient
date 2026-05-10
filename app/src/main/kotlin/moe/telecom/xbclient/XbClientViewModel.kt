@@ -40,6 +40,7 @@ data class XbClientUiState(
     val subscribeToken: String = "",
     val subscribeUrl: String = "",
     val subscriptionSummary: String = "",
+    val subscriptionBlockReason: String = "",
     val nodesUpdatedAt: Long = 0L,
     val userEmail: String = "",
     val balance: Int = 0,
@@ -61,6 +62,7 @@ data class XbClientUiState(
     val vpnIpv6Enabled: Boolean = true,
     val vpnRequested: Boolean = false,
     val vpnStarting: Boolean = false,
+    val userLoading: Boolean = false,
     val nodesLoading: Boolean = false,
     val plansLoading: Boolean = false,
     val nodesTesting: Boolean = false,
@@ -94,8 +96,11 @@ data class XbClientUiState(
     val isLoggedIn: Boolean
         get() = authData.isNotEmpty()
 
+    val subscriptionBlocked: Boolean
+        get() = subscriptionBlockReason.isNotEmpty()
+
     val isRefreshing: Boolean
-        get() = nodesLoading || plansLoading || invitesLoading || nodesTesting
+        get() = userLoading || nodesLoading || plansLoading || invitesLoading || nodesTesting
 }
 
 sealed interface XbClientEvent {
@@ -124,7 +129,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             val state = _uiState.value
             checkGithubReleaseUpdate(state.githubProjectUrl)
             if (state.authData.isNotEmpty()) {
-                refreshSubscriptionAndNodes()
+                refreshSubscriptionAndNodes(force = true)
                 refreshUserInfo()
                 refreshPlans()
                 refreshInvites()
@@ -171,11 +176,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun refreshCurrentPage() {
         when (_uiState.value.screen) {
             PassScreen.PROFILE -> {
+                refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
                 refreshUserInfo(showErrors = true)
                 refreshInvites(force = true, showLoading = true, showErrors = true)
                 refreshRewardConfig()
             }
             PassScreen.PLANS -> {
+                refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
                 refreshPlans(force = true, showLoading = true, showErrors = true)
                 refreshRewardConfig()
                 refreshUserInfo(showErrors = true)
@@ -438,29 +445,34 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val subscribeBody = requireSuccessfulBody("订阅同步", subscribeResult)
                 val data = subscribeBody.getJSONObject("data")
                 val subscribeUrl = data.optString("subscribe_url", current.subscribeUrl)
-                val xbclientNodesResult = XboardApi.request("xbclient_nodes", defaultApiUrl(), current.authData, JSONObject())
-                val nodes = if (xbclientNodesResult.optBoolean("ok")) {
-                    val nodesBody = requireSuccessfulBody("XBClient 节点同步", xbclientNodesResult)
-                    nodesBody.getJSONObject("data").getJSONArray("nodes").toAnyTlsNodeList()
-                } else if (xbclientNodesResult.optInt("status") == 404) {
-                    if (subscribeUrl.isEmpty()) {
-                        throw IllegalStateException("XBClient 节点接口不可用，且订阅地址为空。")
+                val blockReason = subscriptionBlockReason(data)
+                val nodes = if (blockReason.isEmpty()) {
+                    val xbclientNodesResult = XboardApi.request("xbclient_nodes", defaultApiUrl(), current.authData, JSONObject())
+                    if (xbclientNodesResult.optBoolean("ok")) {
+                        val nodesBody = requireSuccessfulBody("XBClient 节点同步", xbclientNodesResult)
+                        nodesBody.getJSONObject("data").getJSONArray("nodes").toAnyTlsNodeList()
+                    } else if (xbclientNodesResult.optInt("status") == 404) {
+                        if (subscribeUrl.isEmpty()) {
+                            throw IllegalStateException("XBClient 节点接口不可用，且订阅地址为空。")
+                        }
+                        val nodesResult = XboardApi.request(
+                            "anytls_nodes",
+                            defaultApiUrl(),
+                            "",
+                            JSONObject().put("subscribe_url", subscribeUrl).put("flag", "meta")
+                        )
+                        if (!nodesResult.optBoolean("ok")) {
+                            throw IllegalStateException(resultError(nodesResult))
+                        }
+                        if (showErrors) {
+                            emitMessage("XBClient 节点接口不可用，已使用原订阅节点。")
+                        }
+                        nodesResult.getJSONArray("nodes").toAnyTlsNodeList()
+                    } else {
+                        throw IllegalStateException(resultError(xbclientNodesResult))
                     }
-                    val nodesResult = XboardApi.request(
-                        "anytls_nodes",
-                        defaultApiUrl(),
-                        "",
-                        JSONObject().put("subscribe_url", subscribeUrl).put("flag", "meta")
-                    )
-                    if (!nodesResult.optBoolean("ok")) {
-                        throw IllegalStateException(resultError(nodesResult))
-                    }
-                    if (showErrors) {
-                        emitMessage("XBClient 节点接口不可用，已使用原订阅节点。")
-                    }
-                    nodesResult.getJSONArray("nodes").toAnyTlsNodeList()
                 } else {
-                    throw IllegalStateException(resultError(xbclientNodesResult))
+                    emptyList()
                 }
                 val selectedIndex = _uiState.value.selectedNodeIndex.coerceIn(0, (nodes.size - 1).coerceAtLeast(0))
                 val firstConnectableIndex = nodes.indexOfFirst { it.connectSupported }
@@ -468,6 +480,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     subscribeToken = data.optString("token", current.subscribeToken),
                     subscribeUrl = subscribeUrl,
                     subscriptionSummary = subscriptionSummary(data),
+                    subscriptionBlockReason = blockReason,
                     nodesUpdatedAt = System.currentTimeMillis(),
                     anyTlsNodes = nodes,
                     selectedNodeIndex = if (nodes.getOrNull(selectedIndex)?.connectSupported == true || firstConnectableIndex < 0) selectedIndex else firstConnectableIndex,
@@ -602,10 +615,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshUserInfo(showErrors: Boolean = false) {
-        val authData = _uiState.value.authData
-        if (authData.isEmpty()) {
+        val current = _uiState.value
+        val authData = current.authData
+        if (authData.isEmpty() || current.userLoading) {
             return
         }
+        _uiState.update { it.copy(userLoading = true) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val info = requireSuccessfulBody("用户信息", XboardApi.request("user_info", defaultApiUrl(), authData, JSONObject()))
@@ -617,12 +632,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         userEmail = info.optString("email"),
                         balance = info.optInt("balance"),
                         commissionBalance = info.optInt("commission_balance"),
-                        currencySymbol = config.optString("currency_symbol", it.currencySymbol).ifBlank { it.currencySymbol }
+                        currencySymbol = config.optString("currency_symbol", it.currencySymbol).ifBlank { it.currencySymbol },
+                        userLoading = false
                     )
                 }
                 persistStoredState(_uiState.value)
                 refreshAdRewardHistory()
             } catch (error: Exception) {
+                _uiState.update { it.copy(userLoading = false) }
                 if (showErrors) {
                     emitMessage("用户信息加载失败：${error.message}")
                 }
@@ -1155,6 +1172,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 subscribeToken = prefs[Keys.SUBSCRIBE_TOKEN].orEmpty(),
                 subscribeUrl = prefs[Keys.SUBSCRIBE_URL].orEmpty(),
                 subscriptionSummary = prefs[Keys.SUBSCRIPTION_SUMMARY].orEmpty(),
+                subscriptionBlockReason = prefs[Keys.SUBSCRIPTION_BLOCK_REASON].orEmpty(),
                 nodesUpdatedAt = prefs[Keys.NODES_UPDATED_AT] ?: 0L,
                 userEmail = prefs[Keys.USER_EMAIL].orEmpty(),
                 balance = prefs[Keys.BALANCE] ?: 0,
@@ -1194,6 +1212,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 subscribeToken = legacy.getString("subscribe_token", "").orEmpty(),
                 subscribeUrl = legacy.getString("subscribe_url", "").orEmpty(),
                 subscriptionSummary = legacy.getString("subscription_summary", "").orEmpty(),
+                subscriptionBlockReason = legacy.getString("subscription_block_reason", "").orEmpty(),
                 nodesUpdatedAt = legacy.getLong("nodes_updated_at", 0L),
                 userEmail = legacy.getString("user_email", "").orEmpty(),
                 balance = legacy.getInt("balance", 0),
@@ -1273,6 +1292,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.SUBSCRIBE_TOKEN] = state.subscribeToken
             prefs[Keys.SUBSCRIBE_URL] = state.subscribeUrl
             prefs[Keys.SUBSCRIPTION_SUMMARY] = state.subscriptionSummary
+            prefs[Keys.SUBSCRIPTION_BLOCK_REASON] = state.subscriptionBlockReason
             prefs[Keys.NODES_UPDATED_AT] = state.nodesUpdatedAt
             prefs[Keys.USER_EMAIL] = state.userEmail
             prefs[Keys.BALANCE] = state.balance
@@ -1310,6 +1330,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("subscribe_token", state.subscribeToken)
             .putString("subscribe_url", state.subscribeUrl)
             .putString("subscription_summary", state.subscriptionSummary)
+            .putString("subscription_block_reason", state.subscriptionBlockReason)
             .putLong("nodes_updated_at", state.nodesUpdatedAt)
             .putString("user_email", state.userEmail)
             .putInt("balance", state.balance)
@@ -1546,6 +1567,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val SUBSCRIBE_TOKEN = stringPreferencesKey("subscribe_token")
         val SUBSCRIBE_URL = stringPreferencesKey("subscribe_url")
         val SUBSCRIPTION_SUMMARY = stringPreferencesKey("subscription_summary")
+        val SUBSCRIPTION_BLOCK_REASON = stringPreferencesKey("subscription_block_reason")
         val NODES_UPDATED_AT = longPreferencesKey("nodes_updated_at")
         val USER_EMAIL = stringPreferencesKey("user_email")
         val BALANCE = intPreferencesKey("balance")

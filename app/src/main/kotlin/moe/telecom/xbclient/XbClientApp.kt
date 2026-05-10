@@ -11,6 +11,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
@@ -142,10 +143,10 @@ private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
         modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("第三方登录") },
+                title = { Text(stringResource(R.string.oauth_web_title)) },
                 actions = {
                     TextButton(onClick = viewModel::closeOAuthWebView) {
-                        Text("关闭")
+                        Text(stringResource(R.string.common_close))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -281,12 +282,13 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 18.dp)
+            .animateContentSize(animationSpec = tween(180))
     ) {
-        PageHeader("账号登录")
+        PageHeader(stringResource(R.string.auth_login_title))
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
-            label = { Text("邮箱") },
+            label = { Text(stringResource(R.string.auth_email)) },
             singleLine = true,
             modifier = Modifier
                 .contentType(ContentType.Username + ContentType.EmailAddress)
@@ -296,7 +298,7 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("密码") },
+            label = { Text(stringResource(R.string.auth_password)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier
@@ -305,22 +307,22 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
         )
         Spacer(Modifier.height(14.dp))
         Button(onClick = { viewModel.login(email, password) }, modifier = Modifier.fillMaxWidth()) {
-            Text("登录")
+            Text(stringResource(R.string.auth_login))
         }
         Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = viewModel::showRegister, modifier = Modifier.fillMaxWidth()) {
-            Text("注册账号")
+            Text(stringResource(R.string.auth_register_account))
         }
         if (state.oauthProviders.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))
-            Text("第三方登录", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.auth_oauth_login_title), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
             for (provider in state.oauthProviders) {
                 OutlinedButton(
                     onClick = { viewModel.openOAuthPage("login", provider.driver) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("使用 ${provider.label} 登录")
+                    Text(stringResource(R.string.auth_oauth_login_button, provider.label))
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -335,13 +337,13 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
     var inviteCode by rememberSaveable { mutableStateOf("") }
     var emailCode by rememberSaveable { mutableStateOf("") }
     var captcha by rememberSaveable { mutableStateOf("") }
-    Column(modifier = Modifier.fillMaxWidth()) {
-        PageHeader("账号注册", "创建账号后会直接进入节点页面。")
-        Section("账户") {
+    Column(modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))) {
+        PageHeader(stringResource(R.string.auth_register_title), stringResource(R.string.auth_register_subtitle))
+        Section(stringResource(R.string.section_account)) {
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("邮箱") },
+                label = { Text(stringResource(R.string.auth_email)) },
                 singleLine = true,
                 modifier = Modifier
                     .contentType(ContentType.NewUsername + ContentType.EmailAddress)
@@ -351,7 +353,7 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("密码") },
+                label = { Text(stringResource(R.string.auth_password)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier
@@ -359,50 +361,50 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
                     .fillMaxWidth()
             )
             Spacer(Modifier.height(10.dp))
-            OutlinedTextField(value = inviteCode, onValueChange = { inviteCode = it }, label = { Text("邀请码，可为空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = inviteCode, onValueChange = { inviteCode = it }, label = { Text(stringResource(R.string.auth_invite_code_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(10.dp))
-            OutlinedTextField(value = emailCode, onValueChange = { emailCode = it }, label = { Text("邮箱验证码，可为空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = emailCode, onValueChange = { emailCode = it }, label = { Text(stringResource(R.string.auth_email_code_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(10.dp))
-            OutlinedTextField(value = captcha, onValueChange = { captcha = it }, label = { Text("验证码令牌，可为空") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = captcha, onValueChange = { captcha = it }, label = { Text(stringResource(R.string.auth_captcha_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(14.dp))
             OutlinedButton(onClick = { viewModel.sendEmailVerify(email, captcha) }, modifier = Modifier.fillMaxWidth()) {
-                Text("发送邮箱验证码")
+                Text(stringResource(R.string.auth_send_email_code))
             }
             Spacer(Modifier.height(8.dp))
             Button(onClick = { viewModel.register(email, password, inviteCode, emailCode, captcha) }, modifier = Modifier.fillMaxWidth()) {
-                Text("注册")
+                Text(stringResource(R.string.auth_register))
             }
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = viewModel::showLogin, modifier = Modifier.fillMaxWidth()) {
-                Text("返回登录")
+                Text(stringResource(R.string.auth_back_login))
             }
             if (state.oauthConfirmToken.isNotEmpty()) {
                 Spacer(Modifier.height(14.dp))
-                Text("OAuth 注册确认", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.auth_oauth_confirm_title), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "确认使用 ${state.oauthConfirmProvider.ifEmpty { "OAuth" }} 创建或绑定账号：${state.oauthConfirmEmail}",
+                    stringResource(R.string.auth_oauth_confirm_message, state.oauthConfirmProvider.ifEmpty { "OAuth" }, state.oauthConfirmEmail),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = viewModel::confirmOAuthRegister, modifier = Modifier.fillMaxWidth()) {
-                    Text("确认注册并登录")
+                    Text(stringResource(R.string.auth_oauth_confirm_button))
                 }
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = viewModel::clearOAuthConfirm, modifier = Modifier.fillMaxWidth()) {
-                    Text("取消 OAuth 注册")
+                    Text(stringResource(R.string.auth_oauth_cancel))
                 }
             }
             if (state.oauthProviders.isNotEmpty()) {
                 Spacer(Modifier.height(14.dp))
-                Text("第三方注册", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.auth_oauth_register_title), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(8.dp))
                 for (provider in state.oauthProviders) {
                     OutlinedButton(
                         onClick = { viewModel.openOAuthPage("register", provider.driver, inviteCode) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("使用 ${provider.label} 注册")
+                        Text(stringResource(R.string.auth_oauth_register_button, provider.label))
                     }
                     Spacer(Modifier.height(8.dp))
                 }
@@ -470,66 +472,104 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
             selected = selected == PassScreen.NODES,
             onClick = { viewModel.openScreen(PassScreen.NODES) },
             icon = {},
-            label = { Text("节点") }
+            label = { Text(stringResource(R.string.nav_nodes)) }
         )
         NavigationBarItem(
             selected = selected == PassScreen.PLANS,
             onClick = { viewModel.openScreen(PassScreen.PLANS) },
             icon = {},
-            label = { Text("套餐") }
+            label = { Text(stringResource(R.string.nav_plans)) }
         )
         NavigationBarItem(
             selected = selected == PassScreen.PROFILE,
             onClick = { viewModel.openScreen(PassScreen.PROFILE) },
             icon = {},
-            label = { Text("我的") }
+            label = { Text(stringResource(R.string.nav_profile)) }
         )
     }
 }
 
 @Composable
 private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    PageHeader(stringResource(R.string.nav_nodes))
+    if (state.subscriptionBlocked) {
+        val blockTitle = stringResource(
+            id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_title else R.string.subscription_expired_title
+        )
+        val blockDescription = stringResource(
+            id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_body else R.string.subscription_expired_body
+        )
+        Section(blockTitle) {
+            ElevatedCard(
+                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(blockDescription, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (state.subscriptionSummary.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(state.subscriptionSummary, style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Button(onClick = { viewModel.openScreen(PassScreen.PLANS) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.subscription_redeem_button))
+                    }
+                }
+            }
+        }
+        return
+    }
     val context = LocalContext.current
     val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
-    PageHeader("节点")
-    Section("连接") {
-        Text(
-            if (state.vpnRequested) "已连接" else "未连接",
-            style = MaterialTheme.typography.displaySmall
-        )
+    Section(stringResource(R.string.section_connection)) {
+        val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
+        AnimatedContent(targetState = connectionStateText, transitionSpec = { contentTransition() }, label = "connection-state") { text ->
+            Text(text, style = MaterialTheme.typography.displaySmall)
+        }
         Spacer(Modifier.height(14.dp))
+        val connectionActionText = stringResource(
+            id = when {
+                state.vpnStarting -> R.string.status_connecting
+                state.vpnRequested -> R.string.action_disconnect
+                else -> R.string.action_connect
+            }
+        )
         Button(
             onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
             enabled = !state.vpnStarting,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(if (state.vpnStarting) "正在连接" else if (state.vpnRequested) "断开" else "开始连接")
+            AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
+                Text(text)
+            }
         }
     }
-    Section("当前节点") {
+    Section(stringResource(R.string.section_current_node)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 78.dp)
+                .animateContentSize(animationSpec = tween(180))
         ) {
-            Text(
-                selectedNode?.displayName(state.selectedNodeIndex) ?: if (state.nodesLoading) "节点正在同步。" else "暂无可用节点",
-                style = MaterialTheme.typography.headlineMedium
-            )
+            val nodeTitle = selectedNode?.displayName(state.selectedNodeIndex)
+                ?: stringResource(id = if (state.nodesLoading) R.string.status_nodes_syncing else R.string.status_no_nodes)
+            AnimatedContent(targetState = nodeTitle, transitionSpec = { contentTransition() }, label = "current-node") { title ->
+                Text(title, style = MaterialTheme.typography.headlineMedium)
+            }
             Spacer(Modifier.height(6.dp))
-            Text(
-                state.nodeTestResults[state.selectedNodeIndex] ?: "未测试",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            val testText = state.nodeTestResults[state.selectedNodeIndex] ?: stringResource(R.string.status_not_tested)
+            AnimatedContent(targetState = testText, transitionSpec = { contentTransition() }, label = "current-node-test") { text ->
+                Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         Spacer(Modifier.height(14.dp))
         Button(onClick = { viewModel.testNode(state.selectedNodeIndex) }, modifier = Modifier.fillMaxWidth()) {
-            Text("测试当前节点")
+            Text(stringResource(R.string.action_test_current_node))
         }
     }
-    Section("可用节点") {
+    Section(stringResource(R.string.section_available_nodes)) {
         if (state.anyTlsNodes.isEmpty()) {
-            Text(if (state.nodesLoading) "节点正在同步。" else "暂无可用节点。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(id = if (state.nodesLoading) R.string.status_nodes_syncing else R.string.status_no_nodes_sentence), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             for ((index, node) in state.anyTlsNodes.withIndex()) {
                 NodeRow(
@@ -551,31 +591,33 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 @Composable
 private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
-    PageHeader("套餐", "选择可用套餐。")
+    PageHeader(stringResource(R.string.nav_plans), stringResource(R.string.page_plans_subtitle))
     RewardAdSection(
-        title = "套餐激励",
+        title = stringResource(R.string.reward_plan_title),
         enabled = state.planRewardAdEnabled,
         scene = REWARD_SCENE_PLAN,
         state = state,
         viewModel = viewModel
     )
-    Section("套餐") {
+    Section(stringResource(R.string.section_plans)) {
         if (!state.paymentEnabled) {
             Text(
-                "网页支付入口已关闭；当前仅支持余额足额抵扣，余额 ${formatMoney(state.balance, state.currencySymbol)}。",
+                stringResource(R.string.plans_payment_disabled, formatMoney(state.balance, state.currencySymbol)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(10.dp))
         }
         if (state.plansLoading) {
-            Text("套餐正在加载。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.plans_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else if (state.plans.isEmpty()) {
-            Text("暂无可用套餐。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.plans_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
+            val noPriceText = stringResource(R.string.plan_price_unset)
             for ((index, plan) in state.plans.withIndex()) {
                 PlanRow(
                     plan = plan,
                     currencySymbol = state.currencySymbol,
+                    noPriceText = noPriceText,
                     paymentEnabled = state.paymentEnabled,
                     onOpenPayment = { viewModel.openPlanPage(context, plan.id) },
                     onBalancePurchase = { price -> viewModel.buyPlanWithBalance(plan.id, price.field, price.amount) }
@@ -592,6 +634,7 @@ private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 private fun PlanRow(
     plan: PlanItem,
     currencySymbol: String,
+    noPriceText: String,
     paymentEnabled: Boolean,
     onOpenPayment: () -> Unit,
     onBalancePurchase: (PlanPrice) -> Unit
@@ -600,14 +643,15 @@ private fun PlanRow(
         modifier = Modifier
             .clickable(enabled = paymentEnabled, onClick = onOpenPayment)
             .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(180))
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(plan.name, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(4.dp))
-            Text(planPriceText(plan, currencySymbol), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(planPriceText(plan, currencySymbol, noPriceText), color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (plan.transferEnable > 0.0) {
                 Spacer(Modifier.height(4.dp))
-                Text("流量 ${formatTrafficGb(plan.transferEnable)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.plan_traffic, formatTrafficGb(plan.transferEnable)), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             val content = plan.content.trim()
             if (content.isNotEmpty() && !content.startsWith("[") && !content.startsWith("{")) {
@@ -660,19 +704,19 @@ private fun RewardAdSection(
                         Text(title, style = MaterialTheme.typography.titleLarge)
                         Spacer(Modifier.height(3.dp))
                         Text(
-                            if (scene == REWARD_SCENE_POINTS) "观看完整激励广告后领取积分奖励。" else "观看完整激励广告后领取套餐奖励。",
+                            stringResource(id = if (scene == REWARD_SCENE_POINTS) R.string.reward_points_description else R.string.reward_plan_description),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
                 Spacer(Modifier.height(16.dp))
                 FilledTonalButton(onClick = { viewModel.requestRewardAd(scene) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("观看激励广告")
+                    Text(stringResource(R.string.reward_watch))
                 }
                 if (logs.isNotEmpty()) {
                     val visibleLogs = logs.take(3)
                     Spacer(Modifier.height(16.dp))
-                    Text("最近记录", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.reward_recent), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
                     for ((index, log) in visibleLogs.withIndex()) {
                         val statusColor = when (log.status) {
@@ -682,10 +726,10 @@ private fun RewardAdSection(
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.weight(1f)) {
-                                Text(log.giftCardCode.ifEmpty { "兑换码生成中" }, style = MaterialTheme.typography.titleMedium)
+                                Text(log.giftCardCode.ifEmpty { stringResource(R.string.reward_code_generating) }, style = MaterialTheme.typography.titleMedium)
                                 Spacer(Modifier.height(2.dp))
                                 Text(
-                                    "模板 ${log.giftCardTemplateId} · ${formatUnixTime(log.createdAt)}",
+                                    stringResource(R.string.reward_template_time, log.giftCardTemplateId, formatUnixTime(log.createdAt)),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 if (log.status == "failed" && log.error.isNotEmpty()) {
@@ -716,47 +760,47 @@ private fun RewardAdSection(
 
 @Composable
 private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    PageHeader("我的", "账户、积分与邀请信息。")
-    Section("账户") {
-        Text(state.userEmail.ifEmpty { "已登录" }, style = MaterialTheme.typography.titleLarge)
+    PageHeader(stringResource(R.string.nav_profile), stringResource(R.string.page_profile_subtitle))
+    Section(stringResource(R.string.section_account)) {
+        Text(state.userEmail.ifEmpty { stringResource(R.string.status_logged_in) }, style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(6.dp))
         Text(
-            "余额 ${formatMoney(state.balance, state.currencySymbol)}",
+            stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol)),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "佣金 ${formatMoney(state.commissionBalance, state.currencySymbol)}",
+            stringResource(R.string.commission_amount, formatMoney(state.commissionBalance, state.currencySymbol)),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(8.dp))
-        Text(
-            state.subscriptionSummary.ifEmpty { if (state.subscribeUrl.isEmpty()) "订阅未同步" else "订阅已同步" },
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        val subscriptionText = state.subscriptionSummary.ifEmpty {
+            stringResource(id = if (state.subscribeUrl.isEmpty()) R.string.subscription_not_synced else R.string.subscription_synced)
+        }
+        Text(subscriptionText, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(14.dp))
         Button(onClick = { viewModel.openScreen(PassScreen.SETTINGS) }, modifier = Modifier.fillMaxWidth()) {
-            Text("设置")
+            Text(stringResource(R.string.common_settings))
         }
         Spacer(Modifier.height(8.dp))
         Button(onClick = viewModel::logout, modifier = Modifier.fillMaxWidth()) {
-            Text("退出登录")
+            Text(stringResource(R.string.common_logout))
         }
     }
     RewardAdSection(
-        title = "积分激励",
+        title = stringResource(R.string.reward_points_title),
         enabled = state.pointsRewardAdEnabled,
         scene = REWARD_SCENE_POINTS,
         state = state,
         viewModel = viewModel
     )
-    Section("邀请") {
+    Section(stringResource(R.string.section_invite)) {
         if (state.invites.isEmpty()) {
-            Text(if (state.invitesLoading) "邀请码正在加载。" else "暂无邀请码。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(id = if (state.invitesLoading) R.string.invite_loading else R.string.invite_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             for ((index, invite) in state.invites.withIndex()) {
                 Text(invite.code, style = MaterialTheme.typography.titleLarge)
-                Text(if (invite.status == 0) "可用" else "已使用", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(id = if (invite.status == 0) R.string.invite_available else R.string.invite_used), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (index != state.invites.lastIndex) {
                     HorizontalDivider(Modifier.padding(vertical = 10.dp))
                 }
@@ -764,7 +808,7 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
         }
         Spacer(Modifier.height(14.dp))
         Button(onClick = viewModel::generateInvite, modifier = Modifier.fillMaxWidth()) {
-            Text("生成邀请码")
+            Text(stringResource(R.string.action_generate_invite))
         }
     }
 }
@@ -775,42 +819,42 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     var overseasDns by rememberSaveable(state.overseasDns) { mutableStateOf(state.overseasDns) }
     var directDns by rememberSaveable(state.directDns) { mutableStateOf(state.directDns) }
     var nodeTestTarget by rememberSaveable(state.nodeTestTarget) { mutableStateOf(state.nodeTestTarget) }
-    PageHeader("设置", "设置 DNS、IPv6 与按应用规则。")
-    Section("应用规则") {
+    PageHeader(stringResource(R.string.common_settings), stringResource(R.string.page_settings_subtitle))
+    Section(stringResource(R.string.section_app_rules)) {
         val selectedCount = selectedPackages(state).size
         Text(
-            if (state.appRuleMode == MODE_ALLOW) "白名单模式：只有已选择的应用使用连接。" else "黑名单模式：已选择的应用不使用连接。",
+            stringResource(id = if (state.appRuleMode == MODE_ALLOW) R.string.app_rules_allow_desc else R.string.app_rules_exclude_desc),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(8.dp))
-        Text(if (selectedCount == 0) "尚未选择应用。" else "已选择 $selectedCount 个应用。")
+        Text(if (selectedCount == 0) stringResource(R.string.app_rules_none_selected) else stringResource(R.string.app_rules_selected_count, selectedCount))
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             Button(onClick = { viewModel.openScreen(PassScreen.APP_RULES) }, modifier = Modifier.weight(1f)) {
-                Text("选择应用")
+                Text(stringResource(R.string.action_select_apps))
             }
             OutlinedButton(onClick = viewModel::clearSelectedApps, modifier = Modifier.weight(1f)) {
-                Text("清空选择")
+                Text(stringResource(R.string.common_clear_selection))
             }
         }
     }
     Section("DNS") {
-        OutlinedTextField(value = nodeDns, onValueChange = { nodeDns = it }, label = { Text("解析节点域名的本地 DNS") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = nodeDns, onValueChange = { nodeDns = it }, label = { Text(stringResource(R.string.dns_node_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
-        OutlinedTextField(value = overseasDns, onValueChange = { overseasDns = it }, label = { Text("连接后解析域名的海外 DNS") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = overseasDns, onValueChange = { overseasDns = it }, label = { Text(stringResource(R.string.dns_overseas_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
-        OutlinedTextField(value = directDns, onValueChange = { directDns = it }, label = { Text("连接后解析分流直连域名的 DNS") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = directDns, onValueChange = { directDns = it }, label = { Text(stringResource(R.string.dns_direct_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Text("启用 IPv6")
+            Text(stringResource(R.string.enable_ipv6))
             Switch(checked = state.vpnIpv6Enabled, onCheckedChange = viewModel::setIpv6Enabled)
         }
     }
-    Section("节点测试") {
-        OutlinedTextField(value = nodeTestTarget, onValueChange = { nodeTestTarget = it }, label = { Text("测试目标网站") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+    Section(stringResource(R.string.section_node_test)) {
+        OutlinedTextField(value = nodeTestTarget, onValueChange = { nodeTestTarget = it }, label = { Text(stringResource(R.string.node_test_target_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
         Text(
-            "可填写域名、域名:端口或 http/https 地址。节点测试会连续完成两次 HEAD 请求并显示第二次延迟。",
+            stringResource(R.string.node_test_help),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(14.dp))
@@ -818,11 +862,11 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
             onClick = { viewModel.saveDnsAndTestSettings(nodeDns, overseasDns, directDns, nodeTestTarget) },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("保存设置")
+            Text(stringResource(R.string.common_save_settings))
         }
         Spacer(Modifier.height(8.dp))
         TextButton(onClick = { viewModel.openScreen(PassScreen.PROFILE) }, modifier = Modifier.fillMaxWidth()) {
-            Text("返回我的")
+            Text(stringResource(R.string.common_back_profile))
         }
     }
 }
@@ -834,35 +878,55 @@ private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMode
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
     ) {
         item {
-            PageHeader("选择节点", "可在此测试每个节点到目标网站的真实连接延迟。")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(onClick = { viewModel.openScreen(PassScreen.NODES) }, modifier = Modifier.weight(1f)) {
-                    Text("返回节点")
-                }
-                Button(onClick = viewModel::testAllNodes, modifier = Modifier.weight(1f)) {
-                    Text(if (state.nodesTesting) "测试中" else "测试连接")
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-        }
-        if (state.anyTlsNodes.isEmpty()) {
-            item {
-                Section("可用节点") {
-                    Text(if (state.nodesLoading) "节点正在同步。" else "暂无可用节点。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        } else {
-            itemsIndexed(state.anyTlsNodes, key = { index, node -> "${node.displayName(index)}-$index" }) { index, node ->
-                NodeRow(
-                    index = index,
-                    node = node,
-                    selected = index == state.selectedNodeIndex,
-                    testText = state.nodeTestResults[index],
-                    onTest = { viewModel.testNode(index) },
-                    onSelect = { viewModel.selectNode(index, returnToNodes = true) }
+            PageHeader(stringResource(R.string.page_node_select_title), stringResource(R.string.page_node_select_subtitle))
+            if (state.subscriptionBlocked) {
+                val blockTitle = stringResource(
+                    id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_title else R.string.subscription_expired_title
                 )
-                if (index != state.anyTlsNodes.lastIndex) {
-                    HorizontalDivider(Modifier.padding(horizontal = 20.dp))
+                val blockDescription = stringResource(
+                    id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_body else R.string.subscription_expired_body
+                )
+                Section(blockTitle) {
+                    Text(blockDescription, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(14.dp))
+                    Button(onClick = { viewModel.openScreen(PassScreen.PLANS) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.subscription_redeem_button))
+                    }
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { viewModel.openScreen(PassScreen.NODES) }, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.action_back_nodes))
+                    }
+                    Button(onClick = viewModel::testAllNodes, modifier = Modifier.weight(1f)) {
+                        AnimatedContent(targetState = stringResource(id = if (state.nodesTesting) R.string.action_test_testing else R.string.action_test_connection), transitionSpec = { contentTransition() }, label = "test-all") { text ->
+                            Text(text)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+        }
+        if (!state.subscriptionBlocked) {
+            if (state.anyTlsNodes.isEmpty()) {
+                item {
+                    Section(stringResource(R.string.section_available_nodes)) {
+                        Text(stringResource(id = if (state.nodesLoading) R.string.status_nodes_syncing else R.string.status_no_nodes_sentence), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                itemsIndexed(state.anyTlsNodes, key = { index, node -> "${node.displayName(index)}-$index" }) { index, node ->
+                    NodeRow(
+                        index = index,
+                        node = node,
+                        selected = index == state.selectedNodeIndex,
+                        testText = state.nodeTestResults[index],
+                        onTest = { viewModel.testNode(index) },
+                        onSelect = { viewModel.selectNode(index, returnToNodes = true) }
+                    )
+                    if (index != state.anyTlsNodes.lastIndex) {
+                        HorizontalDivider(Modifier.padding(horizontal = 20.dp))
+                    }
                 }
             }
         }
@@ -882,13 +946,14 @@ private fun NodeRow(
         modifier = Modifier
             .clickable(onClick = onSelect)
             .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(180))
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
             Text((if (selected) "✓ " else "") + node.displayName(index), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(2.dp))
-            Text("${node.protocolLabel} · ${testText ?: "未测试"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${node.protocolLabel} · ${testText ?: stringResource(R.string.status_not_tested)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.width(8.dp))
         IconButton(onClick = onTest, modifier = Modifier.size(32.dp)) {
@@ -915,33 +980,33 @@ private fun AppRulesScreen(state: XbClientUiState, viewModel: XbClientViewModel)
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
     ) {
         item {
-            PageHeader("应用规则", "选择黑名单或白名单模式，并搜索需要设置的应用。")
+            PageHeader(stringResource(R.string.page_app_rules_title), stringResource(R.string.page_app_rules_subtitle))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 if (state.appRuleMode == MODE_EXCLUDE) {
-                    Button(onClick = { viewModel.switchAppRuleMode(MODE_EXCLUDE) }, modifier = Modifier.weight(1f)) { Text("黑名单") }
-                    OutlinedButton(onClick = { viewModel.switchAppRuleMode(MODE_ALLOW) }, modifier = Modifier.weight(1f)) { Text("白名单") }
+                    Button(onClick = { viewModel.switchAppRuleMode(MODE_EXCLUDE) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_exclude)) }
+                    OutlinedButton(onClick = { viewModel.switchAppRuleMode(MODE_ALLOW) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_allow)) }
                 } else {
-                    OutlinedButton(onClick = { viewModel.switchAppRuleMode(MODE_EXCLUDE) }, modifier = Modifier.weight(1f)) { Text("黑名单") }
-                    Button(onClick = { viewModel.switchAppRuleMode(MODE_ALLOW) }, modifier = Modifier.weight(1f)) { Text("白名单") }
+                    OutlinedButton(onClick = { viewModel.switchAppRuleMode(MODE_EXCLUDE) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_exclude)) }
+                    Button(onClick = { viewModel.switchAppRuleMode(MODE_ALLOW) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_allow)) }
                 }
             }
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = state.appSearchQuery,
                 onValueChange = viewModel::setAppSearchQuery,
-                label = { Text("搜索应用或包名") },
+                label = { Text(stringResource(R.string.search_app_label)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(8.dp))
-            Text("已选择 ${packages.size} 个应用。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.app_rules_selected_count, packages.size), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(onClick = { viewModel.openScreen(PassScreen.SETTINGS) }, modifier = Modifier.weight(1f)) {
-                    Text("返回设置")
+                    Text(stringResource(R.string.common_back_settings))
                 }
                 TextButton(onClick = viewModel::clearSelectedApps, modifier = Modifier.weight(1f)) {
-                    Text("清空选择")
+                    Text(stringResource(R.string.common_clear_selection))
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -972,18 +1037,18 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
     if (state.updateAvailable) {
         AlertDialog(
             onDismissRequest = viewModel::dismissUpdateDialog,
-            title = { Text("发现新版本") },
+            title = { Text(stringResource(R.string.update_title)) },
             text = {
-                Text("当前版本 ${BuildConfig.VERSION_NAME.removeSuffix(".debug")}，最新版本 ${state.latestReleaseVersion}。")
+                Text(stringResource(R.string.update_message, BuildConfig.VERSION_NAME.removeSuffix(".debug"), state.latestReleaseVersion))
             },
             confirmButton = {
                 TextButton(onClick = { viewModel.openUpdatePage(context) }) {
-                    Text(if (state.latestDownloadUrl.isEmpty()) "打开 Release" else "下载更新")
+                    Text(stringResource(id = if (state.latestDownloadUrl.isEmpty()) R.string.update_open_release else R.string.update_download))
                 }
             },
             dismissButton = {
                 TextButton(onClick = viewModel::dismissUpdateDialog) {
-                    Text("稍后")
+                    Text(stringResource(R.string.common_later))
                 }
             }
         )
@@ -995,7 +1060,7 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
             sheetState = sheetState
         ) {
             Text(
-                if (state.nodeSwitchConnect) "更换节点" else "选择节点",
+                stringResource(id = if (state.nodeSwitchConnect) R.string.sheet_change_node else R.string.sheet_select_node),
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
             )
@@ -1003,8 +1068,8 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
                 itemsIndexed(state.anyTlsNodes, key = { index, node -> "${node.displayName(index)}-$index" }) { index, node ->
                     ListItem(
                         headlineContent = { Text(node.displayName(index)) },
-                        supportingContent = { Text("${node.protocolLabel} · ${state.nodeTestResults[index] ?: "未测试"}") },
-                        trailingContent = { if (index == state.selectedNodeIndex) Text("已选择") },
+                        supportingContent = { Text("${node.protocolLabel} · ${state.nodeTestResults[index] ?: stringResource(R.string.status_not_tested)}") },
+                        trailingContent = { if (index == state.selectedNodeIndex) Text(stringResource(R.string.common_selected)) },
                         modifier = Modifier.clickable { viewModel.chooseNodeFromDialog(index) }
                     )
                     HorizontalDivider()
@@ -1032,6 +1097,7 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(180))
             .padding(bottom = 18.dp)
     ) {
         Text(title, style = MaterialTheme.typography.titleLarge)
@@ -1054,16 +1120,17 @@ private fun formatMoney(amount: Int, symbol: String): String =
 private fun formatUnixTime(value: Long): String =
     if (value <= 0L) "" else SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(value * 1000))
 
-private fun planPriceText(plan: PlanItem, symbol: String): String =
-    if (plan.prices.isEmpty()) "价格未设置" else plan.prices.joinToString(" · ") {
+private fun planPriceText(plan: PlanItem, symbol: String, noPriceText: String): String =
+    if (plan.prices.isEmpty()) noPriceText else plan.prices.joinToString(" · ") {
         "${it.label} ${formatMoney(it.amount, symbol)}"
     }
 
+@Composable
 private fun rewardStatusText(status: String): String =
     when (status) {
-        "credited" -> "已发放"
-        "pending" -> "验证中"
-        "failed" -> "发放失败"
+        "credited" -> stringResource(R.string.reward_credited)
+        "pending" -> stringResource(R.string.reward_pending)
+        "failed" -> stringResource(R.string.reward_failed)
         else -> status
     }
 

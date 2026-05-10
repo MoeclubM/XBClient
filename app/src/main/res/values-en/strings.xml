@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="common_close">Close</string>
+    <string name="common_settings">Settings</string>
+    <string name="common_logout">Log out</string>
+    <string name="common_save_settings">Save settings</string>
+    <string name="common_later">Later</string>
+    <string name="common_selected">Selected</string>
+    <string name="common_clear_selection">Clear</string>
+    <string name="common_back_profile">Back to profile</string>
+    <string name="common_back_settings">Back to settings</string>
+
+    <string name="nav_nodes">Nodes</string>
+    <string name="nav_plans">Plans</string>
+    <string name="nav_profile">Profile</string>
+
+    <string name="oauth_web_title">Third-party login</string>
+    <string name="auth_login_title">Account login</string>
+    <string name="auth_register_title">Create account</string>
+    <string name="auth_register_subtitle">After registration, the node page opens automatically.</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_login">Log in</string>
+    <string name="auth_register">Register</string>
+    <string name="auth_register_account">Create account</string>
+    <string name="auth_oauth_login_title">Third-party login</string>
+    <string name="auth_oauth_login_button">Continue with %1$s</string>
+    <string name="auth_invite_code_optional">Invite code, optional</string>
+    <string name="auth_email_code_optional">Email code, optional</string>
+    <string name="auth_captcha_optional">Captcha token, optional</string>
+    <string name="auth_send_email_code">Send email code</string>
+    <string name="auth_back_login">Back to login</string>
+    <string name="auth_oauth_confirm_title">Confirm OAuth registration</string>
+    <string name="auth_oauth_confirm_message">Confirm using %1$s to create or bind the account: %2$s</string>
+    <string name="auth_oauth_confirm_button">Confirm and log in</string>
+    <string name="auth_oauth_cancel">Cancel OAuth registration</string>
+    <string name="auth_oauth_register_title">Third-party registration</string>
+    <string name="auth_oauth_register_button">Register with %1$s</string>
+
+    <string name="section_account">Account</string>
+    <string name="section_connection">Connection</string>
+    <string name="section_current_node">Current node</string>
+    <string name="section_available_nodes">Available nodes</string>
+    <string name="section_plans">Plans</string>
+    <string name="section_invite">Invites</string>
+    <string name="section_app_rules">App rules</string>
+    <string name="section_node_test">Node test</string>
+
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_connecting">Connecting</string>
+    <string name="status_nodes_syncing">Syncing nodes.</string>
+    <string name="status_no_nodes">No available nodes</string>
+    <string name="status_no_nodes_sentence">No available nodes.</string>
+    <string name="status_not_tested">Not tested</string>
+    <string name="status_logged_in">Logged in</string>
+    <string name="action_connect">Connect</string>
+    <string name="action_disconnect">Disconnect</string>
+    <string name="action_test_current_node">Test current node</string>
+    <string name="action_back_nodes">Back to nodes</string>
+    <string name="action_test_testing">Testing</string>
+    <string name="action_test_connection">Test connection</string>
+    <string name="action_select_apps">Select apps</string>
+    <string name="action_generate_invite">Generate invite</string>
+
+    <string name="subscription_expired_title">Plan expired</string>
+    <string name="subscription_expired_body">Your current plan has expired. Redeem or buy a plan to use nodes.</string>
+    <string name="subscription_traffic_exceeded_title">Traffic exhausted</string>
+    <string name="subscription_traffic_exceeded_body">Your current plan traffic has been used up. Redeem or buy a plan to use nodes.</string>
+    <string name="subscription_redeem_button">Go to plans</string>
+    <string name="subscription_not_synced">Subscription not synced</string>
+    <string name="subscription_synced">Subscription synced</string>
+
+    <string name="page_plans_subtitle">Choose an available plan.</string>
+    <string name="plans_payment_disabled">Web payment is disabled; only full balance deduction is supported. Balance: %1$s.</string>
+    <string name="plans_loading">Loading plans.</string>
+    <string name="plans_empty">No plans available.</string>
+    <string name="plan_price_unset">Price not configured</string>
+    <string name="plan_traffic">Traffic %1$s</string>
+
+    <string name="reward_plan_title">Plan rewards</string>
+    <string name="reward_points_title">Points rewards</string>
+    <string name="reward_plan_description">Watch a rewarded ad to claim a plan reward.</string>
+    <string name="reward_points_description">Watch a rewarded ad to claim points.</string>
+    <string name="reward_watch">Watch rewarded ad</string>
+    <string name="reward_recent">Recent records</string>
+    <string name="reward_code_generating">Generating redeem code</string>
+    <string name="reward_template_time">Template %1$d · %2$s</string>
+    <string name="reward_credited">Credited</string>
+    <string name="reward_pending">Pending</string>
+    <string name="reward_failed">Failed</string>
+
+    <string name="page_profile_subtitle">Account, points, and invite information.</string>
+    <string name="balance_amount">Balance %1$s</string>
+    <string name="commission_amount">Commission %1$s</string>
+    <string name="invite_loading">Loading invite codes.</string>
+    <string name="invite_empty">No invite codes.</string>
+    <string name="invite_available">Available</string>
+    <string name="invite_used">Used</string>
+
+    <string name="page_settings_subtitle">Configure DNS, IPv6, and per-app rules.</string>
+    <string name="app_rules_allow_desc">Allowlist mode: only selected apps use the connection.</string>
+    <string name="app_rules_exclude_desc">Blocklist mode: selected apps do not use the connection.</string>
+    <string name="app_rules_none_selected">No apps selected.</string>
+    <string name="app_rules_selected_count">%1$d apps selected.</string>
+    <string name="dns_node_label">Local DNS for resolving node domains</string>
+    <string name="dns_overseas_label">Overseas DNS after connection</string>
+    <string name="dns_direct_label">DNS for direct-route domains after connection</string>
+    <string name="enable_ipv6">Enable IPv6</string>
+    <string name="node_test_target_label">Test target</string>
+    <string name="node_test_help">Enter a domain, domain:port, or http/https URL. Node testing runs two HEAD requests and shows the second latency.</string>
+
+    <string name="page_node_select_title">Select node</string>
+    <string name="page_node_select_subtitle">Test the real connection latency from each node to the target site.</string>
+    <string name="page_app_rules_title">App rules</string>
+    <string name="page_app_rules_subtitle">Choose blocklist or allowlist mode, then search for apps to configure.</string>
+    <string name="mode_exclude">Blocklist</string>
+    <string name="mode_allow">Allowlist</string>
+    <string name="search_app_label">Search apps or package names</string>
+
+    <string name="update_title">New version available</string>
+    <string name="update_message">Current version %1$s, latest version %2$s.</string>
+    <string name="update_open_release">Open release</string>
+    <string name="update_download">Download update</string>
+    <string name="sheet_change_node">Switch node</string>
+    <string name="sheet_select_node">Select node</string>
+</resources>

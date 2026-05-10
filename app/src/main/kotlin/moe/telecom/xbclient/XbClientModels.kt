@@ -16,6 +16,8 @@ const val DEFAULT_NODE_TEST_TARGET = "https://cp.cloudflare.com"
 const val DNS_MODE_OVER_TCP = "over_tcp"
 const val REWARD_SCENE_PLAN = "plan"
 const val REWARD_SCENE_POINTS = "points"
+const val SUBSCRIPTION_BLOCK_EXPIRED = "expired"
+const val SUBSCRIPTION_BLOCK_TRAFFIC = "traffic_exceeded"
 
 enum class AuthMode {
     LOGIN,
@@ -267,6 +269,18 @@ fun subscriptionSummary(data: JSONObject): String {
         lines.add("到期 ${formatUnixDate(expire)}")
     }
     return lines.joinToString(" · ")
+}
+
+fun subscriptionBlockReason(data: JSONObject): String {
+    val expiredAt = numericValue(data.opt("expired_at")).toLong()
+    if (expiredAt > 0L && expiredAt <= System.currentTimeMillis() / 1000L) {
+        return SUBSCRIPTION_BLOCK_EXPIRED
+    }
+    val total = numericValue(data.opt("transfer_enable"))
+    if (total > 0.0 && numericValue(data.opt("u")) + numericValue(data.opt("d")) >= total) {
+        return SUBSCRIPTION_BLOCK_TRAFFIC
+    }
+    return ""
 }
 
 fun readableNodeTestError(error: String): String {
