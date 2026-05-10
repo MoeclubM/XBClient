@@ -159,6 +159,12 @@
     <string name="price_three_year">3年払い</string>
     <string name="price_onetime">買い切り</string>
     <string name="price_reset">通信量リセット</string>
+    <string name="vpn_disclosure_title">VPN 接続を使用する前に</string>
+    <string name="vpn_disclosure_body">このアプリは Android VPN サービスを使用してネットワーク接続を作成します。続行する前に以下を確認してください。</string>
+    <string name="vpn_disclosure_point_traffic">• 接続中、端末のネットワーク通信は選択したノード経由で転送されます。</string>
+    <string name="vpn_disclosure_point_data">• サービス提供のため、アプリとサーバーはアカウント、接続状態、ノード、IP、通信量統計を処理する場合があります。</string>
+    <string name="vpn_disclosure_point_control">• アプリ内でいつでも切断できます。システム設定から VPN 権限を取り消すこともできます。</string>
+    <string name="vpn_disclosure_accept">理解して続行</string>
     <string name="vpn_permission_denied">接続権限が許可されていません。</string>
     <string name="vpn_notification_channel">%1$s 接続</string>
     <string name="vpn_notification_title">%1$s 接続</string>

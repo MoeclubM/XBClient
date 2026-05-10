@@ -106,6 +106,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -149,7 +150,7 @@ fun XbClientApp(viewModel: XbClientViewModel) {
                     scaleY = 1f - backProgress * 0.025f
                 }
             ) {
-                if (state.loaded && state.isLoggedIn && state.languageOnboardingDone) {
+                if (state.loaded && state.isLoggedIn && state.languageOnboardingDone && state.vpnDisclosureDone) {
                     MainShell(state, viewModel)
                 } else {
                     LoadingScreen()
@@ -201,6 +202,8 @@ fun XbClientAuthApp(viewModel: XbClientViewModel) {
                     LoadingScreen()
                 } else if (!state.languageOnboardingDone) {
                     LanguageOnboardingScreen(state, viewModel)
+                } else if (!state.vpnDisclosureDone) {
+                    VpnDisclosureScreen(viewModel)
                 } else if (!state.isLoggedIn) {
                     AuthScreen(state, viewModel)
                 } else {
@@ -407,6 +410,92 @@ private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClient
         "fa" to R.string.language_fa
     )
     var selected by rememberSaveable { mutableStateOf(if (languages.any { it.first == state.appLanguage }) state.appLanguage else "") }
+    var showLanguagePicker by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(1000)
+        showLanguagePicker = true
+    }
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+        AnimatedContent(
+            targetState = showLanguagePicker,
+            transitionSpec = { contentTransition() },
+            label = "language-onboarding-stage",
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) { showPicker ->
+            if (!showPicker) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher),
+                            contentDescription = null,
+                            modifier = Modifier.size(112.dp)
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Choose language · 选择语言 · 言語 · Язык · زبان",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp)
+                ) {
+                    item {
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher),
+                            contentDescription = null,
+                            modifier = Modifier.size(72.dp)
+                        )
+                        Spacer(Modifier.height(22.dp))
+                        Text(
+                            """Choose language
+选择语言 · 言語を選択
+Выберите язык · انتخاب زبان""",
+                            style = MaterialTheme.typography.headlineMedium
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Please select a language. 请选择语言。言語を選択してください。Выберите язык. لطفاً زبان را انتخاب کنید.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(24.dp))
+                        ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                            Column(Modifier.padding(10.dp)) {
+                                for ((index, item) in languages.withIndex()) {
+                                    ListItem(
+                                        headlineContent = { Text(stringResource(item.second)) },
+                                        trailingContent = {
+                                            if (selected == item.first) {
+                                                Text("✓", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleLarge)
+                                            }
+                                        },
+                                        modifier = Modifier.clickable { selected = item.first }
+                                    )
+                                    if (index != languages.lastIndex) {
+                                        HorizontalDivider()
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(20.dp))
+                        Button(onClick = { viewModel.finishLanguageOnboarding(selected) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.onboarding_continue))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VpnDisclosureScreen(viewModel: XbClientViewModel) {
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -421,31 +510,22 @@ private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClient
                     modifier = Modifier.size(72.dp)
                 )
                 Spacer(Modifier.height(22.dp))
-                Text(stringResource(R.string.onboarding_language_title), style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(R.string.vpn_disclosure_title), style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.onboarding_language_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.vpn_disclosure_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(24.dp))
                 ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-                    Column(Modifier.padding(10.dp)) {
-                        for ((index, item) in languages.withIndex()) {
-                            ListItem(
-                                headlineContent = { Text(stringResource(item.second)) },
-                                trailingContent = {
-                                    if (selected == item.first) {
-                                        Text("✓", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleLarge)
-                                    }
-                                },
-                                modifier = Modifier.clickable { selected = item.first }
-                            )
-                            if (index != languages.lastIndex) {
-                                HorizontalDivider()
-                            }
-                        }
+                    Column(Modifier.padding(18.dp)) {
+                        Text(stringResource(R.string.vpn_disclosure_point_traffic))
+                        Spacer(Modifier.height(12.dp))
+                        Text(stringResource(R.string.vpn_disclosure_point_data))
+                        Spacer(Modifier.height(12.dp))
+                        Text(stringResource(R.string.vpn_disclosure_point_control))
                     }
                 }
                 Spacer(Modifier.height(20.dp))
-                Button(onClick = { viewModel.finishLanguageOnboarding(selected) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.onboarding_continue))
+                Button(onClick = viewModel::acceptVpnDisclosure, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.vpn_disclosure_accept))
                 }
             }
         }

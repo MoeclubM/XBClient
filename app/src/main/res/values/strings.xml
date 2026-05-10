@@ -159,6 +159,12 @@
     <string name="price_three_year">三年付</string>
     <string name="price_onetime">一次性</string>
     <string name="price_reset">重置流量</string>
+    <string name="vpn_disclosure_title">使用 VPN 连接前请确认</string>
+    <string name="vpn_disclosure_body">本应用会使用 Android VPN 服务建立网络连接。请先了解以下内容，再继续使用。</string>
+    <string name="vpn_disclosure_point_traffic">• 连接时，设备网络流量会通过你选择的节点传输。</string>
+    <string name="vpn_disclosure_point_data">• 应用和服务端可能处理账号、连接状态、节点、IP 和流量统计，用于提供服务。</string>
+    <string name="vpn_disclosure_point_control">• 你可以随时在应用中断开连接，或在系统 VPN 设置中撤销权限。</string>
+    <string name="vpn_disclosure_accept">我已了解并继续</string>
     <string name="vpn_permission_denied">连接权限未授予。</string>
     <string name="vpn_notification_channel">%1$s 连接</string>
     <string name="vpn_notification_title">%1$s 连接</string>

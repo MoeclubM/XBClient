@@ -159,6 +159,12 @@
     <string name="price_three_year">سه‌ساله</string>
     <string name="price_onetime">یک‌باره</string>
     <string name="price_reset">بازنشانی ترافیک</string>
+    <string name="vpn_disclosure_title">پیش از استفاده از اتصال VPN</string>
+    <string name="vpn_disclosure_body">این برنامه برای ایجاد اتصال شبکه از سرویس VPN اندروید استفاده می‌کند. پیش از ادامه این موارد را بخوانید.</string>
+    <string name="vpn_disclosure_point_traffic">• هنگام اتصال، ترافیک شبکه دستگاه از گره‌ای که انتخاب می‌کنید عبور می‌کند.</string>
+    <string name="vpn_disclosure_point_data">• برنامه و سرویس ممکن است برای ارائه سرویس، حساب، وضعیت اتصال، گره، IP و آمار ترافیک را پردازش کنند.</string>
+    <string name="vpn_disclosure_point_control">• هر زمان می‌توانید در برنامه اتصال را قطع کنید یا مجوز VPN را از تنظیمات سیستم لغو کنید.</string>
+    <string name="vpn_disclosure_accept">متوجه شدم و ادامه می‌دهم</string>
     <string name="vpn_permission_denied">مجوز اتصال داده نشد.</string>
     <string name="vpn_notification_channel">اتصال %1$s</string>
     <string name="vpn_notification_title">اتصال %1$s</string>

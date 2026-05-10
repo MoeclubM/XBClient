@@ -34,7 +34,7 @@ class AppOpenAdActivity : ComponentActivity() {
         enableEdgeToEdge()
         val prefs = getSharedPreferences(XBCLIENT_PREFS, MODE_PRIVATE)
         val adUnitId = prefs.getString("app_open_ad_unit_id", "").orEmpty()
-        if (prefs.getString("auth_data", "").orEmpty().isEmpty() || !prefs.getBoolean("language_onboarding_done", false)) {
+        if (prefs.getString("auth_data", "").orEmpty().isEmpty() || !prefs.getBoolean("language_onboarding_done", false) || !prefs.getBoolean("vpn_disclosure_done", false)) {
             openAuthActivity()
             return
         }

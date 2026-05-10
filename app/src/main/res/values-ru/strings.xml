@@ -159,6 +159,12 @@
     <string name="price_three_year">Три года</string>
     <string name="price_onetime">Разово</string>
     <string name="price_reset">Сброс трафика</string>
+    <string name="vpn_disclosure_title">Перед использованием VPN-подключения</string>
+    <string name="vpn_disclosure_body">Это приложение использует службу Android VPN для создания сетевого подключения. Ознакомьтесь с этим уведомлением перед продолжением.</string>
+    <string name="vpn_disclosure_point_traffic">• При подключении сетевой трафик устройства направляется через выбранный вами узел.</string>
+    <string name="vpn_disclosure_point_data">• Приложение и сервис могут обрабатывать аккаунт, состояние подключения, узел, IP и статистику трафика для предоставления услуги.</string>
+    <string name="vpn_disclosure_point_control">• Вы можете отключиться в приложении в любое время или отозвать разрешение VPN в настройках системы.</string>
+    <string name="vpn_disclosure_accept">Понятно, продолжить</string>
     <string name="vpn_permission_denied">Разрешение на подключение не предоставлено.</string>
     <string name="vpn_notification_channel">Подключение %1$s</string>
     <string name="vpn_notification_title">Подключение %1$s</string>

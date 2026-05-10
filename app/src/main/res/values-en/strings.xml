@@ -159,6 +159,12 @@
     <string name="price_three_year">Three-year</string>
     <string name="price_onetime">One-time</string>
     <string name="price_reset">Reset traffic</string>
+    <string name="vpn_disclosure_title">Before using the VPN connection</string>
+    <string name="vpn_disclosure_body">This app uses Android VPN service to create a network connection. Please read this notice before continuing.</string>
+    <string name="vpn_disclosure_point_traffic">• When connected, device network traffic is routed through the node you choose.</string>
+    <string name="vpn_disclosure_point_data">• The app and service may process your account, connection status, node, IP, and traffic statistics to provide the service.</string>
+    <string name="vpn_disclosure_point_control">• You can disconnect in the app at any time, or revoke VPN permission in system settings.</string>
+    <string name="vpn_disclosure_accept">I understand and continue</string>
     <string name="vpn_permission_denied">Connection permission was not granted.</string>
     <string name="vpn_notification_channel">%1$s connection</string>
     <string name="vpn_notification_title">%1$s connection</string>

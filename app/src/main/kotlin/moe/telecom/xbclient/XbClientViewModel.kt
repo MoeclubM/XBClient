@@ -94,6 +94,7 @@ data class XbClientUiState(
     val appLanguage: String = "",
     val themeMode: String = "",
     val languageOnboardingDone: Boolean = false,
+    val vpnDisclosureDone: Boolean = false,
     val oauthProviders: List<OAuthProvider> = emptyList(),
     val oauthConfirmToken: String = "",
     val oauthConfirmProvider: String = "",
@@ -437,6 +438,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             appLanguage = current.appLanguage,
             themeMode = current.themeMode,
             languageOnboardingDone = current.languageOnboardingDone,
+            vpnDisclosureDone = current.vpnDisclosureDone,
             oauthProviders = current.oauthProviders
         )
         _uiState.value = next
@@ -930,6 +932,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         updateAndPersist { it.copy(appLanguage = language, languageOnboardingDone = true) }
     }
 
+    fun acceptVpnDisclosure() {
+        updateAndPersist { it.copy(vpnDisclosureDone = true) }
+    }
+
     fun setThemeMode(themeMode: String) {
         updateAndPersist { it.copy(themeMode = themeMode) }
     }
@@ -1247,6 +1253,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
                 themeMode = prefs[Keys.THEME_MODE].orEmpty(),
                 languageOnboardingDone = prefs[Keys.LANGUAGE_ONBOARDING_DONE] ?: false,
+                vpnDisclosureDone = prefs[Keys.VPN_DISCLOSURE_DONE] ?: false,
                 oauthProviders = cachedOAuthProviders(prefs[Keys.OAUTH_PROVIDERS].orEmpty())
             )
         } else {
@@ -1294,6 +1301,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 appLanguage = legacy.getString("app_language", "").orEmpty(),
                 themeMode = legacy.getString("theme_mode", "").orEmpty(),
                 languageOnboardingDone = legacy.getBoolean("language_onboarding_done", false),
+                vpnDisclosureDone = legacy.getBoolean("vpn_disclosure_done", false),
                 oauthProviders = cachedOAuthProviders(legacy.getString("oauth_providers", "").orEmpty())
             )
         }
@@ -1381,6 +1389,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.APP_LANGUAGE] = state.appLanguage
             prefs[Keys.THEME_MODE] = state.themeMode
             prefs[Keys.LANGUAGE_ONBOARDING_DONE] = state.languageOnboardingDone
+            prefs[Keys.VPN_DISCLOSURE_DONE] = state.vpnDisclosureDone
             prefs[Keys.OAUTH_PROVIDERS] = oauthProvidersJson(state.oauthProviders)
         }
         app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
@@ -1426,6 +1435,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("app_language", state.appLanguage)
             .putString("theme_mode", state.themeMode)
             .putBoolean("language_onboarding_done", state.languageOnboardingDone)
+            .putBoolean("vpn_disclosure_done", state.vpnDisclosureDone)
             .putString("oauth_providers", oauthProvidersJson(state.oauthProviders))
             .apply()
     }
@@ -1670,6 +1680,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val LANGUAGE_ONBOARDING_DONE = booleanPreferencesKey("language_onboarding_done")
+        val VPN_DISCLOSURE_DONE = booleanPreferencesKey("vpn_disclosure_done")
         val OAUTH_PROVIDERS = stringPreferencesKey("oauth_providers")
     }
 }

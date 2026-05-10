@@ -44,7 +44,7 @@ class AuthActivity : ComponentActivity() {
                         return@collect
                     }
                     applyEdgeToEdge(state.themeMode)
-                    if (state.isLoggedIn && state.languageOnboardingDone && !redirectedToMain) {
+                    if (state.isLoggedIn && state.languageOnboardingDone && state.vpnDisclosureDone && !redirectedToMain) {
                         redirectedToMain = true
                         startActivity(
                             Intent(this@AuthActivity, MainActivity::class.java)
