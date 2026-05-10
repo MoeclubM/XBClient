@@ -552,7 +552,7 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                 .heightIn(min = 78.dp)
                 .animateContentSize(animationSpec = tween(180))
         ) {
-            val nodeTitle = selectedNode?.displayName(state.selectedNodeIndex)
+            val nodeTitle = selectedNode?.displayName(state.selectedNodeIndex, stringResource(R.string.node_default_name, state.selectedNodeIndex + 1))
                 ?: stringResource(id = if (state.nodesLoading) R.string.status_nodes_syncing else R.string.status_no_nodes)
             AnimatedContent(targetState = nodeTitle, transitionSpec = { contentTransition() }, label = "current-node") { title ->
                 Text(title, style = MaterialTheme.typography.headlineMedium)
@@ -658,7 +658,7 @@ private fun PlanRow(
                 Spacer(Modifier.height(12.dp))
                 for (price in plan.prices) {
                     TextButton(onClick = { onBalancePurchase(price) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("${price.label} ${formatMoney(price.amount, currencySymbol, currencyUnit)}")
+                        Text("${planPriceLabel(price.field)} ${formatMoney(price.amount, currencySymbol, currencyUnit)}")
                     }
                 }
             }
@@ -974,7 +974,7 @@ private fun NodeRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text((if (selected) "✓ " else "") + node.displayName(index), style = MaterialTheme.typography.titleMedium)
+            Text((if (selected) "✓ " else "") + node.displayName(index, stringResource(R.string.node_default_name, index + 1)), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(2.dp))
             Text("${node.protocolLabel} · ${testText ?: stringResource(R.string.status_not_tested)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -1090,7 +1090,7 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
             LazyColumn(Modifier.heightIn(max = 520.dp)) {
                 itemsIndexed(state.anyTlsNodes, key = { index, node -> "${node.displayName(index)}-$index" }) { index, node ->
                     ListItem(
-                        headlineContent = { Text(node.displayName(index)) },
+                        headlineContent = { Text(node.displayName(index, stringResource(R.string.node_default_name, index + 1))) },
                         supportingContent = { Text("${node.protocolLabel} · ${state.nodeTestResults[index] ?: stringResource(R.string.status_not_tested)}") },
                         trailingContent = { if (index == state.selectedNodeIndex) Text(stringResource(R.string.common_selected)) },
                         modifier = Modifier.clickable { viewModel.chooseNodeFromDialog(index) }
@@ -1143,10 +1143,33 @@ private fun formatMoney(amount: Int, symbol: String, unit: String): String =
 private fun formatUnixTime(value: Long): String =
     if (value <= 0L) "" else SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(value * 1000))
 
-private fun planPriceText(plan: PlanItem, symbol: String, unit: String, noPriceText: String): String =
-    if (plan.prices.isEmpty()) noPriceText else plan.prices.joinToString(" · ") {
-        "${it.label} ${formatMoney(it.amount, symbol, unit)}"
+@Composable
+private fun planPriceText(plan: PlanItem, symbol: String, unit: String, noPriceText: String): String {
+    if (plan.prices.isEmpty()) {
+        return noPriceText
     }
+    val parts = mutableListOf<String>()
+    for (price in plan.prices) {
+        parts += "${planPriceLabel(price.field)} ${formatMoney(price.amount, symbol, unit)}"
+    }
+    return parts.joinToString(" · ")
+}
+
+@Composable
+private fun planPriceLabel(field: String): String =
+    stringResource(
+        when (field) {
+            "month_price" -> R.string.price_month
+            "quarter_price" -> R.string.price_quarter
+            "half_year_price" -> R.string.price_half_year
+            "year_price" -> R.string.price_year
+            "two_year_price" -> R.string.price_two_year
+            "three_year_price" -> R.string.price_three_year
+            "onetime_price" -> R.string.price_onetime
+            "reset_price" -> R.string.price_reset
+            else -> R.string.plan_price_unset
+        }
+    )
 
 @Composable
 private fun rewardStatusText(status: String): String =

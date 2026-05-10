@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
             if (result.resultCode == RESULT_OK) {
                 viewModel.beginVpn(this, pendingVpnNodeIndex)
             } else {
-                Toast.makeText(this, "连接权限未授予。", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.vpn_permission_denied), Toast.LENGTH_SHORT).show()
             }
         }
 

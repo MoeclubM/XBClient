@@ -40,10 +40,10 @@ data class AnyTlsNode(
     val port: Int,
     val rawJson: String
 ) {
-    fun displayName(index: Int): String {
+    fun displayName(index: Int, fallback: String = "Node ${index + 1}"): String {
         val trimmed = name.trim()
         if (trimmed.isEmpty() || trimmed == host || trimmed == "$host:$port" || host.isNotEmpty() && trimmed.contains(host)) {
-            return "节点 ${index + 1}"
+            return fallback
         }
         return trimmed
     }

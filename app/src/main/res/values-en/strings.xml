@@ -127,4 +127,27 @@
     <string name="update_download">Download update</string>
     <string name="sheet_change_node">Switch node</string>
     <string name="sheet_select_node">Select node</string>
+
+    <string name="node_default_name">Node %1$d</string>
+    <string name="price_month">Monthly</string>
+    <string name="price_quarter">Quarterly</string>
+    <string name="price_half_year">Half-year</string>
+    <string name="price_year">Yearly</string>
+    <string name="price_two_year">Two-year</string>
+    <string name="price_three_year">Three-year</string>
+    <string name="price_onetime">One-time</string>
+    <string name="price_reset">Reset traffic</string>
+    <string name="vpn_permission_denied">Connection permission was not granted.</string>
+    <string name="vpn_notification_channel">%1$s connection</string>
+    <string name="vpn_notification_title">%1$s connection</string>
+    <string name="vpn_notification_connecting">Connecting</string>
+    <string name="vpn_notification_reconnecting">Reconnecting</string>
+    <string name="vpn_notification_switching">Switching node</string>
+    <string name="vpn_notification_current_node">Current node: %1$s</string>
+    <string name="vpn_notification_reconnect_failed">Reconnect failed: %1$s</string>
+    <string name="vpn_notification_switch_failed">Node switch failed: %1$s</string>
+    <string name="vpn_notification_start_failed">Connection failed to start: %1$s</string>
+    <string name="vpn_action_switch_node">Switch node</string>
+    <string name="vpn_action_reconnect">Reconnect</string>
+    <string name="vpn_action_stop">Stop</string>
 </resources>

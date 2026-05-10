@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="common_close">بازگشت</string>
+    <string name="common_settings">تنظیمات</string>
+    <string name="common_logout">خروج</string>
+    <string name="common_save_settings">ذخیره تنظیمات</string>
+    <string name="common_later">بعداً</string>
+    <string name="common_selected">انتخاب‌شده</string>
+    <string name="common_clear_selection">پاک کردن انتخاب</string>
+    <string name="common_back_profile">بازگشت به نمایه</string>
+    <string name="common_back_settings">بازگشت به تنظیمات</string>
+
+    <string name="nav_nodes">گره‌ها</string>
+    <string name="nav_plans">پلن‌ها</string>
+    <string name="nav_profile">نمایه</string>
+
+    <string name="oauth_web_title">ورود با سرویس دیگر</string>
+    <string name="auth_login_title">ورود به حساب</string>
+    <string name="auth_register_title">ثبت حساب</string>
+    <string name="auth_register_subtitle">پس از ثبت‌نام، صفحه گره‌ها به‌صورت خودکار باز می‌شود.</string>
+    <string name="auth_email">ایمیل</string>
+    <string name="auth_password">رمز عبور</string>
+    <string name="auth_login">ورود</string>
+    <string name="auth_register">ثبت‌نام</string>
+    <string name="auth_register_account">ساخت حساب</string>
+    <string name="auth_oauth_login_title">ورود با سرویس دیگر</string>
+    <string name="auth_oauth_login_button">ورود با %1$s</string>
+    <string name="auth_invite_code_optional">کد دعوت، اختیاری</string>
+    <string name="auth_email_code_optional">کد ایمیل، اختیاری</string>
+    <string name="auth_captcha_optional">توکن CAPTCHA، اختیاری</string>
+    <string name="auth_send_email_code">ارسال کد ایمیل</string>
+    <string name="auth_back_login">بازگشت به ورود</string>
+    <string name="auth_oauth_confirm_title">تأیید ثبت‌نام OAuth</string>
+    <string name="auth_oauth_confirm_message">ساخت یا اتصال حساب با %1$s را تأیید کنید: %2$s</string>
+    <string name="auth_oauth_confirm_button">تأیید و ورود</string>
+    <string name="auth_oauth_cancel">لغو ثبت‌نام OAuth</string>
+    <string name="auth_oauth_register_title">ثبت‌نام با سرویس دیگر</string>
+    <string name="auth_oauth_register_button">ثبت‌نام با %1$s</string>
+
+    <string name="section_account">حساب</string>
+    <string name="section_connection">اتصال</string>
+    <string name="section_current_node">گره فعلی</string>
+    <string name="section_available_nodes">گره‌های موجود</string>
+    <string name="section_plans">پلن‌ها</string>
+    <string name="section_invite">دعوت‌ها</string>
+    <string name="section_app_rules">قوانین برنامه‌ها</string>
+    <string name="section_node_test">آزمون گره</string>
+    <string name="section_about">درباره برنامه</string>
+
+    <string name="status_connected">متصل</string>
+    <string name="status_disconnected">قطع</string>
+    <string name="status_connecting">در حال اتصال</string>
+    <string name="status_nodes_syncing">در حال همگام‌سازی گره‌ها.</string>
+    <string name="status_no_nodes">گره موجود نیست</string>
+    <string name="status_no_nodes_sentence">گره موجود نیست.</string>
+    <string name="status_not_tested">آزموده نشده</string>
+    <string name="status_logged_in">وارد شده‌اید</string>
+    <string name="action_connect">شروع اتصال</string>
+    <string name="action_disconnect">قطع اتصال</string>
+    <string name="action_test_current_node">آزمون گره فعلی</string>
+    <string name="action_back_nodes">بازگشت به گره‌ها</string>
+    <string name="action_test_testing">در حال آزمون</string>
+    <string name="action_test_connection">آزمون اتصال</string>
+    <string name="action_select_apps">انتخاب برنامه‌ها</string>
+    <string name="action_generate_invite">ساخت کد دعوت</string>
+
+    <string name="subscription_expired_title">پلن منقضی شده است</string>
+    <string name="subscription_expired_body">پلن فعلی شما منقضی شده است. برای استفاده از گره‌ها، یک پلن را بازخرید یا خریداری کنید.</string>
+    <string name="subscription_traffic_exceeded_title">ترافیک تمام شده است</string>
+    <string name="subscription_traffic_exceeded_body">ترافیک پلن فعلی شما تمام شده است. برای استفاده از گره‌ها، یک پلن را بازخرید یا خریداری کنید.</string>
+    <string name="subscription_redeem_button">رفتن به پلن‌ها</string>
+    <string name="subscription_not_synced">اشتراک همگام نشده است</string>
+    <string name="subscription_synced">اشتراک همگام شد</string>
+
+    <string name="page_plans_subtitle">یک پلن موجود را انتخاب کنید.</string>
+    <string name="plans_loading">در حال بارگیری پلن‌ها.</string>
+    <string name="plans_empty">پلنی موجود نیست.</string>
+    <string name="plan_price_unset">قیمت تنظیم نشده است</string>
+    <string name="plan_traffic">ترافیک %1$s</string>
+
+    <string name="reward_plan_title">پاداش پلن</string>
+    <string name="reward_points_title">پاداش امتیاز</string>
+    <string name="reward_plan_description">برای دریافت پاداش پلن، تبلیغ پاداشی را کامل ببینید.</string>
+    <string name="reward_points_description">برای دریافت امتیاز، تبلیغ پاداشی را کامل ببینید.</string>
+    <string name="reward_watch">دیدن تبلیغ پاداشی</string>
+    <string name="reward_recent">سوابق اخیر</string>
+    <string name="reward_code_generating">در حال ساخت کد بازخرید</string>
+    <string name="reward_template_time">قالب %1$d · %2$s</string>
+    <string name="reward_credited">اعمال شد</string>
+    <string name="reward_pending">در حال تأیید</string>
+    <string name="reward_failed">اعمال ناموفق</string>
+
+    <string name="page_profile_subtitle">حساب، امتیازها و اطلاعات دعوت.</string>
+    <string name="balance_amount">اعتبار حساب %1$s</string>
+    <string name="commission_amount">کمیسیون %1$s</string>
+    <string name="invite_loading">در حال بارگیری کدهای دعوت.</string>
+    <string name="invite_empty">کد دعوتی وجود ندارد.</string>
+    <string name="invite_available">قابل استفاده</string>
+    <string name="invite_used">استفاده‌شده</string>
+
+    <string name="page_settings_subtitle">DNS، IPv6 و قوانین هر برنامه را تنظیم کنید.</string>
+    <string name="app_rules_allow_desc">حالت فهرست مجاز: فقط برنامه‌های انتخاب‌شده از اتصال استفاده می‌کنند.</string>
+    <string name="app_rules_exclude_desc">حالت فهرست مسدود: برنامه‌های انتخاب‌شده از اتصال استفاده نمی‌کنند.</string>
+    <string name="app_rules_none_selected">هنوز برنامه‌ای انتخاب نشده است.</string>
+    <string name="app_rules_selected_count">%1$d برنامه انتخاب شده است.</string>
+    <string name="dns_node_label">DNS محلی برای دامنه‌های گره</string>
+    <string name="dns_overseas_label">DNS خارجی پس از اتصال</string>
+    <string name="dns_direct_label">DNS دامنه‌های مستقیم پس از اتصال</string>
+    <string name="enable_ipv6">IPv6</string>
+    <string name="node_test_target_label">هدف آزمون</string>
+    <string name="node_test_help">دامنه، دامنه:درگاه یا نشانی http/https وارد کنید. آزمون گره دو درخواست HEAD اجرا می‌کند و تأخیر درخواست دوم را نشان می‌دهد.</string>
+    <string name="about_version">نسخه %1$s</string>
+    <string name="about_website">وب‌سایت</string>
+    <string name="about_privacy_policy">سیاست حریم خصوصی</string>
+
+    <string name="page_node_select_title">انتخاب گره</string>
+    <string name="page_node_select_subtitle">تأخیر واقعی اتصال هر گره تا سایت هدف را آزمایش کنید.</string>
+    <string name="page_app_rules_title">قوانین برنامه‌ها</string>
+    <string name="page_app_rules_subtitle">حالت فهرست مسدود یا مجاز را انتخاب کنید و برنامه‌های موردنظر را جستجو کنید.</string>
+    <string name="mode_exclude">فهرست مسدود</string>
+    <string name="mode_allow">فهرست مجاز</string>
+    <string name="search_app_label">جستجوی برنامه یا نام بسته</string>
+
+    <string name="update_title">نسخه جدید موجود است</string>
+    <string name="update_message">نسخه فعلی %1$s، آخرین نسخه %2$s.</string>
+    <string name="update_open_release">باز کردن Release</string>
+    <string name="update_download">دریافت به‌روزرسانی</string>
+    <string name="sheet_change_node">تغییر گره</string>
+    <string name="sheet_select_node">انتخاب گره</string>
+
+    <string name="node_default_name">گره %1$d</string>
+    <string name="price_month">ماهانه</string>
+    <string name="price_quarter">سه‌ماهه</string>
+    <string name="price_half_year">شش‌ماهه</string>
+    <string name="price_year">سالانه</string>
+    <string name="price_two_year">دوساله</string>
+    <string name="price_three_year">سه‌ساله</string>
+    <string name="price_onetime">یک‌باره</string>
+    <string name="price_reset">بازنشانی ترافیک</string>
+    <string name="vpn_permission_denied">مجوز اتصال داده نشد.</string>
+    <string name="vpn_notification_channel">اتصال %1$s</string>
+    <string name="vpn_notification_title">اتصال %1$s</string>
+    <string name="vpn_notification_connecting">در حال اتصال</string>
+    <string name="vpn_notification_reconnecting">در حال اتصال دوباره</string>
+    <string name="vpn_notification_switching">در حال تغییر گره</string>
+    <string name="vpn_notification_current_node">گره فعلی: %1$s</string>
+    <string name="vpn_notification_reconnect_failed">اتصال دوباره ناموفق بود: %1$s</string>
+    <string name="vpn_notification_switch_failed">تغییر گره ناموفق بود: %1$s</string>
+    <string name="vpn_notification_start_failed">شروع اتصال ناموفق بود: %1$s</string>
+    <string name="vpn_action_switch_node">تغییر گره</string>
+    <string name="vpn_action_reconnect">اتصال دوباره</string>
+    <string name="vpn_action_stop">توقف</string>
+</resources>

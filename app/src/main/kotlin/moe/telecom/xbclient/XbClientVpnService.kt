@@ -54,7 +54,7 @@ class XbClientVpnService : VpnService() {
                 return START_NOT_STICKY
             }
             ACTION_RECONNECT -> {
-                startForegroundNotification("正在重新连接")
+                startForegroundNotification(getString(R.string.vpn_notification_reconnecting))
                 val nodeJson = currentNodeJson
                 val excludedApps = currentExcludedApps
                 val allowedApps = currentAllowedApps
@@ -65,20 +65,20 @@ class XbClientVpnService : VpnService() {
                 serviceScope.launch {
                     try {
                         startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, dnsMode, ipv6Enabled)
-                        startForegroundNotification("当前节点：${currentNodeName()}")
+                        startForegroundNotification(getString(R.string.vpn_notification_current_node, currentNodeName()))
                         publishVpnState(true)
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Throwable) {
                         Log.e("XBClient", "reconnect VPN failed", error)
-                        stopCurrentVpn("重新连接失败：${errorMessage(error)}")
+                        stopCurrentVpn(getString(R.string.vpn_notification_reconnect_failed, errorMessage(error)))
                         stopSelf()
                     }
                 }
                 return START_STICKY
             }
             ACTION_NEXT_NODE -> {
-                startForegroundNotification("正在更换节点")
+                startForegroundNotification(getString(R.string.vpn_notification_switching))
                 serviceScope.launch {
                     try {
                         val nodes = JSONArray(currentNodesJson)
@@ -88,13 +88,13 @@ class XbClientVpnService : VpnService() {
                         currentNodeIndex = (currentNodeIndex + 1) % nodes.length()
                         currentNodeJson = nodes.getJSONObject(currentNodeIndex).toString()
                         startVpn(currentNodeJson, currentExcludedApps, currentAllowedApps, currentNodeDns, currentOverseasDns, currentDnsMode, currentIpv6Enabled)
-                        startForegroundNotification("当前节点：${currentNodeName()}")
+                        startForegroundNotification(getString(R.string.vpn_notification_current_node, currentNodeName()))
                         publishVpnState(true)
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Throwable) {
                         Log.e("XBClient", "switch VPN node failed", error)
-                        stopCurrentVpn("更换节点失败：${errorMessage(error)}")
+                        stopCurrentVpn(getString(R.string.vpn_notification_switch_failed, errorMessage(error)))
                         stopSelf()
                     }
                 }
@@ -121,17 +121,17 @@ class XbClientVpnService : VpnService() {
                 currentDirectDns = directDns
                 currentDnsMode = dnsMode
                 currentIpv6Enabled = ipv6Enabled
-                startForegroundNotification("正在连接")
+                startForegroundNotification(getString(R.string.vpn_notification_connecting))
                 serviceScope.launch {
                     try {
                         startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, dnsMode, ipv6Enabled)
-                        startForegroundNotification("当前节点：${currentNodeName()}")
+                        startForegroundNotification(getString(R.string.vpn_notification_current_node, currentNodeName()))
                         publishVpnState(true)
                     } catch (error: CancellationException) {
                         throw error
                     } catch (error: Throwable) {
                         Log.e("XBClient", "start VPN failed", error)
-                        stopCurrentVpn("连接启动失败：${errorMessage(error)}")
+                        stopCurrentVpn(getString(R.string.vpn_notification_start_failed, errorMessage(error)))
                         stopSelf()
                     }
                 }
@@ -201,7 +201,7 @@ class XbClientVpnService : VpnService() {
             node.put("server", resolvedHost)
         }
         currentNodeJson = node.toString()
-        val tun: ParcelFileDescriptor = builder.establish() ?: throw IllegalStateException("连接权限未授予")
+        val tun: ParcelFileDescriptor = builder.establish() ?: throw IllegalStateException(getString(R.string.vpn_permission_denied))
         tunInterface = tun
         val request = JSONObject()
             .put("node", node)
@@ -242,21 +242,21 @@ class XbClientVpnService : VpnService() {
         val manager = getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             CHANNEL_ID,
-            getString(R.string.app_name) + " 连接",
+            getString(R.string.vpn_notification_channel, getString(R.string.app_name)),
             NotificationManager.IMPORTANCE_LOW
         )
         manager.createNotificationChannel(channel)
         val activityIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, activityIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val notification: Notification = Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.app_name) + " 连接")
+            .setContentTitle(getString(R.string.vpn_notification_title, getString(R.string.app_name)))
             .setContentText(text)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .addAction(Notification.Action.Builder(Icon.createWithResource(this, android.R.drawable.ic_media_next), "更换节点", selectNodeIntent()).build())
-            .addAction(Notification.Action.Builder(Icon.createWithResource(this, android.R.drawable.ic_popup_sync), "重新连接", serviceIntent(ACTION_RECONNECT, 2)).build())
-            .addAction(Notification.Action.Builder(Icon.createWithResource(this, android.R.drawable.ic_media_pause), "停止连接", serviceIntent(ACTION_STOP, 3)).build())
+            .addAction(Notification.Action.Builder(Icon.createWithResource(this, android.R.drawable.ic_media_next), getString(R.string.vpn_action_switch_node), selectNodeIntent()).build())
+            .addAction(Notification.Action.Builder(Icon.createWithResource(this, android.R.drawable.ic_popup_sync), getString(R.string.vpn_action_reconnect), serviceIntent(ACTION_RECONNECT, 2)).build())
+            .addAction(Notification.Action.Builder(Icon.createWithResource(this, android.R.drawable.ic_media_pause), getString(R.string.vpn_action_stop), serviceIntent(ACTION_STOP, 3)).build())
             .build()
         startForeground(NOTIFICATION_ID, notification)
     }
@@ -279,7 +279,7 @@ class XbClientVpnService : VpnService() {
         val host = node.optString("host")
         val name = node.optString("name").trim()
         if (name.isEmpty() || name == host || name == "$host:${node.optInt("port")}" || host.isNotEmpty() && name.contains(host)) {
-            return "节点 ${currentNodeIndex + 1}"
+            return getString(R.string.node_default_name, currentNodeIndex + 1)
         }
         return name
     }

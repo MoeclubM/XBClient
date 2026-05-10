@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="common_close">Назад</string>
+    <string name="common_settings">Настройки</string>
+    <string name="common_logout">Выйти</string>
+    <string name="common_save_settings">Сохранить настройки</string>
+    <string name="common_later">Позже</string>
+    <string name="common_selected">Выбрано</string>
+    <string name="common_clear_selection">Очистить выбор</string>
+    <string name="common_back_profile">Назад к профилю</string>
+    <string name="common_back_settings">Назад к настройкам</string>
+
+    <string name="nav_nodes">Узлы</string>
+    <string name="nav_plans">Тарифы</string>
+    <string name="nav_profile">Профиль</string>
+
+    <string name="oauth_web_title">Сторонний вход</string>
+    <string name="auth_login_title">Вход в аккаунт</string>
+    <string name="auth_register_title">Регистрация аккаунта</string>
+    <string name="auth_register_subtitle">После регистрации автоматически откроется экран узлов.</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Пароль</string>
+    <string name="auth_login">Войти</string>
+    <string name="auth_register">Зарегистрироваться</string>
+    <string name="auth_register_account">Создать аккаунт</string>
+    <string name="auth_oauth_login_title">Сторонний вход</string>
+    <string name="auth_oauth_login_button">Войти через %1$s</string>
+    <string name="auth_invite_code_optional">Код приглашения, необязательно</string>
+    <string name="auth_email_code_optional">Код из email, необязательно</string>
+    <string name="auth_captcha_optional">Токен CAPTCHA, необязательно</string>
+    <string name="auth_send_email_code">Отправить код на email</string>
+    <string name="auth_back_login">Назад ко входу</string>
+    <string name="auth_oauth_confirm_title">Подтверждение OAuth-регистрации</string>
+    <string name="auth_oauth_confirm_message">Подтвердите создание или привязку аккаунта через %1$s: %2$s</string>
+    <string name="auth_oauth_confirm_button">Подтвердить и войти</string>
+    <string name="auth_oauth_cancel">Отменить OAuth-регистрацию</string>
+    <string name="auth_oauth_register_title">Сторонняя регистрация</string>
+    <string name="auth_oauth_register_button">Зарегистрироваться через %1$s</string>
+
+    <string name="section_account">Аккаунт</string>
+    <string name="section_connection">Подключение</string>
+    <string name="section_current_node">Текущий узел</string>
+    <string name="section_available_nodes">Доступные узлы</string>
+    <string name="section_plans">Тарифы</string>
+    <string name="section_invite">Приглашения</string>
+    <string name="section_app_rules">Правила приложений</string>
+    <string name="section_node_test">Проверка узлов</string>
+    <string name="section_about">О приложении</string>
+
+    <string name="status_connected">Подключено</string>
+    <string name="status_disconnected">Не подключено</string>
+    <string name="status_connecting">Подключение</string>
+    <string name="status_nodes_syncing">Синхронизация узлов.</string>
+    <string name="status_no_nodes">Нет доступных узлов</string>
+    <string name="status_no_nodes_sentence">Нет доступных узлов.</string>
+    <string name="status_not_tested">Не проверено</string>
+    <string name="status_logged_in">Выполнен вход</string>
+    <string name="action_connect">Подключиться</string>
+    <string name="action_disconnect">Отключиться</string>
+    <string name="action_test_current_node">Проверить текущий узел</string>
+    <string name="action_back_nodes">Назад к узлам</string>
+    <string name="action_test_testing">Проверка</string>
+    <string name="action_test_connection">Проверить соединение</string>
+    <string name="action_select_apps">Выбрать приложения</string>
+    <string name="action_generate_invite">Создать приглашение</string>
+
+    <string name="subscription_expired_title">Тариф истек</string>
+    <string name="subscription_expired_body">Текущий тариф истек. Обменяйте или купите тариф, чтобы использовать узлы.</string>
+    <string name="subscription_traffic_exceeded_title">Трафик исчерпан</string>
+    <string name="subscription_traffic_exceeded_body">Трафик текущего тарифа исчерпан. Обменяйте или купите тариф, чтобы использовать узлы.</string>
+    <string name="subscription_redeem_button">Перейти к тарифам</string>
+    <string name="subscription_not_synced">Подписка не синхронизирована</string>
+    <string name="subscription_synced">Подписка синхронизирована</string>
+
+    <string name="page_plans_subtitle">Выберите доступный тариф.</string>
+    <string name="plans_loading">Загрузка тарифов.</string>
+    <string name="plans_empty">Нет доступных тарифов.</string>
+    <string name="plan_price_unset">Цена не задана</string>
+    <string name="plan_traffic">Трафик %1$s</string>
+
+    <string name="reward_plan_title">Награды тарифов</string>
+    <string name="reward_points_title">Награды баллами</string>
+    <string name="reward_plan_description">Посмотрите рекламу полностью, чтобы получить награду тарифа.</string>
+    <string name="reward_points_description">Посмотрите рекламу полностью, чтобы получить баллы.</string>
+    <string name="reward_watch">Смотреть рекламу</string>
+    <string name="reward_recent">Последние записи</string>
+    <string name="reward_code_generating">Создание кода обмена</string>
+    <string name="reward_template_time">Шаблон %1$d · %2$s</string>
+    <string name="reward_credited">Начислено</string>
+    <string name="reward_pending">Проверка</string>
+    <string name="reward_failed">Ошибка начисления</string>
+
+    <string name="page_profile_subtitle">Аккаунт, баллы и приглашения.</string>
+    <string name="balance_amount">Средства аккаунта %1$s</string>
+    <string name="commission_amount">Комиссия %1$s</string>
+    <string name="invite_loading">Загрузка кодов приглашений.</string>
+    <string name="invite_empty">Нет кодов приглашений.</string>
+    <string name="invite_available">Доступно</string>
+    <string name="invite_used">Использовано</string>
+
+    <string name="page_settings_subtitle">Настройте DNS, IPv6 и правила для приложений.</string>
+    <string name="app_rules_allow_desc">Режим белого списка: только выбранные приложения используют соединение.</string>
+    <string name="app_rules_exclude_desc">Режим черного списка: выбранные приложения не используют соединение.</string>
+    <string name="app_rules_none_selected">Приложения еще не выбраны.</string>
+    <string name="app_rules_selected_count">Выбрано приложений: %1$d.</string>
+    <string name="dns_node_label">Локальный DNS для доменов узлов</string>
+    <string name="dns_overseas_label">Зарубежный DNS после подключения</string>
+    <string name="dns_direct_label">DNS для прямых доменов после подключения</string>
+    <string name="enable_ipv6">IPv6</string>
+    <string name="node_test_target_label">Цель проверки</string>
+    <string name="node_test_help">Укажите домен, домен:порт или http/https URL. Проверка узла выполняет два HEAD-запроса и показывает задержку второго.</string>
+    <string name="about_version">Версия %1$s</string>
+    <string name="about_website">Сайт</string>
+    <string name="about_privacy_policy">Политика конфиденциальности</string>
+
+    <string name="page_node_select_title">Выбор узла</string>
+    <string name="page_node_select_subtitle">Проверяйте реальную задержку соединения от каждого узла до целевого сайта.</string>
+    <string name="page_app_rules_title">Правила приложений</string>
+    <string name="page_app_rules_subtitle">Выберите черный или белый список, затем найдите приложения для настройки.</string>
+    <string name="mode_exclude">Черный список</string>
+    <string name="mode_allow">Белый список</string>
+    <string name="search_app_label">Поиск приложений или пакетов</string>
+
+    <string name="update_title">Доступна новая версия</string>
+    <string name="update_message">Текущая версия %1$s, последняя версия %2$s.</string>
+    <string name="update_open_release">Открыть Release</string>
+    <string name="update_download">Скачать обновление</string>
+    <string name="sheet_change_node">Сменить узел</string>
+    <string name="sheet_select_node">Выбрать узел</string>
+
+    <string name="node_default_name">Узел %1$d</string>
+    <string name="price_month">Месяц</string>
+    <string name="price_quarter">Квартал</string>
+    <string name="price_half_year">Полгода</string>
+    <string name="price_year">Год</string>
+    <string name="price_two_year">Два года</string>
+    <string name="price_three_year">Три года</string>
+    <string name="price_onetime">Разово</string>
+    <string name="price_reset">Сброс трафика</string>
+    <string name="vpn_permission_denied">Разрешение на подключение не предоставлено.</string>
+    <string name="vpn_notification_channel">Подключение %1$s</string>
+    <string name="vpn_notification_title">Подключение %1$s</string>
+    <string name="vpn_notification_connecting">Подключение</string>
+    <string name="vpn_notification_reconnecting">Повторное подключение</string>
+    <string name="vpn_notification_switching">Смена узла</string>
+    <string name="vpn_notification_current_node">Текущий узел: %1$s</string>
+    <string name="vpn_notification_reconnect_failed">Не удалось переподключиться: %1$s</string>
+    <string name="vpn_notification_switch_failed">Не удалось сменить узел: %1$s</string>
+    <string name="vpn_notification_start_failed">Не удалось запустить подключение: %1$s</string>
+    <string name="vpn_action_switch_node">Сменить узел</string>
+    <string name="vpn_action_reconnect">Переподключиться</string>
+    <string name="vpn_action_stop">Остановить</string>
+</resources>

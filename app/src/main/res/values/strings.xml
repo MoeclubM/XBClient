@@ -127,4 +127,27 @@
     <string name="update_download">下载更新</string>
     <string name="sheet_change_node">更换节点</string>
     <string name="sheet_select_node">选择节点</string>
+
+    <string name="node_default_name">节点 %1$d</string>
+    <string name="price_month">月付</string>
+    <string name="price_quarter">季付</string>
+    <string name="price_half_year">半年付</string>
+    <string name="price_year">年付</string>
+    <string name="price_two_year">两年付</string>
+    <string name="price_three_year">三年付</string>
+    <string name="price_onetime">一次性</string>
+    <string name="price_reset">重置流量</string>
+    <string name="vpn_permission_denied">连接权限未授予。</string>
+    <string name="vpn_notification_channel">%1$s 连接</string>
+    <string name="vpn_notification_title">%1$s 连接</string>
+    <string name="vpn_notification_connecting">正在连接</string>
+    <string name="vpn_notification_reconnecting">正在重新连接</string>
+    <string name="vpn_notification_switching">正在更换节点</string>
+    <string name="vpn_notification_current_node">当前节点：%1$s</string>
+    <string name="vpn_notification_reconnect_failed">重新连接失败：%1$s</string>
+    <string name="vpn_notification_switch_failed">更换节点失败：%1$s</string>
+    <string name="vpn_notification_start_failed">连接启动失败：%1$s</string>
+    <string name="vpn_action_switch_node">更换节点</string>
+    <string name="vpn_action_reconnect">重新连接</string>
+    <string name="vpn_action_stop">停止连接</string>
 </resources>
