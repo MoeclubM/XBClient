@@ -5,18 +5,29 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import org.json.JSONTokener
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.yaml.snakeyaml.Yaml
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.concurrent.TimeUnit
 import java.util.Locale
 
 object XboardApi {
     private const val SUBSCRIPTION_USER_AGENT = "mihomo"
     private val userAgent: String
         get() = BuildConfig.USER_AGENT
+    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
+    private val httpClient = OkHttpClient.Builder()
+        .dns(BuiltInDns(BuildConfig.BUILTIN_DNS_SERVER))
+        .connectTimeout(30000, TimeUnit.MILLISECONDS)
+        .readTimeout(30000, TimeUnit.MILLISECONDS)
+        .build()
 
     fun request(action: String, baseUrl: String, authData: String, params: JSONObject): JSONObject {
         val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
@@ -162,26 +173,23 @@ object XboardApi {
         query: Map<String, String>,
         body: JSONObject?
     ): JSONObject {
-        val connection = (URL(baseUrl + path + queryString(query)).openConnection() as HttpURLConnection).apply {
-            requestMethod = method
-            connectTimeout = 30000
-            readTimeout = 30000
-            setRequestProperty("User-Agent", userAgent)
-            setRequestProperty("Accept", "application/json")
-            if (authData.isNotEmpty()) {
-                setRequestProperty("Authorization", authData)
-            }
-            if (body != null) {
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            }
+        val builder = Request.Builder()
+            .url(baseUrl + path + queryString(query))
+            .header("User-Agent", userAgent)
+            .header("Accept", "application/json")
+        if (authData.isNotEmpty()) {
+            builder.header("Authorization", authData)
         }
         if (body != null) {
-            connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            builder.method(method, body.toString().toRequestBody(jsonMediaType))
+        } else {
+            builder.method(method, null)
         }
-        val status = connection.responseCode
-        val text = readBody(connection)
+        val response = httpClient.newCall(builder.build()).execute()
+        val status = response.code
+        val text = response.body?.string().orEmpty().trim()
         val parsedBody = parseJson(text)
+        response.close()
         return JSONObject()
             .put("ok", status in 200..299)
             .put("status", status)
@@ -200,16 +208,17 @@ object XboardApi {
             .appendQueryParameter("flag", flag)
             .build()
             .toString()
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = 30000
-            readTimeout = 30000
-            setRequestProperty("User-Agent", SUBSCRIPTION_USER_AGENT)
-            setRequestProperty("Accept", "text/yaml, application/yaml, text/plain, */*")
-        }
-        val status = connection.responseCode
-        val text = readBody(connection)
+        val response = httpClient.newCall(
+            Request.Builder()
+                .url(url)
+                .header("User-Agent", SUBSCRIPTION_USER_AGENT)
+                .header("Accept", "text/yaml, application/yaml, text/plain, */*")
+                .build()
+        ).execute()
+        val status = response.code
+        val text = response.body?.string().orEmpty().trim()
         if (status !in 200..299) {
+            response.close()
             return JSONObject()
                 .put("ok", false)
                 .put("status", status)
@@ -217,6 +226,8 @@ object XboardApi {
                 .put("body", text)
         }
 
+        val subscriptionUserInfo = response.header("subscription-userinfo")
+        response.close()
         val root = Yaml().load<Any>(text) as Map<*, *>
         val proxies = root["proxies"] as List<*>
         val nodes = JSONArray()
@@ -237,7 +248,7 @@ object XboardApi {
             .put("status", status)
             .put("format", "clashmeta")
             .put("flag", flag)
-            .put("subscription_userinfo", connection.getHeaderField("subscription-userinfo"))
+            .put("subscription_userinfo", subscriptionUserInfo)
             .put("nodes", nodes)
     }
 

@@ -44,11 +44,15 @@ class AppOpenAdActivity : ComponentActivity() {
         }
         handler.postDelayed(timeoutRunnable, APP_OPEN_AD_SHOW_WINDOW_MS)
         lifecycleScope.launch(Dispatchers.IO) {
-            MobileAds.initialize(
-                this@AppOpenAdActivity,
-                InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID).build()
-            )
-            runOnUiThread { loadAppOpenAd(adUnitId) }
+            try {
+                MobileAds.initialize(
+                    this@AppOpenAdActivity,
+                    InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID).build()
+                )
+                runOnUiThread { loadAppOpenAd(adUnitId) }
+            } catch (_: Exception) {
+                runOnUiThread { openMainActivity() }
+            }
         }
     }
 
@@ -62,25 +66,29 @@ class AppOpenAdActivity : ComponentActivity() {
         if (nextOpened || isFinishing) {
             return
         }
-        AppOpenAd.load(
-            AdRequest.Builder(adUnitId).build(),
-            object : AdLoadCallback<AppOpenAd> {
-                override fun onAdLoaded(ad: AppOpenAd) {
-                    runOnUiThread {
-                        if (nextOpened || isFinishing) {
-                            return@runOnUiThread
+        try {
+            AppOpenAd.load(
+                AdRequest.Builder(adUnitId).build(),
+                object : AdLoadCallback<AppOpenAd> {
+                    override fun onAdLoaded(ad: AppOpenAd) {
+                        runOnUiThread {
+                            if (nextOpened || isFinishing) {
+                                return@runOnUiThread
+                            }
+                            handler.removeCallbacks(timeoutRunnable)
+                            appOpenAd = ad
+                            showAppOpenAd()
                         }
-                        handler.removeCallbacks(timeoutRunnable)
-                        appOpenAd = ad
-                        showAppOpenAd()
+                    }
+
+                    override fun onAdFailedToLoad(adError: LoadAdError) {
+                        runOnUiThread { openMainActivity() }
                     }
                 }
-
-                override fun onAdFailedToLoad(adError: LoadAdError) {
-                    runOnUiThread { openMainActivity() }
-                }
-            }
-        )
+            )
+        } catch (_: Exception) {
+            openMainActivity()
+        }
     }
 
     private fun showAppOpenAd() {
