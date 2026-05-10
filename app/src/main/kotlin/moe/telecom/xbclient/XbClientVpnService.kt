@@ -251,7 +251,7 @@ class XbClientVpnService : VpnService() {
         val notification: Notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.vpn_notification_title, getString(R.string.app_name)))
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .addAction(Notification.Action.Builder(Icon.createWithResource(this, android.R.drawable.ic_media_next), getString(R.string.vpn_action_switch_node), selectNodeIntent()).build())

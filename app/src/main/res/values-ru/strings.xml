@@ -97,6 +97,10 @@
     <string name="invite_empty">Нет кодов приглашений.</string>
     <string name="invite_available">Доступно</string>
     <string name="invite_used">Использовано</string>
+    <string name="invite_aff_rate">AFF-ставка %1$d%%</string>
+    <string name="invite_commission_account">Комиссионный счет приглашений %1$s</string>
+    <string name="invite_copy">Копировать</string>
+    <string name="invite_code_copied">Код приглашения скопирован.</string>
 
     <string name="page_settings_subtitle">Настройте DNS, IPv6 и правила для приложений.</string>
     <string name="app_rules_allow_desc">Режим белого списка: только выбранные приложения используют соединение.</string>

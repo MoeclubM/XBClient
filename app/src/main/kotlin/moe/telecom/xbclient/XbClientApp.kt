@@ -1,5 +1,7 @@
 package moe.telecom.xbclient
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -10,6 +12,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
@@ -756,6 +759,7 @@ private fun RewardAdSection(
 
 @Composable
 private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
     PageHeader(stringResource(R.string.nav_profile), stringResource(R.string.page_profile_subtitle))
     Section(stringResource(R.string.section_account)) {
         Text(state.userEmail.ifEmpty { stringResource(R.string.status_logged_in) }, style = MaterialTheme.typography.titleLarge)
@@ -790,21 +794,52 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
         state = state,
         viewModel = viewModel
     )
-    Section(stringResource(R.string.section_invite)) {
-        if (state.invites.isEmpty()) {
-            Text(stringResource(id = if (state.invitesLoading) R.string.invite_loading else R.string.invite_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            for ((index, invite) in state.invites.withIndex()) {
-                Text(invite.code, style = MaterialTheme.typography.titleLarge)
-                Text(stringResource(id = if (invite.status == 0) R.string.invite_available else R.string.invite_used), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (index != state.invites.lastIndex) {
-                    HorizontalDivider(Modifier.padding(vertical = 10.dp))
+    if (state.inviteForce || state.inviteCommissionRate > 0) {
+        Section(stringResource(R.string.section_invite)) {
+            Text(stringResource(R.string.invite_aff_rate, state.inviteCommissionRate), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.invite_commission_account, formatMoney(state.inviteCommissionBalance, state.currencySymbol, state.currencyUnit)),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+            if (state.invites.isEmpty()) {
+                Text(stringResource(id = if (state.invitesLoading) R.string.invite_loading else R.string.invite_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                val copiedText = stringResource(R.string.invite_code_copied)
+                for ((index, invite) in state.invites.withIndex()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    context.getSystemService(ClipboardManager::class.java)
+                                        .setPrimaryClip(ClipData.newPlainText("invite", invite.code))
+                                    Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                                }
+                        ) {
+                            Text(invite.code, style = MaterialTheme.typography.titleLarge)
+                            Text(stringResource(id = if (invite.status == 0) R.string.invite_available else R.string.invite_used), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(
+                            onClick = {
+                                context.getSystemService(ClipboardManager::class.java)
+                                    .setPrimaryClip(ClipData.newPlainText("invite", invite.code))
+                                Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Text(stringResource(R.string.invite_copy))
+                        }
+                    }
+                    if (index != state.invites.lastIndex) {
+                        HorizontalDivider(Modifier.padding(vertical = 10.dp))
+                    }
                 }
             }
-        }
-        Spacer(Modifier.height(14.dp))
-        Button(onClick = viewModel::generateInvite, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.action_generate_invite))
+            Spacer(Modifier.height(14.dp))
+            Button(onClick = viewModel::generateInvite, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.action_generate_invite))
+            }
         }
     }
 }

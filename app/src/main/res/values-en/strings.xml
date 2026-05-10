@@ -97,6 +97,10 @@
     <string name="invite_empty">No invite codes.</string>
     <string name="invite_available">Available</string>
     <string name="invite_used">Used</string>
+    <string name="invite_aff_rate">AFF rate %1$d%%</string>
+    <string name="invite_commission_account">Invite commission account %1$s</string>
+    <string name="invite_copy">Copy</string>
+    <string name="invite_code_copied">Invite code copied.</string>
 
     <string name="page_settings_subtitle">Configure DNS, IPv6, and per-app rules.</string>
     <string name="app_rules_allow_desc">Allowlist mode: only selected apps use the connection.</string>

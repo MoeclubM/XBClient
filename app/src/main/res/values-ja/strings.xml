@@ -97,6 +97,10 @@
     <string name="invite_empty">招待コードはありません。</string>
     <string name="invite_available">利用可能</string>
     <string name="invite_used">使用済み</string>
+    <string name="invite_aff_rate">AFF 比率 %1$d%%</string>
+    <string name="invite_commission_account">招待コミッション口座 %1$s</string>
+    <string name="invite_copy">コピー</string>
+    <string name="invite_code_copied">招待コードをコピーしました。</string>
 
     <string name="page_settings_subtitle">DNS、IPv6、アプリごとのルールを設定します。</string>
     <string name="app_rules_allow_desc">許可リストモード：選択したアプリのみ接続を使用します。</string>

@@ -52,6 +52,9 @@ data class XbClientUiState(
     val selectedNodeIndex: Int = 0,
     val nodeTestResults: Map<Int, String> = emptyMap(),
     val invites: List<InviteItem> = emptyList(),
+    val inviteForce: Boolean = false,
+    val inviteCommissionRate: Int = 0,
+    val inviteCommissionBalance: Int = 0,
     val excludedApps: String = "",
     val allowedApps: String = "",
     val appRuleMode: String = MODE_EXCLUDE,
@@ -313,7 +316,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     ?.optJSONArray("oauth_providers")
                     ?.toOAuthProviderList()
                     ?: emptyList()
-                _uiState.update { it.copy(oauthProviders = providers) }
+                _uiState.update {
+                    it.copy(
+                        oauthProviders = providers,
+                        inviteForce = data?.optInt("is_invite_force") == 1
+                    )
+                }
                 persistStoredState(_uiState.value)
             } catch (error: Exception) {
                 if (showErrors) {
@@ -546,8 +554,15 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             try {
                 val result = XboardApi.request("invite_fetch", defaultApiUrl(), authData, JSONObject())
                 val body = requireSuccessfulBody("邀请码加载", result)
+                val data = body.optJSONObject("data")
+                val stat = data?.optJSONArray("stat")
                 val invites = extractDataArray(body).toInviteItemList()
-                val next = _uiState.value.copy(invites = invites, invitesLoading = false)
+                val next = _uiState.value.copy(
+                    invites = invites,
+                    invitesLoading = false,
+                    inviteCommissionRate = stat?.optInt(3) ?: 0,
+                    inviteCommissionBalance = stat?.optInt(4) ?: _uiState.value.commissionBalance
+                )
                 _uiState.value = next
                 persistStoredState(next)
             } catch (error: Exception) {
@@ -633,6 +648,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         userEmail = info.optString("email"),
                         balance = info.optInt("balance"),
                         commissionBalance = info.optInt("commission_balance"),
+                        inviteCommissionRate = if (info.optInt("commission_rate") > 0) info.optInt("commission_rate") else it.inviteCommissionRate,
+                        inviteCommissionBalance = info.optInt("commission_balance", it.inviteCommissionBalance),
                         currencySymbol = config.optString("currency_symbol"),
                         currencyUnit = config.optString("currency"),
                         userLoading = false
@@ -1185,6 +1202,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 anyTlsNodes = cachedNodes(prefs[Keys.ANYTLS_NODES].orEmpty()),
                 selectedNodeIndex = prefs[Keys.SELECTED_NODE_INDEX] ?: 0,
                 invites = cachedInvites(prefs[Keys.INVITES].orEmpty()),
+                inviteForce = prefs[Keys.INVITE_FORCE] ?: false,
+                inviteCommissionRate = prefs[Keys.INVITE_COMMISSION_RATE] ?: 0,
+                inviteCommissionBalance = prefs[Keys.INVITE_COMMISSION_BALANCE] ?: 0,
                 excludedApps = prefs[Keys.EXCLUDED_APPS].orEmpty(),
                 allowedApps = prefs[Keys.ALLOWED_APPS].orEmpty(),
                 appRuleMode = prefs[Keys.APP_RULE_MODE] ?: MODE_EXCLUDE,
@@ -1226,6 +1246,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 anyTlsNodes = cachedNodes(legacy.getString("anytls_nodes", "").orEmpty()),
                 selectedNodeIndex = legacy.getInt("selected_node_index", 0),
                 invites = cachedInvites(legacy.getString("invites", "").orEmpty()),
+                inviteForce = legacy.getBoolean("invite_force", false),
+                inviteCommissionRate = legacy.getInt("invite_commission_rate", 0),
+                inviteCommissionBalance = legacy.getInt("invite_commission_balance", 0),
                 excludedApps = legacy.getString("excluded_apps", "").orEmpty(),
                 allowedApps = legacy.getString("allowed_apps", "").orEmpty(),
                 appRuleMode = legacy.getString("app_rule_mode", if (legacy.getString("allowed_apps", "").orEmpty().isNotEmpty()) MODE_ALLOW else MODE_EXCLUDE).orEmpty(),
@@ -1307,6 +1330,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.ANYTLS_NODES] = nodesJson(state.anyTlsNodes)
             prefs[Keys.SELECTED_NODE_INDEX] = state.selectedNodeIndex
             prefs[Keys.INVITES] = invitesJson(state.invites)
+            prefs[Keys.INVITE_FORCE] = state.inviteForce
+            prefs[Keys.INVITE_COMMISSION_RATE] = state.inviteCommissionRate
+            prefs[Keys.INVITE_COMMISSION_BALANCE] = state.inviteCommissionBalance
             prefs[Keys.EXCLUDED_APPS] = state.excludedApps
             prefs[Keys.ALLOWED_APPS] = state.allowedApps
             prefs[Keys.APP_RULE_MODE] = state.appRuleMode
@@ -1346,6 +1372,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("anytls_nodes", nodesJson(state.anyTlsNodes))
             .putInt("selected_node_index", state.selectedNodeIndex)
             .putString("invites", invitesJson(state.invites))
+            .putBoolean("invite_force", state.inviteForce)
+            .putInt("invite_commission_rate", state.inviteCommissionRate)
+            .putInt("invite_commission_balance", state.inviteCommissionBalance)
             .putString("excluded_apps", state.excludedApps)
             .putString("allowed_apps", state.allowedApps)
             .putString("app_rule_mode", state.appRuleMode)
@@ -1584,6 +1613,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val ANYTLS_NODES = stringPreferencesKey("anytls_nodes")
         val SELECTED_NODE_INDEX = intPreferencesKey("selected_node_index")
         val INVITES = stringPreferencesKey("invites")
+        val INVITE_FORCE = booleanPreferencesKey("invite_force")
+        val INVITE_COMMISSION_RATE = intPreferencesKey("invite_commission_rate")
+        val INVITE_COMMISSION_BALANCE = intPreferencesKey("invite_commission_balance")
         val EXCLUDED_APPS = stringPreferencesKey("excluded_apps")
         val ALLOWED_APPS = stringPreferencesKey("allowed_apps")
         val APP_RULE_MODE = stringPreferencesKey("app_rule_mode")

@@ -97,6 +97,10 @@
     <string name="invite_empty">کد دعوتی وجود ندارد.</string>
     <string name="invite_available">قابل استفاده</string>
     <string name="invite_used">استفاده‌شده</string>
+    <string name="invite_aff_rate">نرخ AFF %1$d%%</string>
+    <string name="invite_commission_account">حساب کمیسیون دعوت %1$s</string>
+    <string name="invite_copy">کپی</string>
+    <string name="invite_code_copied">کد دعوت کپی شد.</string>
 
     <string name="page_settings_subtitle">DNS، IPv6 و قوانین هر برنامه را تنظیم کنید.</string>
     <string name="app_rules_allow_desc">حالت فهرست مجاز: فقط برنامه‌های انتخاب‌شده از اتصال استفاده می‌کنند.</string>
