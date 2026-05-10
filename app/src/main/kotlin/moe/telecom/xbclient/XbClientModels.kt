@@ -76,7 +76,8 @@ data class AnyTlsNode(
             "mieru",
             "mierus",
             "naive",
-            "naive+https" -> true
+            "naive+https",
+            "naive+quic" -> true
             else -> false
         }
 }
@@ -128,7 +129,7 @@ fun JSONObject.toAnyTlsNode(): AnyTlsNode =
         val protocol = when (rawProtocol) {
             "hy2" -> "hysteria2"
             "mierus" -> "mieru"
-            "naive+https" -> "naive"
+            "naive+https", "naive+quic" -> "naive"
             else -> rawProtocol
         }
         AnyTlsNode(
@@ -136,17 +137,20 @@ fun JSONObject.toAnyTlsNode(): AnyTlsNode =
             name = optString("name"),
             host = optString("host", optString("server")),
             port = optInt("port", optInt("server_port")),
-            rawJson = normalizedNodeJson(protocol)
+            rawJson = normalizedNodeJson(protocol, rawProtocol)
         )
     }
 
-private fun JSONObject.normalizedNodeJson(protocol: String): String {
+private fun JSONObject.normalizedNodeJson(protocol: String, rawProtocol: String): String {
     val node = JSONObject(toString())
     if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive")) {
         if (node.optString("host").isEmpty() && node.optString("server").isNotEmpty()) {
             node.put("host", node.optString("server"))
         }
         node.put("type", protocol)
+        if (rawProtocol == "naive+quic") {
+            node.put("quic", true)
+        }
         if (!node.has("insecure")) {
             node.put("insecure", node.optBoolean("skip-cert-verify", false))
         }

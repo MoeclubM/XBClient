@@ -1,3 +1,4 @@
+use crate::naive::{NaiveClientConfig, run_naive_client_listener};
 use aerion::padding::PaddingScheme;
 use aerion::vless_transport::VlessTransportConfig;
 use aerion::{
@@ -10,7 +11,7 @@ use anyhow::{Context, Result, bail, ensure};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -46,18 +47,6 @@ enum AerionProxyConfig {
     Vmess(VmessClientConfig),
     Mieru(MieruClientConfig),
     Naive(NaiveClientConfig),
-}
-
-#[derive(Clone)]
-struct NaiveClientConfig {
-    listen: SocketAddr,
-    server_host: String,
-    server_port: u16,
-    username: String,
-    password: String,
-    sni: String,
-    insecure: bool,
-    extra_headers: Vec<(String, String)>,
 }
 
 async fn start_aerion_socks(node: Value) -> Result<(SocketAddr, JoinHandle<()>)> {
@@ -313,14 +302,6 @@ fn mieru_config(node: &Value, listen: SocketAddr) -> Result<MieruClientConfig> {
 fn naive_config(node: &Value, listen: SocketAddr) -> Result<NaiveClientConfig> {
     let tls = object_field(node, &["tls"]);
     ensure!(
-        !node_bool(node, &["quic", "http3", "h3"], false),
-        "Naive QUIC/H3 outbound is not supported by this Rust binding"
-    );
-    ensure!(
-        !naive_uot_enabled(node),
-        "Naive UDP over TCP is not supported by this Rust binding"
-    );
-    ensure!(
         tls.map(|opts| map_bool(opts, &["enabled"], true))
             .unwrap_or_else(|| node_bool(node, &["tls"], true)),
         "Naive client requires HTTPS/TLS proxy"
@@ -358,6 +339,19 @@ fn naive_config(node: &Value, listen: SocketAddr) -> Result<NaiveClientConfig> {
                 )
             }),
         extra_headers: naive_extra_headers(node)?,
+        udp_over_tcp: naive_uot_enabled(node),
+        quic: node_optional_string(node, &["type", "protocol"])
+            .map(|protocol| protocol.eq_ignore_ascii_case("naive+quic"))
+            .unwrap_or(false)
+            || node_bool(node, &["quic", "http3", "h3"], false)
+            || node_optional_string(node, &["network"])
+                .map(|network| {
+                    matches!(
+                        network.to_ascii_lowercase().as_str(),
+                        "quic" | "h3" | "http3"
+                    )
+                })
+                .unwrap_or(false),
     })
 }
 
@@ -368,7 +362,7 @@ fn node_protocol(node: &Value) -> Result<String> {
     Ok(match protocol.as_str() {
         "hy2" => "hysteria2".to_string(),
         "mierus" => "mieru".to_string(),
-        "naive+https" => "naive".to_string(),
+        "naive+https" | "naive+quic" => "naive".to_string(),
         _ => protocol,
     })
 }
@@ -652,210 +646,6 @@ fn naive_extra_headers(node: &Value) -> Result<Vec<(String, String)>> {
         values.insert(key.clone(), value);
     }
     Ok(values.into_iter().collect())
-}
-
-async fn run_naive_client_listener(listener: TcpListener, config: NaiveClientConfig) -> Result<()> {
-    log::info!("Naive client listening on socks5://{}", config.listen);
-    loop {
-        let (stream, peer) = listener
-            .accept()
-            .await
-            .context("accept Naive SOCKS client")?;
-        let config = config.clone();
-        tokio::spawn(async move {
-            if let Err(error) = handle_naive_socks_client(stream, config).await {
-                log::warn!("Naive SOCKS client {peer} failed: {error:?}");
-            }
-        });
-    }
-}
-
-async fn handle_naive_socks_client(mut local: TcpStream, config: NaiveClientConfig) -> Result<()> {
-    let (target_host, target_port) = read_socks_connect_request(&mut local).await?;
-    let mut remote = match open_naive_tunnel(&config, &target_host, target_port).await {
-        Ok(remote) => remote,
-        Err(error) => {
-            let _ = write_socks_reply(&mut local, 0x01).await;
-            return Err(error);
-        }
-    };
-    write_socks_reply(&mut local, 0x00).await?;
-    tokio::io::copy_bidirectional(&mut local, &mut remote)
-        .await
-        .context("relay Naive tunnel")?;
-    Ok(())
-}
-
-async fn read_socks_connect_request(stream: &mut TcpStream) -> Result<(String, u16)> {
-    let mut greeting = [0u8; 2];
-    stream
-        .read_exact(&mut greeting)
-        .await
-        .context("read Naive SOCKS greeting")?;
-    ensure!(
-        greeting[0] == 0x05,
-        "unsupported SOCKS version {}",
-        greeting[0]
-    );
-    let mut methods = vec![0u8; greeting[1] as usize];
-    stream
-        .read_exact(&mut methods)
-        .await
-        .context("read Naive SOCKS methods")?;
-    if !methods.contains(&0x00) {
-        stream.write_all(&[0x05, 0xff]).await?;
-        bail!("Naive SOCKS client did not offer no-auth method");
-    }
-    stream.write_all(&[0x05, 0x00]).await?;
-
-    let mut header = [0u8; 4];
-    stream
-        .read_exact(&mut header)
-        .await
-        .context("read Naive SOCKS request")?;
-    ensure!(header[0] == 0x05, "unsupported SOCKS version {}", header[0]);
-    if header[1] != 0x01 {
-        write_socks_reply(stream, 0x07).await?;
-        bail!(
-            "unsupported SOCKS command for Naive client: {:#x}",
-            header[1]
-        );
-    }
-    let target_host = match header[3] {
-        0x01 => {
-            let mut addr = [0u8; 4];
-            stream.read_exact(&mut addr).await?;
-            Ipv4Addr::from(addr).to_string()
-        }
-        0x03 => {
-            let mut len = [0u8; 1];
-            stream.read_exact(&mut len).await?;
-            let mut host = vec![0u8; len[0] as usize];
-            stream.read_exact(&mut host).await?;
-            String::from_utf8(host).context("SOCKS target domain is not UTF-8")?
-        }
-        0x04 => {
-            let mut addr = [0u8; 16];
-            stream.read_exact(&mut addr).await?;
-            Ipv6Addr::from(addr).to_string()
-        }
-        atyp => {
-            write_socks_reply(stream, 0x08).await?;
-            bail!("unsupported SOCKS address type for Naive client: {atyp}");
-        }
-    };
-    let mut port = [0u8; 2];
-    stream.read_exact(&mut port).await?;
-    Ok((target_host, u16::from_be_bytes(port)))
-}
-
-async fn write_socks_reply(stream: &mut TcpStream, code: u8) -> Result<()> {
-    stream
-        .write_all(&[0x05, code, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
-        .await
-        .context("write SOCKS reply")
-}
-
-async fn open_naive_tunnel(
-    config: &NaiveClientConfig,
-    target_host: &str,
-    target_port: u16,
-) -> Result<tokio_rustls::client::TlsStream<TcpStream>> {
-    let stream =
-        aerion::socket_protect::connect_tcp_host_port(&config.server_host, config.server_port)
-            .await?;
-    let server_name = rustls::pki_types::ServerName::try_from(config.sni.clone())
-        .with_context(|| format!("invalid Naive TLS server name: {}", config.sni))?;
-    let mut tls = tokio_rustls::TlsConnector::from(aerion::tls::client_config(config.insecure))
-        .connect(server_name, stream)
-        .await
-        .context("connect Naive HTTPS proxy")?;
-    let authority = naive_authority(target_host, target_port);
-    let mut request = format!(
-        "CONNECT {authority} HTTP/1.1\r\nHost: {authority}\r\nUser-Agent: XBClient\r\nProxy-Connection: keep-alive\r\nConnection: keep-alive\r\n"
-    );
-    if !config.username.is_empty() || !config.password.is_empty() {
-        request.push_str("Proxy-Authorization: Basic ");
-        request.push_str(&base64_standard(
-            format!("{}:{}", config.username, config.password).as_bytes(),
-        ));
-        request.push_str("\r\n");
-    }
-    for (key, value) in &config.extra_headers {
-        request.push_str(key);
-        request.push_str(": ");
-        request.push_str(value);
-        request.push_str("\r\n");
-    }
-    request.push_str("\r\n");
-    tls.write_all(request.as_bytes())
-        .await
-        .context("write Naive CONNECT request")?;
-
-    let mut response = Vec::new();
-    let mut buffer = [0u8; 1024];
-    loop {
-        let read = tls
-            .read(&mut buffer)
-            .await
-            .context("read Naive CONNECT response")?;
-        ensure!(read > 0, "Naive proxy closed before CONNECT response");
-        response.extend_from_slice(&buffer[..read]);
-        ensure!(
-            response.len() <= 16 * 1024,
-            "Naive CONNECT response header is too large"
-        );
-        if let Some(end) = response.windows(4).position(|window| window == b"\r\n\r\n") {
-            let header = String::from_utf8_lossy(&response[..end]);
-            let status = header
-                .lines()
-                .next()
-                .and_then(|line| line.split_whitespace().nth(1))
-                .unwrap_or_default();
-            ensure!(
-                status == "200",
-                "Naive CONNECT failed: {}",
-                header.lines().next().unwrap_or("")
-            );
-            return Ok(tls);
-        }
-    }
-}
-
-fn naive_authority(host: &str, port: u16) -> String {
-    if host.contains(':') && !host.starts_with('[') {
-        format!("[{host}]:{port}")
-    } else {
-        format!("{host}:{port}")
-    }
-}
-
-fn base64_standard(input: &[u8]) -> String {
-    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut output = String::with_capacity(input.len().div_ceil(3) * 4);
-    let mut chunks = input.chunks_exact(3);
-    for chunk in &mut chunks {
-        let value = ((chunk[0] as u32) << 16) | ((chunk[1] as u32) << 8) | chunk[2] as u32;
-        output.push(TABLE[((value >> 18) & 0x3f) as usize] as char);
-        output.push(TABLE[((value >> 12) & 0x3f) as usize] as char);
-        output.push(TABLE[((value >> 6) & 0x3f) as usize] as char);
-        output.push(TABLE[(value & 0x3f) as usize] as char);
-    }
-    let rest = chunks.remainder();
-    if rest.len() == 1 {
-        let value = (rest[0] as u32) << 16;
-        output.push(TABLE[((value >> 18) & 0x3f) as usize] as char);
-        output.push(TABLE[((value >> 12) & 0x3f) as usize] as char);
-        output.push('=');
-        output.push('=');
-    } else if rest.len() == 2 {
-        let value = ((rest[0] as u32) << 16) | ((rest[1] as u32) << 8);
-        output.push(TABLE[((value >> 18) & 0x3f) as usize] as char);
-        output.push(TABLE[((value >> 12) & 0x3f) as usize] as char);
-        output.push(TABLE[((value >> 6) & 0x3f) as usize] as char);
-        output.push('=');
-    }
-    output
 }
 
 fn parse_mieru_hash(value: &str) -> Result<[u8; 32]> {
