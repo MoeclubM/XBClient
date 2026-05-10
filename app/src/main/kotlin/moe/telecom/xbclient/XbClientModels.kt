@@ -59,14 +59,26 @@ data class AnyTlsNode(
             "trojan" -> "Trojan"
             "tuic" -> "TUIC"
             "socks", "socks5" -> "SOCKS5"
-            "naive" -> "Naive"
+            "naive", "naive+https", "naive+quic" -> "Naive"
             "http" -> "HTTP"
-            "mieru" -> "Mieru"
+            "mieru", "mierus" -> "Mieru"
             else -> protocol.uppercase(Locale.US)
         }
 
     val connectSupported: Boolean
-        get() = protocol == "anytls" || protocol == "hysteria2" || protocol == "hy2"
+        get() = when (protocol) {
+            "anytls",
+            "hysteria2",
+            "hy2",
+            "trojan",
+            "vless",
+            "vmess",
+            "mieru",
+            "mierus",
+            "naive",
+            "naive+https" -> true
+            else -> false
+        }
 }
 
 data class InviteItem(
@@ -112,7 +124,13 @@ data class AdRewardLogItem(
 )
 
 fun JSONObject.toAnyTlsNode(): AnyTlsNode =
-    optString("type", optString("protocol", "anytls")).lowercase(Locale.US).let { protocol ->
+    optString("type", optString("protocol", "anytls")).lowercase(Locale.US).let { rawProtocol ->
+        val protocol = when (rawProtocol) {
+            "hy2" -> "hysteria2"
+            "mierus" -> "mieru"
+            "naive+https" -> "naive"
+            else -> rawProtocol
+        }
         AnyTlsNode(
             protocol = protocol,
             name = optString("name"),
@@ -124,13 +142,11 @@ fun JSONObject.toAnyTlsNode(): AnyTlsNode =
 
 private fun JSONObject.normalizedNodeJson(protocol: String): String {
     val node = JSONObject(toString())
-    if (protocol == "anytls" || protocol == "hysteria2" || protocol == "hy2") {
+    if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive")) {
         if (node.optString("host").isEmpty() && node.optString("server").isNotEmpty()) {
             node.put("host", node.optString("server"))
         }
-        if (protocol == "hy2") {
-            node.put("type", "hysteria2")
-        }
+        node.put("type", protocol)
         if (!node.has("insecure")) {
             node.put("insecure", node.optBoolean("skip-cert-verify", false))
         }
