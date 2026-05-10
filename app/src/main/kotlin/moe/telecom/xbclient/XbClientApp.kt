@@ -2,10 +2,14 @@ package moe.telecom.xbclient
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Message
+import android.text.TextUtils
+import android.view.View
 import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebChromeClient
@@ -22,6 +26,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +50,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -63,11 +69,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -79,9 +87,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.autofill.contentType
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -94,6 +105,14 @@ import java.util.Locale
 @Composable
 fun XbClientApp(viewModel: XbClientViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val baseContext = LocalContext.current
+    val languageTag = effectiveLanguageTag(state.appLanguage)
+    val appLocale = remember(languageTag) { Locale.forLanguageTag(languageTag) }
+    val localizedContext = remember(baseContext, appLocale) { localizedContext(baseContext, appLocale) }
+    val localizedConfiguration = remember(localizedContext) { localizedContext.resources.configuration }
+    val layoutDirection = remember(appLocale) {
+        if (TextUtils.getLayoutDirectionFromLocale(appLocale) == View.LAYOUT_DIRECTION_RTL) LayoutDirection.Rtl else LayoutDirection.Ltr
+    }
     var backProgress by remember { mutableFloatStateOf(0f) }
     PredictiveBackHandler(enabled = state.loaded && state.canHandleBack) { progress ->
         try {
@@ -107,32 +126,43 @@ fun XbClientApp(viewModel: XbClientViewModel) {
             throw error
         }
     }
-    XbClientTheme {
-        XbClientDialogs(state, viewModel)
-        Box(
-            modifier = Modifier.graphicsLayer {
-                alpha = 1f - backProgress * 0.08f
-                scaleX = 1f - backProgress * 0.025f
-                scaleY = 1f - backProgress * 0.025f
+    CompositionLocalProvider(
+        LocalContext provides localizedContext,
+        LocalConfiguration provides localizedConfiguration,
+        LocalLayoutDirection provides layoutDirection
+    ) {
+        XbClientTheme(state.themeMode) {
+            XbClientDialogs(state, viewModel)
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    alpha = 1f - backProgress * 0.08f
+                    scaleX = 1f - backProgress * 0.025f
+                    scaleY = 1f - backProgress * 0.025f
+                }
+            ) {
+                if (!state.loaded) {
+                    LoadingScreen()
+                } else if (!state.isLoggedIn) {
+                    AuthScreen(state, viewModel)
+                } else {
+                    MainShell(state, viewModel)
+                }
             }
-        ) {
-            if (!state.loaded) {
-                LoadingScreen()
-            } else if (!state.isLoggedIn) {
-                AuthScreen(state, viewModel)
-            } else {
-                MainShell(state, viewModel)
+            if (state.oauthWebViewUrl.isNotEmpty()) {
+                OAuthWebView(state.oauthWebViewUrl, viewModel)
             }
-        }
-        if (state.oauthWebViewUrl.isNotEmpty()) {
-            OAuthWebView(state.oauthWebViewUrl, viewModel)
         }
     }
 }
 
 @Composable
-private fun XbClientTheme(content: @Composable () -> Unit) {
-    MaterialTheme(content = content)
+private fun XbClientTheme(themeMode: String, content: @Composable () -> Unit) {
+    val darkTheme = when (themeMode) {
+        "dark" -> true
+        "light" -> false
+        else -> isSystemInDarkTheme()
+    }
+    MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme(), content = content)
 }
 
 @Composable
@@ -280,6 +310,7 @@ private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
 
 @Composable
 private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     Column(
@@ -331,16 +362,23 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
                 Spacer(Modifier.height(8.dp))
             }
         }
+        Spacer(Modifier.height(12.dp))
+        LanguageChooser(state.appLanguage, viewModel)
+        AuthFooterLinks(context)
     }
 }
 
 @Composable
 private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var inviteCode by rememberSaveable { mutableStateOf("") }
     var emailCode by rememberSaveable { mutableStateOf("") }
     var captcha by rememberSaveable { mutableStateOf("") }
+    var legalAccepted by rememberSaveable { mutableStateOf(false) }
+    val legalRequired = BuildConfig.USER_AGREEMENT_URL.trim().isNotEmpty() && BuildConfig.PRIVACY_POLICY_URL.trim().isNotEmpty()
+    val registerEnabled = !legalRequired || legalAccepted
     Column(modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))) {
         PageHeader(stringResource(R.string.auth_register_title), stringResource(R.string.auth_register_subtitle))
         Section(stringResource(R.string.section_account)) {
@@ -375,7 +413,15 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
                 Text(stringResource(R.string.auth_send_email_code))
             }
             Spacer(Modifier.height(8.dp))
-            Button(onClick = { viewModel.register(email, password, inviteCode, emailCode, captcha) }, modifier = Modifier.fillMaxWidth()) {
+            if (legalRequired) {
+                RegisterLegalAgreement(legalAccepted, { legalAccepted = it }, context)
+                Spacer(Modifier.height(8.dp))
+            }
+            Button(
+                onClick = { viewModel.register(email, password, inviteCode, emailCode, captcha) },
+                enabled = registerEnabled,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(stringResource(R.string.auth_register))
             }
             Spacer(Modifier.height(8.dp))
@@ -406,12 +452,105 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
                 for (provider in state.oauthProviders) {
                     OutlinedButton(
                         onClick = { viewModel.openOAuthPage("register", provider.driver, inviteCode) },
+                        enabled = registerEnabled,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(stringResource(R.string.auth_oauth_register_button, provider.label))
                     }
                     Spacer(Modifier.height(8.dp))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RegisterLegalAgreement(checked: Boolean, onCheckedChange: (Boolean) -> Unit, context: Context) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.auth_terms_agree), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { openBrowser(context, BuildConfig.USER_AGREEMENT_URL) }) {
+                    Text(stringResource(R.string.about_user_agreement))
+                }
+                TextButton(onClick = { openBrowser(context, BuildConfig.PRIVACY_POLICY_URL) }) {
+                    Text(stringResource(R.string.about_privacy_policy))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuthFooterLinks(context: Context) {
+    val links = listOf(
+        R.string.about_website to BuildConfig.WEBSITE_URL.trim(),
+        R.string.about_user_agreement to BuildConfig.USER_AGREEMENT_URL.trim(),
+        R.string.about_privacy_policy to BuildConfig.PRIVACY_POLICY_URL.trim()
+    ).filter { it.second.isNotEmpty() }
+    if (links.isEmpty()) {
+        return
+    }
+    Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+        for ((label, url) in links) {
+            TextButton(onClick = { openBrowser(context, url) }) {
+                Text(stringResource(label))
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
+    Text(stringResource(R.string.setting_language), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+        for ((tag, label) in listOf(
+            "" to R.string.language_system,
+            "zh-CN" to R.string.language_zh,
+            "en" to R.string.language_en
+        )) {
+            val selected = current == tag
+            if (selected) {
+                Button(onClick = { viewModel.setAppLanguage(tag) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
+            } else {
+                OutlinedButton(onClick = { viewModel.setAppLanguage(tag) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
+            }
+        }
+    }
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+        for ((tag, label) in listOf(
+            "ja" to R.string.language_ja,
+            "ru" to R.string.language_ru,
+            "fa" to R.string.language_fa
+        )) {
+            val selected = current == tag
+            if (selected) {
+                Button(onClick = { viewModel.setAppLanguage(tag) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
+            } else {
+                OutlinedButton(onClick = { viewModel.setAppLanguage(tag) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeChooser(current: String, viewModel: XbClientViewModel) {
+    Text(stringResource(R.string.setting_theme), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+        for ((mode, label) in listOf(
+            "" to R.string.theme_system,
+            "light" to R.string.theme_light,
+            "dark" to R.string.theme_dark
+        )) {
+            val selected = current == mode
+            if (selected) {
+                Button(onClick = { viewModel.setThemeMode(mode) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
+            } else {
+                OutlinedButton(onClick = { viewModel.setThemeMode(mode) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
             }
         }
     }
@@ -671,17 +810,19 @@ private fun PlanRow(
                         Text(stringResource(R.string.plan_traffic, formatTrafficGb(plan.transferEnable)), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                Spacer(Modifier.width(12.dp))
-                Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    shape = RoundedCornerShape(50)
-                ) {
-                    Text(
-                        planPriceText(plan, currencySymbol, currencyUnit, noPriceText),
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                    )
+                if (paymentEnabled || plan.prices.isEmpty()) {
+                    Spacer(Modifier.width(12.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        shape = RoundedCornerShape(50)
+                    ) {
+                        Text(
+                            planPriceText(plan, currencySymbol, currencyUnit, noPriceText),
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                        )
+                    }
                 }
             }
             val content = plan.content.trim()
@@ -881,6 +1022,11 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     var directDns by rememberSaveable(state.directDns) { mutableStateOf(state.directDns) }
     var nodeTestTarget by rememberSaveable(state.nodeTestTarget) { mutableStateOf(state.nodeTestTarget) }
     PageHeader(stringResource(R.string.common_settings), stringResource(R.string.page_settings_subtitle))
+    Section(stringResource(R.string.section_appearance)) {
+        LanguageChooser(state.appLanguage, viewModel)
+        Spacer(Modifier.height(14.dp))
+        ThemeChooser(state.themeMode, viewModel)
+    }
     Section(stringResource(R.string.section_app_rules)) {
         val selectedCount = selectedPackages(state).size
         Text(
@@ -939,17 +1085,13 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
         )
         val links = listOf(
             R.string.about_website to BuildConfig.WEBSITE_URL.trim(),
+            R.string.about_user_agreement to BuildConfig.USER_AGREEMENT_URL.trim(),
             R.string.about_privacy_policy to BuildConfig.PRIVACY_POLICY_URL.trim()
         ).filter { it.second.isNotEmpty() }
         for ((label, url) in links) {
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
-                onClick = {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                            .addCategory(Intent.CATEGORY_BROWSABLE)
-                    )
-                },
+                onClick = { openBrowser(context, url) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(stringResource(label))
@@ -1042,32 +1184,36 @@ private fun NodeRow(
             .fillMaxWidth()
             .animateContentSize(animationSpec = tween(180))
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
-            Column(Modifier.weight(1f)) {
-                Text((if (selected) "✓ " else "") + node.displayName(index, stringResource(R.string.node_default_name, index + 1)), style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(3.dp))
-                Text(node.protocolLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(Modifier.width(8.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                shape = RoundedCornerShape(50)
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    testText ?: stringResource(R.string.status_not_tested),
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    (if (selected) "✓ " else "") + node.displayName(index, stringResource(R.string.node_default_name, index + 1)),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
                 )
+                IconButton(onClick = onTest, modifier = Modifier.size(34.dp)) {
+                    Text("↻")
+                }
             }
-            Spacer(Modifier.width(4.dp))
-            IconButton(onClick = onTest, modifier = Modifier.size(34.dp)) {
-                Text("↻")
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(node.protocolLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.weight(1f))
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text(
+                        testText ?: stringResource(R.string.status_not_tested),
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
             }
         }
     }
@@ -1221,6 +1367,34 @@ private fun selectedPackages(state: XbClientUiState): Set<String> =
         .filter { it.isNotEmpty() }
         .toSet()
 
+private fun openBrowser(context: Context, url: String) {
+    context.startActivity(
+        Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            .addCategory(Intent.CATEGORY_BROWSABLE)
+    )
+}
+
+private fun effectiveLanguageTag(selected: String): String {
+    if (selected.isNotEmpty()) {
+        return selected
+    }
+    return when (Locale.getDefault().language.lowercase(Locale.ROOT)) {
+        "zh" -> "zh-CN"
+        "ja" -> "ja"
+        "ru" -> "ru"
+        "fa", "per" -> "fa"
+        "en" -> "en"
+        else -> "en"
+    }
+}
+
+private fun localizedContext(context: Context, locale: Locale): Context {
+    val configuration = Configuration(context.resources.configuration)
+    configuration.setLocale(locale)
+    configuration.setLayoutDirection(locale)
+    return context.createConfigurationContext(configuration)
+}
+
 private fun formatMoney(amount: Int, symbol: String, unit: String): String =
     (symbol + String.format(Locale.US, "%.2f", amount / 100.0) + if (unit.isBlank()) "" else " $unit").trim()
 
@@ -1275,5 +1449,10 @@ private fun AnimatedContentTransitionScope<*>.contentTransition() =
         fadeOut(animationSpec = tween(140))).using(SizeTransform(clip = false))
 
 private fun AnimatedContentTransitionScope<PassScreen>.screenTransition() =
-    (fadeIn(animationSpec = tween(120)) togetherWith
-        fadeOut(animationSpec = tween(90))).using(SizeTransform(clip = false))
+    if (targetState.ordinal >= initialState.ordinal) {
+        (slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = tween(220)) + fadeIn(animationSpec = tween(160)) togetherWith
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = tween(220)) + fadeOut(animationSpec = tween(140))).using(SizeTransform(clip = false))
+    } else {
+        (slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = tween(220)) + fadeIn(animationSpec = tween(160)) togetherWith
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = tween(220)) + fadeOut(animationSpec = tween(140))).using(SizeTransform(clip = false))
+    }

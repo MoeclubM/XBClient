@@ -36,6 +36,7 @@
     <string name="auth_oauth_cancel">Отменить OAuth-регистрацию</string>
     <string name="auth_oauth_register_title">Сторонняя регистрация</string>
     <string name="auth_oauth_register_button">Зарегистрироваться через %1$s</string>
+    <string name="auth_terms_agree">Я прочитал(а) и принимаю следующие условия</string>
 
     <string name="section_account">Аккаунт</string>
     <string name="section_connection">Подключение</string>
@@ -46,6 +47,7 @@
     <string name="section_app_rules">Правила приложений</string>
     <string name="section_node_test">Проверка узлов</string>
     <string name="section_about">О приложении</string>
+    <string name="section_appearance">Внешний вид</string>
 
     <string name="status_connected">Подключено</string>
     <string name="status_disconnected">Не подключено</string>
@@ -103,7 +105,18 @@
     <string name="invite_copy">Копировать</string>
     <string name="invite_code_copied">Код приглашения скопирован.</string>
 
-    <string name="page_settings_subtitle">Настройте DNS, IPv6 и правила для приложений.</string>
+    <string name="page_settings_subtitle">Настройте внешний вид, DNS, IPv6 и правила для приложений.</string>
+    <string name="setting_language">Язык</string>
+    <string name="setting_theme">Темная тема</string>
+    <string name="language_system">Система</string>
+    <string name="language_zh">中文</string>
+    <string name="language_en">English</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_fa">فارسی</string>
+    <string name="theme_system">Система</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Темная</string>
     <string name="app_rules_allow_desc">Режим белого списка: только выбранные приложения используют соединение.</string>
     <string name="app_rules_exclude_desc">Режим черного списка: выбранные приложения не используют соединение.</string>
     <string name="app_rules_none_selected">Приложения еще не выбраны.</string>
@@ -116,6 +129,7 @@
     <string name="node_test_help">Укажите домен, домен:порт или http/https URL. Проверка узла выполняет два HEAD-запроса и показывает задержку второго.</string>
     <string name="about_version">Версия %1$s</string>
     <string name="about_website">Сайт</string>
+    <string name="about_user_agreement">Условия</string>
     <string name="about_privacy_policy">Политика конфиденциальности</string>
 
     <string name="page_node_select_title">Выбор узла</string>

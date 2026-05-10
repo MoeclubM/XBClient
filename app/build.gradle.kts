@@ -95,6 +95,12 @@ val privacyPolicyUrl = providers.gradleProperty("xbclient.privacyPolicyUrl")
     ?: rootLocalProperties.getProperty("xbclient.privacyPolicyUrl")
     ?: rootLocalProperties.getProperty("XBCLIENT_PRIVACY_POLICY_URL")
     ?: ""
+val userAgreementUrl = providers.gradleProperty("xbclient.userAgreementUrl")
+    .orNull
+    ?: providers.environmentVariable("XBCLIENT_USER_AGREEMENT_URL").orNull
+    ?: rootLocalProperties.getProperty("xbclient.userAgreementUrl")
+    ?: rootLocalProperties.getProperty("XBCLIENT_USER_AGREEMENT_URL")
+    ?: ""
 val localSigningProperties = Properties()
 val localSigningPropertiesFile = rootProject.file("app/config/release-signing.local.txt")
 if (localSigningPropertiesFile.isFile) {
@@ -168,6 +174,7 @@ android {
         buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"${oauthCallbackScheme.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "WEBSITE_URL", "\"${websiteUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "PRIVACY_POLICY_URL", "\"${privacyPolicyUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "USER_AGREEMENT_URL", "\"${userAgreementUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     signingConfigs {

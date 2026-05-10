@@ -36,6 +36,7 @@
     <string name="auth_oauth_cancel">Cancel OAuth registration</string>
     <string name="auth_oauth_register_title">Third-party registration</string>
     <string name="auth_oauth_register_button">Register with %1$s</string>
+    <string name="auth_terms_agree">I have read and agree to the following terms</string>
 
     <string name="section_account">Account</string>
     <string name="section_connection">Connection</string>
@@ -46,6 +47,7 @@
     <string name="section_app_rules">App rules</string>
     <string name="section_node_test">Node test</string>
     <string name="section_about">About</string>
+    <string name="section_appearance">Appearance</string>
 
     <string name="status_connected">Connected</string>
     <string name="status_disconnected">Disconnected</string>
@@ -103,7 +105,18 @@
     <string name="invite_copy">Copy</string>
     <string name="invite_code_copied">Invite code copied.</string>
 
-    <string name="page_settings_subtitle">Configure DNS, IPv6, and per-app rules.</string>
+    <string name="page_settings_subtitle">Configure appearance, DNS, IPv6, and per-app rules.</string>
+    <string name="setting_language">Language</string>
+    <string name="setting_theme">Dark mode</string>
+    <string name="language_system">System</string>
+    <string name="language_zh">中文</string>
+    <string name="language_en">English</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_fa">فارسی</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
     <string name="app_rules_allow_desc">Allowlist mode: only selected apps use the connection.</string>
     <string name="app_rules_exclude_desc">Blocklist mode: selected apps do not use the connection.</string>
     <string name="app_rules_none_selected">No apps selected.</string>
@@ -116,6 +129,7 @@
     <string name="node_test_help">Enter a domain, domain:port, or http/https URL. Node testing runs two HEAD requests and shows the second latency.</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_website">Website</string>
+    <string name="about_user_agreement">Terms</string>
     <string name="about_privacy_policy">Privacy policy</string>
 
     <string name="page_node_select_title">Select node</string>

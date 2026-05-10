@@ -5,7 +5,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.net.Uri
 import android.net.VpnService
 import android.os.Build
@@ -13,6 +15,7 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -114,6 +117,7 @@ class MainActivity : ComponentActivity() {
                     if (!state.loaded) {
                         return@collect
                     }
+                    applyEdgeToEdge(state.themeMode)
                     if (!startupConfigHandled) {
                         startupConfigHandled = true
                         if (state.isLoggedIn && state.appOpenAdEnabled && state.appOpenAdUnitId.isNotEmpty()) {
@@ -177,6 +181,25 @@ class MainActivity : ComponentActivity() {
         val uri = intent?.data
         if (uri?.scheme == BuildConfig.OAUTH_CALLBACK_SCHEME && uri.host == "oauth") {
             viewModel.handleOAuthCallback(uri)
+        }
+    }
+
+    private fun applyEdgeToEdge(themeMode: String) {
+        val darkTheme = when (themeMode) {
+            "dark" -> true
+            "light" -> false
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        }
+        if (darkTheme) {
+            enableEdgeToEdge(
+                statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+                navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
+            )
+        } else {
+            enableEdgeToEdge(
+                statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+                navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+            )
         }
     }
 

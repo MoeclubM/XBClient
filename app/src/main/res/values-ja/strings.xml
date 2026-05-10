@@ -36,6 +36,7 @@
     <string name="auth_oauth_cancel">OAuth 登録をキャンセル</string>
     <string name="auth_oauth_register_title">サードパーティ登録</string>
     <string name="auth_oauth_register_button">%1$s で登録</string>
+    <string name="auth_terms_agree">以下の規約を読み、同意しました</string>
 
     <string name="section_account">アカウント</string>
     <string name="section_connection">接続</string>
@@ -46,6 +47,7 @@
     <string name="section_app_rules">アプリルール</string>
     <string name="section_node_test">ノードテスト</string>
     <string name="section_about">このアプリについて</string>
+    <string name="section_appearance">外観</string>
 
     <string name="status_connected">接続済み</string>
     <string name="status_disconnected">未接続</string>
@@ -103,7 +105,18 @@
     <string name="invite_copy">コピー</string>
     <string name="invite_code_copied">招待コードをコピーしました。</string>
 
-    <string name="page_settings_subtitle">DNS、IPv6、アプリごとのルールを設定します。</string>
+    <string name="page_settings_subtitle">外観、DNS、IPv6、アプリごとのルールを設定します。</string>
+    <string name="setting_language">言語</string>
+    <string name="setting_theme">ダークモード</string>
+    <string name="language_system">システム</string>
+    <string name="language_zh">中文</string>
+    <string name="language_en">English</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_fa">فارسی</string>
+    <string name="theme_system">システム</string>
+    <string name="theme_light">ライト</string>
+    <string name="theme_dark">ダーク</string>
     <string name="app_rules_allow_desc">許可リストモード：選択したアプリのみ接続を使用します。</string>
     <string name="app_rules_exclude_desc">ブロックリストモード：選択したアプリは接続を使用しません。</string>
     <string name="app_rules_none_selected">アプリはまだ選択されていません。</string>
@@ -116,6 +129,7 @@
     <string name="node_test_help">ドメイン、ドメイン:ポート、または http/https URL を入力できます。ノードテストは HEAD リクエストを2回実行し、2回目の遅延を表示します。</string>
     <string name="about_version">バージョン %1$s</string>
     <string name="about_website">公式サイト</string>
+    <string name="about_user_agreement">利用規約</string>
     <string name="about_privacy_policy">プライバシーポリシー</string>
 
     <string name="page_node_select_title">ノードを選択</string>

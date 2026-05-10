@@ -91,6 +91,8 @@ data class XbClientUiState(
     val latestReleaseVersion: String = "",
     val latestReleaseUrl: String = "",
     val latestDownloadUrl: String = "",
+    val appLanguage: String = "",
+    val themeMode: String = "",
     val oauthProviders: List<OAuthProvider> = emptyList(),
     val oauthConfirmToken: String = "",
     val oauthConfirmProvider: String = "",
@@ -916,6 +918,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         updateAndPersist { it.copy(vpnIpv6Enabled = enabled) }
     }
 
+    fun setAppLanguage(language: String) {
+        updateAndPersist { it.copy(appLanguage = language) }
+    }
+
+    fun setThemeMode(themeMode: String) {
+        updateAndPersist { it.copy(themeMode = themeMode) }
+    }
+
     fun switchAppRuleMode(mode: String) {
         if (mode != MODE_ALLOW && mode != MODE_EXCLUDE) {
             return
@@ -1226,6 +1236,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 adRewardLogs = cachedAdRewardLogs(prefs[Keys.AD_REWARD_LOGS].orEmpty()),
                 configUpdatedAt = prefs[Keys.CONFIG_UPDATED_AT] ?: 0L,
                 githubProjectUrl = prefs[Keys.GITHUB_PROJECT_URL].orEmpty(),
+                appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
+                themeMode = prefs[Keys.THEME_MODE].orEmpty(),
                 oauthProviders = cachedOAuthProviders(prefs[Keys.OAUTH_PROVIDERS].orEmpty())
             )
         } else {
@@ -1270,6 +1282,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 adRewardLogs = cachedAdRewardLogs(legacy.getString("ad_reward_logs", "").orEmpty()),
                 configUpdatedAt = legacy.getLong("config_updated_at", 0L),
                 githubProjectUrl = legacy.getString("github_project_url", "").orEmpty(),
+                appLanguage = legacy.getString("app_language", "").orEmpty(),
+                themeMode = legacy.getString("theme_mode", "").orEmpty(),
                 oauthProviders = cachedOAuthProviders(legacy.getString("oauth_providers", "").orEmpty())
             )
         }
@@ -1354,6 +1368,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.AD_REWARD_LOGS] = adRewardLogsJson(state.adRewardLogs)
             prefs[Keys.CONFIG_UPDATED_AT] = state.configUpdatedAt
             prefs[Keys.GITHUB_PROJECT_URL] = state.githubProjectUrl
+            prefs[Keys.APP_LANGUAGE] = state.appLanguage
+            prefs[Keys.THEME_MODE] = state.themeMode
             prefs[Keys.OAUTH_PROVIDERS] = oauthProvidersJson(state.oauthProviders)
         }
         app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
@@ -1396,6 +1412,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("ad_reward_logs", adRewardLogsJson(state.adRewardLogs))
             .putLong("config_updated_at", state.configUpdatedAt)
             .putString("github_project_url", state.githubProjectUrl)
+            .putString("app_language", state.appLanguage)
+            .putString("theme_mode", state.themeMode)
             .putString("oauth_providers", oauthProvidersJson(state.oauthProviders))
             .apply()
     }
@@ -1637,6 +1655,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val AD_REWARD_LOGS = stringPreferencesKey("ad_reward_logs")
         val CONFIG_UPDATED_AT = longPreferencesKey("config_updated_at")
         val GITHUB_PROJECT_URL = stringPreferencesKey("github_project_url")
+        val APP_LANGUAGE = stringPreferencesKey("app_language")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
         val OAUTH_PROVIDERS = stringPreferencesKey("oauth_providers")
     }
 }

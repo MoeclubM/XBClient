@@ -36,6 +36,7 @@
     <string name="auth_oauth_cancel">لغو ثبت‌نام OAuth</string>
     <string name="auth_oauth_register_title">ثبت‌نام با سرویس دیگر</string>
     <string name="auth_oauth_register_button">ثبت‌نام با %1$s</string>
+    <string name="auth_terms_agree">شرایط زیر را خوانده‌ام و می‌پذیرم</string>
 
     <string name="section_account">حساب</string>
     <string name="section_connection">اتصال</string>
@@ -46,6 +47,7 @@
     <string name="section_app_rules">قوانین برنامه‌ها</string>
     <string name="section_node_test">آزمون گره</string>
     <string name="section_about">درباره برنامه</string>
+    <string name="section_appearance">ظاهر</string>
 
     <string name="status_connected">متصل</string>
     <string name="status_disconnected">قطع</string>
@@ -103,7 +105,18 @@
     <string name="invite_copy">کپی</string>
     <string name="invite_code_copied">کد دعوت کپی شد.</string>
 
-    <string name="page_settings_subtitle">DNS، IPv6 و قوانین هر برنامه را تنظیم کنید.</string>
+    <string name="page_settings_subtitle">ظاهر، DNS، IPv6 و قوانین هر برنامه را تنظیم کنید.</string>
+    <string name="setting_language">زبان</string>
+    <string name="setting_theme">حالت تاریک</string>
+    <string name="language_system">سیستم</string>
+    <string name="language_zh">中文</string>
+    <string name="language_en">English</string>
+    <string name="language_ja">日本語</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_fa">فارسی</string>
+    <string name="theme_system">سیستم</string>
+    <string name="theme_light">روشن</string>
+    <string name="theme_dark">تاریک</string>
     <string name="app_rules_allow_desc">حالت فهرست مجاز: فقط برنامه‌های انتخاب‌شده از اتصال استفاده می‌کنند.</string>
     <string name="app_rules_exclude_desc">حالت فهرست مسدود: برنامه‌های انتخاب‌شده از اتصال استفاده نمی‌کنند.</string>
     <string name="app_rules_none_selected">هنوز برنامه‌ای انتخاب نشده است.</string>
@@ -116,6 +129,7 @@
     <string name="node_test_help">دامنه، دامنه:درگاه یا نشانی http/https وارد کنید. آزمون گره دو درخواست HEAD اجرا می‌کند و تأخیر درخواست دوم را نشان می‌دهد.</string>
     <string name="about_version">نسخه %1$s</string>
     <string name="about_website">وب‌سایت</string>
+    <string name="about_user_agreement">شرایط استفاده</string>
     <string name="about_privacy_policy">سیاست حریم خصوصی</string>
 
     <string name="page_node_select_title">انتخاب گره</string>
