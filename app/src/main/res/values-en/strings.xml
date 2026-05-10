@@ -106,6 +106,9 @@
     <string name="invite_code_copied">Invite code copied.</string>
 
     <string name="page_settings_subtitle">Configure appearance, DNS, IPv6, and per-app rules.</string>
+    <string name="onboarding_language_title">Choose app language</string>
+    <string name="onboarding_language_subtitle">Pick the interface language first. You can change it later in Settings.</string>
+    <string name="onboarding_continue">Continue</string>
     <string name="setting_language">Language</string>
     <string name="setting_theme">Dark mode</string>
     <string name="language_system">System</string>

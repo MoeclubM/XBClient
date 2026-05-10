@@ -59,6 +59,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -95,6 +96,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
@@ -148,6 +150,8 @@ fun XbClientApp(viewModel: XbClientViewModel) {
             ) {
                 if (!state.loaded) {
                     LoadingScreen()
+                } else if (!state.languageOnboardingDone) {
+                    LanguageOnboardingScreen(state, viewModel)
                 } else if (!state.isLoggedIn) {
                     AuthScreen(state, viewModel)
                 } else {
@@ -189,23 +193,33 @@ fun XbClientSettingsApp(viewModel: XbClientViewModel, onClose: () -> Unit) {
         XbClientTheme(state.themeMode) {
             XbClientDialogs(state, viewModel)
             Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
-                AnimatedContent(
-                    targetState = if (state.screen == PassScreen.APP_RULES) PassScreen.APP_RULES else PassScreen.SETTINGS,
-                    transitionSpec = { screenTransition() },
-                    modifier = Modifier
-                        .padding(padding)
-                        .fillMaxSize(),
-                    label = "settings-screen"
-                ) { screen ->
-                    if (screen == PassScreen.APP_RULES) {
-                        AppRulesScreen(state, viewModel)
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
-                        ) {
-                            item {
-                                SettingsScreen(state, viewModel, onClose)
+                if (!state.loaded) {
+                    Box(
+                        modifier = Modifier
+                            .padding(padding)
+                            .fillMaxSize()
+                    ) {
+                        LoadingScreen()
+                    }
+                } else {
+                    AnimatedContent(
+                        targetState = if (state.screen == PassScreen.APP_RULES) PassScreen.APP_RULES else PassScreen.SETTINGS,
+                        transitionSpec = { screenTransition() },
+                        modifier = Modifier
+                            .padding(padding)
+                            .fillMaxSize(),
+                        label = "settings-screen"
+                    ) { screen ->
+                        if (screen == PassScreen.APP_RULES) {
+                            AppRulesScreen(state, viewModel)
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+                            ) {
+                                item {
+                                    SettingsScreen(state, viewModel, onClose)
+                                }
                             }
                         }
                     }
@@ -333,34 +347,106 @@ private fun handleOAuthWebUrl(uri: Uri, viewModel: XbClientViewModel): Boolean {
     return false
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(id = R.string.app_name)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
+private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val languages = listOf(
+        "" to R.string.language_system,
+        "zh-CN" to R.string.language_zh,
+        "en" to R.string.language_en,
+        "ja" to R.string.language_ja,
+        "ru" to R.string.language_ru,
+        "fa" to R.string.language_fa
+    )
+    var selected by rememberSaveable { mutableStateOf(if (languages.any { it.first == state.appLanguage }) state.appLanguage else "") }
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         LazyColumn(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp)
         ) {
             item {
-                AnimatedContent(
-                    targetState = state.authMode,
-                    transitionSpec = { contentTransition() },
-                    label = "auth-mode"
-                ) { authMode ->
-                    if (authMode == AuthMode.LOGIN) {
-                        LoginContent(state, viewModel)
-                    } else {
-                        RegisterContent(state, viewModel)
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier.size(72.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("XB", style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+                Spacer(Modifier.height(22.dp))
+                Text(stringResource(R.string.onboarding_language_title), style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.onboarding_language_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(24.dp))
+                ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                    Column(Modifier.padding(10.dp)) {
+                        for ((index, item) in languages.withIndex()) {
+                            ListItem(
+                                headlineContent = { Text(stringResource(item.second)) },
+                                trailingContent = {
+                                    if (selected == item.first) {
+                                        Text("✓", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleLarge)
+                                    }
+                                },
+                                modifier = Modifier.clickable { selected = item.first }
+                            )
+                            if (index != languages.lastIndex) {
+                                HorizontalDivider()
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+                Button(onClick = { viewModel.finishLanguageOnboarding(selected) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.onboarding_continue))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp)
+        ) {
+            item {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        shape = RoundedCornerShape(30.dp),
+                        tonalElevation = 2.dp,
+                        modifier = Modifier.size(78.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("XB", style = MaterialTheme.typography.headlineSmall)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text(stringResource(id = R.string.app_name), style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(24.dp))
+                    AnimatedContent(
+                        targetState = state.authMode,
+                        transitionSpec = { contentTransition() },
+                        label = "auth-mode"
+                    ) { authMode ->
+                        if (authMode == AuthMode.LOGIN) {
+                            LoginContent(state, viewModel)
+                        } else {
+                            RegisterContent(state, viewModel)
+                        }
                     }
                 }
             }
@@ -380,51 +466,73 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
             .animateContentSize(animationSpec = tween(180))
     ) {
         PageHeader(stringResource(R.string.auth_login_title))
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text(stringResource(R.string.auth_email)) },
-            singleLine = true,
-            modifier = Modifier
-                .contentType(ContentType.Username + ContentType.EmailAddress)
-                .fillMaxWidth()
-        )
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text(stringResource(R.string.auth_password)) },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier
-                .contentType(ContentType.Password)
-                .fillMaxWidth()
-        )
-        Spacer(Modifier.height(14.dp))
-        Button(onClick = { viewModel.login(email, password) }, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.auth_login))
-        }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = viewModel::showRegister, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.auth_register_account))
-        }
-        if (state.oauthProviders.isNotEmpty()) {
-            Spacer(Modifier.height(14.dp))
-            Text(stringResource(R.string.auth_oauth_login_title), style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
-            for (provider in state.oauthProviders) {
-                OutlinedButton(
-                    onClick = { viewModel.openOAuthPage("login", provider.driver) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.auth_oauth_login_button, provider.label))
+        ElevatedCard(
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(18.dp)) {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text(stringResource(R.string.auth_email)) },
+                    singleLine = true,
+                    modifier = Modifier
+                        .contentType(ContentType.Username + ContentType.EmailAddress)
+                        .fillMaxWidth()
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(stringResource(R.string.auth_password)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier
+                        .contentType(ContentType.Password)
+                        .fillMaxWidth()
+                )
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = { viewModel.login(email, password) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.auth_login))
                 }
                 Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = viewModel::showRegister, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.auth_register_account))
+                }
             }
         }
-        Spacer(Modifier.height(12.dp))
-        LanguageChooser(state.appLanguage, viewModel)
-        AuthFooterLinks(context)
+        if (state.oauthProviders.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            ElevatedCard(
+                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(18.dp)) {
+                    Text(stringResource(R.string.auth_oauth_login_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(10.dp))
+                    for (provider in state.oauthProviders) {
+                        OutlinedButton(
+                            onClick = { viewModel.openOAuthPage("login", provider.driver) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.auth_oauth_login_button, provider.label))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        ElevatedCard(
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(18.dp)) {
+                LanguageChooser(state.appLanguage, viewModel)
+                Spacer(Modifier.height(12.dp))
+                AuthFooterLinks(context)
+            }
+        }
     }
 }
 
@@ -441,83 +549,88 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
     val registerEnabled = !legalRequired || legalAccepted
     Column(modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))) {
         PageHeader(stringResource(R.string.auth_register_title), stringResource(R.string.auth_register_subtitle))
-        Section(stringResource(R.string.section_account)) {
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text(stringResource(R.string.auth_email)) },
-                singleLine = true,
-                modifier = Modifier
-                    .contentType(ContentType.NewUsername + ContentType.EmailAddress)
-                    .fillMaxWidth()
-            )
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text(stringResource(R.string.auth_password)) },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier
-                    .contentType(ContentType.NewPassword)
-                    .fillMaxWidth()
-            )
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(value = inviteCode, onValueChange = { inviteCode = it }, label = { Text(stringResource(R.string.auth_invite_code_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(value = emailCode, onValueChange = { emailCode = it }, label = { Text(stringResource(R.string.auth_email_code_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(value = captcha, onValueChange = { captcha = it }, label = { Text(stringResource(R.string.auth_captcha_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(14.dp))
-            OutlinedButton(onClick = { viewModel.sendEmailVerify(email, captcha) }, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.auth_send_email_code))
-            }
-            Spacer(Modifier.height(8.dp))
-            if (legalRequired) {
-                RegisterLegalAgreement(legalAccepted, { legalAccepted = it }, context)
-                Spacer(Modifier.height(8.dp))
-            }
-            Button(
-                onClick = { viewModel.register(email, password, inviteCode, emailCode, captcha) },
-                enabled = registerEnabled,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.auth_register))
-            }
-            Spacer(Modifier.height(8.dp))
-            TextButton(onClick = viewModel::showLogin, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.auth_back_login))
-            }
-            if (state.oauthConfirmToken.isNotEmpty()) {
-                Spacer(Modifier.height(14.dp))
-                Text(stringResource(R.string.auth_oauth_confirm_title), style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    stringResource(R.string.auth_oauth_confirm_message, state.oauthConfirmProvider.ifEmpty { "OAuth" }, state.oauthConfirmEmail),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        ElevatedCard(
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(18.dp)) {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text(stringResource(R.string.auth_email)) },
+                    singleLine = true,
+                    modifier = Modifier
+                        .contentType(ContentType.NewUsername + ContentType.EmailAddress)
+                        .fillMaxWidth()
                 )
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = viewModel::confirmOAuthRegister, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.auth_oauth_confirm_button))
-                }
-                Spacer(Modifier.height(8.dp))
-                TextButton(onClick = viewModel::clearOAuthConfirm, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.auth_oauth_cancel))
-                }
-            }
-            if (state.oauthProviders.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(stringResource(R.string.auth_password)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier
+                        .contentType(ContentType.NewPassword)
+                        .fillMaxWidth()
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = inviteCode, onValueChange = { inviteCode = it }, label = { Text(stringResource(R.string.auth_invite_code_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = emailCode, onValueChange = { emailCode = it }, label = { Text(stringResource(R.string.auth_email_code_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = captcha, onValueChange = { captcha = it }, label = { Text(stringResource(R.string.auth_captcha_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(14.dp))
-                Text(stringResource(R.string.auth_oauth_register_title), style = MaterialTheme.typography.titleLarge)
+                OutlinedButton(onClick = { viewModel.sendEmailVerify(email, captcha) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.auth_send_email_code))
+                }
                 Spacer(Modifier.height(8.dp))
-                for (provider in state.oauthProviders) {
-                    OutlinedButton(
-                        onClick = { viewModel.openOAuthPage("register", provider.driver, inviteCode) },
-                        enabled = registerEnabled,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(stringResource(R.string.auth_oauth_register_button, provider.label))
+                if (legalRequired) {
+                    RegisterLegalAgreement(legalAccepted, { legalAccepted = it }, context)
+                    Spacer(Modifier.height(8.dp))
+                }
+                Button(
+                    onClick = { viewModel.register(email, password, inviteCode, emailCode, captcha) },
+                    enabled = registerEnabled,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.auth_register))
+                }
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = viewModel::showLogin, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.auth_back_login))
+                }
+                if (state.oauthConfirmToken.isNotEmpty()) {
+                    Spacer(Modifier.height(14.dp))
+                    Text(stringResource(R.string.auth_oauth_confirm_title), style = MaterialTheme.typography.titleLarge)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        stringResource(R.string.auth_oauth_confirm_message, state.oauthConfirmProvider.ifEmpty { "OAuth" }, state.oauthConfirmEmail),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = viewModel::confirmOAuthRegister, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.auth_oauth_confirm_button))
                     }
                     Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = viewModel::clearOAuthConfirm, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.auth_oauth_cancel))
+                    }
+                }
+                if (state.oauthProviders.isNotEmpty()) {
+                    Spacer(Modifier.height(14.dp))
+                    Text(stringResource(R.string.auth_oauth_register_title), style = MaterialTheme.typography.titleLarge)
+                    Spacer(Modifier.height(8.dp))
+                    for (provider in state.oauthProviders) {
+                        OutlinedButton(
+                            onClick = { viewModel.openOAuthPage("register", provider.driver, inviteCode) },
+                            enabled = registerEnabled,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.auth_oauth_register_button, provider.label))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
                 }
             }
         }
@@ -582,7 +695,7 @@ private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
     )
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
-            value = stringResource(options.first { it.first == current }.second),
+            value = stringResource((options.firstOrNull { it.first == current } ?: options.first()).second),
             onValueChange = {},
             readOnly = true,
             label = { Text(stringResource(R.string.setting_language)) },
@@ -617,7 +730,7 @@ private fun ThemeChooser(current: String, viewModel: XbClientViewModel) {
     )
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
-            value = stringResource(options.first { it.first == current }.second),
+            value = stringResource((options.firstOrNull { it.first == current } ?: options.first()).second),
             onValueChange = {},
             readOnly = true,
             label = { Text(stringResource(R.string.setting_theme)) },
@@ -695,24 +808,27 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
         PassScreen.PLANS -> PassScreen.PLANS
         else -> PassScreen.NODES
     }
-    NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 6.dp
+    ) {
         NavigationBarItem(
             selected = selected == PassScreen.NODES,
             onClick = { viewModel.openScreen(PassScreen.NODES) },
-            icon = {},
-            label = { Text(stringResource(R.string.nav_nodes)) }
+            icon = { Icon(painterResource(R.drawable.ic_nav_nodes), contentDescription = null, modifier = Modifier.size(22.dp)) },
+            label = { Text(stringResource(R.string.nav_nodes), style = MaterialTheme.typography.labelMedium) }
         )
         NavigationBarItem(
             selected = selected == PassScreen.PLANS,
             onClick = { viewModel.openScreen(PassScreen.PLANS) },
-            icon = {},
-            label = { Text(stringResource(R.string.nav_plans)) }
+            icon = { Icon(painterResource(R.drawable.ic_nav_plans), contentDescription = null, modifier = Modifier.size(22.dp)) },
+            label = { Text(stringResource(R.string.nav_plans), style = MaterialTheme.typography.labelMedium) }
         )
         NavigationBarItem(
             selected = selected == PassScreen.PROFILE,
             onClick = { viewModel.openScreen(PassScreen.PROFILE) },
-            icon = {},
-            label = { Text(stringResource(R.string.nav_profile)) }
+            icon = { Icon(painterResource(R.drawable.ic_nav_profile), contentDescription = null, modifier = Modifier.size(22.dp)) },
+            label = { Text(stringResource(R.string.nav_profile), style = MaterialTheme.typography.labelMedium) }
         )
     }
 }

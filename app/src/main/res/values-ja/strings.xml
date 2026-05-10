@@ -106,6 +106,9 @@
     <string name="invite_code_copied">招待コードをコピーしました。</string>
 
     <string name="page_settings_subtitle">外観、DNS、IPv6、アプリごとのルールを設定します。</string>
+    <string name="onboarding_language_title">アプリの言語を選択</string>
+    <string name="onboarding_language_subtitle">まず表示言語を選択してください。後で設定から変更できます。</string>
+    <string name="onboarding_continue">続行</string>
     <string name="setting_language">言語</string>
     <string name="setting_theme">ダークモード</string>
     <string name="language_system">システム</string>

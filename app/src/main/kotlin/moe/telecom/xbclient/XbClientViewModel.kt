@@ -93,6 +93,7 @@ data class XbClientUiState(
     val latestDownloadUrl: String = "",
     val appLanguage: String = "",
     val themeMode: String = "",
+    val languageOnboardingDone: Boolean = false,
     val oauthProviders: List<OAuthProvider> = emptyList(),
     val oauthConfirmToken: String = "",
     val oauthConfirmProvider: String = "",
@@ -433,6 +434,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             appOpenAdUnitId = current.appOpenAdUnitId,
             configUpdatedAt = current.configUpdatedAt,
             githubProjectUrl = current.githubProjectUrl,
+            appLanguage = current.appLanguage,
+            themeMode = current.themeMode,
+            languageOnboardingDone = current.languageOnboardingDone,
             oauthProviders = current.oauthProviders
         )
         _uiState.value = next
@@ -922,6 +926,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         updateAndPersist { it.copy(appLanguage = language) }
     }
 
+    fun finishLanguageOnboarding(language: String) {
+        updateAndPersist { it.copy(appLanguage = language, languageOnboardingDone = true) }
+    }
+
     fun setThemeMode(themeMode: String) {
         updateAndPersist { it.copy(themeMode = themeMode) }
     }
@@ -1238,6 +1246,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 githubProjectUrl = prefs[Keys.GITHUB_PROJECT_URL].orEmpty(),
                 appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
                 themeMode = prefs[Keys.THEME_MODE].orEmpty(),
+                languageOnboardingDone = prefs[Keys.LANGUAGE_ONBOARDING_DONE] ?: false,
                 oauthProviders = cachedOAuthProviders(prefs[Keys.OAUTH_PROVIDERS].orEmpty())
             )
         } else {
@@ -1284,6 +1293,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 githubProjectUrl = legacy.getString("github_project_url", "").orEmpty(),
                 appLanguage = legacy.getString("app_language", "").orEmpty(),
                 themeMode = legacy.getString("theme_mode", "").orEmpty(),
+                languageOnboardingDone = legacy.getBoolean("language_onboarding_done", false),
                 oauthProviders = cachedOAuthProviders(legacy.getString("oauth_providers", "").orEmpty())
             )
         }
@@ -1370,6 +1380,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.GITHUB_PROJECT_URL] = state.githubProjectUrl
             prefs[Keys.APP_LANGUAGE] = state.appLanguage
             prefs[Keys.THEME_MODE] = state.themeMode
+            prefs[Keys.LANGUAGE_ONBOARDING_DONE] = state.languageOnboardingDone
             prefs[Keys.OAUTH_PROVIDERS] = oauthProvidersJson(state.oauthProviders)
         }
         app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
@@ -1414,6 +1425,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("github_project_url", state.githubProjectUrl)
             .putString("app_language", state.appLanguage)
             .putString("theme_mode", state.themeMode)
+            .putBoolean("language_onboarding_done", state.languageOnboardingDone)
             .putString("oauth_providers", oauthProvidersJson(state.oauthProviders))
             .apply()
     }
@@ -1657,6 +1669,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val GITHUB_PROJECT_URL = stringPreferencesKey("github_project_url")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val LANGUAGE_ONBOARDING_DONE = booleanPreferencesKey("language_onboarding_done")
         val OAUTH_PROVIDERS = stringPreferencesKey("oauth_providers")
     }
 }

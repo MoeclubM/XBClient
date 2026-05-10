@@ -106,6 +106,9 @@
     <string name="invite_code_copied">Код приглашения скопирован.</string>
 
     <string name="page_settings_subtitle">Настройте внешний вид, DNS, IPv6 и правила для приложений.</string>
+    <string name="onboarding_language_title">Выберите язык приложения</string>
+    <string name="onboarding_language_subtitle">Сначала выберите язык интерфейса. Позже его можно изменить в настройках.</string>
+    <string name="onboarding_continue">Продолжить</string>
     <string name="setting_language">Язык</string>
     <string name="setting_theme">Темная тема</string>
     <string name="language_system">Система</string>

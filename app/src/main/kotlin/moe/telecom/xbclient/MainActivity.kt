@@ -12,7 +12,6 @@ import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
-import android.os.SystemClock
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -24,8 +23,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.libraries.ads.mobile.sdk.MobileAds
-import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAd
-import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdEventCallback
 import com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback
 import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
 import com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError
@@ -49,13 +46,6 @@ class MainActivity : ComponentActivity() {
     private var pendingRewardCustomData = ""
     private var pendingRewardAdUnitId = ""
     private var pendingRewardShow = false
-    private var appOpenAd: AppOpenAd? = null
-    private var appOpenAdUnitId = ""
-    private var appOpenAdLoading = false
-    private var appOpenAdShowing = false
-    private var appOpenAdShown = false
-    private var appOpenAdStartedAt = 0L
-    private var startupConfigHandled = false
 
     private val vpnPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -118,14 +108,6 @@ class MainActivity : ComponentActivity() {
                         return@collect
                     }
                     applyEdgeToEdge(state.themeMode)
-                    if (!startupConfigHandled) {
-                        startupConfigHandled = true
-                        if (state.isLoggedIn && state.appOpenAdEnabled && state.appOpenAdUnitId.isNotEmpty()) {
-                            showAppOpenAdOnce(state.appOpenAdUnitId)
-                        }
-                    } else if (state.isLoggedIn && state.appOpenAdEnabled && state.appOpenAdUnitId.isNotEmpty()) {
-                        showAppOpenAdOnce(state.appOpenAdUnitId)
-                    }
                     if (state.isLoggedIn && state.planRewardAdEnabled && state.planRewardedAdUnitId.isNotEmpty()) {
                         loadRewardedAd(state.planRewardedAdUnitId)
                     }
@@ -279,77 +261,6 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun loadAppOpenAd(adUnitId: String) {
-        if (appOpenAdLoading || appOpenAdShown) {
-            return
-        }
-        if (appOpenAdStartedAt == 0L) {
-            appOpenAdStartedAt = SystemClock.elapsedRealtime()
-        }
-        appOpenAdLoading = true
-        appOpenAdUnitId = adUnitId
-        AppOpenAd.load(
-            AdRequest.Builder(adUnitId).build(),
-            object : AdLoadCallback<AppOpenAd> {
-                override fun onAdLoaded(ad: AppOpenAd) {
-                    runOnUiThread {
-                        appOpenAd = ad
-                        appOpenAdLoading = false
-                        if (!appOpenAdShown && appOpenAdUnitId == adUnitId) {
-                            showAppOpenAdOnce(adUnitId)
-                        }
-                    }
-                }
-
-                override fun onAdFailedToLoad(adError: LoadAdError) {
-                    runOnUiThread {
-                        appOpenAd = null
-                        appOpenAdLoading = false
-                    }
-                }
-            }
-        )
-    }
-
-    private fun showAppOpenAdOnce(adUnitId: String) {
-        if (appOpenAdShown || appOpenAdShowing) {
-            return
-        }
-        if (appOpenAdStartedAt == 0L) {
-            appOpenAdStartedAt = SystemClock.elapsedRealtime()
-        }
-        if (SystemClock.elapsedRealtime() - appOpenAdStartedAt > APP_OPEN_AD_SHOW_WINDOW_MS) {
-            appOpenAd = null
-            appOpenAdLoading = false
-            appOpenAdShown = true
-            return
-        }
-        val ad = appOpenAd
-        if (ad == null || appOpenAdUnitId != adUnitId) {
-            loadAppOpenAd(adUnitId)
-            return
-        }
-        ad.setImmersiveMode(false)
-        ad.adEventCallback = object : AppOpenAdEventCallback {
-            override fun onAdDismissedFullScreenContent() {
-                runOnUiThread {
-                    appOpenAd = null
-                    appOpenAdShowing = false
-                }
-            }
-
-            override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
-                runOnUiThread {
-                    appOpenAd = null
-                    appOpenAdShowing = false
-                }
-            }
-        }
-        appOpenAdShown = true
-        appOpenAdShowing = true
-        ad.show(this)
-    }
-
     private fun requestVpnPermission(nodeIndex: Int) {
         pendingVpnNodeIndex = nodeIndex
         val prepare = VpnService.prepare(this)
@@ -362,6 +273,5 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val ACTION_SELECT_NODE = "moe.telecom.xbclient.action.SELECT_NODE"
-        private const val APP_OPEN_AD_SHOW_WINDOW_MS = 4000L
     }
 }
