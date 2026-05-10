@@ -38,6 +38,10 @@
                     android:scheme="${oauthCallbackScheme}" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".SettingsActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:exported="false" />
         <service
             android:name=".XbClientVpnService"
             android:exported="false"

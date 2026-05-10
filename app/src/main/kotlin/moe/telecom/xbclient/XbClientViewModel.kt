@@ -1158,7 +1158,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 )
             )
             if (result.optBoolean("ok")) {
-                "${result.optLong("latency_ms")} ms · ${result.optString("target_host")}:${result.optInt("target_port")}"
+                "${result.optLong("latency_ms")} ms"
             } else {
                 readableNodeTestError(result.optString("error", result.toString()))
             }

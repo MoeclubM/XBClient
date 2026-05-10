@@ -51,8 +51,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
@@ -76,6 +80,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -92,6 +97,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -150,6 +156,60 @@ fun XbClientApp(viewModel: XbClientViewModel) {
             }
             if (state.oauthWebViewUrl.isNotEmpty()) {
                 OAuthWebView(state.oauthWebViewUrl, viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+fun XbClientSettingsApp(viewModel: XbClientViewModel, onClose: () -> Unit) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val baseContext = LocalContext.current
+    val languageTag = effectiveLanguageTag(state.appLanguage)
+    val appLocale = remember(languageTag) { Locale.forLanguageTag(languageTag) }
+    val localizedContext = remember(baseContext, appLocale) { localizedContext(baseContext, appLocale) }
+    val localizedConfiguration = remember(localizedContext) { localizedContext.resources.configuration }
+    val layoutDirection = remember(appLocale) {
+        if (TextUtils.getLayoutDirectionFromLocale(appLocale) == View.LAYOUT_DIRECTION_RTL) LayoutDirection.Rtl else LayoutDirection.Ltr
+    }
+    LaunchedEffect(state.loaded) {
+        if (state.loaded && state.screen != PassScreen.APP_RULES) {
+            viewModel.openScreen(PassScreen.SETTINGS)
+        }
+    }
+    PredictiveBackHandler(enabled = state.loaded && state.screen == PassScreen.APP_RULES) { progress ->
+        progress.collect { }
+        viewModel.openScreen(PassScreen.SETTINGS)
+    }
+    CompositionLocalProvider(
+        LocalContext provides localizedContext,
+        LocalConfiguration provides localizedConfiguration,
+        LocalLayoutDirection provides layoutDirection
+    ) {
+        XbClientTheme(state.themeMode) {
+            XbClientDialogs(state, viewModel)
+            Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+                AnimatedContent(
+                    targetState = if (state.screen == PassScreen.APP_RULES) PassScreen.APP_RULES else PassScreen.SETTINGS,
+                    transitionSpec = { screenTransition() },
+                    modifier = Modifier
+                        .padding(padding)
+                        .fillMaxSize(),
+                    label = "settings-screen"
+                ) { screen ->
+                    if (screen == PassScreen.APP_RULES) {
+                        AppRulesScreen(state, viewModel)
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+                        ) {
+                            item {
+                                SettingsScreen(state, viewModel, onClose)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -471,12 +531,8 @@ private fun RegisterLegalAgreement(checked: Boolean, onCheckedChange: (Boolean) 
         Column(Modifier.weight(1f)) {
             Text(stringResource(R.string.auth_terms_agree), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { openBrowser(context, BuildConfig.USER_AGREEMENT_URL) }) {
-                    Text(stringResource(R.string.about_user_agreement))
-                }
-                TextButton(onClick = { openBrowser(context, BuildConfig.PRIVACY_POLICY_URL) }) {
-                    Text(stringResource(R.string.about_privacy_policy))
-                }
+                LinkText(stringResource(R.string.about_user_agreement)) { openBrowser(context, BuildConfig.USER_AGREEMENT_URL) }
+                LinkText(stringResource(R.string.about_privacy_policy)) { openBrowser(context, BuildConfig.PRIVACY_POLICY_URL) }
             }
         }
     }
@@ -492,65 +548,94 @@ private fun AuthFooterLinks(context: Context) {
     if (links.isEmpty()) {
         return
     }
-    Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-        for ((label, url) in links) {
-            TextButton(onClick = { openBrowser(context, url) }) {
-                Text(stringResource(label))
+    Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        for ((index, link) in links.withIndex()) {
+            LinkText(stringResource(link.first)) { openBrowser(context, link.second) }
+            if (index != links.lastIndex) {
+                Text(" · ", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
+@Composable
+private fun LinkText(text: String, onClick: () -> Unit) {
+    Text(
+        text,
+        color = MaterialTheme.colorScheme.primary,
+        textDecoration = TextDecoration.Underline,
+        modifier = Modifier.clickable(onClick = onClick)
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
-    Text(stringResource(R.string.setting_language), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Spacer(Modifier.height(6.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-        for ((tag, label) in listOf(
-            "" to R.string.language_system,
-            "zh-CN" to R.string.language_zh,
-            "en" to R.string.language_en
-        )) {
-            val selected = current == tag
-            if (selected) {
-                Button(onClick = { viewModel.setAppLanguage(tag) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
-            } else {
-                OutlinedButton(onClick = { viewModel.setAppLanguage(tag) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
-            }
-        }
-    }
-    Spacer(Modifier.height(6.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-        for ((tag, label) in listOf(
-            "ja" to R.string.language_ja,
-            "ru" to R.string.language_ru,
-            "fa" to R.string.language_fa
-        )) {
-            val selected = current == tag
-            if (selected) {
-                Button(onClick = { viewModel.setAppLanguage(tag) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
-            } else {
-                OutlinedButton(onClick = { viewModel.setAppLanguage(tag) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val options = listOf(
+        "" to R.string.language_system,
+        "zh-CN" to R.string.language_zh,
+        "en" to R.string.language_en,
+        "ja" to R.string.language_ja,
+        "ru" to R.string.language_ru,
+        "fa" to R.string.language_fa
+    )
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = stringResource(options.first { it.first == current }.second),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(stringResource(R.string.setting_language)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            modifier = Modifier
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            for ((tag, label) in options) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(label)) },
+                    onClick = {
+                        expanded = false
+                        viewModel.setAppLanguage(tag)
+                    }
+                )
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThemeChooser(current: String, viewModel: XbClientViewModel) {
-    Text(stringResource(R.string.setting_theme), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Spacer(Modifier.height(6.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-        for ((mode, label) in listOf(
-            "" to R.string.theme_system,
-            "light" to R.string.theme_light,
-            "dark" to R.string.theme_dark
-        )) {
-            val selected = current == mode
-            if (selected) {
-                Button(onClick = { viewModel.setThemeMode(mode) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
-            } else {
-                OutlinedButton(onClick = { viewModel.setThemeMode(mode) }, modifier = Modifier.weight(1f)) { Text(stringResource(label)) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val options = listOf(
+        "" to R.string.theme_system,
+        "light" to R.string.theme_light,
+        "dark" to R.string.theme_dark
+    )
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = stringResource(options.first { it.first == current }.second),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(stringResource(R.string.setting_theme)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            modifier = Modifier
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            for ((mode, label) in options) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(label)) },
+                    onClick = {
+                        expanded = false
+                        viewModel.setThemeMode(mode)
+                    }
+                )
             }
         }
     }
@@ -592,7 +677,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
                             when (screen) {
                                 PassScreen.PROFILE -> ProfileScreen(state, viewModel)
                                 PassScreen.PLANS -> PlansScreen(state, viewModel)
-                                PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
+                                PassScreen.SETTINGS -> ProfileScreen(state, viewModel)
                                 else -> NodesScreen(state, viewModel)
                             }
                         }
@@ -949,7 +1034,7 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
         }
         Text(subscriptionText, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(14.dp))
-        Button(onClick = { viewModel.openScreen(PassScreen.SETTINGS) }, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = { context.startActivity(Intent(context, SettingsActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.common_settings))
         }
         Spacer(Modifier.height(8.dp))
@@ -1015,7 +1100,7 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
 }
 
 @Composable
-private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel, onClose: () -> Unit = { viewModel.openScreen(PassScreen.PROFILE) }) {
     val context = LocalContext.current
     var nodeDns by rememberSaveable(state.nodeDns) { mutableStateOf(state.nodeDns) }
     var overseasDns by rememberSaveable(state.overseasDns) { mutableStateOf(state.overseasDns) }
@@ -1072,7 +1157,7 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
             Text(stringResource(R.string.common_save_settings))
         }
         Spacer(Modifier.height(8.dp))
-        TextButton(onClick = { viewModel.openScreen(PassScreen.PROFILE) }, modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.common_back_profile))
         }
     }
@@ -1088,13 +1173,12 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
             R.string.about_user_agreement to BuildConfig.USER_AGREEMENT_URL.trim(),
             R.string.about_privacy_policy to BuildConfig.PRIVACY_POLICY_URL.trim()
         ).filter { it.second.isNotEmpty() }
-        for ((label, url) in links) {
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = { openBrowser(context, url) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(label))
+        if (links.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                for ((label, url) in links) {
+                    LinkText(stringResource(label)) { openBrowser(context, url) }
+                }
             }
         }
     }
@@ -1368,10 +1452,12 @@ private fun selectedPackages(state: XbClientUiState): Set<String> =
         .toSet()
 
 private fun openBrowser(context: Context, url: String) {
-    context.startActivity(
-        Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            .addCategory(Intent.CATEGORY_BROWSABLE)
-    )
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        .addCategory(Intent.CATEGORY_BROWSABLE)
+    if (context !is android.app.Activity) {
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    context.startActivity(intent)
 }
 
 private fun effectiveLanguageTag(selected: String): String {
