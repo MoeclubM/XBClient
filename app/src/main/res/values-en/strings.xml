@@ -110,7 +110,8 @@
     <string name="onboarding_language_subtitle">Pick the interface language first. You can change it later in Settings.</string>
     <string name="onboarding_continue">Continue</string>
     <string name="setting_language">Language</string>
-    <string name="setting_theme">Dark mode</string>
+    <string name="setting_theme">Color mode</string>
+    <string name="setting_reset_onboarding">Show onboarding again</string>
     <string name="language_system">System</string>
     <string name="language_zh">中文</string>
     <string name="language_en">English</string>

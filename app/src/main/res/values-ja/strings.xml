@@ -110,7 +110,8 @@
     <string name="onboarding_language_subtitle">まず表示言語を選択してください。後で設定から変更できます。</string>
     <string name="onboarding_continue">続行</string>
     <string name="setting_language">言語</string>
-    <string name="setting_theme">ダークモード</string>
+    <string name="setting_theme">カラーモード</string>
+    <string name="setting_reset_onboarding">起動ガイドをもう一度表示</string>
     <string name="language_system">システム</string>
     <string name="language_zh">中文</string>
     <string name="language_en">English</string>

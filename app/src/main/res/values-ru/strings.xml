@@ -110,7 +110,8 @@
     <string name="onboarding_language_subtitle">Сначала выберите язык интерфейса. Позже его можно изменить в настройках.</string>
     <string name="onboarding_continue">Продолжить</string>
     <string name="setting_language">Язык</string>
-    <string name="setting_theme">Темная тема</string>
+    <string name="setting_theme">Цветовая тема</string>
+    <string name="setting_reset_onboarding">Показать вводный экран снова</string>
     <string name="language_system">Система</string>
     <string name="language_zh">中文</string>
     <string name="language_en">English</string>

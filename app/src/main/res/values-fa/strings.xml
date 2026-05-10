@@ -110,7 +110,8 @@
     <string name="onboarding_language_subtitle">ابتدا زبان رابط را انتخاب کنید. بعداً می‌توانید آن را از تنظیمات تغییر دهید.</string>
     <string name="onboarding_continue">ادامه</string>
     <string name="setting_language">زبان</string>
-    <string name="setting_theme">حالت تاریک</string>
+    <string name="setting_theme">حالت رنگ</string>
+    <string name="setting_reset_onboarding">نمایش دوباره راه‌اندازی اولیه</string>
     <string name="language_system">سیستم</string>
     <string name="language_zh">中文</string>
     <string name="language_en">English</string>

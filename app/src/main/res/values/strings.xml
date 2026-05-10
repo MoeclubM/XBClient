@@ -110,7 +110,8 @@
     <string name="onboarding_language_subtitle">先选择界面语言，之后可在设置中随时修改。</string>
     <string name="onboarding_continue">继续</string>
     <string name="setting_language">语言</string>
-    <string name="setting_theme">深色模式</string>
+    <string name="setting_theme">颜色模式</string>
+    <string name="setting_reset_onboarding">重新显示启动引导</string>
     <string name="language_system">跟随系统</string>
     <string name="language_zh">中文</string>
     <string name="language_en">English</string>

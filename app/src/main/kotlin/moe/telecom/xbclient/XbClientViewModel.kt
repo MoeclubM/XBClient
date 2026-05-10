@@ -936,6 +936,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         updateAndPersist { it.copy(vpnDisclosureDone = true) }
     }
 
+    fun resetOnboarding() {
+        updateAndPersist { it.copy(languageOnboardingDone = false, vpnDisclosureDone = false) }
+    }
+
     fun setThemeMode(themeMode: String) {
         updateAndPersist { it.copy(themeMode = themeMode) }
     }

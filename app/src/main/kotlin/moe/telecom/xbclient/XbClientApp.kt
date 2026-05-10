@@ -52,6 +52,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -434,11 +435,6 @@ private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClient
                         )
                         Spacer(Modifier.height(18.dp))
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Choose language · 选择语言 · 言語 · Язык · زبان",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
             } else {
@@ -543,6 +539,15 @@ private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp)
         ) {
             item {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    CompactLanguageMenu(state.appLanguage, viewModel)
+                    CompactThemeMenu(state.themeMode, viewModel)
+                }
+                Spacer(Modifier.height(28.dp))
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
@@ -640,19 +645,17 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
                 }
             }
         }
-        Spacer(Modifier.height(14.dp))
-        ElevatedCard(
-            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(18.dp)) {
-                LanguageChooser(state.appLanguage, viewModel)
-                Spacer(Modifier.height(12.dp))
-                AuthFooterLinks(context)
-            }
+        if (hasAuthFooterLinks()) {
+            Spacer(Modifier.height(14.dp))
+            AuthFooterLinks(context)
         }
     }
 }
+
+private fun hasAuthFooterLinks() =
+    BuildConfig.WEBSITE_URL.trim().isNotEmpty() ||
+        BuildConfig.USER_AGREEMENT_URL.trim().isNotEmpty() ||
+        BuildConfig.PRIVACY_POLICY_URL.trim().isNotEmpty()
 
 @Composable
 private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel) {
@@ -784,6 +787,63 @@ private fun AuthFooterLinks(context: Context) {
             LinkText(stringResource(link.first)) { openBrowser(context, link.second) }
             if (index != links.lastIndex) {
                 Text(" · ", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val options = listOf(
+        "" to R.string.language_system,
+        "zh-CN" to R.string.language_zh,
+        "en" to R.string.language_en,
+        "ja" to R.string.language_ja,
+        "ru" to R.string.language_ru,
+        "fa" to R.string.language_fa
+    )
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(stringResource(R.string.setting_language))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            for ((tag, label) in options) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(label)) },
+                    trailingIcon = { if (current == tag) Text("✓") },
+                    onClick = {
+                        expanded = false
+                        viewModel.setAppLanguage(tag)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactThemeMenu(current: String, viewModel: XbClientViewModel) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val options = listOf(
+        "" to R.string.theme_system,
+        "light" to R.string.theme_light,
+        "dark" to R.string.theme_dark
+    )
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(stringResource(R.string.setting_theme))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            for ((mode, label) in options) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(label)) },
+                    trailingIcon = { if (current == mode) Text("✓") },
+                    onClick = {
+                        expanded = false
+                        viewModel.setThemeMode(mode)
+                    }
+                )
             }
         }
     }
@@ -1354,6 +1414,22 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel,
         LanguageChooser(state.appLanguage, viewModel)
         Spacer(Modifier.height(14.dp))
         ThemeChooser(state.themeMode, viewModel)
+        Spacer(Modifier.height(14.dp))
+        OutlinedButton(
+            onClick = {
+                viewModel.resetOnboarding()
+                val intent = Intent(context, AuthActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                if (context !is android.app.Activity) {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                onClose()
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.setting_reset_onboarding))
+        }
     }
     Section(stringResource(R.string.section_app_rules)) {
         val selectedCount = selectedPackages(state).size
