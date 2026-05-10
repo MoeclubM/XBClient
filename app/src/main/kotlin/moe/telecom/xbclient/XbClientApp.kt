@@ -27,6 +27,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -414,16 +415,11 @@ private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClient
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp)
         ) {
             item {
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    shape = RoundedCornerShape(28.dp),
+                Image(
+                    painter = painterResource(R.drawable.ic_launcher),
+                    contentDescription = null,
                     modifier = Modifier.size(72.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("XB", style = MaterialTheme.typography.titleLarge)
-                    }
-                }
+                )
                 Spacer(Modifier.height(22.dp))
                 Text(stringResource(R.string.onboarding_language_title), style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(8.dp))
@@ -471,17 +467,11 @@ private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        shape = RoundedCornerShape(30.dp),
-                        tonalElevation = 2.dp,
+                    Image(
+                        painter = painterResource(R.drawable.ic_launcher),
+                        contentDescription = null,
                         modifier = Modifier.size(78.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text("XB", style = MaterialTheme.typography.headlineSmall)
-                        }
-                    }
+                    )
                     Spacer(Modifier.height(12.dp))
                     Text(stringResource(id = R.string.app_name), style = MaterialTheme.typography.headlineSmall)
                     Spacer(Modifier.height(24.dp))

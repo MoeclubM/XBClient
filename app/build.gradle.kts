@@ -62,7 +62,7 @@ val applicationIdRaw = providers.gradleProperty("xbclient.applicationId").orNull
     ?: providers.environmentVariable("XBCLIENT_APPLICATION_ID").orNull?.takeIf { it.isNotBlank() }
     ?: rootLocalProperties.getProperty("xbclient.applicationId")?.takeIf { it.isNotBlank() }
     ?: rootLocalProperties.getProperty("XBCLIENT_APPLICATION_ID")?.takeIf { it.isNotBlank() }
-    ?: "moe.telecom.secone"
+    ?: "moe.telecom.xbclient"
 val xbclientApplicationId = applicationIdRaw.trim()
 val admobAppIdRaw = providers.gradleProperty("xbclient.admobAppId")
     .orNull
