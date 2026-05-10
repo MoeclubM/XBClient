@@ -58,6 +58,12 @@ val appNameRaw = providers.gradleProperty("xbclient.appName")
     ?: rootLocalProperties.getProperty("XBCLIENT_APP_NAME")
     ?: "XBClient"
 val appName = appNameRaw.trim().ifEmpty { "XBClient" }
+val applicationIdRaw = providers.gradleProperty("xbclient.applicationId").orNull?.takeIf { it.isNotBlank() }
+    ?: providers.environmentVariable("XBCLIENT_APPLICATION_ID").orNull?.takeIf { it.isNotBlank() }
+    ?: rootLocalProperties.getProperty("xbclient.applicationId")?.takeIf { it.isNotBlank() }
+    ?: rootLocalProperties.getProperty("XBCLIENT_APPLICATION_ID")?.takeIf { it.isNotBlank() }
+    ?: "moe.telecom.secone"
+val xbclientApplicationId = applicationIdRaw.trim()
 val admobAppIdRaw = providers.gradleProperty("xbclient.admobAppId")
     .orNull
     ?: providers.environmentVariable("XBCLIENT_ADMOB_APP_ID").orNull
@@ -172,7 +178,7 @@ android {
     ndkVersion = androidNdkVersion
 
     defaultConfig {
-        applicationId = "moe.telecom.xbclient"
+        applicationId = xbclientApplicationId
         minSdk = minAndroidApi
         targetSdk = latestAndroidApi
         versionCode = appVersionCode
