@@ -1043,55 +1043,59 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
-        bottomBar = { BottomNavigation(state, viewModel) },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = state.isRefreshing,
-            onRefresh = viewModel::refreshCurrentPage,
+        Box(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            AnimatedContent(
-                targetState = state.screen,
-                transitionSpec = { screenTransition() },
-                label = "main-screen"
-            ) { screen ->
-                when (screen) {
-                    PassScreen.NODE_SELECT -> NodeSelectScreen(state, viewModel)
-                    PassScreen.APP_RULES -> AppRulesScreen(state, viewModel)
-                    else -> LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
-                    ) {
-                        item {
-                            when (screen) {
-                                PassScreen.PROFILE -> ProfileScreen(state, viewModel)
-                                PassScreen.PLANS -> PlansScreen(state, viewModel)
-                                PassScreen.SETTINGS -> ProfileScreen(state, viewModel)
-                                else -> NodesScreen(state, viewModel)
+            PullToRefreshBox(
+                isRefreshing = state.isRefreshing,
+                onRefresh = viewModel::refreshCurrentPage,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                AnimatedContent(
+                    targetState = state.screen,
+                    transitionSpec = { screenTransition() },
+                    label = "main-screen"
+                ) { screen ->
+                    when (screen) {
+                        PassScreen.NODE_SELECT -> NodeSelectScreen(state, viewModel)
+                        PassScreen.APP_RULES -> AppRulesScreen(state, viewModel)
+                        else -> LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 132.dp)
+                        ) {
+                            item {
+                                when (screen) {
+                                    PassScreen.PROFILE -> ProfileScreen(state, viewModel)
+                                    PassScreen.PLANS -> PlansScreen(state, viewModel)
+                                    PassScreen.SETTINGS -> ProfileScreen(state, viewModel)
+                                    else -> NodesScreen(state, viewModel)
+                                }
                             }
                         }
                     }
                 }
             }
+            BottomNavigation(state, viewModel, Modifier.align(Alignment.BottomCenter))
         }
     }
 }
 
 @Composable
-private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewModel) {
+private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewModel, modifier: Modifier = Modifier) {
     val selected = when (state.screen) {
         PassScreen.PROFILE, PassScreen.SETTINGS, PassScreen.APP_RULES -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
         else -> PassScreen.NODES
     }
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .padding(top = 6.dp, bottom = 22.dp),
+            .padding(bottom = 42.dp),
         color = Color.Transparent,
         tonalElevation = 0.dp
     ) {
@@ -1660,7 +1664,7 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel,
 private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 132.dp)
     ) {
         item {
             PageHeader(stringResource(R.string.page_node_select_title), stringResource(R.string.page_node_select_subtitle))
@@ -1785,7 +1789,7 @@ private fun AppRulesScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 132.dp)
     ) {
         item {
             PageHeader(stringResource(R.string.page_app_rules_title), stringResource(R.string.page_app_rules_subtitle))
