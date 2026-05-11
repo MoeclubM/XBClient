@@ -1108,28 +1108,28 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
             NavigationBar(
                 containerColor = Color.Transparent,
                 tonalElevation = 0.dp,
-                modifier = Modifier.height(72.dp)
+                modifier = Modifier.height(92.dp)
             ) {
                 NavigationBarItem(
                     selected = selected == PassScreen.NODES,
                     onClick = { viewModel.openScreen(PassScreen.NODES) },
                     icon = { Icon(painterResource(R.drawable.ic_nav_nodes), contentDescription = null, modifier = Modifier.size(22.dp)) },
                     label = { Text(stringResource(R.string.nav_nodes), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
-                    modifier = Modifier.offset(y = 4.dp)
+                    modifier = Modifier.offset(y = 14.dp)
                 )
                 NavigationBarItem(
                     selected = selected == PassScreen.PLANS,
                     onClick = { viewModel.openScreen(PassScreen.PLANS) },
                     icon = { Icon(painterResource(R.drawable.ic_nav_plans), contentDescription = null, modifier = Modifier.size(22.dp)) },
                     label = { Text(stringResource(R.string.nav_plans), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
-                    modifier = Modifier.offset(y = 4.dp)
+                    modifier = Modifier.offset(y = 14.dp)
                 )
                 NavigationBarItem(
                     selected = selected == PassScreen.PROFILE,
                     onClick = { viewModel.openScreen(PassScreen.PROFILE) },
                     icon = { Icon(painterResource(R.drawable.ic_nav_profile), contentDescription = null, modifier = Modifier.size(22.dp)) },
                     label = { Text(stringResource(R.string.nav_profile), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
-                    modifier = Modifier.offset(y = 4.dp)
+                    modifier = Modifier.offset(y = 14.dp)
                 )
             }
         }
