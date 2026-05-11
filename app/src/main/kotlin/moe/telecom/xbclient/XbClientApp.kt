@@ -331,7 +331,7 @@ fun XbClientSettingsApp(viewModel: XbClientViewModel, onClose: () -> Unit) {
 }
 
 @Composable
-private fun XbClientTheme(themeMode: String, content: @Composable () -> Unit) {
+fun XbClientTheme(themeMode: String, content: @Composable () -> Unit) {
     val darkTheme = when (themeMode) {
         "dark" -> true
         "light" -> false

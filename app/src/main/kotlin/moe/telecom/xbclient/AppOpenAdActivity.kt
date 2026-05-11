@@ -5,7 +5,33 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.google.android.libraries.ads.mobile.sdk.MobileAds
 import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAd
@@ -32,6 +58,9 @@ class AppOpenAdActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        setContent {
+            LaunchBrandScreen()
+        }
         val prefs = getSharedPreferences(XBCLIENT_PREFS, MODE_PRIVATE)
         val adUnitId = prefs.getString("app_open_ad_unit_id", "").orEmpty()
         if (prefs.getString("auth_data", "").orEmpty().isEmpty() || !prefs.getBoolean("language_onboarding_done", false) || !prefs.getBoolean("vpn_disclosure_done", false)) {
@@ -134,5 +163,33 @@ class AppOpenAdActivity : ComponentActivity() {
 
     companion object {
         private const val APP_OPEN_AD_SHOW_WINDOW_MS = 4000L
+    }
+}
+
+@Composable
+private fun LaunchBrandScreen() {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+    XbClientTheme("") {
+        Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(animationSpec = tween(260)) + scaleIn(initialScale = 0.96f, animationSpec = tween(260))
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher),
+                            contentDescription = null,
+                            modifier = Modifier.size(112.dp)
+                        )
+                        Spacer(Modifier.height(18.dp))
+                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
+                    }
+                }
+            }
+        }
     }
 }
