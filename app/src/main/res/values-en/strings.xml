@@ -113,12 +113,11 @@
     <string name="setting_theme">Color mode</string>
     <string name="setting_reset_onboarding">Show onboarding again</string>
     <string name="language_system">System</string>
-    <string name="language_system_multilingual">System / 跟随系统 / システム / Система / سیستم</string>
-    <string name="language_zh">中文</string>
+    <string name="language_zh">Chinese</string>
     <string name="language_en">English</string>
-    <string name="language_ja">日本語</string>
-    <string name="language_ru">Русский</string>
-    <string name="language_fa">فارسی</string>
+    <string name="language_ja">Japanese</string>
+    <string name="language_ru">Russian</string>
+    <string name="language_fa">Persian</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>

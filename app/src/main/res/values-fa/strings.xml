@@ -113,12 +113,11 @@
     <string name="setting_theme">حالت رنگ</string>
     <string name="setting_reset_onboarding">نمایش دوباره راه‌اندازی اولیه</string>
     <string name="language_system">سیستم</string>
-    <string name="language_system_multilingual">سیستم / System / 跟随系统 / システム / Система</string>
-    <string name="language_zh">中文</string>
-    <string name="language_en">English</string>
-    <string name="language_ja">日本語</string>
-    <string name="language_ru">Русский</string>
-    <string name="language_fa">فارسی</string>
+    <string name="language_zh">چینی / Chinese</string>
+    <string name="language_en">انگلیسی / English</string>
+    <string name="language_ja">ژاپنی / Japanese</string>
+    <string name="language_ru">روسی / Russian</string>
+    <string name="language_fa">فارسی / Persian</string>
     <string name="theme_system">سیستم</string>
     <string name="theme_light">روشن</string>
     <string name="theme_dark">تاریک</string>

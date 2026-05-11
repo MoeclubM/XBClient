@@ -451,7 +451,7 @@ private fun handleOAuthWebUrl(uri: Uri, viewModel: XbClientViewModel): Boolean {
 @Composable
 private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val languages = listOf(
-        "" to R.string.language_system_multilingual,
+        "" to R.string.language_system,
         "zh-CN" to R.string.language_zh,
         "en" to R.string.language_en,
         "ja" to R.string.language_ja,
@@ -859,7 +859,7 @@ private fun AuthFooterLinks(context: Context) {
 private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val options = listOf(
-        "" to R.string.language_system_multilingual,
+        "" to R.string.language_system,
         "zh-CN" to R.string.language_zh,
         "en" to R.string.language_en,
         "ja" to R.string.language_ja,
@@ -947,7 +947,7 @@ private fun LinkText(text: String, onClick: () -> Unit) {
 private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val options = listOf(
-        "" to R.string.language_system_multilingual,
+        "" to R.string.language_system,
         "zh-CN" to R.string.language_zh,
         "en" to R.string.language_en,
         "ja" to R.string.language_ja,

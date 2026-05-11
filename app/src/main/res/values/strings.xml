@@ -113,12 +113,11 @@
     <string name="setting_theme">颜色模式</string>
     <string name="setting_reset_onboarding">重新显示启动引导</string>
     <string name="language_system">跟随系统</string>
-    <string name="language_system_multilingual">跟随系统 / System / システム / Система / سیستم</string>
-    <string name="language_zh">中文</string>
-    <string name="language_en">English</string>
-    <string name="language_ja">日本語</string>
-    <string name="language_ru">Русский</string>
-    <string name="language_fa">فارسی</string>
+    <string name="language_zh">中文 / Chinese</string>
+    <string name="language_en">英语 / English</string>
+    <string name="language_ja">日语 / Japanese</string>
+    <string name="language_ru">俄语 / Russian</string>
+    <string name="language_fa">波斯语 / Persian</string>
     <string name="theme_system">跟随系统</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>

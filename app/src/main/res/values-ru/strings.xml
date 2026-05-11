@@ -113,12 +113,11 @@
     <string name="setting_theme">Цветовая тема</string>
     <string name="setting_reset_onboarding">Показать вводный экран снова</string>
     <string name="language_system">Система</string>
-    <string name="language_system_multilingual">Система / System / 跟随系统 / システム / سیستم</string>
-    <string name="language_zh">中文</string>
-    <string name="language_en">English</string>
-    <string name="language_ja">日本語</string>
-    <string name="language_ru">Русский</string>
-    <string name="language_fa">فارسی</string>
+    <string name="language_zh">Китайский / Chinese</string>
+    <string name="language_en">Английский / English</string>
+    <string name="language_ja">Японский / Japanese</string>
+    <string name="language_ru">Русский / Russian</string>
+    <string name="language_fa">Персидский / Persian</string>
     <string name="theme_system">Система</string>
     <string name="theme_light">Светлая</string>
     <string name="theme_dark">Темная</string>
