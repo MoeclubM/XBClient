@@ -164,12 +164,12 @@ private val XbClientDarkColors = darkColorScheme(
 )
 
 private val LanguageOptions = listOf(
-    "" to R.string.language_system,
-    "zh-CN" to R.string.language_zh,
-    "en" to R.string.language_en,
-    "ja" to R.string.language_ja,
-    "ru" to R.string.language_ru,
-    "fa" to R.string.language_fa
+    "" to "System",
+    "zh-CN" to "中文",
+    "en" to "English",
+    "ja" to "日本語",
+    "ru" to "Русский",
+    "fa" to "فارسی"
 )
 
 private val ThemeOptions = listOf(
@@ -538,7 +538,7 @@ private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClient
                             Column(Modifier.padding(10.dp)) {
                                 for ((index, item) in LanguageOptions.withIndex()) {
                                     ListItem(
-                                        headlineContent = { Text(stringResource(item.second)) },
+                                        headlineContent = { Text(item.second) },
                                         trailingContent = {
                                             if (selected == item.first) {
                                                 Text("✓", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleLarge)
@@ -900,7 +900,7 @@ private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             for ((tag, label) in LanguageOptions) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(label)) },
+                    text = { Text(label) },
                     trailingIcon = { if (current == tag) Text("✓") },
                     onClick = {
                         expanded = false
@@ -960,7 +960,7 @@ private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
-            value = stringResource((LanguageOptions.firstOrNull { it.first == current } ?: LanguageOptions.first()).second),
+            value = (LanguageOptions.firstOrNull { it.first == current } ?: LanguageOptions.first()).second,
             onValueChange = {},
             readOnly = true,
             label = { Text(stringResource(R.string.setting_language)) },
@@ -973,7 +973,7 @@ private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             for ((tag, label) in LanguageOptions) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(label)) },
+                    text = { Text(label) },
                     onClick = {
                         expanded = false
                         viewModel.setAppLanguage(tag)
@@ -1064,7 +1064,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
                         PassScreen.APP_RULES -> AppRulesScreen(state, viewModel)
                         else -> LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 132.dp)
+                            contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 116.dp)
                         ) {
                             item {
                                 when (screen) {
@@ -1094,13 +1094,13 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .padding(bottom = 22.dp),
+            .padding(bottom = 18.dp),
         color = Color.Transparent,
         tonalElevation = 0.dp
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(30.dp),
+            shape = RoundedCornerShape(26.dp),
             color = MaterialTheme.colorScheme.surfaceContainer,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             tonalElevation = 6.dp
@@ -1108,28 +1108,28 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
             NavigationBar(
                 containerColor = Color.Transparent,
                 tonalElevation = 0.dp,
-                modifier = Modifier.height(92.dp)
+                modifier = Modifier.height(78.dp)
             ) {
                 NavigationBarItem(
                     selected = selected == PassScreen.NODES,
                     onClick = { viewModel.openScreen(PassScreen.NODES) },
                     icon = { Icon(painterResource(R.drawable.ic_nav_nodes), contentDescription = null, modifier = Modifier.size(22.dp)) },
                     label = { Text(stringResource(R.string.nav_nodes), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
-                    modifier = Modifier.offset(y = 14.dp)
+                    modifier = Modifier.offset(y = 8.dp)
                 )
                 NavigationBarItem(
                     selected = selected == PassScreen.PLANS,
                     onClick = { viewModel.openScreen(PassScreen.PLANS) },
                     icon = { Icon(painterResource(R.drawable.ic_nav_plans), contentDescription = null, modifier = Modifier.size(22.dp)) },
                     label = { Text(stringResource(R.string.nav_plans), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
-                    modifier = Modifier.offset(y = 14.dp)
+                    modifier = Modifier.offset(y = 8.dp)
                 )
                 NavigationBarItem(
                     selected = selected == PassScreen.PROFILE,
                     onClick = { viewModel.openScreen(PassScreen.PROFILE) },
                     icon = { Icon(painterResource(R.drawable.ic_nav_profile), contentDescription = null, modifier = Modifier.size(22.dp)) },
                     label = { Text(stringResource(R.string.nav_profile), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
-                    modifier = Modifier.offset(y = 14.dp)
+                    modifier = Modifier.offset(y = 8.dp)
                 )
             }
         }
@@ -1670,7 +1670,7 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel,
 private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 132.dp)
+        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 116.dp)
     ) {
         item {
             PageHeader(stringResource(R.string.page_node_select_title), stringResource(R.string.page_node_select_subtitle))
@@ -1795,7 +1795,7 @@ private fun AppRulesScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 132.dp)
+        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 116.dp)
     ) {
         item {
             PageHeader(stringResource(R.string.page_app_rules_title), stringResource(R.string.page_app_rules_subtitle))
