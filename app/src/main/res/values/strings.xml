@@ -87,8 +87,6 @@
     <string name="reward_points_description">观看完整广告后领取积分奖励。</string>
     <string name="reward_watch">观看广告</string>
     <string name="reward_recent">最近记录</string>
-    <string name="reward_code_generating">兑换码生成中</string>
-    <string name="reward_template_time">模板 %1$d · %2$s</string>
     <string name="reward_credited">已发放</string>
     <string name="reward_pending">验证中</string>
     <string name="reward_failed">发放失败</string>

@@ -87,8 +87,6 @@
     <string name="reward_points_description">Watch a full ad to claim points.</string>
     <string name="reward_watch">Watch ad</string>
     <string name="reward_recent">Recent records</string>
-    <string name="reward_code_generating">Generating redeem code</string>
-    <string name="reward_template_time">Template %1$d · %2$s</string>
     <string name="reward_credited">Credited</string>
     <string name="reward_pending">Pending</string>
     <string name="reward_failed">Failed</string>

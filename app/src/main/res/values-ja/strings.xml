@@ -87,8 +87,6 @@
     <string name="reward_points_description">広告を最後まで視聴してポイントを受け取ります。</string>
     <string name="reward_watch">広告を見る</string>
     <string name="reward_recent">最近の記録</string>
-    <string name="reward_code_generating">交換コードを生成中</string>
-    <string name="reward_template_time">テンプレート %1$d · %2$s</string>
     <string name="reward_credited">付与済み</string>
     <string name="reward_pending">確認中</string>
     <string name="reward_failed">付与失敗</string>

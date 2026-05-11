@@ -1421,10 +1421,13 @@ private fun RewardAdSection(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.weight(1f)) {
-                            Text(log.giftCardCode.ifEmpty { stringResource(R.string.reward_code_generating) }, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                log.rewardContent.ifBlank { log.templateName.ifBlank { rewardStatusText(log.status) } },
+                                style = MaterialTheme.typography.titleMedium
+                            )
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                stringResource(R.string.reward_template_time, log.giftCardTemplateId, formatUnixTime(log.createdAt)),
+                                formatUnixTime(log.createdAt),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (log.status == "failed" && log.error.isNotEmpty()) {

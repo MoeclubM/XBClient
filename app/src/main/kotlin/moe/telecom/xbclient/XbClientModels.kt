@@ -120,6 +120,8 @@ data class AdRewardLogItem(
     val giftCardCode: String,
     val giftCardCodeId: Int,
     val giftCardTemplateId: Int,
+    val templateName: String,
+    val rewardContent: String,
     val usedAt: Long,
     val createdAt: Long
 )
@@ -219,10 +221,36 @@ fun JSONArray.toAdRewardLogItemList(): List<AdRewardLogItem> =
             giftCardCode = item.optString("gift_card_code"),
             giftCardCodeId = item.optInt("gift_card_code_id"),
             giftCardTemplateId = item.optInt("gift_card_template_id"),
+            templateName = item.optString("template_name"),
+            rewardContent = rewardContentText(item),
             usedAt = numericValue(item.opt("used_at")).toLong(),
             createdAt = numericValue(item.opt("created_at")).toLong()
         )
     }
+
+fun rewardContentText(item: JSONObject): String {
+    for (key in arrayOf("reward_content", "reward_text", "reward_description", "description")) {
+        val text = item.optString(key)
+        if (text.isNotBlank()) {
+            return text
+        }
+    }
+    val rewards = item.optJSONObject("rewards") ?: item.optJSONObject("rewards_given")
+    if (rewards != null) {
+        val names = arrayOf(
+            "balance" to "余额",
+            "transfer_enable" to "流量",
+            "device_limit" to "设备数",
+            "reset_package" to "重置流量",
+            "plan_id" to "套餐",
+            "expire_days" to "有效期",
+            "plan_validity_days" to "套餐有效期"
+        )
+        return names.filter { rewards.has(it.first) }
+            .joinToString(" · ") { (key, label) -> "$label ${rewards.opt(key)}" }
+    }
+    return ""
+}
 
 fun resultError(result: JSONObject): String {
     val body = result.optJSONObject("body")

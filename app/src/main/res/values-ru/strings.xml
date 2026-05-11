@@ -87,8 +87,6 @@
     <string name="reward_points_description">Посмотрите рекламу полностью, чтобы получить баллы.</string>
     <string name="reward_watch">Смотреть рекламу</string>
     <string name="reward_recent">Последние записи</string>
-    <string name="reward_code_generating">Создание кода обмена</string>
-    <string name="reward_template_time">Шаблон %1$d · %2$s</string>
     <string name="reward_credited">Начислено</string>
     <string name="reward_pending">Проверка</string>
     <string name="reward_failed">Ошибка начисления</string>

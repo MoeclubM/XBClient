@@ -13,6 +13,7 @@ import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
+import android.app.AlertDialog
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -92,6 +93,7 @@ class MainActivity : ComponentActivity() {
                 viewModel.events.collect { event ->
                     when (event) {
                         is XbClientEvent.Message -> Toast.makeText(this@MainActivity, event.text, Toast.LENGTH_SHORT).show()
+                        is XbClientEvent.RewardCredited -> showRewardCreditedDialog(event.text)
                         is XbClientEvent.RequestVpnPermission -> requestVpnPermission(event.nodeIndex)
                         is XbClientEvent.ShowRewardAd -> showRewardedAd(event.adUnitId, event.userId, event.customData)
                         is XbClientEvent.OpenExternalUrl -> startActivity(
@@ -279,6 +281,13 @@ class MainActivity : ComponentActivity() {
         } else {
             viewModel.beginVpn(this, pendingVpnNodeIndex)
         }
+    }
+
+    private fun showRewardCreditedDialog(text: String) {
+        AlertDialog.Builder(this)
+            .setMessage(text)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     companion object {

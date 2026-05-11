@@ -87,8 +87,6 @@
     <string name="reward_points_description">برای دریافت امتیاز، تبلیغ را کامل ببینید.</string>
     <string name="reward_watch">دیدن تبلیغ</string>
     <string name="reward_recent">سوابق اخیر</string>
-    <string name="reward_code_generating">در حال ساخت کد بازخرید</string>
-    <string name="reward_template_time">قالب %1$d · %2$s</string>
     <string name="reward_credited">اعمال شد</string>
     <string name="reward_pending">در حال تأیید</string>
     <string name="reward_failed">اعمال ناموفق</string>

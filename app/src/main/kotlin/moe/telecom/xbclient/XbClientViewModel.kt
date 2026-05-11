@@ -116,6 +116,7 @@ sealed interface XbClientEvent {
     data class RequestVpnPermission(val nodeIndex: Int) : XbClientEvent
     data class ShowRewardAd(val adUnitId: String, val userId: String, val customData: String) : XbClientEvent
     data class OpenExternalUrl(val url: String) : XbClientEvent
+    data class RewardCredited(val text: String) : XbClientEvent
 }
 
 class XbClientViewModel(application: Application) : AndroidViewModel(application) {
@@ -701,7 +702,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     _uiState.value.authData,
                     JSONObject().put("custom_data", customData)
                 )
-                requireSuccessfulBody("广告验证记录", result)
+                val body = requireSuccessfulBody("广告验证记录", result)
+                val data = body.optJSONObject("data") ?: body
+                if (data.optBoolean("credited")) {
+                    emitEvent(XbClientEvent.RewardCredited(rewardCreditMessage(data)))
+                }
                 refreshUserInfo()
             } catch (error: Exception) {
                 emitMessage("广告验证记录提交失败：${error.message}")
@@ -1498,6 +1503,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         .put("gift_card_code", log.giftCardCode)
                         .put("gift_card_code_id", log.giftCardCodeId)
                         .put("gift_card_template_id", log.giftCardTemplateId)
+                        .put("template_name", log.templateName)
+                        .put("reward_content", log.rewardContent)
                         .put("used_at", log.usedAt)
                         .put("created_at", log.createdAt)
                 )
@@ -1633,6 +1640,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     private fun emitMessage(text: String) {
         emitEvent(XbClientEvent.Message(text))
+    }
+
+    private fun rewardCreditMessage(data: JSONObject): String {
+        val content = rewardContentText(data).ifBlank { data.optString("template_name") }
+        return if (content.isBlank()) "广告奖励已发放。" else "广告奖励已发放：$content"
     }
 
     private fun emitEvent(event: XbClientEvent) {
