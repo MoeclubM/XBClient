@@ -451,7 +451,7 @@ private fun handleOAuthWebUrl(uri: Uri, viewModel: XbClientViewModel): Boolean {
 @Composable
 private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val languages = listOf(
-        "" to R.string.language_system,
+        "" to R.string.language_system_multilingual,
         "zh-CN" to R.string.language_zh,
         "en" to R.string.language_en,
         "ja" to R.string.language_ja,
@@ -859,7 +859,7 @@ private fun AuthFooterLinks(context: Context) {
 private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val options = listOf(
-        "" to R.string.language_system,
+        "" to R.string.language_system_multilingual,
         "zh-CN" to R.string.language_zh,
         "en" to R.string.language_en,
         "ja" to R.string.language_ja,
@@ -867,8 +867,18 @@ private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
         "fa" to R.string.language_fa
     )
     Box {
-        TextButton(onClick = { expanded = true }) {
-            Text(stringResource(R.string.setting_language))
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            IconButton(onClick = { expanded = true }, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_language),
+                    contentDescription = stringResource(R.string.setting_language),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             for ((tag, label) in options) {
@@ -894,8 +904,18 @@ private fun CompactThemeMenu(current: String, viewModel: XbClientViewModel) {
         "dark" to R.string.theme_dark
     )
     Box {
-        TextButton(onClick = { expanded = true }) {
-            Text(stringResource(R.string.setting_theme))
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            IconButton(onClick = { expanded = true }, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_theme),
+                    contentDescription = stringResource(R.string.setting_theme),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             for ((mode, label) in options) {
@@ -927,7 +947,7 @@ private fun LinkText(text: String, onClick: () -> Unit) {
 private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val options = listOf(
-        "" to R.string.language_system,
+        "" to R.string.language_system_multilingual,
         "zh-CN" to R.string.language_zh,
         "en" to R.string.language_en,
         "ja" to R.string.language_ja,
@@ -1068,17 +1088,19 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
         else -> PassScreen.NODES
     }
     Surface(
-        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(top = 6.dp, bottom = 22.dp),
+        color = Color.Transparent,
         tonalElevation = 0.dp
     ) {
         Surface(
-            modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(30.dp),
             color = MaterialTheme.colorScheme.surfaceContainer,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            tonalElevation = 2.dp
+            tonalElevation = 6.dp
         ) {
             NavigationBar(
                 containerColor = Color.Transparent,

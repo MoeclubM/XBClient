@@ -113,6 +113,7 @@
     <string name="setting_theme">カラーモード</string>
     <string name="setting_reset_onboarding">起動ガイドをもう一度表示</string>
     <string name="language_system">システム</string>
+    <string name="language_system_multilingual">システム / System / 跟随系统 / Система / سیستم</string>
     <string name="language_zh">中文</string>
     <string name="language_en">English</string>
     <string name="language_ja">日本語</string>
