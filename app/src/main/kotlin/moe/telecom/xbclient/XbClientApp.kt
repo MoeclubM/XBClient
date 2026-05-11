@@ -26,6 +26,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -94,6 +95,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.autofill.contentType
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -112,6 +114,52 @@ import kotlinx.coroutines.flow.collect
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private val XbClientLightColors = lightColorScheme(
+    primary = Color(0xFF0B57D0),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFD3E3FD),
+    onPrimaryContainer = Color(0xFF041E49),
+    secondary = Color(0xFF42526E),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFD9E2F6),
+    onSecondaryContainer = Color(0xFF101C2F),
+    tertiary = Color(0xFF006B5F),
+    background = Color(0xFFF6F8FC),
+    onBackground = Color(0xFF161B22),
+    surface = Color(0xFFF6F8FC),
+    onSurface = Color(0xFF161B22),
+    surfaceContainerLow = Color.White,
+    surfaceContainer = Color.White,
+    surfaceContainerHigh = Color(0xFFEFF3FA),
+    surfaceVariant = Color(0xFFE2E8F2),
+    onSurfaceVariant = Color(0xFF4C5668),
+    outline = Color(0xFF9AA7BA),
+    outlineVariant = Color(0xFFD7DEE9)
+)
+
+private val XbClientDarkColors = darkColorScheme(
+    primary = Color(0xFF9CC2FF),
+    onPrimary = Color(0xFF073A8C),
+    primaryContainer = Color(0xFF123A6F),
+    onPrimaryContainer = Color(0xFFD8E7FF),
+    secondary = Color(0xFFBBC6DC),
+    onSecondary = Color(0xFF273143),
+    secondaryContainer = Color(0xFF323D52),
+    onSecondaryContainer = Color(0xFFDDE6F8),
+    tertiary = Color(0xFF68DBCD),
+    background = Color(0xFF0F141B),
+    onBackground = Color(0xFFE5E9F0),
+    surface = Color(0xFF0F141B),
+    onSurface = Color(0xFFE5E9F0),
+    surfaceContainerLow = Color(0xFF171C24),
+    surfaceContainer = Color(0xFF1B222D),
+    surfaceContainerHigh = Color(0xFF252D39),
+    surfaceVariant = Color(0xFF343D4C),
+    onSurfaceVariant = Color(0xFFC2CAD8),
+    outline = Color(0xFF7F8A9B),
+    outlineVariant = Color(0xFF303948)
+)
 
 @Composable
 fun XbClientApp(viewModel: XbClientViewModel) {
@@ -289,7 +337,7 @@ private fun XbClientTheme(themeMode: String, content: @Composable () -> Unit) {
         "light" -> false
         else -> isSystemInDarkTheme()
     }
-    MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme(), content = content)
+    MaterialTheme(colorScheme = if (darkTheme) XbClientDarkColors else XbClientLightColors, content = content)
 }
 
 @Composable
@@ -555,14 +603,23 @@ private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_launcher),
-                        contentDescription = null,
-                        modifier = Modifier.size(78.dp)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(stringResource(id = R.string.app_name), style = MaterialTheme.typography.headlineSmall)
-                    Spacer(Modifier.height(24.dp))
+                    Surface(
+                        shape = RoundedCornerShape(28.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        tonalElevation = 2.dp
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(10.dp)
+                                .size(76.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Text(stringResource(id = R.string.app_name), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
+                    Spacer(Modifier.height(26.dp))
                     AnimatedContent(
                         targetState = state.authMode,
                         transitionSpec = { contentTransition() },
@@ -592,8 +649,9 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
             .animateContentSize(animationSpec = tween(180))
     ) {
         PageHeader(stringResource(R.string.auth_login_title))
-        ElevatedCard(
-            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        OutlinedCard(
+            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(Modifier.padding(18.dp)) {
@@ -629,8 +687,9 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
         }
         if (state.oauthProviders.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
-            ElevatedCard(
-                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            OutlinedCard(
+                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(18.dp)) {
@@ -673,8 +732,9 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
     val registerEnabled = !legalRequired || legalAccepted
     Column(modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))) {
         PageHeader(stringResource(R.string.auth_register_title), stringResource(R.string.auth_register_subtitle))
-        ElevatedCard(
-            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        OutlinedCard(
+            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(Modifier.padding(18.dp)) {
@@ -941,8 +1001,26 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(id = R.string.app_name)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.ic_launcher),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(5.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text(stringResource(id = R.string.app_name), style = MaterialTheme.typography.titleLarge)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         bottomBar = { BottomNavigation(state, viewModel) },
@@ -989,28 +1067,43 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
         PassScreen.PLANS -> PassScreen.PLANS
         else -> PassScreen.NODES
     }
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 6.dp
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp
     ) {
-        NavigationBarItem(
-            selected = selected == PassScreen.NODES,
-            onClick = { viewModel.openScreen(PassScreen.NODES) },
-            icon = { Icon(painterResource(R.drawable.ic_nav_nodes), contentDescription = null, modifier = Modifier.size(22.dp)) },
-            label = { Text(stringResource(R.string.nav_nodes), style = MaterialTheme.typography.labelMedium) }
-        )
-        NavigationBarItem(
-            selected = selected == PassScreen.PLANS,
-            onClick = { viewModel.openScreen(PassScreen.PLANS) },
-            icon = { Icon(painterResource(R.drawable.ic_nav_plans), contentDescription = null, modifier = Modifier.size(22.dp)) },
-            label = { Text(stringResource(R.string.nav_plans), style = MaterialTheme.typography.labelMedium) }
-        )
-        NavigationBarItem(
-            selected = selected == PassScreen.PROFILE,
-            onClick = { viewModel.openScreen(PassScreen.PROFILE) },
-            icon = { Icon(painterResource(R.drawable.ic_nav_profile), contentDescription = null, modifier = Modifier.size(22.dp)) },
-            label = { Text(stringResource(R.string.nav_profile), style = MaterialTheme.typography.labelMedium) }
-        )
+        Surface(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            tonalElevation = 2.dp
+        ) {
+            NavigationBar(
+                containerColor = Color.Transparent,
+                tonalElevation = 0.dp
+            ) {
+                NavigationBarItem(
+                    selected = selected == PassScreen.NODES,
+                    onClick = { viewModel.openScreen(PassScreen.NODES) },
+                    icon = { Icon(painterResource(R.drawable.ic_nav_nodes), contentDescription = null, modifier = Modifier.size(22.dp)) },
+                    label = { Text(stringResource(R.string.nav_nodes), style = MaterialTheme.typography.labelMedium) }
+                )
+                NavigationBarItem(
+                    selected = selected == PassScreen.PLANS,
+                    onClick = { viewModel.openScreen(PassScreen.PLANS) },
+                    icon = { Icon(painterResource(R.drawable.ic_nav_plans), contentDescription = null, modifier = Modifier.size(22.dp)) },
+                    label = { Text(stringResource(R.string.nav_plans), style = MaterialTheme.typography.labelMedium) }
+                )
+                NavigationBarItem(
+                    selected = selected == PassScreen.PROFILE,
+                    onClick = { viewModel.openScreen(PassScreen.PROFILE) },
+                    icon = { Icon(painterResource(R.drawable.ic_nav_profile), contentDescription = null, modifier = Modifier.size(22.dp)) },
+                    label = { Text(stringResource(R.string.nav_profile), style = MaterialTheme.typography.labelMedium) }
+                )
+            }
+        }
     }
 }
 
@@ -1025,8 +1118,9 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_body else R.string.subscription_expired_body
         )
         Section(blockTitle) {
-            ElevatedCard(
-                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            OutlinedCard(
+                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))
             ) {
                 Column(Modifier.padding(16.dp)) {
@@ -1047,66 +1141,84 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
     Section(stringResource(R.string.section_connection)) {
-        val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
-        AnimatedContent(targetState = connectionStateText, transitionSpec = { contentTransition() }, label = "connection-state") { text ->
-            Text(text, style = MaterialTheme.typography.displaySmall)
-        }
-        Spacer(Modifier.height(14.dp))
-        val connectionActionText = stringResource(
-            id = when {
-                state.vpnStarting -> R.string.status_connecting
-                state.vpnRequested -> R.string.action_disconnect
-                else -> R.string.action_connect
+        Panel {
+            val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                AnimatedContent(
+                    targetState = connectionStateText,
+                    transitionSpec = { contentTransition() },
+                    label = "connection-state",
+                    modifier = Modifier.weight(1f)
+                ) { text ->
+                    Text(text, style = MaterialTheme.typography.headlineMedium)
+                }
+                Surface(
+                    color = if (state.vpnRequested) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (state.vpnRequested) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text(connectionStateText, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+                }
             }
-        )
-        Button(
-            onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
-            enabled = !state.vpnStarting,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
-                Text(text)
+            Spacer(Modifier.height(16.dp))
+            val connectionActionText = stringResource(
+                id = when {
+                    state.vpnStarting -> R.string.status_connecting
+                    state.vpnRequested -> R.string.action_disconnect
+                    else -> R.string.action_connect
+                }
+            )
+            Button(
+                onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
+                enabled = !state.vpnStarting,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
+                    Text(text)
+                }
             }
         }
     }
     Section(stringResource(R.string.section_current_node)) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 78.dp)
-                .animateContentSize(animationSpec = tween(180))
-        ) {
-            val nodeTitle = selectedNode?.displayName(state.selectedNodeIndex, stringResource(R.string.node_default_name, state.selectedNodeIndex + 1))
-                ?: stringResource(id = if (state.nodesLoading) R.string.status_nodes_syncing else R.string.status_no_nodes)
-            AnimatedContent(targetState = nodeTitle, transitionSpec = { contentTransition() }, label = "current-node") { title ->
-                Text(title, style = MaterialTheme.typography.headlineMedium)
-            }
-            Spacer(Modifier.height(6.dp))
-            val testText = state.nodeTestResults[state.selectedNodeIndex] ?: stringResource(R.string.status_not_tested)
-            AnimatedContent(targetState = testText, transitionSpec = { contentTransition() }, label = "current-node-test") { text ->
-                Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = { viewModel.testNode(state.selectedNodeIndex) },
-                enabled = selectedNode != null,
-                modifier = Modifier.weight(1f)
+        Panel {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 78.dp)
+                    .animateContentSize(animationSpec = tween(180))
             ) {
-                Text(stringResource(R.string.action_test_current_node))
+                val nodeTitle = selectedNode?.displayName(state.selectedNodeIndex, stringResource(R.string.node_default_name, state.selectedNodeIndex + 1))
+                    ?: stringResource(id = if (state.nodesLoading) R.string.status_nodes_syncing else R.string.status_no_nodes)
+                AnimatedContent(targetState = nodeTitle, transitionSpec = { contentTransition() }, label = "current-node") { title ->
+                    Text(title, style = MaterialTheme.typography.headlineSmall)
+                }
+                Spacer(Modifier.height(6.dp))
+                val testText = state.nodeTestResults[state.selectedNodeIndex] ?: stringResource(R.string.status_not_tested)
+                AnimatedContent(targetState = testText, transitionSpec = { contentTransition() }, label = "current-node-test") { text ->
+                    Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            FilledTonalButton(
-                onClick = viewModel::testAllNodes,
-                enabled = !state.nodesTesting && state.anyTlsNodes.isNotEmpty(),
-                modifier = Modifier.weight(1f)
-            ) {
-                AnimatedContent(
-                    targetState = stringResource(id = if (state.nodesTesting) R.string.action_test_testing else R.string.action_test_all_nodes),
-                    transitionSpec = { contentTransition() },
-                    label = "test-all-main"
-                ) { text ->
-                    Text(text)
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = { viewModel.testNode(state.selectedNodeIndex) },
+                    enabled = selectedNode != null,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(R.string.action_test_current_node))
+                }
+                FilledTonalButton(
+                    onClick = viewModel::testAllNodes,
+                    enabled = !state.nodesTesting && state.anyTlsNodes.isNotEmpty(),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    AnimatedContent(
+                        targetState = stringResource(id = if (state.nodesTesting) R.string.action_test_testing else R.string.action_test_all_nodes),
+                        transitionSpec = { contentTransition() },
+                        label = "test-all-main"
+                    ) { text ->
+                        Text(text)
+                    }
                 }
             }
         }
@@ -1176,8 +1288,9 @@ private fun PlanRow(
     onOpenPayment: () -> Unit,
     onBalancePurchase: (PlanPrice) -> Unit
 ) {
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    OutlinedCard(
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .clickable(enabled = paymentEnabled, onClick = onOpenPayment)
             .fillMaxWidth()
@@ -1239,8 +1352,9 @@ private fun RewardAdSection(
         return
     }
     val logs = state.adRewardLogs.filter { it.scene == scene }
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    OutlinedCard(
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 18.dp)
@@ -1314,38 +1428,40 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
     val context = LocalContext.current
     PageHeader(stringResource(R.string.nav_profile))
     Section(stringResource(R.string.section_account)) {
-        Text(state.userEmail.ifEmpty { stringResource(R.string.status_logged_in) }, style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(6.dp))
-        Text(
-            stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            stringResource(R.string.commission_amount, formatMoney(state.commissionBalance, state.currencySymbol, state.currencyUnit)),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(8.dp))
-        val subscriptionText = state.subscriptionSummary.ifEmpty {
-            stringResource(id = if (state.subscribeUrl.isEmpty()) R.string.subscription_not_synced else R.string.subscription_synced)
-        }
-        Text(subscriptionText, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(14.dp))
-        Button(
-            onClick = {
-                val intent = Intent(context, SettingsActivity::class.java)
-                if (context !is android.app.Activity) {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.common_settings))
-        }
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = viewModel::logout, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.common_logout))
+        Panel {
+            Text(state.userEmail.ifEmpty { stringResource(R.string.status_logged_in) }, style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(10.dp))
+            Text(
+                stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.commission_amount, formatMoney(state.commissionBalance, state.currencySymbol, state.currencyUnit)),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            val subscriptionText = state.subscriptionSummary.ifEmpty {
+                stringResource(id = if (state.subscribeUrl.isEmpty()) R.string.subscription_not_synced else R.string.subscription_synced)
+            }
+            Text(subscriptionText, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    val intent = Intent(context, SettingsActivity::class.java)
+                    if (context !is android.app.Activity) {
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.common_settings))
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = viewModel::logout, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.common_logout))
+            }
         }
     }
     RewardAdSection(
@@ -1357,49 +1473,51 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
     )
     if (state.inviteForce || state.inviteCommissionRate > 0) {
         Section(stringResource(R.string.section_invite)) {
-            Text(stringResource(R.string.invite_aff_rate, state.inviteCommissionRate), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(4.dp))
-            Text(
-                stringResource(R.string.invite_commission_account, formatMoney(state.inviteCommissionBalance, state.currencySymbol, state.currencyUnit)),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(12.dp))
-            if (state.invites.isEmpty()) {
-                Text(stringResource(id = if (state.invitesLoading) R.string.invite_loading else R.string.invite_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                val copiedText = stringResource(R.string.invite_code_copied)
-                for ((index, invite) in state.invites.withIndex()) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable {
+            Panel {
+                Text(stringResource(R.string.invite_aff_rate, state.inviteCommissionRate), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(R.string.invite_commission_account, formatMoney(state.inviteCommissionBalance, state.currencySymbol, state.currencyUnit)),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                if (state.invites.isEmpty()) {
+                    Text(stringResource(id = if (state.invitesLoading) R.string.invite_loading else R.string.invite_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    val copiedText = stringResource(R.string.invite_code_copied)
+                    for ((index, invite) in state.invites.withIndex()) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        context.getSystemService(ClipboardManager::class.java)
+                                            .setPrimaryClip(ClipData.newPlainText("invite", invite.code))
+                                        Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                                    }
+                            ) {
+                                Text(invite.code, style = MaterialTheme.typography.titleLarge)
+                                Text(stringResource(id = if (invite.status == 0) R.string.invite_available else R.string.invite_used), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            TextButton(
+                                onClick = {
                                     context.getSystemService(ClipboardManager::class.java)
                                         .setPrimaryClip(ClipData.newPlainText("invite", invite.code))
                                     Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
                                 }
-                        ) {
-                            Text(invite.code, style = MaterialTheme.typography.titleLarge)
-                            Text(stringResource(id = if (invite.status == 0) R.string.invite_available else R.string.invite_used), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        TextButton(
-                            onClick = {
-                                context.getSystemService(ClipboardManager::class.java)
-                                    .setPrimaryClip(ClipData.newPlainText("invite", invite.code))
-                                Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                            ) {
+                                Text(stringResource(R.string.invite_copy))
                             }
-                        ) {
-                            Text(stringResource(R.string.invite_copy))
                         }
-                    }
-                    if (index != state.invites.lastIndex) {
-                        HorizontalDivider(Modifier.padding(vertical = 10.dp))
+                        if (index != state.invites.lastIndex) {
+                            HorizontalDivider(Modifier.padding(vertical = 10.dp))
+                        }
                     }
                 }
-            }
-            Spacer(Modifier.height(14.dp))
-            Button(onClick = viewModel::generateInvite, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.action_generate_invite))
+                Spacer(Modifier.height(14.dp))
+                Button(onClick = viewModel::generateInvite, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.action_generate_invite))
+                }
             }
         }
     }
@@ -1414,92 +1532,102 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel,
     var nodeTestTarget by rememberSaveable(state.nodeTestTarget) { mutableStateOf(state.nodeTestTarget) }
     PageHeader(stringResource(R.string.common_settings), stringResource(R.string.page_settings_subtitle))
     Section(stringResource(R.string.section_appearance)) {
-        LanguageChooser(state.appLanguage, viewModel)
-        Spacer(Modifier.height(14.dp))
-        ThemeChooser(state.themeMode, viewModel)
-        Spacer(Modifier.height(14.dp))
-        OutlinedButton(
-            onClick = {
-                viewModel.resetOnboarding()
-                val intent = Intent(context, AuthActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                if (context !is android.app.Activity) {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-                onClose()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.setting_reset_onboarding))
+        Panel {
+            LanguageChooser(state.appLanguage, viewModel)
+            Spacer(Modifier.height(14.dp))
+            ThemeChooser(state.themeMode, viewModel)
+            Spacer(Modifier.height(14.dp))
+            OutlinedButton(
+                onClick = {
+                    viewModel.resetOnboarding()
+                    val intent = Intent(context, AuthActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    if (context !is android.app.Activity) {
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                    onClose()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.setting_reset_onboarding))
+            }
         }
     }
     Section(stringResource(R.string.section_app_rules)) {
-        val selectedCount = selectedPackages(state).size
-        Text(
-            stringResource(id = if (state.appRuleMode == MODE_ALLOW) R.string.app_rules_allow_desc else R.string.app_rules_exclude_desc),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(if (selectedCount == 0) stringResource(R.string.app_rules_none_selected) else stringResource(R.string.app_rules_selected_count, selectedCount))
-        Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = { viewModel.openScreen(PassScreen.APP_RULES) }, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.action_select_apps))
-            }
-            OutlinedButton(onClick = viewModel::clearSelectedApps, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.common_clear_selection))
+        Panel {
+            val selectedCount = selectedPackages(state).size
+            Text(
+                stringResource(id = if (state.appRuleMode == MODE_ALLOW) R.string.app_rules_allow_desc else R.string.app_rules_exclude_desc),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(if (selectedCount == 0) stringResource(R.string.app_rules_none_selected) else stringResource(R.string.app_rules_selected_count, selectedCount))
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { viewModel.openScreen(PassScreen.APP_RULES) }, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.action_select_apps))
+                }
+                OutlinedButton(onClick = viewModel::clearSelectedApps, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.common_clear_selection))
+                }
             }
         }
     }
     Section("DNS") {
-        OutlinedTextField(value = nodeDns, onValueChange = { nodeDns = it }, label = { Text(stringResource(R.string.dns_node_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(value = overseasDns, onValueChange = { overseasDns = it }, label = { Text(stringResource(R.string.dns_overseas_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(10.dp))
-        OutlinedTextField(value = directDns, onValueChange = { directDns = it }, label = { Text(stringResource(R.string.dns_direct_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.enable_ipv6))
-            Switch(checked = state.vpnIpv6Enabled, onCheckedChange = viewModel::setIpv6Enabled)
+        Panel {
+            OutlinedTextField(value = nodeDns, onValueChange = { nodeDns = it }, label = { Text(stringResource(R.string.dns_node_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(value = overseasDns, onValueChange = { overseasDns = it }, label = { Text(stringResource(R.string.dns_overseas_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(value = directDns, onValueChange = { directDns = it }, label = { Text(stringResource(R.string.dns_direct_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.enable_ipv6))
+                Switch(checked = state.vpnIpv6Enabled, onCheckedChange = viewModel::setIpv6Enabled)
+            }
         }
     }
     Section(stringResource(R.string.section_node_test)) {
-        OutlinedTextField(value = nodeTestTarget, onValueChange = { nodeTestTarget = it }, label = { Text(stringResource(R.string.node_test_target_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
-        Text(
-            stringResource(R.string.node_test_help),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(14.dp))
-        Button(
-            onClick = { viewModel.saveDnsAndTestSettings(nodeDns, overseasDns, directDns, nodeTestTarget) },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.common_save_settings))
-        }
-        Spacer(Modifier.height(8.dp))
-        TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.common_back_profile))
+        Panel {
+            OutlinedTextField(value = nodeTestTarget, onValueChange = { nodeTestTarget = it }, label = { Text(stringResource(R.string.node_test_target_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.node_test_help),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(14.dp))
+            Button(
+                onClick = { viewModel.saveDnsAndTestSettings(nodeDns, overseasDns, directDns, nodeTestTarget) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.common_save_settings))
+            }
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.common_back_profile))
+            }
         }
     }
     Section(stringResource(R.string.section_about)) {
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            stringResource(R.string.about_version, BuildConfig.VERSION_NAME.removeSuffix(".debug")),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        val links = listOf(
-            R.string.about_website to BuildConfig.WEBSITE_URL.trim(),
-            R.string.about_user_agreement to BuildConfig.USER_AGREEMENT_URL.trim(),
-            R.string.about_privacy_policy to BuildConfig.PRIVACY_POLICY_URL.trim()
-        ).filter { it.second.isNotEmpty() }
-        if (links.isNotEmpty()) {
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                for ((label, url) in links) {
-                    LinkText(stringResource(label)) { openBrowser(context, url) }
+        Panel {
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.about_version, BuildConfig.VERSION_NAME.removeSuffix(".debug")),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            val links = listOf(
+                R.string.about_website to BuildConfig.WEBSITE_URL.trim(),
+                R.string.about_user_agreement to BuildConfig.USER_AGREEMENT_URL.trim(),
+                R.string.about_privacy_policy to BuildConfig.PRIVACY_POLICY_URL.trim()
+            ).filter { it.second.isNotEmpty() }
+            if (links.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    for ((label, url) in links) {
+                        LinkText(stringResource(label)) { openBrowser(context, url) }
+                    }
                 }
             }
         }
@@ -1583,8 +1711,9 @@ private fun NodeRow(
 ) {
     OutlinedCard(
         colors = CardDefaults.outlinedCardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f) else MaterialTheme.colorScheme.surfaceContainer
+            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f) else MaterialTheme.colorScheme.surfaceContainer
         ),
+        border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .clickable(onClick = onSelect)
             .fillMaxWidth()
@@ -1638,36 +1767,37 @@ private fun AppRulesScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     ) {
         item {
             PageHeader(stringResource(R.string.page_app_rules_title), stringResource(R.string.page_app_rules_subtitle))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                if (state.appRuleMode == MODE_EXCLUDE) {
-                    Button(onClick = { viewModel.switchAppRuleMode(MODE_EXCLUDE) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_exclude)) }
-                    OutlinedButton(onClick = { viewModel.switchAppRuleMode(MODE_ALLOW) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_allow)) }
-                } else {
-                    OutlinedButton(onClick = { viewModel.switchAppRuleMode(MODE_EXCLUDE) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_exclude)) }
-                    Button(onClick = { viewModel.switchAppRuleMode(MODE_ALLOW) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_allow)) }
+            Panel {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    if (state.appRuleMode == MODE_EXCLUDE) {
+                        Button(onClick = { viewModel.switchAppRuleMode(MODE_EXCLUDE) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_exclude)) }
+                        OutlinedButton(onClick = { viewModel.switchAppRuleMode(MODE_ALLOW) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_allow)) }
+                    } else {
+                        OutlinedButton(onClick = { viewModel.switchAppRuleMode(MODE_EXCLUDE) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_exclude)) }
+                        Button(onClick = { viewModel.switchAppRuleMode(MODE_ALLOW) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_allow)) }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = state.appSearchQuery,
+                    onValueChange = viewModel::setAppSearchQuery,
+                    label = { Text(stringResource(R.string.search_app_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.app_rules_selected_count, packages.size), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { viewModel.openScreen(PassScreen.SETTINGS) }, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.common_back_settings))
+                    }
+                    TextButton(onClick = viewModel::clearSelectedApps, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.common_clear_selection))
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = state.appSearchQuery,
-                onValueChange = viewModel::setAppSearchQuery,
-                label = { Text(stringResource(R.string.search_app_label)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.app_rules_selected_count, packages.size), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(onClick = { viewModel.openScreen(PassScreen.SETTINGS) }, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.common_back_settings))
-                }
-                TextButton(onClick = viewModel::clearSelectedApps, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.common_clear_selection))
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider()
         }
         items(apps, key = { it.packageName }) { app ->
             val selected = packages.contains(app.packageName)
@@ -1739,10 +1869,20 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
 
 @Composable
 private fun PageHeader(title: String, subtitle: String = "") {
-    Text(title, style = MaterialTheme.typography.headlineMedium)
-    if (subtitle.isNotEmpty()) {
-        Spacer(Modifier.height(6.dp))
-        Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            color = MaterialTheme.colorScheme.primary,
+            shape = RoundedCornerShape(50),
+            modifier = Modifier.size(width = 4.dp, height = if (subtitle.isNotEmpty()) 46.dp else 30.dp)
+        ) {}
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
+            if (subtitle.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
     Spacer(Modifier.height(20.dp))
 }
@@ -1755,9 +1895,22 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
             .animateContentSize(animationSpec = tween(180))
             .padding(bottom = 20.dp)
     ) {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(10.dp))
         content()
+    }
+}
+
+@Composable
+private fun Panel(content: @Composable ColumnScope.() -> Unit) {
+    OutlinedCard(
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(180))
+    ) {
+        Column(Modifier.padding(18.dp), content = content)
     }
 }
 
