@@ -1422,7 +1422,7 @@ private fun RewardAdSection(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                log.rewardContent.ifBlank { log.templateName.ifBlank { rewardStatusText(log.status) } },
+                                log.rewardContent.ifBlank { rewardStatusText(log.status) },
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Spacer(Modifier.height(2.dp))

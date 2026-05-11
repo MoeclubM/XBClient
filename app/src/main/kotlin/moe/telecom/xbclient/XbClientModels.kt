@@ -117,10 +117,6 @@ data class AdRewardLogItem(
     val transactionId: String,
     val status: String,
     val error: String,
-    val giftCardCode: String,
-    val giftCardCodeId: Int,
-    val giftCardTemplateId: Int,
-    val templateName: String,
     val rewardContent: String,
     val usedAt: Long,
     val createdAt: Long
@@ -218,10 +214,6 @@ fun JSONArray.toAdRewardLogItemList(): List<AdRewardLogItem> =
             transactionId = item.optString("transaction_id"),
             status = item.optString("status"),
             error = item.optString("error"),
-            giftCardCode = item.optString("gift_card_code"),
-            giftCardCodeId = item.optInt("gift_card_code_id"),
-            giftCardTemplateId = item.optInt("gift_card_template_id"),
-            templateName = item.optString("template_name"),
             rewardContent = rewardContentText(item),
             usedAt = numericValue(item.opt("used_at")).toLong(),
             createdAt = numericValue(item.opt("created_at")).toLong()
@@ -237,17 +229,35 @@ fun rewardContentText(item: JSONObject): String {
     }
     val rewards = item.optJSONObject("rewards") ?: item.optJSONObject("rewards_given")
     if (rewards != null) {
-        val names = arrayOf(
-            "balance" to "余额",
-            "transfer_enable" to "流量",
-            "device_limit" to "设备数",
-            "reset_package" to "重置流量",
-            "plan_id" to "套餐",
-            "expire_days" to "有效期",
-            "plan_validity_days" to "套餐有效期"
-        )
-        return names.filter { rewards.has(it.first) }
-            .joinToString(" · ") { (key, label) -> "$label ${rewards.opt(key)}" }
+        val parts = mutableListOf<String>()
+        val balance = numericValue(rewards.opt("balance"))
+        if (balance > 0.0) {
+            parts.add("余额 " + String.format(Locale.US, "%.2f", balance / 100.0).trimEnd('0').trimEnd('.'))
+        }
+        val transfer = numericValue(rewards.opt("transfer_enable"))
+        if (transfer > 0.0) {
+            parts.add("流量 ${formatTrafficBytes(transfer)}")
+        }
+        val deviceLimit = numericValue(rewards.opt("device_limit")).toInt()
+        if (deviceLimit > 0) {
+            parts.add("设备数 +$deviceLimit")
+        }
+        if (rewards.optBoolean("reset_package") || numericValue(rewards.opt("reset_package")) > 0.0) {
+            parts.add("重置流量")
+        }
+        val planId = numericValue(rewards.opt("plan_id")).toInt()
+        if (planId > 0) {
+            parts.add("套餐 #$planId")
+        }
+        val planValidityDays = numericValue(rewards.opt("plan_validity_days")).toInt()
+        if (planValidityDays > 0) {
+            parts.add("套餐有效期 $planValidityDays 天")
+        }
+        val expireDays = numericValue(rewards.opt("expire_days")).toInt()
+        if (expireDays > 0) {
+            parts.add("有效期 +$expireDays 天")
+        }
+        return parts.joinToString(" · ")
     }
     return ""
 }

@@ -128,6 +128,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private var pendingNodeSwitchConnect: Boolean? = null
     private var pendingOAuthCallback: Uri? = null
     private var nodeAutoRefreshStarted = false
+    private var pendingRewardScene = ""
+    private var pendingRewardStartedAt = 0L
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -630,6 +632,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update {
                     it.copy(adRewardLogs = logs, adRewardLogsLoading = false)
                 }
+                notifyPendingRewardIfCredited(logs)
                 persistStoredState(_uiState.value)
             } catch (_: Exception) {
                 if (showLoading) {
@@ -686,6 +689,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 if (config.first.isEmpty()) {
                     return@launch
                 }
+                pendingRewardScene = scene
                 emitEvent(XbClientEvent.ShowRewardAd(config.first, config.second, config.third))
             } catch (_: Exception) {
                 return@launch
@@ -694,6 +698,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun onRewardAdEarned(customData: String) {
+        pendingRewardStartedAt = System.currentTimeMillis() / 1000L - 10L
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = XboardApi.request(
@@ -706,6 +711,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val data = body.optJSONObject("data") ?: body
                 if (data.optBoolean("credited")) {
                     emitEvent(XbClientEvent.RewardCredited(rewardCreditMessage(data)))
+                    pendingRewardScene = ""
+                    pendingRewardStartedAt = 0L
                 }
                 refreshUserInfo()
             } catch (error: Exception) {
@@ -1500,10 +1507,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         .put("transaction_id", log.transactionId)
                         .put("status", log.status)
                         .put("error", log.error)
-                        .put("gift_card_code", log.giftCardCode)
-                        .put("gift_card_code_id", log.giftCardCodeId)
-                        .put("gift_card_template_id", log.giftCardTemplateId)
-                        .put("template_name", log.templateName)
                         .put("reward_content", log.rewardContent)
                         .put("used_at", log.usedAt)
                         .put("created_at", log.createdAt)
@@ -1643,8 +1646,21 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun rewardCreditMessage(data: JSONObject): String {
-        val content = rewardContentText(data).ifBlank { data.optString("template_name") }
+        val content = rewardContentText(data)
         return if (content.isBlank()) "广告奖励已发放。" else "广告奖励已发放：$content"
+    }
+
+    private fun notifyPendingRewardIfCredited(logs: List<AdRewardLogItem>) {
+        if (pendingRewardScene.isEmpty() || pendingRewardStartedAt <= 0L) {
+            return
+        }
+        val log = logs.firstOrNull {
+            it.scene == pendingRewardScene && it.status == "credited" && it.createdAt >= pendingRewardStartedAt
+        } ?: return
+        pendingRewardScene = ""
+        pendingRewardStartedAt = 0L
+        val content = log.rewardContent
+        emitEvent(XbClientEvent.RewardCredited(if (content.isBlank()) "广告奖励已发放。" else "广告奖励已发放：$content"))
     }
 
     private fun emitEvent(event: XbClientEvent) {
