@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -104,6 +105,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -174,6 +176,24 @@ private val ThemeOptions = listOf(
     "" to R.string.theme_system,
     "light" to R.string.theme_light,
     "dark" to R.string.theme_dark
+)
+
+private val OnboardingLanguageTitles = mapOf(
+    "" to "Choose language\n选择语言",
+    "zh-CN" to "选择语言\nChoose language",
+    "en" to "Choose language",
+    "ja" to "言語を選択\nChoose language",
+    "ru" to "Выберите язык\nChoose language",
+    "fa" to "انتخاب زبان\nChoose language"
+)
+
+private val OnboardingLanguageSubtitles = mapOf(
+    "" to "Please select a language.\n请选择语言。",
+    "zh-CN" to "请选择语言。\nPlease select a language.",
+    "en" to "Please select a language.",
+    "ja" to "言語を選択してください。\nPlease select a language.",
+    "ru" to "Выберите язык.\nPlease select a language.",
+    "fa" to "لطفاً زبان را انتخاب کنید.\nPlease select a language."
 )
 
 @Composable
@@ -505,14 +525,12 @@ private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClient
                         )
                         Spacer(Modifier.height(22.dp))
                         Text(
-                            """Choose language
-选择语言 · 言語を選択
-Выберите язык · انتخاب زبان""",
+                            OnboardingLanguageTitles[selected] ?: OnboardingLanguageTitles.getValue(""),
                             style = MaterialTheme.typography.headlineMedium
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "Please select a language. 请选择语言。言語を選択してください。Выберите язык. لطفاً زبان را انتخاب کنید.",
+                            OnboardingLanguageSubtitles[selected] ?: OnboardingLanguageSubtitles.getValue(""),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.height(24.dp))
@@ -949,7 +967,7 @@ private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
             modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
                 .fillMaxWidth()
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -979,7 +997,7 @@ private fun ThemeChooser(current: String, viewModel: XbClientViewModel) {
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
             modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
                 .fillMaxWidth()
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -1076,7 +1094,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .padding(bottom = 42.dp),
+            .padding(bottom = 22.dp),
         color = Color.Transparent,
         tonalElevation = 0.dp
     ) {
@@ -1089,25 +1107,29 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
         ) {
             NavigationBar(
                 containerColor = Color.Transparent,
-                tonalElevation = 0.dp
+                tonalElevation = 0.dp,
+                modifier = Modifier.height(72.dp)
             ) {
                 NavigationBarItem(
                     selected = selected == PassScreen.NODES,
                     onClick = { viewModel.openScreen(PassScreen.NODES) },
                     icon = { Icon(painterResource(R.drawable.ic_nav_nodes), contentDescription = null, modifier = Modifier.size(22.dp)) },
-                    label = { Text(stringResource(R.string.nav_nodes), style = MaterialTheme.typography.labelMedium) }
+                    label = { Text(stringResource(R.string.nav_nodes), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
+                    modifier = Modifier.offset(y = 4.dp)
                 )
                 NavigationBarItem(
                     selected = selected == PassScreen.PLANS,
                     onClick = { viewModel.openScreen(PassScreen.PLANS) },
                     icon = { Icon(painterResource(R.drawable.ic_nav_plans), contentDescription = null, modifier = Modifier.size(22.dp)) },
-                    label = { Text(stringResource(R.string.nav_plans), style = MaterialTheme.typography.labelMedium) }
+                    label = { Text(stringResource(R.string.nav_plans), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
+                    modifier = Modifier.offset(y = 4.dp)
                 )
                 NavigationBarItem(
                     selected = selected == PassScreen.PROFILE,
                     onClick = { viewModel.openScreen(PassScreen.PROFILE) },
                     icon = { Icon(painterResource(R.drawable.ic_nav_profile), contentDescription = null, modifier = Modifier.size(22.dp)) },
-                    label = { Text(stringResource(R.string.nav_profile), style = MaterialTheme.typography.labelMedium) }
+                    label = { Text(stringResource(R.string.nav_profile), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
+                    modifier = Modifier.offset(y = 4.dp)
                 )
             }
         }
