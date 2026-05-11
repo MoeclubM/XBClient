@@ -82,17 +82,6 @@ val userAgentRaw = providers.gradleProperty("xbclient.userAgent")
     ?: error("XBCLIENT_USER_AGENT, -Pxbclient.userAgent or local.properties xbclient.userAgent is required")
 val userAgent = userAgentRaw.trim().takeIf { it.isNotEmpty() }
     ?: error("User-Agent is empty")
-val builtinDnsServerRaw = providers.gradleProperty("xbclient.builtinDnsServer").orNull?.takeIf { it.isNotBlank() }
-    ?: providers.environmentVariable("XBCLIENT_BUILTIN_DNS_SERVER").orNull?.takeIf { it.isNotBlank() }
-    ?: providers.gradleProperty("xbclient.apiDnsServer").orNull?.takeIf { it.isNotBlank() }
-    ?: providers.environmentVariable("XBCLIENT_API_DNS_SERVER").orNull?.takeIf { it.isNotBlank() }
-    ?: rootLocalProperties.getProperty("xbclient.builtinDnsServer")?.takeIf { it.isNotBlank() }
-    ?: rootLocalProperties.getProperty("XBCLIENT_BUILTIN_DNS_SERVER")?.takeIf { it.isNotBlank() }
-    ?: rootLocalProperties.getProperty("xbclient.apiDnsServer")?.takeIf { it.isNotBlank() }
-    ?: rootLocalProperties.getProperty("XBCLIENT_API_DNS_SERVER")?.takeIf { it.isNotBlank() }
-    ?: "223.5.5.5"
-val builtinDnsServer = builtinDnsServerRaw.trim().takeIf { it.isNotEmpty() }
-    ?: error("Built-in DNS server is empty")
 val oauthCallbackSchemeRaw = providers.gradleProperty("xbclient.oauthCallbackScheme")
     .orNull
     ?: providers.environmentVariable("XBCLIENT_OAUTH_CALLBACK_SCHEME").orNull
@@ -188,7 +177,6 @@ android {
         buildConfigField("String", "ADMOB_APP_ID", "\"${admobAppId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "DEFAULT_API_URL", "\"${defaultApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "USER_AGENT", "\"${userAgent.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        buildConfigField("String", "BUILTIN_DNS_SERVER", "\"${builtinDnsServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"${oauthCallbackScheme.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "WEBSITE_URL", "\"${websiteUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "PRIVACY_POLICY_URL", "\"${privacyPolicyUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")

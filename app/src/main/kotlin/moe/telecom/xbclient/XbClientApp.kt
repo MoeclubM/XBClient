@@ -471,7 +471,10 @@ private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClient
                                                 Text("✓", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleLarge)
                                             }
                                         },
-                                        modifier = Modifier.clickable { selected = item.first }
+                                        modifier = Modifier.clickable {
+                                            selected = item.first
+                                            viewModel.setAppLanguage(item.first)
+                                        }
                                     )
                                     if (index != languages.lastIndex) {
                                         HorizontalDivider()

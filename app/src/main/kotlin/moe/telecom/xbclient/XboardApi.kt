@@ -24,7 +24,6 @@ object XboardApi {
         get() = BuildConfig.USER_AGENT
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     private val httpClient = OkHttpClient.Builder()
-        .dns(BuiltInDns(BuildConfig.BUILTIN_DNS_SERVER))
         .connectTimeout(30000, TimeUnit.MILLISECONDS)
         .readTimeout(30000, TimeUnit.MILLISECONDS)
         .build()
