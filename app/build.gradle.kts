@@ -303,16 +303,12 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
-    implementation("androidx.fragment:fragment-ktx:1.8.9")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0")
     implementation("com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:1.0.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("org.yaml:snakeyaml:2.5")
 }
 

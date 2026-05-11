@@ -161,6 +161,21 @@ private val XbClientDarkColors = darkColorScheme(
     outlineVariant = Color(0xFF303948)
 )
 
+private val LanguageOptions = listOf(
+    "" to R.string.language_system,
+    "zh-CN" to R.string.language_zh,
+    "en" to R.string.language_en,
+    "ja" to R.string.language_ja,
+    "ru" to R.string.language_ru,
+    "fa" to R.string.language_fa
+)
+
+private val ThemeOptions = listOf(
+    "" to R.string.theme_system,
+    "light" to R.string.theme_light,
+    "dark" to R.string.theme_dark
+)
+
 @Composable
 fun XbClientApp(viewModel: XbClientViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -450,15 +465,7 @@ private fun handleOAuthWebUrl(uri: Uri, viewModel: XbClientViewModel): Boolean {
 
 @Composable
 private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val languages = listOf(
-        "" to R.string.language_system,
-        "zh-CN" to R.string.language_zh,
-        "en" to R.string.language_en,
-        "ja" to R.string.language_ja,
-        "ru" to R.string.language_ru,
-        "fa" to R.string.language_fa
-    )
-    var selected by rememberSaveable { mutableStateOf(if (languages.any { it.first == state.appLanguage }) state.appLanguage else "") }
+    var selected by rememberSaveable { mutableStateOf(if (LanguageOptions.any { it.first == state.appLanguage }) state.appLanguage else "") }
     var showLanguagePicker by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(1000)
@@ -511,7 +518,7 @@ private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClient
                         Spacer(Modifier.height(24.dp))
                         ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                             Column(Modifier.padding(10.dp)) {
-                                for ((index, item) in languages.withIndex()) {
+                                for ((index, item) in LanguageOptions.withIndex()) {
                                     ListItem(
                                         headlineContent = { Text(stringResource(item.second)) },
                                         trailingContent = {
@@ -524,7 +531,7 @@ private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClient
                                             viewModel.setAppLanguage(item.first)
                                         }
                                     )
-                                    if (index != languages.lastIndex) {
+                                    if (index != LanguageOptions.lastIndex) {
                                         HorizontalDivider()
                                     }
                                 }
@@ -858,14 +865,6 @@ private fun AuthFooterLinks(context: Context) {
 @Composable
 private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val options = listOf(
-        "" to R.string.language_system,
-        "zh-CN" to R.string.language_zh,
-        "en" to R.string.language_en,
-        "ja" to R.string.language_ja,
-        "ru" to R.string.language_ru,
-        "fa" to R.string.language_fa
-    )
     Box {
         Surface(
             shape = RoundedCornerShape(14.dp),
@@ -881,7 +880,7 @@ private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for ((tag, label) in options) {
+            for ((tag, label) in LanguageOptions) {
                 DropdownMenuItem(
                     text = { Text(stringResource(label)) },
                     trailingIcon = { if (current == tag) Text("✓") },
@@ -898,11 +897,6 @@ private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
 @Composable
 private fun CompactThemeMenu(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val options = listOf(
-        "" to R.string.theme_system,
-        "light" to R.string.theme_light,
-        "dark" to R.string.theme_dark
-    )
     Box {
         Surface(
             shape = RoundedCornerShape(14.dp),
@@ -918,7 +912,7 @@ private fun CompactThemeMenu(current: String, viewModel: XbClientViewModel) {
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for ((mode, label) in options) {
+            for ((mode, label) in ThemeOptions) {
                 DropdownMenuItem(
                     text = { Text(stringResource(label)) },
                     trailingIcon = { if (current == mode) Text("✓") },
@@ -946,17 +940,9 @@ private fun LinkText(text: String, onClick: () -> Unit) {
 @Composable
 private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val options = listOf(
-        "" to R.string.language_system,
-        "zh-CN" to R.string.language_zh,
-        "en" to R.string.language_en,
-        "ja" to R.string.language_ja,
-        "ru" to R.string.language_ru,
-        "fa" to R.string.language_fa
-    )
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
-            value = stringResource((options.firstOrNull { it.first == current } ?: options.first()).second),
+            value = stringResource((LanguageOptions.firstOrNull { it.first == current } ?: LanguageOptions.first()).second),
             onValueChange = {},
             readOnly = true,
             label = { Text(stringResource(R.string.setting_language)) },
@@ -967,7 +953,7 @@ private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
                 .fillMaxWidth()
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for ((tag, label) in options) {
+            for ((tag, label) in LanguageOptions) {
                 DropdownMenuItem(
                     text = { Text(stringResource(label)) },
                     onClick = {
@@ -984,14 +970,9 @@ private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
 @Composable
 private fun ThemeChooser(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val options = listOf(
-        "" to R.string.theme_system,
-        "light" to R.string.theme_light,
-        "dark" to R.string.theme_dark
-    )
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
-            value = stringResource((options.firstOrNull { it.first == current } ?: options.first()).second),
+            value = stringResource((ThemeOptions.firstOrNull { it.first == current } ?: ThemeOptions.first()).second),
             onValueChange = {},
             readOnly = true,
             label = { Text(stringResource(R.string.setting_theme)) },
@@ -1002,7 +983,7 @@ private fun ThemeChooser(current: String, viewModel: XbClientViewModel) {
                 .fillMaxWidth()
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for ((mode, label) in options) {
+            for ((mode, label) in ThemeOptions) {
                 DropdownMenuItem(
                     text = { Text(stringResource(label)) },
                     onClick = {
