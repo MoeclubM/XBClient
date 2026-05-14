@@ -919,6 +919,8 @@ private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
 @Composable
 private fun CompactThemeMenu(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val themeOptions = ThemeOptions.map { it.first to context.getString(it.second) }
     Box {
         Surface(
             shape = RoundedCornerShape(14.dp),
@@ -934,9 +936,9 @@ private fun CompactThemeMenu(current: String, viewModel: XbClientViewModel) {
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for ((mode, label) in ThemeOptions) {
+            for ((mode, label) in themeOptions) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(label)) },
+                    text = { Text(label) },
                     trailingIcon = { if (current == mode) Text("✓") },
                     onClick = {
                         expanded = false
@@ -992,9 +994,11 @@ private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
 @Composable
 private fun ThemeChooser(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val themeOptions = ThemeOptions.map { it.first to context.getString(it.second) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
-            value = stringResource((ThemeOptions.firstOrNull { it.first == current } ?: ThemeOptions.first()).second),
+            value = (themeOptions.firstOrNull { it.first == current } ?: themeOptions.first()).second,
             onValueChange = {},
             readOnly = true,
             label = { Text(stringResource(R.string.setting_theme)) },
@@ -1005,9 +1009,9 @@ private fun ThemeChooser(current: String, viewModel: XbClientViewModel) {
                 .fillMaxWidth()
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for ((mode, label) in ThemeOptions) {
+            for ((mode, label) in themeOptions) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(label)) },
+                    text = { Text(label) },
                     onClick = {
                         expanded = false
                         viewModel.setThemeMode(mode)

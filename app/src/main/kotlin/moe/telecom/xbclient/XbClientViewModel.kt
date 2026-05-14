@@ -1031,12 +1031,16 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             emitMessage("当前内核暂不支持 ${nodes[index].protocolLabel} 节点。")
             return
         }
+        val reconnect = _uiState.value.vpnRequested && _uiState.value.selectedNodeIndex != index && returnToNodes
         updateAndPersist {
             it.copy(
                 selectedNodeIndex = index,
                 screen = if (returnToNodes) PassScreen.NODES else it.screen,
                 nodeSwitchSheet = false
             )
+        }
+        if (reconnect) {
+            requestStartVpn()
         }
     }
 
