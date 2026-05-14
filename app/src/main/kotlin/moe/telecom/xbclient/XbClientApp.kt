@@ -100,6 +100,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
@@ -1090,22 +1091,23 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .padding(bottom = 18.dp),
+            .padding(horizontal = 18.dp)
+            .padding(bottom = 16.dp),
         color = Color.Transparent,
         tonalElevation = 0.dp
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = RoundedCornerShape(42.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.96f),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            tonalElevation = 6.dp
+            tonalElevation = 10.dp,
+            shadowElevation = 8.dp
         ) {
             Row(
                 modifier = Modifier
-                    .height(70.dp)
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .height(88.dp)
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 BottomNavButton(
@@ -1137,24 +1139,30 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
 @Composable
 private fun BottomNavButton(selected: Boolean, icon: Int, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    Column(
+    Surface(
         modifier = modifier
-            .height(58.dp)
+            .height(72.dp)
             .clickable(onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        shape = RoundedCornerShape(36.dp),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f) else Color.Transparent
     ) {
-        Surface(
-            color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
-            shape = RoundedCornerShape(18.dp),
-            modifier = Modifier.size(width = 52.dp, height = 30.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.size(21.dp))
-            }
+            Icon(painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.size(if (selected) 30.dp else 28.dp))
+            Spacer(Modifier.height(5.dp))
+            Text(
+                label,
+                color = color,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                textAlign = TextAlign.Center
+            )
         }
-        Spacer(Modifier.height(2.dp))
-        Text(label, color = color, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
     }
 }
 
