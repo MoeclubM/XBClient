@@ -65,6 +65,7 @@
     <string name="action_test_all_nodes">Test all nodes</string>
     <string name="action_back_nodes">Back to nodes</string>
     <string name="action_test_testing">Testing</string>
+    <string name="action_open_node_page">Node page</string>
     <string name="action_select_node">Select node</string>
     <string name="action_test_connection">Test connection</string>
     <string name="action_select_apps">Select apps</string>

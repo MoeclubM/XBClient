@@ -65,6 +65,7 @@
     <string name="action_test_all_nodes">全ノードをテスト</string>
     <string name="action_back_nodes">ノードに戻る</string>
     <string name="action_test_testing">テスト中</string>
+    <string name="action_open_node_page">ノードページ</string>
     <string name="action_select_node">ノードを選択</string>
     <string name="action_test_connection">接続をテスト</string>
     <string name="action_select_apps">アプリを選択</string>

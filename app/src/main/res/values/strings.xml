@@ -65,6 +65,7 @@
     <string name="action_test_all_nodes">测试全部节点</string>
     <string name="action_back_nodes">返回节点</string>
     <string name="action_test_testing">测试中</string>
+    <string name="action_open_node_page">节点页面</string>
     <string name="action_select_node">选择节点</string>
     <string name="action_test_connection">测试连接</string>
     <string name="action_select_apps">选择应用</string>

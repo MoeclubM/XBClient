@@ -34,6 +34,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -99,6 +100,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.autofill.contentType
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
@@ -1045,6 +1047,15 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
                         Text(stringResource(id = R.string.app_name), style = MaterialTheme.typography.titleLarge)
                     }
                 },
+                actions = {
+                    IconButton(onClick = viewModel::showNotices) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_notice),
+                            contentDescription = stringResource(R.string.section_announcement),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
@@ -1179,16 +1190,22 @@ private fun BottomNavButton(selected: Boolean, icon: Int, label: String, modifie
         animationSpec = tween(180),
         label = "bottom-nav-icon"
     )
+    val shape = RoundedCornerShape(31.dp)
     Surface(
         modifier = modifier
             .height(62.dp),
-        onClick = onClick,
-        shape = RoundedCornerShape(31.dp),
+        shape = shape,
         color = Color.Transparent
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .clip(shape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick
+                )
                 .padding(horizontal = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -1211,18 +1228,6 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
     PageHeader(stringResource(R.string.nav_home), stringResource(R.string.page_home_subtitle))
-    Section(stringResource(R.string.section_announcement)) {
-        if (state.notices.isEmpty()) {
-            Text(stringResource(id = if (state.noticesLoading) R.string.notice_loading else R.string.notice_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            for ((index, notice) in state.notices.take(3).withIndex()) {
-                NoticeCard(notice)
-                if (index != state.notices.take(3).lastIndex) {
-                    Spacer(Modifier.height(10.dp))
-                }
-            }
-        }
-    }
     Section(stringResource(R.string.section_connection)) {
         Panel {
             val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
@@ -1287,7 +1292,6 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
-                .clickable { viewModel.openScreen(PassScreen.NODE_SELECT) }
                 .fillMaxWidth()
                 .animateContentSize(animationSpec = tween(180))
         ) {
@@ -1308,6 +1312,13 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                         Text(stringResource(R.string.action_select_node), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text("›", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.height(14.dp))
+                FilledTonalButton(
+                    onClick = { viewModel.openScreen(PassScreen.NODE_SELECT) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.action_open_node_page))
                 }
             }
         }
@@ -1924,6 +1935,29 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
             dismissButton = {
                 TextButton(onClick = viewModel::dismissUpdateDialog) {
                     Text(stringResource(R.string.common_later))
+                }
+            }
+        )
+    }
+    if (state.noticeDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissNotices,
+            title = { Text(stringResource(R.string.section_announcement)) },
+            text = {
+                if (state.notices.isEmpty()) {
+                    Text(stringResource(id = if (state.noticesLoading) R.string.notice_loading else R.string.notice_empty))
+                } else {
+                    LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                        items(state.notices) { notice ->
+                            NoticeCard(notice)
+                            Spacer(Modifier.height(10.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissNotices) {
+                    Text(stringResource(R.string.common_close))
                 }
             }
         )

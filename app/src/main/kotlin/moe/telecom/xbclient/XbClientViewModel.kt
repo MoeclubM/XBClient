@@ -27,6 +27,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 private val Context.passVpnDataStore by preferencesDataStore(name = XBCLIENT_PREFS)
@@ -101,7 +103,8 @@ data class XbClientUiState(
     val oauthConfirmToken: String = "",
     val oauthConfirmProvider: String = "",
     val oauthConfirmEmail: String = "",
-    val oauthWebViewUrl: String = ""
+    val oauthWebViewUrl: String = "",
+    val noticeDialog: Boolean = false
 ) {
     val isLoggedIn: Boolean
         get() = authData.isNotEmpty()
@@ -142,6 +145,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             val state = _uiState.value
             checkGithubReleaseUpdate(state.githubProjectUrl)
             if (state.authData.isNotEmpty()) {
+                showDailyNoticeDialog(state.notices)
                 refreshSubscriptionAndNodes(force = true)
                 refreshUserInfo()
                 refreshNotices()
@@ -425,6 +429,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(updateAvailable = false) }
     }
 
+    fun showNotices() {
+        _uiState.update { it.copy(noticeDialog = true) }
+    }
+
+    fun dismissNotices() {
+        _uiState.update { it.copy(noticeDialog = false) }
+    }
+
     fun openUpdatePage(context: Context) {
         val url = _uiState.value.latestDownloadUrl.ifEmpty { _uiState.value.latestReleaseUrl }
         if (url.isNotEmpty()) {
@@ -577,6 +589,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val next = _uiState.value.copy(notices = notices, noticesLoading = false)
                 _uiState.value = next
                 persistStoredState(next)
+                showDailyNoticeDialog(notices)
             } catch (error: Exception) {
                 if (showLoading) {
                     _uiState.update { it.copy(noticesLoading = false) }
@@ -1745,6 +1758,19 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         pendingRewardStartedAt = 0L
         val content = log.rewardContent
         emitEvent(XbClientEvent.RewardCredited(if (content.isBlank()) "广告奖励已发放。" else "广告奖励已发放：$content"))
+    }
+
+    private fun showDailyNoticeDialog(notices: List<NoticeItem>) {
+        if (notices.isEmpty()) {
+            return
+        }
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        val prefs = app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
+        if (prefs.getString("last_notice_dialog_day", "") == today) {
+            return
+        }
+        prefs.edit().putString("last_notice_dialog_day", today).apply()
+        _uiState.update { it.copy(noticeDialog = true) }
     }
 
     private fun emitEvent(event: XbClientEvent) {

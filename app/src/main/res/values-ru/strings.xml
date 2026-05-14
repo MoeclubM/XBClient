@@ -65,6 +65,7 @@
     <string name="action_test_all_nodes">Проверить все узлы</string>
     <string name="action_back_nodes">Назад к узлам</string>
     <string name="action_test_testing">Проверка</string>
+    <string name="action_open_node_page">Страница узлов</string>
     <string name="action_select_node">Выбрать узел</string>
     <string name="action_test_connection">Проверить соединение</string>
     <string name="action_select_apps">Выбрать приложения</string>

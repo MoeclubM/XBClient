@@ -65,6 +65,7 @@
     <string name="action_test_all_nodes">آزمون همه گره‌ها</string>
     <string name="action_back_nodes">بازگشت به گره‌ها</string>
     <string name="action_test_testing">در حال آزمون</string>
+    <string name="action_open_node_page">صفحه گره‌ها</string>
     <string name="action_select_node">انتخاب گره</string>
     <string name="action_test_connection">آزمون اتصال</string>
     <string name="action_select_apps">انتخاب برنامه‌ها</string>
