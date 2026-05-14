@@ -937,6 +937,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setAppLanguage(language: String) {
+        app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString("app_language", language)
+            .commit()
         updateAndPersist { it.copy(appLanguage = language) }
     }
 
@@ -953,7 +957,24 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setThemeMode(themeMode: String) {
+        app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString("theme_mode", themeMode)
+            .commit()
         updateAndPersist { it.copy(themeMode = themeMode) }
+    }
+
+    fun syncAppearanceSettings() {
+        val prefs = app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
+        val language = prefs.getString("app_language", _uiState.value.appLanguage).orEmpty()
+        val theme = prefs.getString("theme_mode", _uiState.value.themeMode).orEmpty()
+        _uiState.update { current ->
+            if (!current.loaded) {
+                current
+            } else {
+                current.copy(appLanguage = language, themeMode = theme)
+            }
+        }
     }
 
     fun switchAppRuleMode(mode: String) {

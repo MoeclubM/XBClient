@@ -41,7 +41,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -68,8 +67,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
@@ -1100,39 +1097,64 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(26.dp),
+            shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surfaceContainer,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             tonalElevation = 6.dp
         ) {
-            NavigationBar(
-                containerColor = Color.Transparent,
-                tonalElevation = 0.dp,
-                modifier = Modifier.height(78.dp)
+            Row(
+                modifier = Modifier
+                    .height(70.dp)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                NavigationBarItem(
+                BottomNavButton(
                     selected = selected == PassScreen.NODES,
-                    onClick = { viewModel.openScreen(PassScreen.NODES) },
-                    icon = { Icon(painterResource(R.drawable.ic_nav_nodes), contentDescription = null, modifier = Modifier.size(22.dp)) },
-                    label = { Text(stringResource(R.string.nav_nodes), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
-                    modifier = Modifier.offset(y = 8.dp)
+                    icon = R.drawable.ic_nav_nodes,
+                    label = stringResource(R.string.nav_nodes),
+                    modifier = Modifier.weight(1f),
+                    onClick = { viewModel.openScreen(PassScreen.NODES) }
                 )
-                NavigationBarItem(
+                BottomNavButton(
                     selected = selected == PassScreen.PLANS,
-                    onClick = { viewModel.openScreen(PassScreen.PLANS) },
-                    icon = { Icon(painterResource(R.drawable.ic_nav_plans), contentDescription = null, modifier = Modifier.size(22.dp)) },
-                    label = { Text(stringResource(R.string.nav_plans), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
-                    modifier = Modifier.offset(y = 8.dp)
+                    icon = R.drawable.ic_nav_plans,
+                    label = stringResource(R.string.nav_plans),
+                    modifier = Modifier.weight(1f),
+                    onClick = { viewModel.openScreen(PassScreen.PLANS) }
                 )
-                NavigationBarItem(
+                BottomNavButton(
                     selected = selected == PassScreen.PROFILE,
-                    onClick = { viewModel.openScreen(PassScreen.PROFILE) },
-                    icon = { Icon(painterResource(R.drawable.ic_nav_profile), contentDescription = null, modifier = Modifier.size(22.dp)) },
-                    label = { Text(stringResource(R.string.nav_profile), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) },
-                    modifier = Modifier.offset(y = 8.dp)
+                    icon = R.drawable.ic_nav_profile,
+                    label = stringResource(R.string.nav_profile),
+                    modifier = Modifier.weight(1f),
+                    onClick = { viewModel.openScreen(PassScreen.PROFILE) }
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun BottomNavButton(selected: Boolean, icon: Int, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = modifier
+            .height(58.dp)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.size(width = 52.dp, height = 30.dp)
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.size(21.dp))
+            }
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(label, color = color, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
     }
 }
 
@@ -1177,16 +1199,8 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                     targetState = connectionStateText,
                     transitionSpec = { contentTransition() },
                     label = "connection-state",
-                    modifier = Modifier.weight(1f)
                 ) { text ->
                     Text(text, style = MaterialTheme.typography.headlineMedium)
-                }
-                Surface(
-                    color = if (state.vpnRequested) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = if (state.vpnRequested) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                    shape = RoundedCornerShape(50)
-                ) {
-                    Text(connectionStateText, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
                 }
             }
             Spacer(Modifier.height(16.dp))

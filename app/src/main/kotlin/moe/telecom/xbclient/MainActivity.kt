@@ -152,6 +152,7 @@ class MainActivity : ComponentActivity() {
         receiverRegistered = true
         val state = viewModel.uiState.value
         if (state.loaded) {
+            viewModel.syncAppearanceSettings()
             val running = getSharedPreferences(XBCLIENT_PREFS, MODE_PRIVATE).getBoolean("vpn_running", false)
             if (state.vpnRequested != running) {
                 viewModel.onVpnStateChanged(running, -1, "")
