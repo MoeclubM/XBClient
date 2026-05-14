@@ -22,6 +22,10 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,6 +36,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -41,6 +46,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -1104,33 +1110,56 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
             tonalElevation = 10.dp,
             shadowElevation = 8.dp
         ) {
-            Row(
+            BoxWithConstraints(
                 modifier = Modifier
-                    .height(88.dp)
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .height(76.dp)
+                    .padding(horizontal = 8.dp, vertical = 7.dp)
             ) {
-                BottomNavButton(
-                    selected = selected == PassScreen.NODES,
-                    icon = R.drawable.ic_nav_nodes,
-                    label = stringResource(R.string.nav_nodes),
-                    modifier = Modifier.weight(1f),
-                    onClick = { viewModel.openScreen(PassScreen.NODES) }
+                val selectedIndex = when (selected) {
+                    PassScreen.NODES -> 0
+                    PassScreen.PLANS -> 1
+                    else -> 2
+                }
+                val itemWidth = maxWidth / 3
+                val pillOffset by animateDpAsState(
+                    targetValue = itemWidth * selectedIndex.toFloat() + 2.dp,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+                    label = "bottom-nav-pill"
                 )
-                BottomNavButton(
-                    selected = selected == PassScreen.PLANS,
-                    icon = R.drawable.ic_nav_plans,
-                    label = stringResource(R.string.nav_plans),
-                    modifier = Modifier.weight(1f),
-                    onClick = { viewModel.openScreen(PassScreen.PLANS) }
-                )
-                BottomNavButton(
-                    selected = selected == PassScreen.PROFILE,
-                    icon = R.drawable.ic_nav_profile,
-                    label = stringResource(R.string.nav_profile),
-                    modifier = Modifier.weight(1f),
-                    onClick = { viewModel.openScreen(PassScreen.PROFILE) }
-                )
+                Surface(
+                    modifier = Modifier
+                        .offset(x = pillOffset)
+                        .width(itemWidth - 4.dp)
+                        .height(62.dp),
+                    shape = RoundedCornerShape(31.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                    tonalElevation = 2.dp,
+                    shadowElevation = 2.dp
+                ) {}
+                Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                    BottomNavButton(
+                        selected = selected == PassScreen.NODES,
+                        icon = R.drawable.ic_nav_nodes,
+                        label = stringResource(R.string.nav_nodes),
+                        modifier = Modifier.weight(1f),
+                        onClick = { viewModel.openScreen(PassScreen.NODES) }
+                    )
+                    BottomNavButton(
+                        selected = selected == PassScreen.PLANS,
+                        icon = R.drawable.ic_nav_plans,
+                        label = stringResource(R.string.nav_plans),
+                        modifier = Modifier.weight(1f),
+                        onClick = { viewModel.openScreen(PassScreen.PLANS) }
+                    )
+                    BottomNavButton(
+                        selected = selected == PassScreen.PROFILE,
+                        icon = R.drawable.ic_nav_profile,
+                        label = stringResource(R.string.nav_profile),
+                        modifier = Modifier.weight(1f),
+                        onClick = { viewModel.openScreen(PassScreen.PROFILE) }
+                    )
+                }
             }
         }
     }
@@ -1138,13 +1167,22 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
 
 @Composable
 private fun BottomNavButton(selected: Boolean, icon: Int, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    val color by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(180),
+        label = "bottom-nav-content"
+    )
+    val iconSize by animateDpAsState(
+        targetValue = if (selected) 27.dp else 25.dp,
+        animationSpec = tween(180),
+        label = "bottom-nav-icon"
+    )
     Surface(
         modifier = modifier
-            .height(72.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(36.dp),
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f) else Color.Transparent
+            .height(62.dp),
+        onClick = onClick,
+        shape = RoundedCornerShape(31.dp),
+        color = Color.Transparent
     ) {
         Column(
             modifier = Modifier
@@ -1153,12 +1191,12 @@ private fun BottomNavButton(selected: Boolean, icon: Int, label: String, modifie
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.size(if (selected) 30.dp else 28.dp))
-            Spacer(Modifier.height(5.dp))
+            Icon(painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.size(iconSize))
+            Spacer(Modifier.height(3.dp))
             Text(
                 label,
                 color = color,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.labelLarge,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
                 textAlign = TextAlign.Center
             )
