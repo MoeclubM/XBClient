@@ -10,6 +10,7 @@
     <string name="common_back_profile">返回我的</string>
     <string name="common_back_settings">返回设置</string>
 
+    <string name="nav_home">首页</string>
     <string name="nav_nodes">节点</string>
     <string name="nav_plans">套餐</string>
     <string name="nav_profile">我的</string>
@@ -38,6 +39,7 @@
     <string name="auth_oauth_register_button">使用 %1$s 注册</string>
     <string name="auth_terms_agree">我已阅读并同意以下条款</string>
 
+    <string name="section_announcement">公告</string>
     <string name="section_account">账户</string>
     <string name="section_connection">连接</string>
     <string name="section_current_node">当前节点</string>
@@ -63,6 +65,7 @@
     <string name="action_test_all_nodes">测试全部节点</string>
     <string name="action_back_nodes">返回节点</string>
     <string name="action_test_testing">测试中</string>
+    <string name="action_select_node">选择节点</string>
     <string name="action_test_connection">测试连接</string>
     <string name="action_select_apps">选择应用</string>
     <string name="action_generate_invite">生成邀请码</string>
@@ -74,6 +77,10 @@
     <string name="subscription_redeem_button">去套餐兑换/购买</string>
     <string name="subscription_not_synced">订阅未同步</string>
     <string name="subscription_synced">订阅已同步</string>
+
+    <string name="page_home_subtitle">公告、连接状态与当前节点。</string>
+    <string name="notice_loading">公告正在加载。</string>
+    <string name="notice_empty">暂无公告。</string>
 
     <string name="page_plans_subtitle">选择可用套餐。</string>
     <string name="plans_loading">套餐正在加载。</string>

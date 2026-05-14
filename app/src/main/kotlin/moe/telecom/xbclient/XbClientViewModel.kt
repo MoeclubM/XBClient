@@ -49,6 +49,7 @@ data class XbClientUiState(
     val currencyUnit: String = "",
     val plans: List<PlanItem> = emptyList(),
     val anyTlsNodes: List<AnyTlsNode> = emptyList(),
+    val notices: List<NoticeItem> = emptyList(),
     val selectedNodeIndex: Int = 0,
     val nodeTestResults: Map<Int, String> = emptyMap(),
     val invites: List<InviteItem> = emptyList(),
@@ -71,6 +72,7 @@ data class XbClientUiState(
     val plansLoading: Boolean = false,
     val nodesTesting: Boolean = false,
     val invitesLoading: Boolean = false,
+    val noticesLoading: Boolean = false,
     val installedApps: List<InstalledAppItem> = emptyList(),
     val appSearchQuery: String = "",
     val nodeSwitchSheet: Boolean = false,
@@ -108,7 +110,7 @@ data class XbClientUiState(
         get() = subscriptionBlockReason.isNotEmpty()
 
     val isRefreshing: Boolean
-        get() = userLoading || nodesLoading || plansLoading || invitesLoading || nodesTesting
+        get() = userLoading || nodesLoading || plansLoading || invitesLoading || nodesTesting || noticesLoading
 }
 
 sealed interface XbClientEvent {
@@ -142,6 +144,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             if (state.authData.isNotEmpty()) {
                 refreshSubscriptionAndNodes(force = true)
                 refreshUserInfo()
+                refreshNotices()
                 refreshPlans()
                 refreshInvites()
                 refreshRewardConfig()
@@ -180,7 +183,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             PassScreen.NODE_SELECT -> refreshSubscriptionAndNodes()
             PassScreen.APP_RULES -> Unit
             PassScreen.SETTINGS -> Unit
-            PassScreen.NODES -> refreshSubscriptionAndNodes()
+            PassScreen.NODES -> {
+                refreshSubscriptionAndNodes()
+                refreshNotices()
+            }
         }
     }
 
@@ -206,6 +212,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             PassScreen.NODES -> {
                 refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
                 refreshUserInfo(showErrors = true)
+                refreshNotices(force = true, showLoading = true, showErrors = true)
             }
         }
     }
@@ -256,6 +263,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 emitMessage("登录成功。")
                 refreshSubscriptionAndNodes(force = true)
                 refreshUserInfo()
+                refreshNotices(force = true)
                 refreshPlans(force = true)
                 refreshInvites(force = true)
                 refreshRewardConfig()
@@ -289,6 +297,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 emitMessage("注册成功。")
                 refreshSubscriptionAndNodes(force = true)
                 refreshUserInfo()
+                refreshNotices(force = true)
                 refreshPlans(force = true)
                 refreshInvites(force = true)
                 refreshRewardConfig()
@@ -545,6 +554,35 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 }
                 if (showErrors) {
                     emitMessage("套餐加载失败：${error.message}")
+                }
+            }
+        }
+    }
+
+    fun refreshNotices(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty() || _uiState.value.noticesLoading) {
+            return
+        }
+        if (!force && _uiState.value.notices.isNotEmpty()) {
+            return
+        }
+        if (showLoading) {
+            _uiState.update { it.copy(noticesLoading = true) }
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody("公告加载", XboardApi.request("notices", defaultApiUrl(), authData, JSONObject()))
+                val notices = extractDataArray(body).toNoticeItemList()
+                val next = _uiState.value.copy(notices = notices, noticesLoading = false)
+                _uiState.value = next
+                persistStoredState(next)
+            } catch (error: Exception) {
+                if (showLoading) {
+                    _uiState.update { it.copy(noticesLoading = false) }
+                }
+                if (showErrors) {
+                    emitMessage("公告加载失败：${error.message}")
                 }
             }
         }
@@ -810,6 +848,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 emitMessage("OAuth 登录成功。")
                 refreshSubscriptionAndNodes(force = true)
                 refreshUserInfo()
+                refreshNotices(force = true)
                 refreshPlans(force = true)
                 refreshInvites(force = true)
                 refreshRewardConfig()
@@ -1265,6 +1304,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 currencyUnit = prefs[Keys.CURRENCY_UNIT].orEmpty(),
                 plans = cachedPlans(prefs[Keys.PLANS].orEmpty()),
                 anyTlsNodes = cachedNodes(prefs[Keys.ANYTLS_NODES].orEmpty()),
+                notices = cachedNotices(prefs[Keys.NOTICES].orEmpty()),
                 selectedNodeIndex = prefs[Keys.SELECTED_NODE_INDEX] ?: 0,
                 invites = cachedInvites(prefs[Keys.INVITES].orEmpty()),
                 inviteForce = prefs[Keys.INVITE_FORCE] ?: false,
@@ -1313,6 +1353,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 currencyUnit = legacy.getString("currency_unit", "").orEmpty(),
                 plans = cachedPlans(legacy.getString("plans", "").orEmpty()),
                 anyTlsNodes = cachedNodes(legacy.getString("anytls_nodes", "").orEmpty()),
+                notices = cachedNotices(legacy.getString("notices", "").orEmpty()),
                 selectedNodeIndex = legacy.getInt("selected_node_index", 0),
                 invites = cachedInvites(legacy.getString("invites", "").orEmpty()),
                 inviteForce = legacy.getBoolean("invite_force", false),
@@ -1401,6 +1442,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.CURRENCY_UNIT] = state.currencyUnit
             prefs[Keys.PLANS] = plansJson(state.plans)
             prefs[Keys.ANYTLS_NODES] = nodesJson(state.anyTlsNodes)
+            prefs[Keys.NOTICES] = noticesJson(state.notices)
             prefs[Keys.SELECTED_NODE_INDEX] = state.selectedNodeIndex
             prefs[Keys.INVITES] = invitesJson(state.invites)
             prefs[Keys.INVITE_FORCE] = state.inviteForce
@@ -1447,6 +1489,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("currency_unit", state.currencyUnit)
             .putString("plans", plansJson(state.plans))
             .putString("anytls_nodes", nodesJson(state.anyTlsNodes))
+            .putString("notices", noticesJson(state.notices))
             .putInt("selected_node_index", state.selectedNodeIndex)
             .putString("invites", invitesJson(state.invites))
             .putBoolean("invite_force", state.inviteForce)
@@ -1535,6 +1578,22 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         .put("reward_content", log.rewardContent)
                         .put("used_at", log.usedAt)
                         .put("created_at", log.createdAt)
+                )
+            }
+        }.toString()
+
+    private fun cachedNotices(value: String): List<NoticeItem> =
+        if (value.isEmpty()) emptyList() else JSONArray(value).toNoticeItemList()
+
+    private fun noticesJson(notices: List<NoticeItem>): String =
+        JSONArray().also { array ->
+            for (notice in notices) {
+                array.put(
+                    JSONObject()
+                        .put("id", notice.id)
+                        .put("title", notice.title)
+                        .put("content", notice.content)
+                        .put("created_at", notice.createdAt)
                 )
             }
         }.toString()
@@ -1708,6 +1767,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val CURRENCY_UNIT = stringPreferencesKey("currency_unit")
         val PLANS = stringPreferencesKey("plans")
         val ANYTLS_NODES = stringPreferencesKey("anytls_nodes")
+        val NOTICES = stringPreferencesKey("notices")
         val SELECTED_NODE_INDEX = intPreferencesKey("selected_node_index")
         val INVITES = stringPreferencesKey("invites")
         val INVITE_FORCE = booleanPreferencesKey("invite_force")

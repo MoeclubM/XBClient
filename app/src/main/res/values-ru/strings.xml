@@ -10,6 +10,7 @@
     <string name="common_back_profile">Назад к профилю</string>
     <string name="common_back_settings">Назад к настройкам</string>
 
+    <string name="nav_home">Главная</string>
     <string name="nav_nodes">Узлы</string>
     <string name="nav_plans">Тарифы</string>
     <string name="nav_profile">Профиль</string>
@@ -38,6 +39,7 @@
     <string name="auth_oauth_register_button">Зарегистрироваться через %1$s</string>
     <string name="auth_terms_agree">Я прочитал(а) и принимаю следующие условия</string>
 
+    <string name="section_announcement">Объявления</string>
     <string name="section_account">Аккаунт</string>
     <string name="section_connection">Подключение</string>
     <string name="section_current_node">Текущий узел</string>
@@ -63,6 +65,7 @@
     <string name="action_test_all_nodes">Проверить все узлы</string>
     <string name="action_back_nodes">Назад к узлам</string>
     <string name="action_test_testing">Проверка</string>
+    <string name="action_select_node">Выбрать узел</string>
     <string name="action_test_connection">Проверить соединение</string>
     <string name="action_select_apps">Выбрать приложения</string>
     <string name="action_generate_invite">Создать приглашение</string>
@@ -74,6 +77,10 @@
     <string name="subscription_redeem_button">Перейти к тарифам</string>
     <string name="subscription_not_synced">Подписка не синхронизирована</string>
     <string name="subscription_synced">Подписка синхронизирована</string>
+
+    <string name="page_home_subtitle">Объявления, состояние подключения и текущий узел.</string>
+    <string name="notice_loading">Загрузка объявлений.</string>
+    <string name="notice_empty">Объявлений нет.</string>
 
     <string name="page_plans_subtitle">Выберите доступный тариф.</string>
     <string name="plans_loading">Загрузка тарифов.</string>

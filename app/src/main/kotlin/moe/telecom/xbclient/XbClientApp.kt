@@ -1077,7 +1077,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
                                     PassScreen.PROFILE -> ProfileScreen(state, viewModel)
                                     PassScreen.PLANS -> PlansScreen(state, viewModel)
                                     PassScreen.SETTINGS -> ProfileScreen(state, viewModel)
-                                    else -> NodesScreen(state, viewModel)
+                                    else -> HomeScreen(state, viewModel)
                                 }
                             }
                         }
@@ -1143,7 +1143,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                     BottomNavButton(
                         selected = selected == PassScreen.NODES,
                         icon = R.drawable.ic_nav_nodes,
-                        label = stringResource(R.string.nav_nodes),
+                        label = stringResource(R.string.nav_home),
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.openScreen(PassScreen.NODES) }
                     )
@@ -1207,38 +1207,22 @@ private fun BottomNavButton(selected: Boolean, icon: Int, label: String, modifie
 }
 
 @Composable
-private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    PageHeader(stringResource(R.string.nav_nodes))
-    if (state.subscriptionBlocked) {
-        val blockTitle = stringResource(
-            id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_title else R.string.subscription_expired_title
-        )
-        val blockDescription = stringResource(
-            id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_body else R.string.subscription_expired_body
-        )
-        Section(blockTitle) {
-            OutlinedCard(
-                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(blockDescription, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (state.subscriptionSummary.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(state.subscriptionSummary, style = MaterialTheme.typography.titleMedium)
-                    }
-                    Spacer(Modifier.height(14.dp))
-                    Button(onClick = { viewModel.openScreen(PassScreen.PLANS) }, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.subscription_redeem_button))
-                    }
+private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
+    val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
+    PageHeader(stringResource(R.string.nav_home), stringResource(R.string.page_home_subtitle))
+    Section(stringResource(R.string.section_announcement)) {
+        if (state.notices.isEmpty()) {
+            Text(stringResource(id = if (state.noticesLoading) R.string.notice_loading else R.string.notice_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            for ((index, notice) in state.notices.take(3).withIndex()) {
+                NoticeCard(notice)
+                if (index != state.notices.take(3).lastIndex) {
+                    Spacer(Modifier.height(10.dp))
                 }
             }
         }
-        return
     }
-    val context = LocalContext.current
-    val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
     Section(stringResource(R.string.section_connection)) {
         Panel {
             val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
@@ -1270,66 +1254,87 @@ private fun NodesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             }
         }
     }
-    Section(stringResource(R.string.section_current_node)) {
-        Panel {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 78.dp)
-                    .animateContentSize(animationSpec = tween(180))
+    if (state.subscriptionBlocked) {
+        val blockTitle = stringResource(
+            id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_title else R.string.subscription_expired_title
+        )
+        val blockDescription = stringResource(
+            id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_body else R.string.subscription_expired_body
+        )
+        Section(blockTitle) {
+            OutlinedCard(
+                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))
             ) {
-                val nodeTitle = selectedNode?.displayName(state.selectedNodeIndex, stringResource(R.string.node_default_name, state.selectedNodeIndex + 1))
-                    ?: stringResource(id = if (state.nodesLoading) R.string.status_nodes_syncing else R.string.status_no_nodes)
-                AnimatedContent(targetState = nodeTitle, transitionSpec = { contentTransition() }, label = "current-node") { title ->
-                    Text(title, style = MaterialTheme.typography.headlineSmall)
-                }
-                Spacer(Modifier.height(6.dp))
-                val testText = state.nodeTestResults[state.selectedNodeIndex] ?: stringResource(R.string.status_not_tested)
-                AnimatedContent(targetState = testText, transitionSpec = { contentTransition() }, label = "current-node-test") { text ->
-                    Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(
-                    onClick = { viewModel.testNode(state.selectedNodeIndex) },
-                    enabled = selectedNode != null,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.action_test_current_node))
-                }
-                FilledTonalButton(
-                    onClick = viewModel::testAllNodes,
-                    enabled = !state.nodesTesting && state.anyTlsNodes.isNotEmpty(),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    AnimatedContent(
-                        targetState = stringResource(id = if (state.nodesTesting) R.string.action_test_testing else R.string.action_test_all_nodes),
-                        transitionSpec = { contentTransition() },
-                        label = "test-all-main"
-                    ) { text ->
-                        Text(text)
+                Column(Modifier.padding(16.dp)) {
+                    Text(blockDescription, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (state.subscriptionSummary.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(state.subscriptionSummary, style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Button(onClick = { viewModel.openScreen(PassScreen.PLANS) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.subscription_redeem_button))
                     }
                 }
             }
         }
+        return
     }
-    Section(stringResource(R.string.section_available_nodes)) {
-        if (state.anyTlsNodes.isEmpty()) {
-            Text(stringResource(id = if (state.nodesLoading) R.string.status_nodes_syncing else R.string.status_no_nodes_sentence), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            for ((index, node) in state.anyTlsNodes.withIndex()) {
-                NodeRow(
-                    index = index,
-                    node = node,
-                    selected = index == state.selectedNodeIndex,
-                    testText = state.nodeTestResults[index],
-                    onTest = { viewModel.testNode(index) },
-                    onSelect = { viewModel.selectNode(index, returnToNodes = true) }
-                )
-                if (index != state.anyTlsNodes.lastIndex) {
-                    Spacer(Modifier.height(10.dp))
+    Section(stringResource(R.string.section_current_node)) {
+        OutlinedCard(
+            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier
+                .clickable { viewModel.openScreen(PassScreen.NODE_SELECT) }
+                .fillMaxWidth()
+                .animateContentSize(animationSpec = tween(180))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 78.dp)
+                    .padding(16.dp)
+            ) {
+                val nodeTitle = selectedNode?.displayName(state.selectedNodeIndex, stringResource(R.string.node_default_name, state.selectedNodeIndex + 1))
+                    ?: stringResource(id = if (state.nodesLoading) R.string.status_nodes_syncing else R.string.status_no_nodes)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.weight(1f)) {
+                        AnimatedContent(targetState = nodeTitle, transitionSpec = { contentTransition() }, label = "current-node") { title ->
+                            Text(title, style = MaterialTheme.typography.headlineSmall)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(stringResource(R.string.action_select_node), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text("›", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoticeCard(notice: NoticeItem) {
+    OutlinedCard(
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            if (notice.title.isNotBlank()) {
+                Text(notice.title, style = MaterialTheme.typography.titleMedium)
+            }
+            val content = plainNoticeText(notice.content)
+            if (content.isNotBlank()) {
+                if (notice.title.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                }
+                Text(content, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (notice.createdAt > 0L) {
+                Spacer(Modifier.height(8.dp))
+                Text(formatUnixTime(notice.createdAt), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -1751,21 +1756,7 @@ private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMode
                     }
                 }
             } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = { viewModel.openScreen(PassScreen.NODES) }, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.action_back_nodes))
-                    }
-                    Button(
-                        onClick = viewModel::testAllNodes,
-                        enabled = !state.nodesTesting && state.anyTlsNodes.isNotEmpty(),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        AnimatedContent(targetState = stringResource(id = if (state.nodesTesting) R.string.action_test_testing else R.string.action_test_all_nodes), transitionSpec = { contentTransition() }, label = "test-all") { text ->
-                            Text(text)
-                        }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(6.dp))
             }
         }
         if (!state.subscriptionBlocked) {
@@ -1831,12 +1822,15 @@ private fun NodeRow(
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text(node.protocolLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    testText ?: stringResource(R.string.status_not_tested),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                val visibleTestText = visibleNodeTestText(testText)
+                if (visibleTestText != null) {
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        visibleTestText,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -1947,9 +1941,10 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
             )
             LazyColumn(Modifier.heightIn(max = 520.dp)) {
                 itemsIndexed(state.anyTlsNodes, key = { index, node -> "${node.displayName(index)}-$index" }) { index, node ->
+                    val visibleTestText = visibleNodeTestText(state.nodeTestResults[index])
                     ListItem(
                         headlineContent = { Text(node.displayName(index, stringResource(R.string.node_default_name, index + 1))) },
-                        supportingContent = { Text("${node.protocolLabel} · ${state.nodeTestResults[index] ?: stringResource(R.string.status_not_tested)}") },
+                        supportingContent = { Text(if (visibleTestText == null) node.protocolLabel else "${node.protocolLabel} · $visibleTestText") },
                         trailingContent = { if (index == state.selectedNodeIndex) Text(stringResource(R.string.common_selected)) },
                         modifier = Modifier.clickable { viewModel.chooseNodeFromDialog(index) }
                     )
@@ -2074,6 +2069,20 @@ private fun themeOptionLabel(mode: String, language: String): String {
         }
     }
 }
+
+private fun plainNoticeText(value: String): String =
+    value
+        .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+        .replace(Regex("</p>", RegexOption.IGNORE_CASE), "\n")
+        .replace(Regex("<[^>]+>"), "")
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .trim()
+
+private fun visibleNodeTestText(text: String?): String? =
+    text?.takeIf { it.isNotBlank() && it != "测试中" }
 
 private fun formatMoney(amount: Int, symbol: String, unit: String): String =
     (symbol + String.format(Locale.US, "%.2f", amount / 100.0) + if (unit.isBlank()) "" else " $unit").trim()

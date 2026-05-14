@@ -10,6 +10,7 @@
     <string name="common_back_profile">Back to profile</string>
     <string name="common_back_settings">Back to settings</string>
 
+    <string name="nav_home">Home</string>
     <string name="nav_nodes">Nodes</string>
     <string name="nav_plans">Plans</string>
     <string name="nav_profile">Profile</string>
@@ -38,6 +39,7 @@
     <string name="auth_oauth_register_button">Register with %1$s</string>
     <string name="auth_terms_agree">I have read and agree to the following terms</string>
 
+    <string name="section_announcement">Announcements</string>
     <string name="section_account">Account</string>
     <string name="section_connection">Connection</string>
     <string name="section_current_node">Current node</string>
@@ -63,6 +65,7 @@
     <string name="action_test_all_nodes">Test all nodes</string>
     <string name="action_back_nodes">Back to nodes</string>
     <string name="action_test_testing">Testing</string>
+    <string name="action_select_node">Select node</string>
     <string name="action_test_connection">Test connection</string>
     <string name="action_select_apps">Select apps</string>
     <string name="action_generate_invite">Generate invite</string>
@@ -74,6 +77,10 @@
     <string name="subscription_redeem_button">Go to plans</string>
     <string name="subscription_not_synced">Subscription not synced</string>
     <string name="subscription_synced">Subscription synced</string>
+
+    <string name="page_home_subtitle">Announcements, connection status, and current node.</string>
+    <string name="notice_loading">Loading announcements.</string>
+    <string name="notice_empty">No announcements.</string>
 
     <string name="page_plans_subtitle">Choose an available plan.</string>
     <string name="plans_loading">Loading plans.</string>

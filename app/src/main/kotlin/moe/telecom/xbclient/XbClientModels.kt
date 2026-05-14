@@ -122,6 +122,13 @@ data class AdRewardLogItem(
     val createdAt: Long
 )
 
+data class NoticeItem(
+    val id: Int,
+    val title: String,
+    val content: String,
+    val createdAt: Long
+)
+
 fun JSONObject.toAnyTlsNode(): AnyTlsNode =
     optString("type", optString("protocol", "anytls")).lowercase(Locale.US).let { rawProtocol ->
         val protocol = when (rawProtocol) {
@@ -220,6 +227,17 @@ fun JSONArray.toAdRewardLogItemList(): List<AdRewardLogItem> =
         )
     }
 
+fun JSONArray.toNoticeItemList(): List<NoticeItem> =
+    List(length()) { index ->
+        val item = getJSONObject(index)
+        NoticeItem(
+            id = item.optInt("id"),
+            title = item.optString("title", item.optString("subject")),
+            content = item.optString("content", item.optString("message")),
+            createdAt = numericValue(item.opt("created_at")).toLong()
+        )
+    }.filter { it.title.isNotBlank() || it.content.isNotBlank() }
+
 fun rewardContentText(item: JSONObject): String {
     for (key in arrayOf("reward_content", "reward_text", "reward_description", "description")) {
         val text = item.optString(key)
@@ -280,7 +298,7 @@ fun extractDataArray(body: JSONObject): JSONArray {
     }
     if (data is JSONObject) {
         directArray(data)?.let { return it }
-        for (key in arrayOf("data", "invite_codes", "codes", "list", "items")) {
+        for (key in arrayOf("data", "invite_codes", "codes", "list", "items", "notices")) {
             val nested = data.optJSONObject(key)
             if (nested != null) {
                 directArray(nested)?.let { return it }
@@ -290,7 +308,7 @@ fun extractDataArray(body: JSONObject): JSONArray {
         val keys = data.keys()
         while (keys.hasNext()) {
             val value = data.opt(keys.next())
-            if (value is JSONObject && value.has("code")) {
+            if (value is JSONObject && (value.has("code") || value.has("title") || value.has("content"))) {
                 values.put(value)
             }
         }
@@ -302,7 +320,7 @@ fun extractDataArray(body: JSONObject): JSONArray {
 }
 
 private fun directArray(data: JSONObject): JSONArray? {
-    for (key in arrayOf("data", "invite_codes", "codes", "list", "items")) {
+    for (key in arrayOf("data", "invite_codes", "codes", "list", "items", "notices")) {
         val array = data.optJSONArray(key)
         if (array != null) {
             return array

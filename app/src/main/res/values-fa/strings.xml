@@ -10,6 +10,7 @@
     <string name="common_back_profile">بازگشت به نمایه</string>
     <string name="common_back_settings">بازگشت به تنظیمات</string>
 
+    <string name="nav_home">خانه</string>
     <string name="nav_nodes">گره‌ها</string>
     <string name="nav_plans">پلن‌ها</string>
     <string name="nav_profile">نمایه</string>
@@ -38,6 +39,7 @@
     <string name="auth_oauth_register_button">ثبت‌نام با %1$s</string>
     <string name="auth_terms_agree">شرایط زیر را خوانده‌ام و می‌پذیرم</string>
 
+    <string name="section_announcement">اعلان‌ها</string>
     <string name="section_account">حساب</string>
     <string name="section_connection">اتصال</string>
     <string name="section_current_node">گره فعلی</string>
@@ -63,6 +65,7 @@
     <string name="action_test_all_nodes">آزمون همه گره‌ها</string>
     <string name="action_back_nodes">بازگشت به گره‌ها</string>
     <string name="action_test_testing">در حال آزمون</string>
+    <string name="action_select_node">انتخاب گره</string>
     <string name="action_test_connection">آزمون اتصال</string>
     <string name="action_select_apps">انتخاب برنامه‌ها</string>
     <string name="action_generate_invite">ساخت کد دعوت</string>
@@ -74,6 +77,10 @@
     <string name="subscription_redeem_button">رفتن به پلن‌ها</string>
     <string name="subscription_not_synced">اشتراک همگام نشده است</string>
     <string name="subscription_synced">اشتراک همگام شد</string>
+
+    <string name="page_home_subtitle">اعلان‌ها، وضعیت اتصال و گره فعلی.</string>
+    <string name="notice_loading">در حال بارگیری اعلان‌ها.</string>
+    <string name="notice_empty">اعلانی وجود ندارد.</string>
 
     <string name="page_plans_subtitle">یک پلن موجود را انتخاب کنید.</string>
     <string name="plans_loading">در حال بارگیری پلن‌ها.</string>

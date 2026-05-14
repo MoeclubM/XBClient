@@ -10,6 +10,7 @@
     <string name="common_back_profile">マイページに戻る</string>
     <string name="common_back_settings">設定に戻る</string>
 
+    <string name="nav_home">ホーム</string>
     <string name="nav_nodes">ノード</string>
     <string name="nav_plans">プラン</string>
     <string name="nav_profile">マイページ</string>
@@ -38,6 +39,7 @@
     <string name="auth_oauth_register_button">%1$s で登録</string>
     <string name="auth_terms_agree">以下の規約を読み、同意しました</string>
 
+    <string name="section_announcement">お知らせ</string>
     <string name="section_account">アカウント</string>
     <string name="section_connection">接続</string>
     <string name="section_current_node">現在のノード</string>
@@ -63,6 +65,7 @@
     <string name="action_test_all_nodes">全ノードをテスト</string>
     <string name="action_back_nodes">ノードに戻る</string>
     <string name="action_test_testing">テスト中</string>
+    <string name="action_select_node">ノードを選択</string>
     <string name="action_test_connection">接続をテスト</string>
     <string name="action_select_apps">アプリを選択</string>
     <string name="action_generate_invite">招待コードを生成</string>
@@ -74,6 +77,10 @@
     <string name="subscription_redeem_button">プランへ移動</string>
     <string name="subscription_not_synced">サブスクリプション未同期</string>
     <string name="subscription_synced">サブスクリプション同期済み</string>
+
+    <string name="page_home_subtitle">お知らせ、接続状態、現在のノード。</string>
+    <string name="notice_loading">お知らせを読み込み中。</string>
+    <string name="notice_empty">お知らせはありません。</string>
 
     <string name="page_plans_subtitle">利用可能なプランを選択します。</string>
     <string name="plans_loading">プランを読み込み中です。</string>
