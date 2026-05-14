@@ -44,6 +44,7 @@
     <string name="section_connection">اتصال</string>
     <string name="section_current_node">گره فعلی</string>
     <string name="section_available_nodes">گره‌های موجود</string>
+    <string name="section_traffic">ترافیک</string>
     <string name="section_plans">پلن‌ها</string>
     <string name="section_invite">دعوت‌ها</string>
     <string name="section_app_rules">قوانین برنامه‌ها</string>
@@ -58,6 +59,9 @@
     <string name="status_no_nodes">گره موجود نیست</string>
     <string name="status_no_nodes_sentence">گره موجود نیست.</string>
     <string name="status_not_tested">آزموده نشده</string>
+    <string name="connection_duration">مدت اتصال</string>
+    <string name="session_traffic">ترافیک این اتصال</string>
+    <string name="node_latency">تأخیر %1$s</string>
     <string name="status_logged_in">وارد شده‌اید</string>
     <string name="action_connect">شروع اتصال</string>
     <string name="action_disconnect">قطع اتصال</string>
@@ -65,7 +69,6 @@
     <string name="action_test_all_nodes">آزمون همه گره‌ها</string>
     <string name="action_back_nodes">بازگشت به گره‌ها</string>
     <string name="action_test_testing">در حال آزمون</string>
-    <string name="action_open_node_page">صفحه گره‌ها</string>
     <string name="action_select_node">انتخاب گره</string>
     <string name="action_test_connection">آزمون اتصال</string>
     <string name="action_select_apps">انتخاب برنامه‌ها</string>
@@ -79,7 +82,6 @@
     <string name="subscription_not_synced">اشتراک همگام نشده است</string>
     <string name="subscription_synced">اشتراک همگام شد</string>
 
-    <string name="page_home_subtitle">اعلان‌ها، وضعیت اتصال و گره فعلی.</string>
     <string name="notice_loading">در حال بارگیری اعلان‌ها.</string>
     <string name="notice_empty">اعلانی وجود ندارد.</string>
 

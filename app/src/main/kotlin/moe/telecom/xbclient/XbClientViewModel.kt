@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.net.TrafficStats
 import android.os.Build
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -69,6 +70,9 @@ data class XbClientUiState(
     val vpnIpv6Enabled: Boolean = true,
     val vpnRequested: Boolean = false,
     val vpnStarting: Boolean = false,
+    val vpnConnectedAt: Long = 0L,
+    val vpnSessionRxBytes: Long = 0L,
+    val vpnSessionTxBytes: Long = 0L,
     val userLoading: Boolean = false,
     val nodesLoading: Boolean = false,
     val plansLoading: Boolean = false,
@@ -135,6 +139,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private var nodeAutoRefreshStarted = false
     private var pendingRewardScene = ""
     private var pendingRewardStartedAt = 0L
+    private var vpnBaseRxBytes = 0L
+    private var vpnBaseTxBytes = 0L
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1195,6 +1201,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun beginVpn(context: Context, nodeIndex: Int) {
         val state = _uiState.value
         val selectedIndex = nodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0))
+        if (!state.vpnRequested) {
+            vpnBaseRxBytes = currentUidRxBytes()
+            vpnBaseTxBytes = currentUidTxBytes()
+        }
         val intent = Intent(context, XbClientVpnService::class.java).apply {
             action = XbClientVpnService.ACTION_START
             putExtra(XbClientVpnService.EXTRA_NODE, state.anyTlsNodes[selectedIndex].rawJson)
@@ -1213,7 +1223,16 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         } else {
             context.startService(intent)
         }
-        _uiState.update { it.copy(vpnStarting = true, screen = PassScreen.NODES, selectedNodeIndex = selectedIndex) }
+        _uiState.update {
+            it.copy(
+                vpnStarting = true,
+                screen = PassScreen.NODES,
+                selectedNodeIndex = selectedIndex,
+                vpnConnectedAt = if (state.vpnRequested) it.vpnConnectedAt else 0L,
+                vpnSessionRxBytes = if (state.vpnRequested) it.vpnSessionRxBytes else 0L,
+                vpnSessionTxBytes = if (state.vpnRequested) it.vpnSessionTxBytes else 0L
+            )
+        }
         emitMessage("连接请求已提交。")
     }
 
@@ -1233,10 +1252,49 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             } else {
                 state.selectedNodeIndex
             }
-            state.copy(vpnRequested = running, vpnStarting = false, selectedNodeIndex = selected)
+            val connectedAt = if (running && !state.vpnRequested) {
+                vpnBaseRxBytes = currentUidRxBytes()
+                vpnBaseTxBytes = currentUidTxBytes()
+                val startedAt = System.currentTimeMillis()
+                app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
+                    .putLong("vpn_connected_at", startedAt)
+                    .putLong("vpn_base_rx_bytes", vpnBaseRxBytes)
+                    .putLong("vpn_base_tx_bytes", vpnBaseTxBytes)
+                    .apply()
+                startedAt
+            } else if (running) {
+                state.vpnConnectedAt
+            } else {
+                app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
+                    .remove("vpn_connected_at")
+                    .remove("vpn_base_rx_bytes")
+                    .remove("vpn_base_tx_bytes")
+                    .apply()
+                0L
+            }
+            state.copy(
+                vpnRequested = running,
+                vpnStarting = false,
+                selectedNodeIndex = selected,
+                vpnConnectedAt = connectedAt,
+                vpnSessionRxBytes = if (running) (currentUidRxBytes() - vpnBaseRxBytes).coerceAtLeast(0L) else 0L,
+                vpnSessionTxBytes = if (running) (currentUidTxBytes() - vpnBaseTxBytes).coerceAtLeast(0L) else 0L
+            )
         }
         if (error.isNotEmpty()) {
             emitMessage(error)
+        }
+    }
+
+    fun refreshVpnSessionStats() {
+        if (!_uiState.value.vpnRequested) {
+            return
+        }
+        _uiState.update {
+            it.copy(
+                vpnSessionRxBytes = (currentUidRxBytes() - vpnBaseRxBytes).coerceAtLeast(0L),
+                vpnSessionTxBytes = (currentUidTxBytes() - vpnBaseTxBytes).coerceAtLeast(0L)
+            )
         }
     }
 
@@ -1400,8 +1458,19 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 oauthProviders = cachedOAuthProviders(legacy.getString("oauth_providers", "").orEmpty())
             )
         }
+        if (state.vpnRequested) {
+            vpnBaseRxBytes = legacy.getLong("vpn_base_rx_bytes", currentUidRxBytes())
+            vpnBaseTxBytes = legacy.getLong("vpn_base_tx_bytes", currentUidTxBytes())
+        }
         _uiState.value = state.copy(
-            selectedNodeIndex = state.selectedNodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0))
+            selectedNodeIndex = state.selectedNodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0)),
+            vpnConnectedAt = if (state.vpnRequested) {
+                legacy.getLong("vpn_connected_at", 0L).takeIf { it > 0L } ?: System.currentTimeMillis()
+            } else {
+                0L
+            },
+            vpnSessionRxBytes = if (state.vpnRequested) (currentUidRxBytes() - vpnBaseRxBytes).coerceAtLeast(0L) else 0L,
+            vpnSessionTxBytes = if (state.vpnRequested) (currentUidTxBytes() - vpnBaseTxBytes).coerceAtLeast(0L) else 0L
         )
         if (!hasDataStoreState) {
             persistStoredState(_uiState.value)
@@ -1737,6 +1806,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val value = BuildConfig.DEFAULT_API_URL.trim()
         return if (value.startsWith("http://") || value.startsWith("https://")) value else "https://$value"
     }
+
+    private fun currentUidRxBytes(): Long =
+        TrafficStats.getUidRxBytes(app.applicationInfo.uid).coerceAtLeast(0L)
+
+    private fun currentUidTxBytes(): Long =
+        TrafficStats.getUidTxBytes(app.applicationInfo.uid).coerceAtLeast(0L)
 
     private fun emitMessage(text: String) {
         emitEvent(XbClientEvent.Message(text))

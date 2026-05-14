@@ -44,6 +44,7 @@
     <string name="section_connection">Connection</string>
     <string name="section_current_node">Current node</string>
     <string name="section_available_nodes">Available nodes</string>
+    <string name="section_traffic">Traffic</string>
     <string name="section_plans">Plans</string>
     <string name="section_invite">Invites</string>
     <string name="section_app_rules">App rules</string>
@@ -58,6 +59,9 @@
     <string name="status_no_nodes">No available nodes</string>
     <string name="status_no_nodes_sentence">No available nodes.</string>
     <string name="status_not_tested">Not tested</string>
+    <string name="connection_duration">Duration</string>
+    <string name="session_traffic">Session traffic</string>
+    <string name="node_latency">Latency %1$s</string>
     <string name="status_logged_in">Logged in</string>
     <string name="action_connect">Connect</string>
     <string name="action_disconnect">Disconnect</string>
@@ -65,7 +69,6 @@
     <string name="action_test_all_nodes">Test all nodes</string>
     <string name="action_back_nodes">Back to nodes</string>
     <string name="action_test_testing">Testing</string>
-    <string name="action_open_node_page">Node page</string>
     <string name="action_select_node">Select node</string>
     <string name="action_test_connection">Test connection</string>
     <string name="action_select_apps">Select apps</string>
@@ -79,7 +82,6 @@
     <string name="subscription_not_synced">Subscription not synced</string>
     <string name="subscription_synced">Subscription synced</string>
 
-    <string name="page_home_subtitle">Announcements, connection status, and current node.</string>
     <string name="notice_loading">Loading announcements.</string>
     <string name="notice_empty">No announcements.</string>
 

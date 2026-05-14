@@ -44,6 +44,7 @@
     <string name="section_connection">Подключение</string>
     <string name="section_current_node">Текущий узел</string>
     <string name="section_available_nodes">Доступные узлы</string>
+    <string name="section_traffic">Трафик</string>
     <string name="section_plans">Тарифы</string>
     <string name="section_invite">Приглашения</string>
     <string name="section_app_rules">Правила приложений</string>
@@ -58,6 +59,9 @@
     <string name="status_no_nodes">Нет доступных узлов</string>
     <string name="status_no_nodes_sentence">Нет доступных узлов.</string>
     <string name="status_not_tested">Не проверено</string>
+    <string name="connection_duration">Время подключения</string>
+    <string name="session_traffic">Трафик сеанса</string>
+    <string name="node_latency">Задержка %1$s</string>
     <string name="status_logged_in">Выполнен вход</string>
     <string name="action_connect">Подключиться</string>
     <string name="action_disconnect">Отключиться</string>
@@ -65,7 +69,6 @@
     <string name="action_test_all_nodes">Проверить все узлы</string>
     <string name="action_back_nodes">Назад к узлам</string>
     <string name="action_test_testing">Проверка</string>
-    <string name="action_open_node_page">Страница узлов</string>
     <string name="action_select_node">Выбрать узел</string>
     <string name="action_test_connection">Проверить соединение</string>
     <string name="action_select_apps">Выбрать приложения</string>
@@ -79,7 +82,6 @@
     <string name="subscription_not_synced">Подписка не синхронизирована</string>
     <string name="subscription_synced">Подписка синхронизирована</string>
 
-    <string name="page_home_subtitle">Объявления, состояние подключения и текущий узел.</string>
     <string name="notice_loading">Загрузка объявлений.</string>
     <string name="notice_empty">Объявлений нет.</string>
 

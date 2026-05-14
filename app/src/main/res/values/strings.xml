@@ -44,6 +44,7 @@
     <string name="section_connection">连接</string>
     <string name="section_current_node">当前节点</string>
     <string name="section_available_nodes">可用节点</string>
+    <string name="section_traffic">流量</string>
     <string name="section_plans">套餐</string>
     <string name="section_invite">邀请</string>
     <string name="section_app_rules">应用规则</string>
@@ -58,6 +59,9 @@
     <string name="status_no_nodes">暂无可用节点</string>
     <string name="status_no_nodes_sentence">暂无可用节点。</string>
     <string name="status_not_tested">未测试</string>
+    <string name="connection_duration">连接时长</string>
+    <string name="session_traffic">本次流量</string>
+    <string name="node_latency">延迟 %1$s</string>
     <string name="status_logged_in">已登录</string>
     <string name="action_connect">开始连接</string>
     <string name="action_disconnect">断开</string>
@@ -65,7 +69,6 @@
     <string name="action_test_all_nodes">测试全部节点</string>
     <string name="action_back_nodes">返回节点</string>
     <string name="action_test_testing">测试中</string>
-    <string name="action_open_node_page">节点页面</string>
     <string name="action_select_node">选择节点</string>
     <string name="action_test_connection">测试连接</string>
     <string name="action_select_apps">选择应用</string>
@@ -79,7 +82,6 @@
     <string name="subscription_not_synced">订阅未同步</string>
     <string name="subscription_synced">订阅已同步</string>
 
-    <string name="page_home_subtitle">公告、连接状态与当前节点。</string>
     <string name="notice_loading">公告正在加载。</string>
     <string name="notice_empty">暂无公告。</string>
 

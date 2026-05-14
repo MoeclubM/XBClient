@@ -1105,6 +1105,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
     val selected = when (state.screen) {
         PassScreen.PROFILE, PassScreen.SETTINGS, PassScreen.APP_RULES -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
+        PassScreen.NODE_SELECT -> PassScreen.NODE_SELECT
         else -> PassScreen.NODES
     }
     Surface(
@@ -1130,10 +1131,11 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
             ) {
                 val selectedIndex = when (selected) {
                     PassScreen.NODES -> 0
-                    PassScreen.PLANS -> 1
-                    else -> 2
+                    PassScreen.NODE_SELECT -> 1
+                    PassScreen.PLANS -> 2
+                    else -> 3
                 }
-                val itemWidth = maxWidth / 3
+                val itemWidth = maxWidth / 4
                 val pillOffset by animateDpAsState(
                     targetValue = itemWidth * selectedIndex.toFloat() + 2.dp,
                     animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
@@ -1153,10 +1155,17 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                     BottomNavButton(
                         selected = selected == PassScreen.NODES,
-                        icon = R.drawable.ic_nav_nodes,
+                        icon = R.drawable.ic_nav_home,
                         label = stringResource(R.string.nav_home),
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.openScreen(PassScreen.NODES) }
+                    )
+                    BottomNavButton(
+                        selected = selected == PassScreen.NODE_SELECT,
+                        icon = R.drawable.ic_nav_nodes,
+                        label = stringResource(R.string.nav_nodes),
+                        modifier = Modifier.weight(1f),
+                        onClick = { viewModel.openScreen(PassScreen.NODE_SELECT) }
                     )
                     BottomNavButton(
                         selected = selected == PassScreen.PLANS,
@@ -1227,7 +1236,15 @@ private fun BottomNavButton(selected: Boolean, icon: Int, label: String, modifie
 private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
-    PageHeader(stringResource(R.string.nav_home), stringResource(R.string.page_home_subtitle))
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(state.vpnRequested) {
+        while (state.vpnRequested) {
+            now = System.currentTimeMillis()
+            viewModel.refreshVpnSessionStats()
+            delay(1000)
+        }
+    }
+    PageHeader(stringResource(R.string.nav_home))
     Section(stringResource(R.string.section_connection)) {
         Panel {
             val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
@@ -1255,6 +1272,21 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             ) {
                 AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
                     Text(text)
+                }
+            }
+            if (state.vpnRequested) {
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    InfoCell(
+                        label = stringResource(R.string.connection_duration),
+                        value = formatDuration((now - state.vpnConnectedAt).coerceAtLeast(0L)),
+                        modifier = Modifier.weight(1f)
+                    )
+                    InfoCell(
+                        label = stringResource(R.string.session_traffic),
+                        value = formatTrafficBytes((state.vpnSessionRxBytes + state.vpnSessionTxBytes).toDouble()),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
@@ -1292,6 +1324,7 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
+                .clickable { viewModel.openScreen(PassScreen.NODE_SELECT) }
                 .fillMaxWidth()
                 .animateContentSize(animationSpec = tween(180))
         ) {
@@ -1309,18 +1342,37 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                             Text(title, style = MaterialTheme.typography.headlineSmall)
                         }
                         Spacer(Modifier.height(6.dp))
-                        Text(stringResource(R.string.action_select_node), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val latencyText = visibleNodeTestText(state.nodeTestResults[state.selectedNodeIndex])
+                        Text(
+                            listOfNotNull(selectedNode?.protocolLabel, latencyText?.let { stringResource(R.string.node_latency, it) }).joinToString(" · "),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     Text("›", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Spacer(Modifier.height(14.dp))
-                FilledTonalButton(
-                    onClick = { viewModel.openScreen(PassScreen.NODE_SELECT) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.action_open_node_page))
-                }
             }
+        }
+    }
+    if (state.subscriptionSummary.isNotEmpty()) {
+        Section(stringResource(R.string.section_traffic)) {
+            Panel {
+                Text(state.subscriptionSummary, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoCell(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            Text(value, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -2117,6 +2169,18 @@ private fun plainNoticeText(value: String): String =
 
 private fun visibleNodeTestText(text: String?): String? =
     text?.takeIf { it.isNotBlank() && it != "测试中" }
+
+private fun formatDuration(durationMs: Long): String {
+    val seconds = durationMs / 1000
+    val hours = seconds / 3600
+    val minutes = seconds % 3600 / 60
+    val restSeconds = seconds % 60
+    return if (hours > 0) {
+        String.format(Locale.US, "%d:%02d:%02d", hours, minutes, restSeconds)
+    } else {
+        String.format(Locale.US, "%02d:%02d", minutes, restSeconds)
+    }
+}
 
 private fun formatMoney(amount: Int, symbol: String, unit: String): String =
     (symbol + String.format(Locale.US, "%.2f", amount / 100.0) + if (unit.isBlank()) "" else " $unit").trim()
