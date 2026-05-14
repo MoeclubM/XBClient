@@ -91,8 +91,8 @@
     <string name="plan_price_unset">قیمت تنظیم نشده است</string>
     <string name="plan_traffic">ترافیک %1$s</string>
 
-    <string name="reward_plan_title">تبلیغ پلن</string>
-    <string name="reward_points_title">تبلیغ امتیاز</string>
+    <string name="reward_plan_title">پلن رایگان</string>
+    <string name="reward_points_title">امتیاز رایگان</string>
     <string name="reward_plan_description">برای دریافت پاداش پلن، تبلیغ را کامل ببینید.</string>
     <string name="reward_points_description">برای دریافت امتیاز، تبلیغ را کامل ببینید.</string>
     <string name="reward_watch">دیدن تبلیغ</string>
@@ -145,7 +145,6 @@
     <string name="about_privacy_policy">سیاست حریم خصوصی</string>
 
     <string name="page_node_select_title">انتخاب گره</string>
-    <string name="page_node_select_subtitle">تأخیر واقعی اتصال هر گره تا سایت هدف را آزمایش کنید.</string>
     <string name="page_app_rules_title">قوانین برنامه‌ها</string>
     <string name="page_app_rules_subtitle">حالت فهرست مسدود یا مجاز را انتخاب کنید و برنامه‌های موردنظر را جستجو کنید.</string>
     <string name="mode_exclude">فهرست مسدود</string>

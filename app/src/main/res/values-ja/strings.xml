@@ -91,8 +91,8 @@
     <string name="plan_price_unset">価格未設定</string>
     <string name="plan_traffic">通信量 %1$s</string>
 
-    <string name="reward_plan_title">プラン広告</string>
-    <string name="reward_points_title">ポイント広告</string>
+    <string name="reward_plan_title">無料プラン</string>
+    <string name="reward_points_title">無料ポイント</string>
     <string name="reward_plan_description">広告を最後まで視聴してプラン報酬を受け取ります。</string>
     <string name="reward_points_description">広告を最後まで視聴してポイントを受け取ります。</string>
     <string name="reward_watch">広告を見る</string>
@@ -145,7 +145,6 @@
     <string name="about_privacy_policy">プライバシーポリシー</string>
 
     <string name="page_node_select_title">ノードを選択</string>
-    <string name="page_node_select_subtitle">各ノードからテスト対象サイトへの実際の接続遅延をテストできます。</string>
     <string name="page_app_rules_title">アプリルール</string>
     <string name="page_app_rules_subtitle">ブロックリストまたは許可リストを選び、設定するアプリを検索します。</string>
     <string name="mode_exclude">ブロックリスト</string>

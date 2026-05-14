@@ -91,8 +91,8 @@
     <string name="plan_price_unset">Цена не задана</string>
     <string name="plan_traffic">Трафик %1$s</string>
 
-    <string name="reward_plan_title">Реклама тарифов</string>
-    <string name="reward_points_title">Реклама баллов</string>
+    <string name="reward_plan_title">Бесплатный тариф</string>
+    <string name="reward_points_title">Бесплатные баллы</string>
     <string name="reward_plan_description">Посмотрите рекламу полностью, чтобы получить награду тарифа.</string>
     <string name="reward_points_description">Посмотрите рекламу полностью, чтобы получить баллы.</string>
     <string name="reward_watch">Смотреть рекламу</string>
@@ -145,7 +145,6 @@
     <string name="about_privacy_policy">Политика конфиденциальности</string>
 
     <string name="page_node_select_title">Выбор узла</string>
-    <string name="page_node_select_subtitle">Проверяйте реальную задержку соединения от каждого узла до целевого сайта.</string>
     <string name="page_app_rules_title">Правила приложений</string>
     <string name="page_app_rules_subtitle">Выберите черный или белый список, затем найдите приложения для настройки.</string>
     <string name="mode_exclude">Черный список</string>

@@ -91,8 +91,8 @@
     <string name="plan_price_unset">Price not configured</string>
     <string name="plan_traffic">Traffic %1$s</string>
 
-    <string name="reward_plan_title">Plan ads</string>
-    <string name="reward_points_title">Points ads</string>
+    <string name="reward_plan_title">Free plan</string>
+    <string name="reward_points_title">Free points</string>
     <string name="reward_plan_description">Watch a full ad to claim a plan reward.</string>
     <string name="reward_points_description">Watch a full ad to claim points.</string>
     <string name="reward_watch">Watch ad</string>
@@ -145,7 +145,6 @@
     <string name="about_privacy_policy">Privacy policy</string>
 
     <string name="page_node_select_title">Select node</string>
-    <string name="page_node_select_subtitle">Test the real connection latency from each node to the target site.</string>
     <string name="page_app_rules_title">App rules</string>
     <string name="page_app_rules_subtitle">Choose blocklist or allowlist mode, then search for apps to configure.</string>
     <string name="mode_exclude">Blocklist</string>

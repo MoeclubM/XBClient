@@ -91,8 +91,8 @@
     <string name="plan_price_unset">价格未设置</string>
     <string name="plan_traffic">流量 %1$s</string>
 
-    <string name="reward_plan_title">套餐广告</string>
-    <string name="reward_points_title">积分广告</string>
+    <string name="reward_plan_title">免费套餐</string>
+    <string name="reward_points_title">免费积分</string>
     <string name="reward_plan_description">观看完整广告后领取套餐奖励。</string>
     <string name="reward_points_description">观看完整广告后领取积分奖励。</string>
     <string name="reward_watch">观看广告</string>
@@ -145,7 +145,6 @@
     <string name="about_privacy_policy">隐私政策</string>
 
     <string name="page_node_select_title">选择节点</string>
-    <string name="page_node_select_subtitle">可在此测试每个节点到目标网站的真实连接延迟。</string>
     <string name="page_app_rules_title">应用规则</string>
     <string name="page_app_rules_subtitle">选择黑名单或白名单模式，并搜索需要设置的应用。</string>
     <string name="mode_exclude">黑名单</string>

@@ -21,19 +21,24 @@ import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -103,8 +108,10 @@ import androidx.compose.ui.autofill.contentType
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -122,6 +129,8 @@ import kotlinx.coroutines.flow.collect
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 private val XbClientLightColors = lightColorScheme(
     primary = Color(0xFF0B57D0),
@@ -1030,19 +1039,11 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
+                        Image(
+                            painter = painterResource(R.drawable.ic_launcher),
+                            contentDescription = null,
                             modifier = Modifier.size(36.dp)
-                        ) {
-                            Image(
-                                painter = painterResource(R.drawable.ic_launcher),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(5.dp)
-                            )
-                        }
+                        )
                         Spacer(Modifier.width(10.dp))
                         Text(stringResource(id = R.string.app_name), style = MaterialTheme.typography.titleLarge)
                     }
@@ -1108,6 +1109,11 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
         PassScreen.NODE_SELECT -> PassScreen.NODE_SELECT
         else -> PassScreen.NODES
     }
+    val navScreens = listOf(PassScreen.NODES, PassScreen.NODE_SELECT, PassScreen.PLANS, PassScreen.PROFILE)
+    var navDragging by remember { mutableStateOf(false) }
+    var navDragOffsetPx by remember { mutableFloatStateOf(0f) }
+    var navDragVelocityPx by remember { mutableFloatStateOf(0f) }
+    var navLastDragAt by remember { mutableStateOf(0L) }
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -1119,10 +1125,10 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(42.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.96f),
+            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.92f),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            tonalElevation = 10.dp,
-            shadowElevation = 8.dp
+            tonalElevation = 3.dp,
+            shadowElevation = 3.dp
         ) {
             BoxWithConstraints(
                 modifier = Modifier
@@ -1136,23 +1142,75 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                     else -> 3
                 }
                 val itemWidth = maxWidth / 4
+                val density = LocalDensity.current
+                val itemWidthPx = with(density) { itemWidth.toPx() }
+                val draggedOffset = with(density) {
+                    (itemWidthPx * selectedIndex.toFloat() + navDragOffsetPx)
+                        .coerceIn(0f, itemWidthPx * navScreens.lastIndex)
+                        .toDp()
+                } + 2.dp
                 val pillOffset by animateDpAsState(
-                    targetValue = itemWidth * selectedIndex.toFloat() + 2.dp,
+                    targetValue = if (navDragging) draggedOffset else itemWidth * selectedIndex.toFloat() + 2.dp,
                     animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
                     label = "bottom-nav-pill"
+                )
+                val liquidStretch by animateFloatAsState(
+                    targetValue = if (navDragging) (abs(navDragVelocityPx) / 3200f).coerceIn(0f, 0.22f) else 0f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+                    label = "bottom-nav-liquid-stretch"
                 )
                 Surface(
                     modifier = Modifier
                         .offset(x = pillOffset)
                         .width(itemWidth - 4.dp)
-                        .height(62.dp),
+                        .height(62.dp)
+                        .graphicsLayer {
+                            scaleX = 1f + liquidStretch
+                            scaleY = 1f - liquidStretch * 0.28f
+                        },
                     shape = RoundedCornerShape(31.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
                     tonalElevation = 2.dp,
-                    shadowElevation = 2.dp
+                    shadowElevation = 1.dp
                 ) {}
-                Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier
+                        .fillMaxSize()
+                        .pointerInput(selectedIndex, itemWidthPx) {
+                            detectHorizontalDragGestures(
+                                onDragStart = {
+                                    navDragging = true
+                                    navDragOffsetPx = 0f
+                                    navDragVelocityPx = 0f
+                                    navLastDragAt = System.currentTimeMillis()
+                                },
+                                onHorizontalDrag = { _, dragAmount ->
+                                    val now = System.currentTimeMillis()
+                                    val elapsed = (now - navLastDragAt).coerceAtLeast(1L)
+                                    navLastDragAt = now
+                                    navDragVelocityPx = dragAmount / elapsed * 1000f
+                                    navDragOffsetPx = (navDragOffsetPx + dragAmount).coerceIn(
+                                        -selectedIndex.toFloat() * itemWidthPx,
+                                        (navScreens.lastIndex - selectedIndex).toFloat() * itemWidthPx
+                                    )
+                                },
+                                onDragEnd = {
+                                    val targetIndex = (selectedIndex + (navDragOffsetPx / itemWidthPx).roundToInt()).coerceIn(0, navScreens.lastIndex)
+                                    navDragging = false
+                                    navDragOffsetPx = 0f
+                                    navDragVelocityPx = 0f
+                                    viewModel.openScreen(navScreens[targetIndex])
+                                },
+                                onDragCancel = {
+                                    navDragging = false
+                                    navDragOffsetPx = 0f
+                                    navDragVelocityPx = 0f
+                                }
+                            )
+                        },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     BottomNavButton(
                         selected = selected == PassScreen.NODES,
                         icon = R.drawable.ic_nav_home,
@@ -1803,7 +1861,7 @@ private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMode
         contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 116.dp)
     ) {
         item {
-            PageHeader(stringResource(R.string.page_node_select_title), stringResource(R.string.page_node_select_subtitle))
+            PageHeader(stringResource(R.string.page_node_select_title))
             if (state.subscriptionBlocked) {
                 val blockTitle = stringResource(
                     id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_title else R.string.subscription_expired_title
@@ -2235,11 +2293,32 @@ private fun AnimatedContentTransitionScope<*>.contentTransition() =
     (fadeIn(animationSpec = tween(180)) togetherWith
         fadeOut(animationSpec = tween(140))).using(SizeTransform(clip = false))
 
-private fun AnimatedContentTransitionScope<PassScreen>.screenTransition() =
-    if (targetState.ordinal >= initialState.ordinal) {
-        (slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = tween(220)) + fadeIn(animationSpec = tween(160)) togetherWith
-            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = tween(220)) + fadeOut(animationSpec = tween(140))).using(SizeTransform(clip = false))
-    } else {
-        (slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = tween(220)) + fadeIn(animationSpec = tween(160)) togetherWith
-            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = tween(220)) + fadeOut(animationSpec = tween(140))).using(SizeTransform(clip = false))
+private fun AnimatedContentTransitionScope<PassScreen>.screenTransition(): ContentTransform {
+    val initialOrder = when (initialState) {
+        PassScreen.NODES -> 0
+        PassScreen.NODE_SELECT -> 1
+        PassScreen.PLANS -> 2
+        PassScreen.PROFILE, PassScreen.SETTINGS, PassScreen.APP_RULES -> 3
     }
+    val targetOrder = when (targetState) {
+        PassScreen.NODES -> 0
+        PassScreen.NODE_SELECT -> 1
+        PassScreen.PLANS -> 2
+        PassScreen.PROFILE, PassScreen.SETTINGS, PassScreen.APP_RULES -> 3
+    }
+    return if (targetOrder >= initialOrder) {
+        (slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) +
+            fadeIn(animationSpec = tween(160)) +
+            scaleIn(initialScale = 0.985f, animationSpec = tween(220)) togetherWith
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) +
+            fadeOut(animationSpec = tween(140)) +
+            scaleOut(targetScale = 1.015f, animationSpec = tween(180))).using(SizeTransform(clip = false))
+    } else {
+        (slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) +
+            fadeIn(animationSpec = tween(160)) +
+            scaleIn(initialScale = 0.985f, animationSpec = tween(220)) togetherWith
+            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) +
+            fadeOut(animationSpec = tween(140)) +
+            scaleOut(targetScale = 1.015f, animationSpec = tween(180))).using(SizeTransform(clip = false))
+    }
+}
