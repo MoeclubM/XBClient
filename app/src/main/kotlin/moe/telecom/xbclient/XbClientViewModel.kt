@@ -104,6 +104,8 @@ data class XbClientUiState(
     val languageOnboardingDone: Boolean = false,
     val vpnDisclosureDone: Boolean = false,
     val oauthProviders: List<OAuthProvider> = emptyList(),
+    val registerEmailVerifyEnabled: Boolean = false,
+    val registerCaptchaEnabled: Boolean = false,
     val oauthConfirmToken: String = "",
     val oauthConfirmProvider: String = "",
     val oauthConfirmEmail: String = "",
@@ -345,7 +347,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update {
                     it.copy(
                         oauthProviders = providers,
-                        inviteForce = data?.optInt("is_invite_force") == 1
+                        inviteForce = data?.optInt("is_invite_force") == 1,
+                        registerEmailVerifyEnabled = data?.optInt("is_email_verify") == 1,
+                        registerCaptchaEnabled = data?.optInt("is_captcha") == 1
                     )
                 }
                 persistStoredState(_uiState.value)
@@ -1406,7 +1410,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 themeMode = prefs[Keys.THEME_MODE].orEmpty(),
                 languageOnboardingDone = prefs[Keys.LANGUAGE_ONBOARDING_DONE] ?: false,
                 vpnDisclosureDone = prefs[Keys.VPN_DISCLOSURE_DONE] ?: false,
-                oauthProviders = cachedOAuthProviders(prefs[Keys.OAUTH_PROVIDERS].orEmpty())
+                oauthProviders = cachedOAuthProviders(prefs[Keys.OAUTH_PROVIDERS].orEmpty()),
+                registerEmailVerifyEnabled = prefs[Keys.REGISTER_EMAIL_VERIFY_ENABLED] ?: false,
+                registerCaptchaEnabled = prefs[Keys.REGISTER_CAPTCHA_ENABLED] ?: false
             )
         } else {
             XbClientUiState(
@@ -1455,7 +1461,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 themeMode = legacy.getString("theme_mode", "").orEmpty(),
                 languageOnboardingDone = legacy.getBoolean("language_onboarding_done", false),
                 vpnDisclosureDone = legacy.getBoolean("vpn_disclosure_done", false),
-                oauthProviders = cachedOAuthProviders(legacy.getString("oauth_providers", "").orEmpty())
+                oauthProviders = cachedOAuthProviders(legacy.getString("oauth_providers", "").orEmpty()),
+                registerEmailVerifyEnabled = legacy.getBoolean("register_email_verify_enabled", false),
+                registerCaptchaEnabled = legacy.getBoolean("register_captcha_enabled", false)
             )
         }
         if (state.vpnRequested) {
@@ -1556,6 +1564,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.LANGUAGE_ONBOARDING_DONE] = state.languageOnboardingDone
             prefs[Keys.VPN_DISCLOSURE_DONE] = state.vpnDisclosureDone
             prefs[Keys.OAUTH_PROVIDERS] = oauthProvidersJson(state.oauthProviders)
+            prefs[Keys.REGISTER_EMAIL_VERIFY_ENABLED] = state.registerEmailVerifyEnabled
+            prefs[Keys.REGISTER_CAPTCHA_ENABLED] = state.registerCaptchaEnabled
         }
         app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
             .putString("auth_data", state.authData)
@@ -1603,6 +1613,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putBoolean("language_onboarding_done", state.languageOnboardingDone)
             .putBoolean("vpn_disclosure_done", state.vpnDisclosureDone)
             .putString("oauth_providers", oauthProvidersJson(state.oauthProviders))
+            .putBoolean("register_email_verify_enabled", state.registerEmailVerifyEnabled)
+            .putBoolean("register_captcha_enabled", state.registerCaptchaEnabled)
             .apply()
     }
 
@@ -1900,5 +1912,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val LANGUAGE_ONBOARDING_DONE = booleanPreferencesKey("language_onboarding_done")
         val VPN_DISCLOSURE_DONE = booleanPreferencesKey("vpn_disclosure_done")
         val OAUTH_PROVIDERS = stringPreferencesKey("oauth_providers")
+        val REGISTER_EMAIL_VERIFY_ENABLED = booleanPreferencesKey("register_email_verify_enabled")
+        val REGISTER_CAPTCHA_ENABLED = booleanPreferencesKey("register_captcha_enabled")
     }
 }

@@ -643,20 +643,11 @@ private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(28.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        tonalElevation = 2.dp
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.ic_launcher),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .padding(10.dp)
-                                .size(76.dp)
-                        )
-                    }
+                    Image(
+                        painter = painterResource(R.drawable.ic_launcher),
+                        contentDescription = null,
+                        modifier = Modifier.size(96.dp)
+                    )
                     Spacer(Modifier.height(14.dp))
                     Text(stringResource(id = R.string.app_name), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
                     Spacer(Modifier.height(26.dp))
@@ -801,12 +792,19 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(value = inviteCode, onValueChange = { inviteCode = it }, label = { Text(stringResource(R.string.auth_invite_code_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = emailCode, onValueChange = { emailCode = it }, label = { Text(stringResource(R.string.auth_email_code_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = captcha, onValueChange = { captcha = it }, label = { Text(stringResource(R.string.auth_captcha_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(14.dp))
-                OutlinedButton(onClick = { viewModel.sendEmailVerify(email, captcha) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.auth_send_email_code))
+                if (state.registerEmailVerifyEnabled) {
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(value = emailCode, onValueChange = { emailCode = it }, label = { Text(stringResource(R.string.auth_email_code_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                if (state.registerCaptchaEnabled) {
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(value = captcha, onValueChange = { captcha = it }, label = { Text(stringResource(R.string.auth_captcha_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                if (state.registerEmailVerifyEnabled) {
+                    Spacer(Modifier.height(14.dp))
+                    OutlinedButton(onClick = { viewModel.sendEmailVerify(email, captcha) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.auth_send_email_code))
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 if (legalRequired) {
@@ -1128,7 +1126,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
             color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.92f),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             tonalElevation = 3.dp,
-            shadowElevation = 3.dp
+            shadowElevation = 0.dp
         ) {
             BoxWithConstraints(
                 modifier = Modifier
@@ -1172,7 +1170,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
                     tonalElevation = 2.dp,
-                    shadowElevation = 1.dp
+                    shadowElevation = 0.dp
                 ) {}
                 Row(
                     Modifier
