@@ -1031,7 +1031,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             emitMessage("当前内核暂不支持 ${nodes[index].protocolLabel} 节点。")
             return
         }
-        val reconnect = _uiState.value.vpnRequested && _uiState.value.selectedNodeIndex != index && returnToNodes
+        val reconnect = _uiState.value.vpnRequested && _uiState.value.selectedNodeIndex != index
         updateAndPersist {
             it.copy(
                 selectedNodeIndex = index,
@@ -1040,7 +1040,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             )
         }
         if (reconnect) {
-            requestStartVpn()
+            beginVpn(app, index)
         }
     }
 
@@ -1073,7 +1073,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             return
         }
         selectNode(index, returnToNodes = !connectAfterSelect)
-        if (connectAfterSelect) {
+        if (connectAfterSelect && !_uiState.value.vpnRequested) {
             requestStartVpn()
         }
     }

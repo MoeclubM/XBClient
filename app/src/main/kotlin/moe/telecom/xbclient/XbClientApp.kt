@@ -625,7 +625,7 @@ private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     CompactLanguageMenu(state.appLanguage, viewModel)
-                    CompactThemeMenu(state.themeMode, viewModel)
+                    CompactThemeMenu(state.themeMode, state.appLanguage, viewModel)
                 }
                 Spacer(Modifier.height(28.dp))
                 Column(
@@ -917,10 +917,9 @@ private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
 }
 
 @Composable
-private fun CompactThemeMenu(current: String, viewModel: XbClientViewModel) {
+private fun CompactThemeMenu(current: String, appLanguage: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val context = LocalContext.current
-    val themeOptions = ThemeOptions.map { it.first to context.getString(it.second) }
+    val themeOptions = ThemeOptions.map { it.first to themeOptionLabel(it.first, appLanguage) }
     Box {
         Surface(
             shape = RoundedCornerShape(14.dp),
@@ -992,10 +991,9 @@ private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ThemeChooser(current: String, viewModel: XbClientViewModel) {
+private fun ThemeChooser(current: String, appLanguage: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val context = LocalContext.current
-    val themeOptions = ThemeOptions.map { it.first to context.getString(it.second) }
+    val themeOptions = ThemeOptions.map { it.first to themeOptionLabel(it.first, appLanguage) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
             value = (themeOptions.firstOrNull { it.first == current } ?: themeOptions.first()).second,
@@ -1631,7 +1629,7 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel,
         Panel {
             LanguageChooser(state.appLanguage, viewModel)
             Spacer(Modifier.height(14.dp))
-            ThemeChooser(state.themeMode, viewModel)
+            ThemeChooser(state.themeMode, state.appLanguage, viewModel)
             Spacer(Modifier.height(14.dp))
             OutlinedButton(
                 onClick = {
@@ -2044,6 +2042,37 @@ private fun localizedContext(context: Context, locale: Locale): Context {
     configuration.setLocale(locale)
     configuration.setLayoutDirection(locale)
     return context.createConfigurationContext(configuration)
+}
+
+private fun themeOptionLabel(mode: String, language: String): String {
+    val primaryLanguage = effectiveLanguageTag(language).substringBefore("-")
+    return when (primaryLanguage) {
+        "zh" -> when (mode) {
+            "light" -> "浅色"
+            "dark" -> "深色"
+            else -> "跟随系统"
+        }
+        "ja" -> when (mode) {
+            "light" -> "ライト"
+            "dark" -> "ダーク"
+            else -> "システム"
+        }
+        "ru" -> when (mode) {
+            "light" -> "Светлая"
+            "dark" -> "Темная"
+            else -> "Система"
+        }
+        "fa" -> when (mode) {
+            "light" -> "روشن"
+            "dark" -> "تاریک"
+            else -> "سیستم"
+        }
+        else -> when (mode) {
+            "light" -> "Light"
+            "dark" -> "Dark"
+            else -> "System"
+        }
+    }
 }
 
 private fun formatMoney(amount: Int, symbol: String, unit: String): String =
