@@ -525,10 +525,21 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         if (!nodesResult.optBoolean("ok")) {
                             throw IllegalStateException(resultError(nodesResult))
                         }
+                        val singBoxNodesResult = XboardApi.request(
+                            "anytls_nodes",
+                            defaultApiUrl(),
+                            "",
+                            JSONObject().put("subscribe_url", subscribeUrl).put("flag", "sing-box")
+                        )
+                        if (!singBoxNodesResult.optBoolean("ok")) {
+                            throw IllegalStateException(resultError(singBoxNodesResult))
+                        }
                         if (showErrors) {
                             emitMessage("XBClient 节点接口不可用，已使用原订阅节点。")
                         }
-                        nodesResult.getJSONArray("nodes").toAnyTlsNodeList()
+                        (nodesResult.getJSONArray("nodes").toAnyTlsNodeList()
+                            + singBoxNodesResult.getJSONArray("nodes").toAnyTlsNodeList())
+                            .distinctBy { "${it.protocol}|${it.host}|${it.port}|${it.name}" }
                     } else {
                         throw IllegalStateException(resultError(xbclientNodesResult))
                     }

@@ -20,6 +20,7 @@ import java.util.Locale
 
 object XboardApi {
     private const val SUBSCRIPTION_USER_AGENT = "mihomo"
+    private const val SUBSCRIPTION_NODE_TYPES = "anytls,hysteria,trojan,vless,vmess,mieru,naive,shadowsocks,tuic"
     private val userAgent: String
         get() = BuildConfig.USER_AGENT
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -39,6 +40,7 @@ object XboardApi {
         "naive",
         "naive+https",
         "naive+quic",
+        "tuic",
         "ss",
         "shadowsocks"
     )
@@ -216,17 +218,18 @@ object XboardApi {
     }
 
     private fun fetchProxyNodes(subscribeUrl: String, flag: String): JSONObject {
+        val singBox = flag.equals("sing-box", ignoreCase = true)
         val url = Uri.parse(subscribeUrl)
             .buildUpon()
-            .appendQueryParameter("types", "anytls,hysteria")
+            .appendQueryParameter("types", SUBSCRIPTION_NODE_TYPES)
             .appendQueryParameter("flag", flag)
             .build()
             .toString()
         val response = httpClient.newCall(
             Request.Builder()
                 .url(url)
-                .header("User-Agent", SUBSCRIPTION_USER_AGENT)
-                .header("Accept", "text/yaml, application/yaml, text/plain, */*")
+                .header("User-Agent", if (singBox) "sing-box" else SUBSCRIPTION_USER_AGENT)
+                .header("Accept", if (singBox) "application/json, text/plain, */*" else "text/yaml, application/yaml, text/plain, */*")
                 .build()
         ).execute()
         val status = response.code
@@ -242,6 +245,9 @@ object XboardApi {
 
         val subscriptionUserInfo = response.header("subscription-userinfo")
         response.close()
+        if (singBox) {
+            return singBoxNodes(text, status, subscriptionUserInfo, flag)
+        }
         val root = Yaml().load<Any>(text) as Map<*, *>
         val proxies = root["proxies"] as List<*>
         val nodes = JSONArray()
@@ -266,6 +272,27 @@ object XboardApi {
             .put("nodes", nodes)
     }
 
+    private fun singBoxNodes(text: String, status: Int, subscriptionUserInfo: String?, flag: String): JSONObject {
+        val root = parseJson(text) as JSONObject
+        val outbounds = root.optJSONArray("outbounds") ?: JSONArray()
+        val nodes = JSONArray()
+        for (index in 0 until outbounds.length()) {
+            val outbound = outbounds.optJSONObject(index) ?: continue
+            val type = outbound.optString("type").lowercase(Locale.US)
+            if (type !in supportedSubscriptionNodeTypes) {
+                continue
+            }
+            nodes.put(outboundNode(outbound, type))
+        }
+        return JSONObject()
+            .put("ok", true)
+            .put("status", status)
+            .put("format", "sing-box")
+            .put("flag", flag)
+            .put("subscription_userinfo", subscriptionUserInfo)
+            .put("nodes", nodes)
+    }
+
     private fun proxyNode(proxy: Map<*, *>, type: String): JSONObject {
         val raw = toJson(proxy) as JSONObject
         val node = JSONObject(raw.toString())
@@ -284,6 +311,25 @@ object XboardApi {
         if (type == "naive+quic") {
             node.put("quic", true)
         }
+        return node
+    }
+
+    private fun outboundNode(outbound: JSONObject, type: String): JSONObject {
+        val raw = JSONObject(outbound.toString())
+        val node = JSONObject(raw.toString())
+        val protocol = when (type) {
+            "hy2" -> "hysteria2"
+            "shadowsocks" -> "ss"
+            else -> type
+        }
+        if (node.optString("name").isEmpty() && node.optString("tag").isNotEmpty()) {
+            node.put("name", node.optString("tag"))
+        }
+        if (node.optString("host").isEmpty() && node.optString("server").isNotEmpty()) {
+            node.put("host", node.optString("server"))
+        }
+        node.put("type", protocol)
+        node.put("raw", raw.toString())
         return node
     }
 

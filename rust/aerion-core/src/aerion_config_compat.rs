@@ -2,9 +2,9 @@ use crate::aerion_protocol::AerionProxyConfig;
 use aerion::padding::PaddingScheme;
 use aerion::vless_transport::VlessTransportConfig;
 use aerion::{
-    ClientConfig, Hysteria2ClientConfig, MieruClientConfig, MieruTransport, NaiveClientConfig,
-    RealityClientConfig, ShadowsocksClientConfig, TrojanClientConfig, UtlsFingerprint,
-    VlessClientConfig, VmessClientConfig,
+    ClientConfig, Hysteria2ClientConfig, MieruClientConfig, MieruTrafficPattern, MieruTransport,
+    NaiveClientConfig, RealityClientConfig, ShadowsocksClientConfig, TrojanClientConfig,
+    TuicClientConfig, UtlsFingerprint, VlessClientConfig, VmessClientConfig,
 };
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Map, Value};
@@ -21,6 +21,7 @@ pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionPr
         "vmess" => vmess_config(node, listen).map(AerionProxyConfig::Vmess),
         "mieru" => mieru_config(node, listen).map(AerionProxyConfig::Mieru),
         "naive" => naive_config(node, listen).map(AerionProxyConfig::Naive),
+        "tuic" => tuic_config(node, listen).map(AerionProxyConfig::Tuic),
         "ss" => shadowsocks_config(node, listen).map(AerionProxyConfig::Shadowsocks),
         other => bail!("unsupported Aerion node protocol: {other}"),
     }
@@ -28,18 +29,31 @@ pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionPr
 
 fn anytls_config(node: &Value, listen: SocketAddr) -> Result<ClientConfig> {
     let server_host = node_string(node, &["host", "server", "address"])?;
+    let tls = object_field(node, &["tls"]);
     Ok(ClientConfig {
         listen,
         server_port: node_port(node, &["port", "server_port", "server-port"])?,
         password: node_string(node, &["password", "passwd"])?,
-        sni: node_optional_string(node, &["sni", "servername", "server-name", "peer"])
+        sni: tls
+            .and_then(|opts| map_string(opts, &["server_name", "server-name", "serverName"]))
+            .or_else(|| node_optional_string(node, &["sni", "servername", "server-name", "peer"]))
             .unwrap_or_else(|| server_host.clone()),
         server_host,
-        insecure: node_bool(
-            node,
-            &["insecure", "skip-cert-verify", "allowInsecure"],
-            false,
-        ),
+        insecure: tls
+            .map(|opts| {
+                map_bool(
+                    opts,
+                    &["insecure", "skip-cert-verify", "skip_cert_verify"],
+                    false,
+                )
+            })
+            .unwrap_or_else(|| {
+                node_bool(
+                    node,
+                    &["insecure", "skip-cert-verify", "allowInsecure"],
+                    false,
+                )
+            }),
         padding_scheme: node_string_list(node, &["padding_scheme", "padding-scheme"])
             .filter(|lines| !lines.is_empty())
             .unwrap_or_else(PaddingScheme::default_lines),
@@ -230,6 +244,16 @@ fn mieru_config(node: &Value, listen: SocketAddr) -> Result<MieruClientConfig> {
                 .unwrap_or_else(|| "tcp".to_string())
                 .as_str(),
         )?,
+        traffic_pattern: MieruTrafficPattern::parse_pair(
+            node_optional_string(
+                node,
+                &["traffic-pattern", "traffic_pattern", "trafficPattern"],
+            )
+            .as_deref(),
+            node_optional_string(node, &["nonce-pattern", "nonce_pattern", "noncePattern"])
+                .as_deref(),
+        )
+        .context("parse Mieru traffic pattern")?,
     })
 }
 
@@ -286,6 +310,65 @@ fn naive_config(node: &Value, listen: SocketAddr) -> Result<NaiveClientConfig> {
                     )
                 })
                 .unwrap_or(false),
+    })
+}
+
+fn tuic_config(node: &Value, listen: SocketAddr) -> Result<TuicClientConfig> {
+    let tls = object_field(node, &["tls"]);
+    ensure!(
+        tls.map(|opts| map_bool(opts, &["enabled"], true))
+            .unwrap_or_else(|| node_bool(node, &["tls"], true)),
+        "TUIC client requires TLS"
+    );
+    let server_host = node_string(node, &["server", "host", "address"])?;
+    Ok(TuicClientConfig {
+        listen,
+        server_port: node_port(node, &["port", "server_port", "server-port"])?,
+        uuid: node_string(node, &["uuid", "id", "user_id", "username"])?,
+        password: node_string(node, &["password", "passwd", "pass"])?,
+        sni: tls
+            .and_then(|opts| map_string(opts, &["server_name", "server-name", "serverName"]))
+            .or_else(|| node_optional_string(node, &["sni", "servername", "server-name", "peer"]))
+            .unwrap_or_else(|| server_host.clone()),
+        server_host,
+        insecure: tls
+            .map(|opts| {
+                map_bool(
+                    opts,
+                    &["insecure", "skip-cert-verify", "skip_cert_verify"],
+                    false,
+                )
+            })
+            .unwrap_or_else(|| {
+                node_bool(
+                    node,
+                    &["insecure", "skip-cert-verify", "allowInsecure"],
+                    false,
+                )
+            }),
+        udp: node_bool(node, &["udp"], true),
+        udp_relay_mode: node_optional_string(node, &["udp-relay-mode", "udp_relay_mode"])
+            .unwrap_or_else(|| "native".to_string()),
+        congestion_control: node_optional_string(
+            node,
+            &[
+                "congestion-control",
+                "congestion_control",
+                "congestion-controller",
+                "congestion_controller",
+            ],
+        )
+        .unwrap_or_else(|| "cubic".to_string()),
+        alpn_protocols: node_alpn_list(node, tls).unwrap_or_else(|| vec!["h3".to_string()]),
+        heartbeat_interval_secs: node_duration_secs(
+            node,
+            &[
+                "heartbeat_interval_secs",
+                "heartbeat-interval-secs",
+                "heartbeat",
+            ],
+            10,
+        )?,
     })
 }
 
@@ -551,6 +634,48 @@ fn node_string_list(node: &Value, keys: &[&str]) -> Option<Vec<String>> {
                 .collect(),
         ),
         _ => None,
+    }
+}
+
+fn node_alpn_list(node: &Value, tls: Option<&Map<String, Value>>) -> Option<Vec<String>> {
+    field(node, &["alpn"])
+        .or_else(|| tls.and_then(|opts| opts.get("alpn")))
+        .and_then(value_to_alpn_list)
+        .filter(|values| !values.is_empty())
+}
+
+fn value_to_alpn_list(value: &Value) -> Option<Vec<String>> {
+    match value {
+        Value::Array(values) => Some(
+            values
+                .iter()
+                .filter_map(value_to_string)
+                .filter(|value| !value.is_empty())
+                .collect(),
+        ),
+        Value::String(text) => Some(
+            text.split(',')
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+                .collect(),
+        ),
+        _ => None,
+    }
+}
+
+fn node_duration_secs(node: &Value, keys: &[&str], default: u64) -> Result<u64> {
+    let Some(value) = field(node, keys) else {
+        return Ok(default);
+    };
+    match value {
+        Value::Number(number) => number.as_u64().context("duration field is out of range"),
+        Value::String(text) => text
+            .trim()
+            .trim_end_matches('s')
+            .parse::<u64>()
+            .with_context(|| format!("parse duration node field {}", keys.join("/"))),
+        _ => bail!("node field {} must be a number or string", keys.join("/")),
     }
 }
 
