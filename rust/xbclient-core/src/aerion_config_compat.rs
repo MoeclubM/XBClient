@@ -1,0 +1,617 @@
+use crate::aerion_protocol::AerionProxyConfig;
+use aerion::padding::PaddingScheme;
+use aerion::vless_transport::VlessTransportConfig;
+use aerion::{
+    ClientConfig, Hysteria2ClientConfig, MieruClientConfig, MieruTransport, NaiveClientConfig,
+    RealityClientConfig, ShadowsocksClientConfig, TrojanClientConfig, UtlsFingerprint,
+    VlessClientConfig, VmessClientConfig,
+};
+use anyhow::{Context, Result, bail, ensure};
+use serde_json::{Map, Value};
+use std::collections::BTreeMap;
+use std::net::SocketAddr;
+
+pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionProxyConfig> {
+    let protocol = node_protocol(node)?;
+    match protocol.as_str() {
+        "anytls" => anytls_config(node, listen).map(AerionProxyConfig::AnyTls),
+        "hysteria2" => hysteria2_config(node, listen).map(AerionProxyConfig::Hysteria2),
+        "trojan" => trojan_config(node, listen).map(AerionProxyConfig::Trojan),
+        "vless" => vless_config(node, listen).map(AerionProxyConfig::Vless),
+        "vmess" => vmess_config(node, listen).map(AerionProxyConfig::Vmess),
+        "mieru" => mieru_config(node, listen).map(AerionProxyConfig::Mieru),
+        "naive" => naive_config(node, listen).map(AerionProxyConfig::Naive),
+        "ss" => shadowsocks_config(node, listen).map(AerionProxyConfig::Shadowsocks),
+        other => bail!("unsupported Aerion node protocol: {other}"),
+    }
+}
+
+fn anytls_config(node: &Value, listen: SocketAddr) -> Result<ClientConfig> {
+    let server_host = node_string(node, &["host", "server", "address"])?;
+    Ok(ClientConfig {
+        listen,
+        server_port: node_port(node, &["port", "server_port", "server-port"])?,
+        password: node_string(node, &["password", "passwd"])?,
+        sni: node_optional_string(node, &["sni", "servername", "server-name", "peer"])
+            .unwrap_or_else(|| server_host.clone()),
+        server_host,
+        insecure: node_bool(
+            node,
+            &["insecure", "skip-cert-verify", "allowInsecure"],
+            false,
+        ),
+        padding_scheme: node_string_list(node, &["padding_scheme", "padding-scheme"])
+            .filter(|lines| !lines.is_empty())
+            .unwrap_or_else(PaddingScheme::default_lines),
+        heartbeat_interval_secs: node_u64(
+            node,
+            &[
+                "heartbeat_interval_secs",
+                "heartbeat-interval-secs",
+                "heartbeat",
+            ],
+            30,
+        )?,
+    })
+}
+
+fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientConfig> {
+    ensure!(
+        field(node, &["ports"]).is_none(),
+        "Hysteria2 port hopping is not supported by this Aerion core binding"
+    );
+    let server_host = node_string(node, &["server", "host", "address"])?;
+    Ok(Hysteria2ClientConfig {
+        listen,
+        server_port: node_port(node, &["port", "server_port", "server-port"])?,
+        password: node_string(node, &["password", "auth"])?,
+        sni: node_optional_string(node, &["sni", "servername", "server-name", "peer"])
+            .unwrap_or_else(|| server_host.clone()),
+        server_host,
+        insecure: node_bool(
+            node,
+            &["insecure", "skip-cert-verify", "allowInsecure"],
+            false,
+        ),
+        obfs: node_optional_string(node, &["obfs"])
+            .or_else(|| object_field(node, &["obfs"]).and_then(|opts| map_string(opts, &["type"]))),
+        obfs_password: node_optional_string(
+            node,
+            &["obfs-password", "obfs_password", "obfsPassword"],
+        )
+        .or_else(|| obfs_nested_password(node)),
+        download_bandwidth: node_optional_bandwidth_u64(
+            node,
+            &["down", "download", "down_mbps", "down-mbps"],
+        )?,
+        udp: node_bool(node, &["udp"], true),
+        congestion_control: node_optional_string(
+            node,
+            &["congestion-control", "congestion_control"],
+        )
+        .unwrap_or_else(|| "bbr".to_string()),
+    })
+}
+
+fn trojan_config(node: &Value, listen: SocketAddr) -> Result<TrojanClientConfig> {
+    ensure_tcp_network(node)?;
+    ensure!(
+        node_bool(node, &["tls"], true),
+        "Aerion Trojan client requires TLS"
+    );
+    let server_host = node_string(node, &["server", "host", "address"])?;
+    Ok(TrojanClientConfig {
+        listen,
+        server_port: node_port(node, &["port", "server_port", "server-port"])?,
+        password: node_string(node, &["password", "passwd"])?,
+        sni: node_optional_string(node, &["sni", "servername", "server-name", "peer"])
+            .unwrap_or_else(|| server_host.clone()),
+        server_host,
+        insecure: node_bool(
+            node,
+            &["insecure", "skip-cert-verify", "allowInsecure"],
+            false,
+        ),
+        udp: node_bool(node, &["udp"], true),
+        client_fingerprint: client_fingerprint(node)?,
+    })
+}
+
+fn vless_config(node: &Value, listen: SocketAddr) -> Result<VlessClientConfig> {
+    let server_host = node_string(node, &["server", "host", "address"])?;
+    let reality = reality_config(node)?;
+    ensure!(
+        reality.is_some() || node_bool(node, &["tls"], true),
+        "Aerion VLESS client requires TLS or REALITY"
+    );
+    Ok(VlessClientConfig {
+        listen,
+        server_port: node_port(node, &["port", "server_port", "server-port"])?,
+        user_id: node_string(node, &["uuid", "id", "user_id"])?,
+        sni: node_optional_string(node, &["sni", "servername", "server-name", "peer"])
+            .unwrap_or_else(|| server_host.clone()),
+        server_host,
+        insecure: node_bool(
+            node,
+            &["insecure", "skip-cert-verify", "allowInsecure"],
+            false,
+        ),
+        flow: node_optional_string(node, &["flow"]).unwrap_or_default(),
+        packet_encoding: node_optional_string(node, &["packet-encoding", "packet_encoding"])
+            .unwrap_or_default(),
+        mux: mux_enabled(node),
+        udp: node_bool(node, &["udp"], true),
+        client_fingerprint: client_fingerprint(node)?,
+        reality,
+        transport: vless_transport(node)?,
+    })
+}
+
+fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
+    ensure_tcp_network(node)?;
+    ensure!(
+        node_optional_u64(node, &["alterId", "alter_id"])?.unwrap_or(0) == 0,
+        "legacy VMess alterId is not supported by Aerion"
+    );
+    let server_host = node_string(node, &["server", "host", "address"])?;
+    let security = node_optional_string(node, &["security"]);
+    let tls = node_bool(node, &["tls"], false)
+        || security
+            .as_deref()
+            .map(|value| value.eq_ignore_ascii_case("tls"))
+            .unwrap_or(false);
+    let cipher = node_optional_string(node, &["cipher"])
+        .or_else(|| {
+            security.filter(|value| {
+                !value.eq_ignore_ascii_case("tls") && !value.eq_ignore_ascii_case("reality")
+            })
+        })
+        .unwrap_or_else(|| "auto".to_string());
+    Ok(VmessClientConfig {
+        listen,
+        server_port: node_port(node, &["port", "server_port", "server-port"])?,
+        user_id: node_string(node, &["uuid", "id", "user_id"])?,
+        security: cipher,
+        udp: node_bool(node, &["udp"], false),
+        tls,
+        sni: node_optional_string(node, &["sni", "servername", "server-name", "peer"])
+            .unwrap_or_else(|| server_host.clone()),
+        server_host,
+        insecure: node_bool(
+            node,
+            &["insecure", "skip-cert-verify", "allowInsecure"],
+            false,
+        ),
+        client_fingerprint: client_fingerprint(node)?,
+    })
+}
+
+fn mieru_config(node: &Value, listen: SocketAddr) -> Result<MieruClientConfig> {
+    let username = node_optional_string(node, &["username", "user", "uuid", "id"]);
+    let password = node_optional_string(node, &["password", "passwd"])
+        .or_else(|| node_optional_string(node, &["uuid", "id", "username", "user"]));
+    let username = username
+        .or_else(|| password.clone())
+        .unwrap_or_else(|| "default".to_string());
+    let hashed_password = node_optional_string(
+        node,
+        &[
+            "hashed_password",
+            "hashed-password",
+            "password_hash",
+            "password-hash",
+            "passwordHash",
+        ],
+    )
+    .map(|value| parse_mieru_hash(&value))
+    .transpose()?;
+    ensure!(
+        hashed_password.is_some()
+            || password
+                .as_deref()
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false),
+        "node field password/passwd/uuid/id is required for Mieru"
+    );
+    Ok(MieruClientConfig {
+        listen,
+        server_host: node_string(node, &["server", "host", "address"])?,
+        server_port: node_port(node, &["port", "server_port", "server-port"])?,
+        username,
+        password: password.unwrap_or_default(),
+        hashed_password,
+        mtu: node_u64(node, &["mtu"], 1500)? as usize,
+        transport: MieruTransport::parse(
+            node_optional_string(node, &["transport", "underlay"])
+                .or_else(|| {
+                    object_field(node, &["transport"])
+                        .and_then(|opts| map_string(opts, &["type", "protocol"]))
+                })
+                .unwrap_or_else(|| "tcp".to_string())
+                .as_str(),
+        )?,
+    })
+}
+
+fn naive_config(node: &Value, listen: SocketAddr) -> Result<NaiveClientConfig> {
+    let tls = object_field(node, &["tls"]);
+    ensure!(
+        tls.map(|opts| map_bool(opts, &["enabled"], true))
+            .unwrap_or_else(|| node_bool(node, &["tls"], true)),
+        "Naive client requires HTTPS/TLS proxy"
+    );
+    let server_host = node_string(node, &["server", "host", "address"])?;
+    let server_port =
+        node_optional_u64(node, &["port", "server_port", "server-port"])?.unwrap_or(443);
+    ensure!(
+        server_port > 0 && server_port <= u16::MAX as u64,
+        "node port is out of range"
+    );
+    Ok(NaiveClientConfig {
+        listen,
+        server_host: server_host.clone(),
+        server_port: server_port as u16,
+        username: node_optional_string(node, &["username", "user"]).unwrap_or_default(),
+        password: node_optional_string(node, &["password", "passwd", "pass"]).unwrap_or_default(),
+        sni: tls
+            .and_then(|opts| map_string(opts, &["server_name", "server-name", "serverName"]))
+            .or_else(|| node_optional_string(node, &["sni", "servername", "server-name", "peer"]))
+            .unwrap_or(server_host),
+        insecure: tls
+            .map(|opts| {
+                map_bool(
+                    opts,
+                    &["insecure", "skip-cert-verify", "skip_cert_verify"],
+                    false,
+                )
+            })
+            .unwrap_or_else(|| {
+                node_bool(
+                    node,
+                    &["insecure", "skip-cert-verify", "allowInsecure"],
+                    false,
+                )
+            }),
+        extra_headers: naive_extra_headers(node)?,
+        udp_over_tcp: udp_over_tcp_enabled(node),
+        quic: node_optional_string(node, &["type", "protocol"])
+            .map(|protocol| protocol.eq_ignore_ascii_case("naive+quic"))
+            .unwrap_or(false)
+            || node_bool(node, &["quic", "http3", "h3"], false)
+            || node_optional_string(node, &["network"])
+                .map(|network| {
+                    matches!(
+                        network.to_ascii_lowercase().as_str(),
+                        "quic" | "h3" | "http3"
+                    )
+                })
+                .unwrap_or(false),
+    })
+}
+
+fn shadowsocks_config(node: &Value, listen: SocketAddr) -> Result<ShadowsocksClientConfig> {
+    ensure!(
+        field(node, &["plugin", "plugin-opts", "plugin_opts"]).is_none(),
+        "Shadowsocks plugin is not supported by Aerion"
+    );
+    ensure!(
+        !udp_over_tcp_enabled(node),
+        "Shadowsocks UDP-over-TCP is not supported by Aerion"
+    );
+    Ok(ShadowsocksClientConfig {
+        listen,
+        server_host: node_string(node, &["server", "host", "address"])?,
+        server_port: node_port(node, &["port", "server_port", "server-port"])?,
+        method: node_string(node, &["cipher", "method", "security"])?,
+        password: node_string(node, &["password", "passwd"])?,
+        udp: node_bool(node, &["udp"], true),
+    })
+}
+
+fn node_protocol(node: &Value) -> Result<String> {
+    let protocol = node_optional_string(node, &["type", "protocol"])
+        .unwrap_or_else(|| "anytls".to_string())
+        .to_ascii_lowercase();
+    Ok(match protocol.as_str() {
+        "hy2" => "hysteria2".to_string(),
+        "mierus" => "mieru".to_string(),
+        "naive+https" | "naive+quic" => "naive".to_string(),
+        "shadowsocks" => "ss".to_string(),
+        _ => protocol,
+    })
+}
+
+fn vless_transport(node: &Value) -> Result<VlessTransportConfig> {
+    let network = node_optional_string(node, &["network"]).unwrap_or_else(|| "tcp".to_string());
+    if network.eq_ignore_ascii_case("grpc") {
+        let opts = object_field(node, &["grpc-opts", "grpc_opts"]);
+        return VlessTransportConfig::from_network(
+            &network,
+            opts.and_then(|opts| map_string(opts, &["grpc-service-name", "grpc_service_name"])),
+            opts.and_then(|opts| map_string(opts, &["authority", "host"])),
+            map_headers(opts),
+        );
+    }
+    if network.eq_ignore_ascii_case("xhttp") || network.eq_ignore_ascii_case("splithttp") {
+        let opts = object_field(node, &["xhttp-opts", "xhttp_opts", "splithttp-opts"]);
+        return VlessTransportConfig::xhttp(
+            opts.and_then(|opts| map_string(opts, &["path"])),
+            opts.and_then(|opts| map_string(opts, &["host"])),
+            map_headers(opts),
+            opts.and_then(|opts| map_string(opts, &["mode"])),
+        );
+    }
+    let opts = object_field(node, &["ws-opts", "ws_opts", "http-opts", "http_opts"]);
+    VlessTransportConfig::from_network(
+        &network,
+        opts.and_then(|opts| map_string(opts, &["path"]))
+            .or_else(|| node_optional_string(node, &["path"])),
+        opts.and_then(|opts| map_string(opts, &["host"])),
+        map_headers(opts),
+    )
+}
+
+fn reality_config(node: &Value) -> Result<Option<RealityClientConfig>> {
+    let opts = object_field(node, &["reality-opts", "reality_opts"]);
+    let public_key = opts
+        .and_then(|opts| map_string(opts, &["public-key", "public_key"]))
+        .or_else(|| node_optional_string(node, &["public-key", "public_key", "pbk"]));
+    let Some(public_key) = public_key else {
+        return Ok(None);
+    };
+    let short_id = opts
+        .and_then(|opts| map_string(opts, &["short-id", "short_id"]))
+        .or_else(|| node_optional_string(node, &["short-id", "short_id", "sid"]))
+        .unwrap_or_default();
+    RealityClientConfig::from_strings(&public_key, &short_id).map(Some)
+}
+
+fn client_fingerprint(node: &Value) -> Result<Option<UtlsFingerprint>> {
+    let Some(value) = node_optional_string(
+        node,
+        &[
+            "client-fingerprint",
+            "client_fingerprint",
+            "fingerprint",
+            "fp",
+        ],
+    ) else {
+        return Ok(None);
+    };
+    UtlsFingerprint::from_mihomo_name(&value)
+}
+
+fn ensure_tcp_network(node: &Value) -> Result<()> {
+    let network = node_optional_string(node, &["network"]).unwrap_or_else(|| "tcp".to_string());
+    ensure!(
+        network.trim().is_empty()
+            || network.eq_ignore_ascii_case("tcp")
+            || network.eq_ignore_ascii_case("raw"),
+        "Aerion binding currently supports raw TCP transport for this protocol, got network={network}"
+    );
+    Ok(())
+}
+
+fn mux_enabled(node: &Value) -> bool {
+    match field(node, &["mux"]) {
+        Some(Value::Bool(value)) => *value,
+        Some(Value::Object(map)) => map_bool(map, &["enabled"], false),
+        _ => false,
+    }
+}
+
+fn field<'a>(node: &'a Value, keys: &[&str]) -> Option<&'a Value> {
+    keys.iter().find_map(|key| node.get(*key))
+}
+
+fn object_field<'a>(node: &'a Value, keys: &[&str]) -> Option<&'a Map<String, Value>> {
+    field(node, keys).and_then(Value::as_object)
+}
+
+fn node_string(node: &Value, keys: &[&str]) -> Result<String> {
+    node_optional_string(node, keys)
+        .filter(|value| !value.trim().is_empty())
+        .with_context(|| format!("node field {} is required", keys.join("/")))
+}
+
+fn node_optional_string(node: &Value, keys: &[&str]) -> Option<String> {
+    field(node, keys).and_then(value_to_string)
+}
+
+fn map_string(map: &Map<String, Value>, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|key| map.get(*key))
+        .and_then(value_to_string)
+}
+
+fn value_to_string(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) => Some(text.trim().to_string()),
+        Value::Number(number) => Some(number.to_string()),
+        _ => None,
+    }
+}
+
+fn node_port(node: &Value, keys: &[&str]) -> Result<u16> {
+    let port = node_u64(node, keys, 0)?;
+    ensure!(
+        port > 0 && port <= u16::MAX as u64,
+        "node port is out of range"
+    );
+    Ok(port as u16)
+}
+
+fn node_u64(node: &Value, keys: &[&str], default: u64) -> Result<u64> {
+    Ok(node_optional_u64(node, keys)?.unwrap_or(default))
+}
+
+fn node_optional_u64(node: &Value, keys: &[&str]) -> Result<Option<u64>> {
+    let Some(value) = field(node, keys) else {
+        return Ok(None);
+    };
+    match value {
+        Value::Null => Ok(None),
+        Value::Number(number) => number
+            .as_u64()
+            .map(Some)
+            .context("number field is out of range"),
+        Value::String(text) if text.trim().is_empty() => Ok(None),
+        Value::String(text) => text
+            .trim()
+            .parse::<u64>()
+            .map(Some)
+            .with_context(|| format!("parse numeric node field {}", keys.join("/"))),
+        _ => bail!("node field {} must be a number or string", keys.join("/")),
+    }
+}
+
+fn node_optional_bandwidth_u64(node: &Value, keys: &[&str]) -> Result<Option<u64>> {
+    let Some(value) = field(node, keys) else {
+        return Ok(None);
+    };
+    match value {
+        Value::Null => Ok(None),
+        Value::Bool(false) => Ok(None),
+        Value::Number(number) => number
+            .as_u64()
+            .map(Some)
+            .context("bandwidth field is out of range"),
+        Value::String(text) => {
+            let text = text.trim();
+            if text.is_empty() {
+                return Ok(None);
+            }
+            let digits = text
+                .chars()
+                .take_while(|ch| ch.is_ascii_digit())
+                .collect::<String>();
+            ensure!(
+                !digits.is_empty(),
+                "parse bandwidth node field {}",
+                keys.join("/")
+            );
+            let suffix = text[digits.len()..]
+                .trim()
+                .trim_start_matches(|ch: char| ch == '/' || ch == '_')
+                .trim()
+                .to_ascii_lowercase();
+            ensure!(
+                suffix.is_empty()
+                    || matches!(suffix.as_str(), "m" | "mb" | "mbps" | "mib" | "mibps"),
+                "unsupported bandwidth unit {suffix} in node field {}",
+                keys.join("/")
+            );
+            digits
+                .parse::<u64>()
+                .map(Some)
+                .with_context(|| format!("parse bandwidth node field {}", keys.join("/")))
+        }
+        _ => bail!("node field {} must be a number or string", keys.join("/")),
+    }
+}
+
+fn node_bool(node: &Value, keys: &[&str], default: bool) -> bool {
+    match field(node, keys) {
+        Some(Value::Bool(value)) => *value,
+        Some(Value::Number(number)) => number.as_u64().unwrap_or(0) != 0,
+        Some(Value::String(text)) => matches!(
+            text.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on" | "tls" | "enabled"
+        ),
+        _ => default,
+    }
+}
+
+fn map_bool(map: &Map<String, Value>, keys: &[&str], default: bool) -> bool {
+    match keys.iter().find_map(|key| map.get(*key)) {
+        Some(Value::Bool(value)) => *value,
+        Some(Value::Number(number)) => number.as_u64().unwrap_or(0) != 0,
+        Some(Value::String(text)) => matches!(
+            text.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on" | "tls" | "enabled"
+        ),
+        _ => default,
+    }
+}
+
+fn node_string_list(node: &Value, keys: &[&str]) -> Option<Vec<String>> {
+    match field(node, keys)? {
+        Value::Array(values) => Some(
+            values
+                .iter()
+                .filter_map(value_to_string)
+                .filter(|value| !value.is_empty())
+                .collect(),
+        ),
+        Value::String(text) => Some(
+            text.lines()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+                .collect(),
+        ),
+        _ => None,
+    }
+}
+
+fn obfs_nested_password(node: &Value) -> Option<String> {
+    object_field(node, &["obfs"]).and_then(|opts| map_string(opts, &["password"]))
+}
+
+fn map_headers(opts: Option<&Map<String, Value>>) -> Vec<(String, String)> {
+    let Some(headers) = opts
+        .and_then(|opts| opts.get("headers"))
+        .and_then(Value::as_object)
+    else {
+        return Vec::new();
+    };
+    headers
+        .iter()
+        .filter_map(|(key, value)| value_to_string(value).map(|value| (key.clone(), value)))
+        .collect::<BTreeMap<_, _>>()
+        .into_iter()
+        .collect()
+}
+
+fn udp_over_tcp_enabled(node: &Value) -> bool {
+    object_field(node, &["udp_over_tcp", "udp-over-tcp"])
+        .map(|opts| map_bool(opts, &["enabled"], false))
+        .unwrap_or(false)
+        || node_bool(node, &["uot", "udp-over-tcp", "udp_over_tcp"], false)
+}
+
+fn naive_extra_headers(node: &Value) -> Result<Vec<(String, String)>> {
+    let Some(headers) = object_field(node, &["extra_headers", "extra-headers", "headers"]) else {
+        return Ok(Vec::new());
+    };
+    let mut values = BTreeMap::new();
+    for (key, value) in headers {
+        ensure!(
+            !key.contains('\r') && !key.contains('\n'),
+            "Naive extra header name contains newline"
+        );
+        let Some(value) = value_to_string(value) else {
+            continue;
+        };
+        ensure!(
+            !value.contains('\r') && !value.contains('\n'),
+            "Naive extra header value contains newline"
+        );
+        values.insert(key.clone(), value);
+    }
+    Ok(values.into_iter().collect())
+}
+
+fn parse_mieru_hash(value: &str) -> Result<[u8; 32]> {
+    let value = value.trim().trim_start_matches("0x");
+    ensure!(
+        value.len() == 64,
+        "Mieru hashed password must be 32 bytes hex"
+    );
+    let mut output = [0u8; 32];
+    for index in 0..32 {
+        output[index] = u8::from_str_radix(&value[index * 2..index * 2 + 2], 16)
+            .context("parse Mieru hashed password hex")?;
+    }
+    Ok(output)
+}

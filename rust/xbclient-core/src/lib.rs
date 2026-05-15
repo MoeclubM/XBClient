@@ -1,4 +1,6 @@
+mod aerion_config_compat;
 mod aerion_core;
+mod aerion_protocol;
 #[cfg(target_os = "android")]
 mod android;
 
