@@ -7,7 +7,6 @@
     <string name="common_later">Позже</string>
     <string name="common_selected">Выбрано</string>
     <string name="common_clear_selection">Очистить выбор</string>
-    <string name="common_back_profile">Назад к профилю</string>
     <string name="common_back_settings">Назад к настройкам</string>
 
     <string name="nav_home">Главная</string>
@@ -73,11 +72,13 @@
     <string name="action_select_apps">Выбрать приложения</string>
     <string name="action_generate_invite">Создать приглашение</string>
 
+    <string name="subscription_no_plan_title">Нет активного тарифа</string>
+    <string name="subscription_no_plan_body">У аккаунта нет активного тарифа или пакета трафика. Активируйте тариф, пакет трафика или сброс трафика, чтобы использовать узлы.</string>
     <string name="subscription_expired_title">Тариф истек</string>
-    <string name="subscription_expired_body">Текущий тариф истек. Обменяйте или купите тариф, чтобы использовать узлы.</string>
+    <string name="subscription_expired_body">Текущий тариф истек. Активируйте тариф, пакет трафика или сброс трафика, чтобы использовать узлы.</string>
     <string name="subscription_traffic_exceeded_title">Трафик исчерпан</string>
-    <string name="subscription_traffic_exceeded_body">Трафик текущего тарифа исчерпан. Обменяйте или купите тариф, чтобы использовать узлы.</string>
-    <string name="subscription_redeem_button">Перейти к тарифам</string>
+    <string name="subscription_traffic_exceeded_body">Трафик тарифа или пакета исчерпан. Активируйте тариф, пакет трафика или сброс трафика, чтобы использовать узлы.</string>
+    <string name="subscription_redeem_button">Активировать тариф / трафик / сброс</string>
     <string name="subscription_not_synced">Подписка не синхронизирована</string>
     <string name="subscription_synced">Подписка синхронизирована</string>
 
@@ -141,9 +142,11 @@
     <string name="node_test_target_label">Цель проверки</string>
     <string name="node_test_help">Укажите домен, домен:порт или http/https URL. Проверка узла выполняет два HEAD-запроса и показывает задержку второго.</string>
     <string name="about_version">Версия %1$s</string>
+    <string name="about_source_code">Исходный код</string>
     <string name="about_website">Сайт</string>
     <string name="about_user_agreement">Условия</string>
     <string name="about_privacy_policy">Политика конфиденциальности</string>
+    <string name="about_open_source_licenses">Лицензии открытого ПО</string>
 
     <string name="page_node_select_title">Выбор узла</string>
     <string name="page_app_rules_title">Правила приложений</string>

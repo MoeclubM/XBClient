@@ -1,0 +1,18 @@
+[package]
+name = "socks5-impl"
+version = "0.8.2"
+edition = "2024"
+license = "MIT"
+description = "Minimal SOCKS protocol primitives used by tun2proxy"
+publish = false
+
+[features]
+default = []
+serde = ["dep:serde"]
+tokio = ["dep:async-trait", "dep:tokio"]
+
+[dependencies]
+async-trait = { version = "0.1.89", optional = true }
+bytes = "1.11.0"
+serde = { version = "1.0.228", features = ["derive"], optional = true }
+tokio = { version = "1.52.1", features = ["io-util"], optional = true }

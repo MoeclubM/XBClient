@@ -7,7 +7,6 @@
     <string name="common_later">稍后</string>
     <string name="common_selected">已选择</string>
     <string name="common_clear_selection">清空选择</string>
-    <string name="common_back_profile">返回我的</string>
     <string name="common_back_settings">返回设置</string>
 
     <string name="nav_home">首页</string>
@@ -73,11 +72,13 @@
     <string name="action_select_apps">选择应用</string>
     <string name="action_generate_invite">生成邀请码</string>
 
+    <string name="subscription_no_plan_title">未开通套餐</string>
+    <string name="subscription_no_plan_body">当前账号没有可用套餐或流量包，请兑换套餐/流量包/重置流量后再使用节点。</string>
     <string name="subscription_expired_title">套餐已过期</string>
-    <string name="subscription_expired_body">当前套餐已过期，需要兑换或购买套餐后才能使用节点。</string>
+    <string name="subscription_expired_body">当前套餐已过期，请兑换套餐/流量包/重置流量后再使用节点。</string>
     <string name="subscription_traffic_exceeded_title">流量已用尽</string>
-    <string name="subscription_traffic_exceeded_body">当前套餐流量已用尽，需要兑换或购买套餐后才能使用节点。</string>
-    <string name="subscription_redeem_button">去套餐兑换/购买</string>
+    <string name="subscription_traffic_exceeded_body">当前套餐或流量包流量已用尽，请兑换套餐/流量包/重置流量后再使用节点。</string>
+    <string name="subscription_redeem_button">去兑换套餐/流量包/重置流量</string>
     <string name="subscription_not_synced">订阅未同步</string>
     <string name="subscription_synced">订阅已同步</string>
 
@@ -141,9 +142,11 @@
     <string name="node_test_target_label">测试目标网站</string>
     <string name="node_test_help">可填写域名、域名:端口或 http/https 地址。节点测试会连续完成两次 HEAD 请求并显示第二次延迟。</string>
     <string name="about_version">版本 %1$s</string>
+    <string name="about_source_code">开源地址</string>
     <string name="about_website">官网</string>
     <string name="about_user_agreement">用户协议</string>
     <string name="about_privacy_policy">隐私政策</string>
+    <string name="about_open_source_licenses">开源许可</string>
 
     <string name="page_node_select_title">选择节点</string>
     <string name="page_app_rules_title">应用规则</string>

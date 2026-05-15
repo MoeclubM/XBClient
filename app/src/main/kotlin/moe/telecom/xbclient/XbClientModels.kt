@@ -16,6 +16,7 @@ const val DEFAULT_NODE_TEST_TARGET = "https://cp.cloudflare.com"
 const val DNS_MODE_OVER_TCP = "over_tcp"
 const val REWARD_SCENE_PLAN = "plan"
 const val REWARD_SCENE_POINTS = "points"
+const val SUBSCRIPTION_BLOCK_NO_PLAN = "no_plan"
 const val SUBSCRIPTION_BLOCK_EXPIRED = "expired"
 const val SUBSCRIPTION_BLOCK_TRAFFIC = "traffic_exceeded"
 
@@ -372,12 +373,16 @@ fun subscriptionSummary(data: JSONObject): String {
 }
 
 fun subscriptionBlockReason(data: JSONObject): String {
+    val planId = numericValue(data.opt("plan_id")).toInt()
+    if (planId <= 0 && data.optJSONObject("plan") == null) {
+        return SUBSCRIPTION_BLOCK_NO_PLAN
+    }
     val expiredAt = numericValue(data.opt("expired_at")).toLong()
-    if (expiredAt > 0L && expiredAt <= System.currentTimeMillis() / 1000L) {
+    if (!data.isNull("expired_at") && expiredAt <= System.currentTimeMillis() / 1000L) {
         return SUBSCRIPTION_BLOCK_EXPIRED
     }
     val total = numericValue(data.opt("transfer_enable"))
-    if (total > 0.0 && numericValue(data.opt("u")) + numericValue(data.opt("d")) >= total) {
+    if (total <= 0.0 || numericValue(data.opt("u")) + numericValue(data.opt("d")) >= total) {
         return SUBSCRIPTION_BLOCK_TRAFFIC
     }
     return ""

@@ -7,7 +7,6 @@
     <string name="common_later">Later</string>
     <string name="common_selected">Selected</string>
     <string name="common_clear_selection">Clear</string>
-    <string name="common_back_profile">Back to profile</string>
     <string name="common_back_settings">Back to settings</string>
 
     <string name="nav_home">Home</string>
@@ -73,11 +72,13 @@
     <string name="action_select_apps">Select apps</string>
     <string name="action_generate_invite">Generate invite</string>
 
+    <string name="subscription_no_plan_title">No active plan</string>
+    <string name="subscription_no_plan_body">This account has no active plan or traffic package. Redeem a plan, traffic package, or traffic reset to use nodes.</string>
     <string name="subscription_expired_title">Plan expired</string>
-    <string name="subscription_expired_body">Your current plan has expired. Redeem or buy a plan to use nodes.</string>
+    <string name="subscription_expired_body">Your current plan has expired. Redeem a plan, traffic package, or traffic reset to use nodes.</string>
     <string name="subscription_traffic_exceeded_title">Traffic exhausted</string>
-    <string name="subscription_traffic_exceeded_body">Your current plan traffic has been used up. Redeem or buy a plan to use nodes.</string>
-    <string name="subscription_redeem_button">Go to plans</string>
+    <string name="subscription_traffic_exceeded_body">Your plan or traffic package has run out of traffic. Redeem a plan, traffic package, or traffic reset to use nodes.</string>
+    <string name="subscription_redeem_button">Redeem plan / traffic / reset</string>
     <string name="subscription_not_synced">Subscription not synced</string>
     <string name="subscription_synced">Subscription synced</string>
 
@@ -141,9 +142,11 @@
     <string name="node_test_target_label">Test target</string>
     <string name="node_test_help">Enter a domain, domain:port, or http/https URL. Node testing runs two HEAD requests and shows the second latency.</string>
     <string name="about_version">Version %1$s</string>
+    <string name="about_source_code">Source code</string>
     <string name="about_website">Website</string>
     <string name="about_user_agreement">Terms</string>
     <string name="about_privacy_policy">Privacy policy</string>
+    <string name="about_open_source_licenses">Open source licenses</string>
 
     <string name="page_node_select_title">Select node</string>
     <string name="page_app_rules_title">App rules</string>

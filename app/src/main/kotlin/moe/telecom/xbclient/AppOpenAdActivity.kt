@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -67,19 +68,28 @@ class AppOpenAdActivity : ComponentActivity() {
             openAuthActivity()
             return
         }
-        if (!prefs.getBoolean("app_open_ad_enabled", false) || adUnitId.isEmpty()) {
-            openMainActivity()
-            return
-        }
         handler.postDelayed(timeoutRunnable, APP_OPEN_AD_SHOW_WINDOW_MS)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                val configResult = XboardApi.request("admob_reward_config", apiUrl(), prefs.getString("auth_data", "").orEmpty(), org.json.JSONObject())
+                val data = configResult.optJSONObject("body")?.optJSONObject("data")
+                val enabled = data?.optBoolean("app_open_ad_enabled") ?: prefs.getBoolean("app_open_ad_enabled", false)
+                val unitId = if (data != null) data.optString("app_open_ad_unit_id") else adUnitId
+                prefs.edit()
+                    .putBoolean("app_open_ad_enabled", enabled)
+                    .putString("app_open_ad_unit_id", unitId)
+                    .apply()
+                if (!enabled || unitId.isEmpty()) {
+                    runOnUiThread { openMainActivity() }
+                    return@launch
+                }
                 MobileAds.initialize(
                     this@AppOpenAdActivity,
                     InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID).build()
                 )
-                runOnUiThread { loadAppOpenAd(adUnitId) }
-            } catch (_: Exception) {
+                runOnUiThread { loadAppOpenAd(unitId) }
+            } catch (error: Exception) {
+                Log.w(TAG, "App open config request failed.", error)
                 runOnUiThread { openMainActivity() }
             }
         }
@@ -111,11 +121,13 @@ class AppOpenAdActivity : ComponentActivity() {
                     }
 
                     override fun onAdFailedToLoad(adError: LoadAdError) {
+                        Log.w(TAG, "App open ad failed to load: $adError")
                         runOnUiThread { openMainActivity() }
                     }
                 }
             )
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            Log.w(TAG, "App open ad load crashed.", error)
             openMainActivity()
         }
     }
@@ -133,6 +145,7 @@ class AppOpenAdActivity : ComponentActivity() {
             }
 
             override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
+                Log.w(TAG, "App open ad failed to show: $fullScreenContentError")
                 runOnUiThread { openMainActivity() }
             }
         }
@@ -146,6 +159,11 @@ class AppOpenAdActivity : ComponentActivity() {
 
     private fun openMainActivity() {
         openNextActivity(MainActivity::class.java)
+    }
+
+    private fun apiUrl(): String {
+        val value = BuildConfig.DEFAULT_API_URL.trim()
+        return if (value.startsWith("http://") || value.startsWith("https://")) value else "https://$value"
     }
 
     private fun openNextActivity(activityClass: Class<*>) {
@@ -162,6 +180,7 @@ class AppOpenAdActivity : ComponentActivity() {
     }
 
     companion object {
+        private const val TAG = "XBClientAds"
         private const val APP_OPEN_AD_SHOW_WINDOW_MS = 4000L
     }
 }

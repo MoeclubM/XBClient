@@ -7,7 +7,6 @@
     <string name="common_later">後で</string>
     <string name="common_selected">選択済み</string>
     <string name="common_clear_selection">選択をクリア</string>
-    <string name="common_back_profile">マイページに戻る</string>
     <string name="common_back_settings">設定に戻る</string>
 
     <string name="nav_home">ホーム</string>
@@ -73,11 +72,13 @@
     <string name="action_select_apps">アプリを選択</string>
     <string name="action_generate_invite">招待コードを生成</string>
 
+    <string name="subscription_no_plan_title">有効なプランがありません</string>
+    <string name="subscription_no_plan_body">このアカウントには有効なプランまたは通信量パッケージがありません。プラン、通信量パッケージ、または通信量リセットを交換してからノードを使用してください。</string>
     <string name="subscription_expired_title">プランの有効期限が切れました</string>
-    <string name="subscription_expired_body">現在のプランは有効期限切れです。ノードを使用するにはプランを交換または購入してください。</string>
+    <string name="subscription_expired_body">現在のプランは有効期限切れです。プラン、通信量パッケージ、または通信量リセットを交換してからノードを使用してください。</string>
     <string name="subscription_traffic_exceeded_title">通信量を使い切りました</string>
-    <string name="subscription_traffic_exceeded_body">現在のプランの通信量を使い切りました。ノードを使用するにはプランを交換または購入してください。</string>
-    <string name="subscription_redeem_button">プランへ移動</string>
+    <string name="subscription_traffic_exceeded_body">プランまたは通信量パッケージの通信量を使い切りました。プラン、通信量パッケージ、または通信量リセットを交換してからノードを使用してください。</string>
+    <string name="subscription_redeem_button">プラン/通信量/リセットを交換</string>
     <string name="subscription_not_synced">サブスクリプション未同期</string>
     <string name="subscription_synced">サブスクリプション同期済み</string>
 
@@ -141,9 +142,11 @@
     <string name="node_test_target_label">テスト対象</string>
     <string name="node_test_help">ドメイン、ドメイン:ポート、または http/https URL を入力できます。ノードテストは HEAD リクエストを2回実行し、2回目の遅延を表示します。</string>
     <string name="about_version">バージョン %1$s</string>
+    <string name="about_source_code">ソースコード</string>
     <string name="about_website">公式サイト</string>
     <string name="about_user_agreement">利用規約</string>
     <string name="about_privacy_policy">プライバシーポリシー</string>
+    <string name="about_open_source_licenses">オープンソースライセンス</string>
 
     <string name="page_node_select_title">ノードを選択</string>
     <string name="page_app_rules_title">アプリルール</string>

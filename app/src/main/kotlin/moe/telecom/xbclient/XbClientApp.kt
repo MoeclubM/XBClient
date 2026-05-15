@@ -319,70 +319,6 @@ fun XbClientAuthApp(viewModel: XbClientViewModel) {
 }
 
 @Composable
-fun XbClientSettingsApp(viewModel: XbClientViewModel, onClose: () -> Unit) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val baseContext = LocalContext.current
-    val languageTag = effectiveLanguageTag(state.appLanguage)
-    val appLocale = remember(languageTag) { Locale.forLanguageTag(languageTag) }
-    val localizedContext = remember(baseContext, appLocale) { localizedContext(baseContext, appLocale) }
-    val localizedConfiguration = remember(localizedContext) { localizedContext.resources.configuration }
-    val layoutDirection = remember(appLocale) {
-        if (TextUtils.getLayoutDirectionFromLocale(appLocale) == View.LAYOUT_DIRECTION_RTL) LayoutDirection.Rtl else LayoutDirection.Ltr
-    }
-    LaunchedEffect(state.loaded) {
-        if (state.loaded && state.screen != PassScreen.APP_RULES) {
-            viewModel.openScreen(PassScreen.SETTINGS)
-        }
-    }
-    PredictiveBackHandler(enabled = state.loaded && state.screen == PassScreen.APP_RULES) { progress ->
-        progress.collect { }
-        viewModel.openScreen(PassScreen.SETTINGS)
-    }
-    CompositionLocalProvider(
-        LocalContext provides localizedContext,
-        LocalConfiguration provides localizedConfiguration,
-        LocalLayoutDirection provides layoutDirection
-    ) {
-        XbClientTheme(state.themeMode) {
-            XbClientDialogs(state, viewModel)
-            Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
-                if (!state.loaded) {
-                    Box(
-                        modifier = Modifier
-                            .padding(padding)
-                            .fillMaxSize()
-                    ) {
-                        LoadingScreen()
-                    }
-                } else {
-                    AnimatedContent(
-                        targetState = if (state.screen == PassScreen.APP_RULES) PassScreen.APP_RULES else PassScreen.SETTINGS,
-                        transitionSpec = { screenTransition() },
-                        modifier = Modifier
-                            .padding(padding)
-                            .fillMaxSize(),
-                        label = "settings-screen"
-                    ) { screen ->
-                        if (screen == PassScreen.APP_RULES) {
-                            AppRulesScreen(state, viewModel)
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
-                            ) {
-                                item {
-                                    SettingsScreen(state, viewModel, onClose)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun XbClientTheme(themeMode: String, content: @Composable () -> Unit) {
     val darkTheme = when (themeMode) {
         "dark" -> true
@@ -1034,6 +970,7 @@ private fun ThemeChooser(current: String, appLanguage: String, viewModel: XbClie
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val visibleScreen = if (state.subscriptionBlocked && state.screen == PassScreen.NODE_SELECT) PassScreen.NODES else state.screen
     Scaffold(
         topBar = {
             TopAppBar(
@@ -1073,7 +1010,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
                 modifier = Modifier.fillMaxSize()
             ) {
                 AnimatedContent(
-                    targetState = state.screen,
+                    targetState = visibleScreen,
                     transitionSpec = { screenTransition() },
                     label = "main-screen"
                 ) { screen ->
@@ -1088,7 +1025,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
                                 when (screen) {
                                     PassScreen.PROFILE -> ProfileScreen(state, viewModel)
                                     PassScreen.PLANS -> PlansScreen(state, viewModel)
-                                    PassScreen.SETTINGS -> ProfileScreen(state, viewModel)
+                                    PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
                                     else -> HomeScreen(state, viewModel)
                                 }
                             }
@@ -1104,12 +1041,17 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
 @Composable
 private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewModel, modifier: Modifier = Modifier) {
     val selected = when (state.screen) {
-        PassScreen.PROFILE, PassScreen.SETTINGS, PassScreen.APP_RULES -> PassScreen.PROFILE
+        PassScreen.SETTINGS, PassScreen.APP_RULES -> PassScreen.SETTINGS
+        PassScreen.PROFILE -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
-        PassScreen.NODE_SELECT -> PassScreen.NODE_SELECT
+        PassScreen.NODE_SELECT -> if (state.subscriptionBlocked) PassScreen.NODES else PassScreen.NODE_SELECT
         else -> PassScreen.NODES
     }
-    val navScreens = listOf(PassScreen.NODES, PassScreen.NODE_SELECT, PassScreen.PLANS, PassScreen.PROFILE)
+    val navScreens = if (state.subscriptionBlocked) {
+        listOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
+    } else {
+        listOf(PassScreen.NODES, PassScreen.NODE_SELECT, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
+    }
     var navDragging by remember { mutableStateOf(false) }
     var navDragActive by remember { mutableStateOf(false) }
     var navDragOffsetPx by remember { mutableFloatStateOf(0f) }
@@ -1136,12 +1078,10 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                     .padding(horizontal = 8.dp, vertical = 7.dp)
             ) {
                 val selectedIndex = when (selected) {
-                    PassScreen.NODES -> 0
-                    PassScreen.NODE_SELECT -> 1
-                    PassScreen.PLANS -> 2
-                    else -> 3
+                    PassScreen.PLANS, PassScreen.PROFILE, PassScreen.NODE_SELECT, PassScreen.SETTINGS -> navScreens.indexOf(selected).coerceAtLeast(0)
+                    else -> 0
                 }
-                val itemWidth = maxWidth / 4
+                val itemWidth = maxWidth / navScreens.size
                 val density = LocalDensity.current
                 val itemWidthPx = with(density) { itemWidth.toPx() }
                 val draggedOffset = with(density) {
@@ -1164,14 +1104,6 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                     animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
                     label = "bottom-nav-liquid-droplet"
                 )
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .padding(horizontal = 24.dp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                ) {}
                 Surface(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
@@ -1210,7 +1142,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                         .graphicsLayer {
                             scaleX = 1f + liquidStretch
                             scaleY = 1f - liquidStretch * 0.28f
-                    },
+                        },
                     shape = RoundedCornerShape(31.dp),
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.68f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f)),
@@ -1263,34 +1195,29 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                         },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    BottomNavButton(
-                        selected = selected == PassScreen.NODES,
-                        icon = R.drawable.ic_nav_home,
-                        label = stringResource(R.string.nav_home),
-                        modifier = Modifier.weight(1f),
-                        onClick = { viewModel.openScreen(PassScreen.NODES) }
-                    )
-                    BottomNavButton(
-                        selected = selected == PassScreen.NODE_SELECT,
-                        icon = R.drawable.ic_nav_nodes,
-                        label = stringResource(R.string.nav_nodes),
-                        modifier = Modifier.weight(1f),
-                        onClick = { viewModel.openScreen(PassScreen.NODE_SELECT) }
-                    )
-                    BottomNavButton(
-                        selected = selected == PassScreen.PLANS,
-                        icon = R.drawable.ic_nav_plans,
-                        label = stringResource(R.string.nav_plans),
-                        modifier = Modifier.weight(1f),
-                        onClick = { viewModel.openScreen(PassScreen.PLANS) }
-                    )
-                    BottomNavButton(
-                        selected = selected == PassScreen.PROFILE,
-                        icon = R.drawable.ic_nav_profile,
-                        label = stringResource(R.string.nav_profile),
-                        modifier = Modifier.weight(1f),
-                        onClick = { viewModel.openScreen(PassScreen.PROFILE) }
-                    )
+                    for (screen in navScreens) {
+                        BottomNavButton(
+                            selected = selected == screen,
+                            icon = when (screen) {
+                                PassScreen.NODE_SELECT -> R.drawable.ic_nav_nodes
+                                PassScreen.PLANS -> R.drawable.ic_nav_plans
+                                PassScreen.PROFILE -> R.drawable.ic_nav_profile
+                                PassScreen.SETTINGS -> R.drawable.ic_nav_settings
+                                else -> R.drawable.ic_nav_home
+                            },
+                            label = stringResource(
+                                id = when (screen) {
+                                    PassScreen.NODE_SELECT -> R.string.nav_nodes
+                                    PassScreen.PLANS -> R.string.nav_plans
+                                    PassScreen.PROFILE -> R.string.nav_profile
+                                    PassScreen.SETTINGS -> R.string.common_settings
+                                    else -> R.string.nav_home
+                                }
+                            ),
+                            modifier = Modifier.weight(1f),
+                            onClick = { viewModel.openScreen(screen) }
+                        )
+                    }
                 }
             }
         }
@@ -1355,6 +1282,42 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
         }
     }
     PageHeader(stringResource(R.string.nav_home))
+    if (state.subscriptionBlocked) {
+        val blockTitle = stringResource(
+            id = when (state.subscriptionBlockReason) {
+                SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_title
+                SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_title
+                else -> R.string.subscription_expired_title
+            }
+        )
+        val blockDescription = stringResource(
+            id = when (state.subscriptionBlockReason) {
+                SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_body
+                SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_body
+                else -> R.string.subscription_expired_body
+            }
+        )
+        Section(blockTitle) {
+            OutlinedCard(
+                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(blockDescription, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (state.subscriptionSummary.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(state.subscriptionSummary, style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Button(onClick = { viewModel.openScreen(PassScreen.PLANS) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.subscription_redeem_button))
+                    }
+                }
+            }
+        }
+        return
+    }
     Section(stringResource(R.string.section_connection)) {
         Panel {
             val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
@@ -1400,45 +1363,6 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                 }
             }
         }
-    }
-    if (state.subscriptionBlocked) {
-        val blockTitle = stringResource(
-            id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_title else R.string.subscription_expired_title
-        )
-        val blockDescription = stringResource(
-            id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_body else R.string.subscription_expired_body
-        )
-        Section(blockTitle) {
-            OutlinedCard(
-                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(blockDescription, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (state.subscriptionSummary.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(state.subscriptionSummary, style = MaterialTheme.typography.titleMedium)
-                        if (state.subscriptionTrafficTotalBytes > 0L) {
-                            Spacer(Modifier.height(10.dp))
-                            LinearProgressIndicator(
-                                progress = { (state.subscriptionTrafficUsedBytes.toFloat() / state.subscriptionTrafficTotalBytes.toFloat()).coerceIn(0f, 1f) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(14.dp))
-                    Button(onClick = { viewModel.openScreen(PassScreen.PLANS) }, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.subscription_redeem_button))
-                    }
-                }
-            }
-        }
-        return
     }
     Section(stringResource(R.string.section_current_node)) {
         OutlinedCard(
@@ -1745,13 +1669,7 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
             Text(subscriptionText, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(16.dp))
             Button(
-                onClick = {
-                    val intent = Intent(context, SettingsActivity::class.java)
-                    if (context !is android.app.Activity) {
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(intent)
-                },
+                onClick = { viewModel.openScreen(PassScreen.SETTINGS) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(stringResource(R.string.common_settings))
@@ -1822,7 +1740,7 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
 }
 
 @Composable
-private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel, onClose: () -> Unit = { viewModel.openScreen(PassScreen.PROFILE) }) {
+private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     var nodeDns by rememberSaveable(state.nodeDns) { mutableStateOf(state.nodeDns) }
     var overseasDns by rememberSaveable(state.overseasDns) { mutableStateOf(state.overseasDns) }
@@ -1844,7 +1762,6 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel,
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(intent)
-                    onClose()
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -1901,14 +1818,15 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel,
             ) {
                 Text(stringResource(R.string.common_save_settings))
             }
-            Spacer(Modifier.height(8.dp))
-            TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.common_back_profile))
-            }
         }
     }
     Section(stringResource(R.string.section_about)) {
         Panel {
+            val openSourceLicenses = remember(context) {
+                context.resources.openRawResource(R.raw.open_source_licenses)
+                    .bufferedReader()
+                    .use { it.readText() }
+            }
             Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(4.dp))
             Text(
@@ -1916,18 +1834,29 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             val links = listOf(
+                R.string.about_source_code to "https://github.com/MoeclubM/XBClient",
                 R.string.about_website to BuildConfig.WEBSITE_URL.trim(),
                 R.string.about_user_agreement to BuildConfig.USER_AGREEMENT_URL.trim(),
                 R.string.about_privacy_policy to BuildConfig.PRIVACY_POLICY_URL.trim()
             ).filter { it.second.isNotEmpty() }
             if (links.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                     for ((label, url) in links) {
                         LinkText(stringResource(label)) { openBrowser(context, url) }
                     }
                 }
             }
+            Spacer(Modifier.height(14.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
+            Text(stringResource(R.string.about_open_source_licenses), style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                openSourceLicenses,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -1942,10 +1871,18 @@ private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMode
             PageHeader(stringResource(R.string.page_node_select_title))
             if (state.subscriptionBlocked) {
                 val blockTitle = stringResource(
-                    id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_title else R.string.subscription_expired_title
+                    id = when (state.subscriptionBlockReason) {
+                        SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_title
+                        SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_title
+                        else -> R.string.subscription_expired_title
+                    }
                 )
                 val blockDescription = stringResource(
-                    id = if (state.subscriptionBlockReason == SUBSCRIPTION_BLOCK_TRAFFIC) R.string.subscription_traffic_exceeded_body else R.string.subscription_expired_body
+                    id = when (state.subscriptionBlockReason) {
+                        SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_body
+                        SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_body
+                        else -> R.string.subscription_expired_body
+                    }
                 )
                 Section(blockTitle) {
                     Text(blockDescription, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2428,7 +2365,7 @@ private val XbClientUiState.canHandleBack: Boolean
     get() = updateAvailable ||
         oauthWebViewUrl.isNotEmpty() ||
         !isLoggedIn && authMode == AuthMode.REGISTER ||
-        isLoggedIn && screen !in setOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE)
+        isLoggedIn && screen !in setOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
 
 private fun AnimatedContentTransitionScope<*>.contentTransition() =
     (fadeIn(animationSpec = tween(180)) togetherWith
@@ -2439,13 +2376,15 @@ private fun AnimatedContentTransitionScope<PassScreen>.screenTransition(): Conte
         PassScreen.NODES -> 0
         PassScreen.NODE_SELECT -> 1
         PassScreen.PLANS -> 2
-        PassScreen.PROFILE, PassScreen.SETTINGS, PassScreen.APP_RULES -> 3
+        PassScreen.PROFILE -> 3
+        PassScreen.SETTINGS, PassScreen.APP_RULES -> 4
     }
     val targetOrder = when (targetState) {
         PassScreen.NODES -> 0
         PassScreen.NODE_SELECT -> 1
         PassScreen.PLANS -> 2
-        PassScreen.PROFILE, PassScreen.SETTINGS, PassScreen.APP_RULES -> 3
+        PassScreen.PROFILE -> 3
+        PassScreen.SETTINGS, PassScreen.APP_RULES -> 4
     }
     return if (targetOrder >= initialOrder) {
         (slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) +

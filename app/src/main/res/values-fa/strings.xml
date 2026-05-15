@@ -7,7 +7,6 @@
     <string name="common_later">بعداً</string>
     <string name="common_selected">انتخاب‌شده</string>
     <string name="common_clear_selection">پاک کردن انتخاب</string>
-    <string name="common_back_profile">بازگشت به نمایه</string>
     <string name="common_back_settings">بازگشت به تنظیمات</string>
 
     <string name="nav_home">خانه</string>
@@ -73,11 +72,13 @@
     <string name="action_select_apps">انتخاب برنامه‌ها</string>
     <string name="action_generate_invite">ساخت کد دعوت</string>
 
+    <string name="subscription_no_plan_title">پلن فعالی وجود ندارد</string>
+    <string name="subscription_no_plan_body">این حساب پلن یا بسته ترافیک فعال ندارد. برای استفاده از گره‌ها، پلن، بسته ترافیک یا بازنشانی ترافیک را بازخرید کنید.</string>
     <string name="subscription_expired_title">پلن منقضی شده است</string>
-    <string name="subscription_expired_body">پلن فعلی شما منقضی شده است. برای استفاده از گره‌ها، یک پلن را بازخرید یا خریداری کنید.</string>
+    <string name="subscription_expired_body">پلن فعلی شما منقضی شده است. برای استفاده از گره‌ها، پلن، بسته ترافیک یا بازنشانی ترافیک را بازخرید کنید.</string>
     <string name="subscription_traffic_exceeded_title">ترافیک تمام شده است</string>
-    <string name="subscription_traffic_exceeded_body">ترافیک پلن فعلی شما تمام شده است. برای استفاده از گره‌ها، یک پلن را بازخرید یا خریداری کنید.</string>
-    <string name="subscription_redeem_button">رفتن به پلن‌ها</string>
+    <string name="subscription_traffic_exceeded_body">ترافیک پلن یا بسته ترافیک شما تمام شده است. برای استفاده از گره‌ها، پلن، بسته ترافیک یا بازنشانی ترافیک را بازخرید کنید.</string>
+    <string name="subscription_redeem_button">بازخرید پلن / ترافیک / بازنشانی</string>
     <string name="subscription_not_synced">اشتراک همگام نشده است</string>
     <string name="subscription_synced">اشتراک همگام شد</string>
 
@@ -141,9 +142,11 @@
     <string name="node_test_target_label">هدف آزمون</string>
     <string name="node_test_help">دامنه، دامنه:درگاه یا نشانی http/https وارد کنید. آزمون گره دو درخواست HEAD اجرا می‌کند و تأخیر درخواست دوم را نشان می‌دهد.</string>
     <string name="about_version">نسخه %1$s</string>
+    <string name="about_source_code">کد منبع</string>
     <string name="about_website">وب‌سایت</string>
     <string name="about_user_agreement">شرایط استفاده</string>
     <string name="about_privacy_policy">سیاست حریم خصوصی</string>
+    <string name="about_open_source_licenses">مجوزهای متن‌باز</string>
 
     <string name="page_node_select_title">انتخاب گره</string>
     <string name="page_app_rules_title">قوانین برنامه‌ها</string>

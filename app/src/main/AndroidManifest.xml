@@ -47,10 +47,6 @@
             android:name=".MainActivity"
             android:enableOnBackInvokedCallback="true"
             android:exported="false" />
-        <activity
-            android:name=".SettingsActivity"
-            android:enableOnBackInvokedCallback="true"
-            android:exported="false" />
         <service
             android:name=".XbClientVpnService"
             android:exported="false"

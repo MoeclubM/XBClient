@@ -1,0 +1,511 @@
+Open source and SDK notices
+
+This notice lists third-party components resolved for the Android release runtime classpath and the Android Rust target. GPL/LGPL/AGPL dependencies were checked and are not used.
+
+Android / Kotlin / Maven components
+
+Android SDK License (8)
+License: https://developer.android.com/studio/terms
+- com.google.android.gms:play-services-ads-identifier:18.0.0
+- com.google.android.gms:play-services-appset:16.0.1
+- com.google.android.gms:play-services-base:18.0.1
+- com.google.android.gms:play-services-basement:18.9.0
+- com.google.android.gms:play-services-cronet:18.0.1
+- com.google.android.gms:play-services-tasks:18.2.0
+- com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:1.0.1
+- com.google.android.ump:user-messaging-platform:4.0.0
+
+Apache-2.0 (146)
+License: https://www.apache.org/licenses/LICENSE-2.0
+- androidx.activity:activity-compose:1.13.0
+- androidx.activity:activity-ktx:1.13.0
+- androidx.activity:activity:1.13.0
+- androidx.annotation:annotation-experimental:1.4.1
+- androidx.annotation:annotation-jvm:1.9.1
+- androidx.annotation:annotation:1.9.1
+- androidx.arch.core:core-common:2.2.0
+- androidx.arch.core:core-runtime:2.2.0
+- androidx.autofill:autofill:1.0.0
+- androidx.browser:browser:1.8.0
+- androidx.collection:collection-jvm:1.5.0
+- androidx.collection:collection-ktx:1.5.0
+- androidx.collection:collection:1.5.0
+- androidx.compose.animation:animation-android:1.11.0
+- androidx.compose.animation:animation-core-android:1.11.0
+- androidx.compose.animation:animation-core:1.11.0
+- androidx.compose.animation:animation:1.11.0
+- androidx.compose.foundation:foundation-android:1.11.0
+- androidx.compose.foundation:foundation-layout-android:1.11.0
+- androidx.compose.foundation:foundation-layout:1.11.0
+- androidx.compose.foundation:foundation:1.11.0
+- androidx.compose.material3:material3-android:1.4.0
+- androidx.compose.material3:material3:1.4.0
+- androidx.compose.material:material-ripple-android:1.11.0
+- androidx.compose.material:material-ripple:1.11.0
+- androidx.compose.runtime:runtime-android:1.11.0
+- androidx.compose.runtime:runtime-annotation-android:1.11.0
+- androidx.compose.runtime:runtime-annotation:1.11.0
+- androidx.compose.runtime:runtime-retain-android:1.11.0
+- androidx.compose.runtime:runtime-retain:1.11.0
+- androidx.compose.runtime:runtime-saveable-android:1.11.0
+- androidx.compose.runtime:runtime-saveable:1.11.0
+- androidx.compose.runtime:runtime:1.11.0
+- androidx.compose.ui:ui-android:1.11.0
+- androidx.compose.ui:ui-geometry-android:1.11.0
+- androidx.compose.ui:ui-geometry:1.11.0
+- androidx.compose.ui:ui-graphics-android:1.11.0
+- androidx.compose.ui:ui-graphics:1.11.0
+- androidx.compose.ui:ui-text-android:1.11.0
+- androidx.compose.ui:ui-text:1.11.0
+- androidx.compose.ui:ui-unit-android:1.11.0
+- androidx.compose.ui:ui-unit:1.11.0
+- androidx.compose.ui:ui-util-android:1.11.0
+- androidx.compose.ui:ui-util:1.11.0
+- androidx.compose.ui:ui:1.11.0
+- androidx.compose:compose-bom:2026.04.01
+- androidx.concurrent:concurrent-futures:1.1.0
+- androidx.core:core-ktx:1.18.0
+- androidx.core:core-viewtree:1.0.0
+- androidx.core:core:1.18.0
+- androidx.customview:customview-poolingcontainer:1.0.0
+- androidx.customview:customview:1.0.0
+- androidx.datastore:datastore-android:1.2.1
+- androidx.datastore:datastore-core-android:1.2.1
+- androidx.datastore:datastore-core-okio-jvm:1.2.1
+- androidx.datastore:datastore-core-okio:1.2.1
+- androidx.datastore:datastore-core:1.2.1
+- androidx.datastore:datastore-preferences-android:1.2.1
+- androidx.datastore:datastore-preferences-core-android:1.2.1
+- androidx.datastore:datastore-preferences-core:1.2.1
+- androidx.datastore:datastore-preferences-proto:1.2.1
+- androidx.datastore:datastore-preferences:1.2.1
+- androidx.datastore:datastore:1.2.1
+- androidx.documentfile:documentfile:1.0.0
+- androidx.dynamicanimation:dynamicanimation:1.0.0
+- androidx.emoji2:emoji2:1.4.0
+- androidx.fragment:fragment:1.8.9
+- androidx.graphics:graphics-path:1.0.1
+- androidx.interpolator:interpolator:1.0.0
+- androidx.legacy:legacy-support-core-utils:1.0.0
+- androidx.lifecycle:lifecycle-common-java8:2.10.0
+- androidx.lifecycle:lifecycle-common-jvm:2.10.0
+- androidx.lifecycle:lifecycle-common:2.10.0
+- androidx.lifecycle:lifecycle-livedata-core-ktx:2.10.0
+- androidx.lifecycle:lifecycle-livedata-core:2.10.0
+- androidx.lifecycle:lifecycle-livedata:2.10.0
+- androidx.lifecycle:lifecycle-process:2.10.0
+- androidx.lifecycle:lifecycle-runtime-android:2.10.0
+- androidx.lifecycle:lifecycle-runtime-compose-android:2.10.0
+- androidx.lifecycle:lifecycle-runtime-compose:2.10.0
+- androidx.lifecycle:lifecycle-runtime-ktx-android:2.10.0
+- androidx.lifecycle:lifecycle-runtime-ktx:2.10.0
+- androidx.lifecycle:lifecycle-runtime:2.10.0
+- androidx.lifecycle:lifecycle-service:2.10.0
+- androidx.lifecycle:lifecycle-viewmodel-android:2.10.0
+- androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0
+- androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.10.0
+- androidx.lifecycle:lifecycle-viewmodel-savedstate:2.10.0
+- androidx.lifecycle:lifecycle-viewmodel:2.10.0
+- androidx.loader:loader:1.0.0
+- androidx.localbroadcastmanager:localbroadcastmanager:1.0.0
+- androidx.navigationevent:navigationevent-android:1.0.0
+- androidx.navigationevent:navigationevent-compose-android:1.0.0
+- androidx.navigationevent:navigationevent-compose:1.0.0
+- androidx.navigationevent:navigationevent:1.0.0
+- androidx.print:print:1.0.0
+- androidx.privacysandbox.ads:ads-adservices:1.1.0-beta05
+- androidx.profileinstaller:profileinstaller:1.4.0
+- androidx.room:room-common:2.2.5
+- androidx.room:room-runtime:2.2.5
+- androidx.savedstate:savedstate-android:1.4.0
+- androidx.savedstate:savedstate-compose-android:1.4.0
+- androidx.savedstate:savedstate-compose:1.4.0
+- androidx.savedstate:savedstate-ktx:1.4.0
+- androidx.savedstate:savedstate:1.4.0
+- androidx.sqlite:sqlite-framework:2.1.0
+- androidx.sqlite:sqlite:2.1.0
+- androidx.startup:startup-runtime:1.1.1
+- androidx.tracing:tracing:1.2.0
+- androidx.transition:transition:1.6.0
+- androidx.versionedparcelable:versionedparcelable:1.1.1
+- androidx.viewpager:viewpager:1.0.0
+- androidx.webkit:webkit:1.15.0
+- androidx.window:window-core-android:1.5.0
+- androidx.window:window-core:1.5.0
+- androidx.window:window:1.5.0
+- androidx.work:work-runtime:2.7.0
+- com.google.code.findbugs:jsr305:3.0.2
+- com.google.code.gson:gson:2.13.2
+- com.google.crypto.tink:tink-android:1.20.0
+- com.google.errorprone:error_prone_annotations:2.41.0
+- com.google.guava:failureaccess:1.0.1
+- com.google.guava:guava:32.0.0-android
+- com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava
+- com.google.j2objc:j2objc-annotations:2.8
+- com.squareup.okhttp3:okhttp:4.12.0
+- com.squareup.okio:okio-jvm:3.9.1
+- com.squareup.okio:okio:3.9.1
+- org.jetbrains.kotlin:kotlin-android-extensions-runtime:1.9.0
+- org.jetbrains.kotlin:kotlin-parcelize-runtime:1.9.0
+- org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.21
+- org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.21
+- org.jetbrains.kotlin:kotlin-stdlib:2.3.20
+- org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0
+- org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.9.0
+- org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.9.0
+- org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0
+- org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0
+- org.jetbrains.kotlinx:kotlinx-serialization-bom:1.7.3
+- org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.7.3
+- org.jetbrains.kotlinx:kotlinx-serialization-core:1.7.3
+- org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.7.3
+- org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3
+- org.jetbrains:annotations:23.0.0
+- org.jspecify:jspecify:1.0.0
+- org.yaml:snakeyaml:2.5
+
+BSD-3-Clause (2)
+License: https://opensource.org/license/bsd-3-clause
+- androidx.datastore:datastore-preferences-external-protobuf:1.2.1
+- com.google.protobuf:protobuf-javalite:3.22.3
+
+Chromium and built-in dependencies (5)
+License: https://storage.cloud.google.com/chromium-cronet/android/143.0.7445.0/Release/cronet/LICENSE
+- org.chromium.net:cronet-api:143.7445.0
+- org.chromium.net:cronet-common:143.7445.0
+- org.chromium.net:cronet-fallback:143.7445.0
+- org.chromium.net:cronet-shared:143.7445.0
+- org.chromium.net:httpengine-native-provider:143.7445.0
+
+MIT (1)
+License: https://opensource.org/license/mit
+- org.checkerframework:checker-qual:3.33.0
+
+Rust / Cargo components (aarch64-linux-android target)
+
+(MIT OR Apache-2.0) AND Unicode-3.0 (1)
+- unicode-ident 1.0.24
+
+Apache-2.0 (1)
+License: https://www.apache.org/licenses/LICENSE-2.0
+- ipstack 1.0.0
+
+Apache-2.0 / MIT (1)
+- fnv 1.0.7
+
+Apache-2.0 AND ISC (1)
+- ring 0.17.14
+
+Apache-2.0 OR BSL-1.0 (1)
+License: https://www.apache.org/licenses/LICENSE-2.0 / https://www.boost.org/LICENSE_1_0.txt
+- ryu 1.0.23
+
+Apache-2.0 OR ISC OR MIT (2)
+- rustls 0.23.40
+- rustls-pemfile 2.2.0
+
+Apache-2.0 OR MIT (27)
+- aes-gcm 0.10.3
+- atomic-waker 1.1.2
+- autocfg 1.5.0
+- base64ct 1.8.3
+- chacha20 0.9.1
+- chacha20poly1305 0.10.1
+- const-oid 0.9.6
+- der 0.7.10
+- ed25519 2.2.3
+- equivalent 1.0.2
+- fastrand 2.4.1
+- ghash 0.5.1
+- idna_adapter 1.2.2
+- indexmap 2.14.0
+- pin-project-lite 0.2.17
+- pkcs8 0.10.2
+- poly1305 0.8.0
+- polyval 0.6.2
+- portable-atomic 1.13.1
+- rustc-hash 2.1.2
+- signature 2.2.0
+- simd_cesu8 1.1.1
+- spki 0.7.3
+- utf8_iter 1.0.4
+- utf8parse 0.2.2
+- zeroize 1.8.2
+- zeroize_derive 1.4.3
+
+Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT (2)
+- linux-raw-sys 0.12.1
+- rustix 1.1.4
+
+Apache-2.0/MIT (1)
+- cesu8 1.1.0
+
+BSD-2-Clause OR Apache-2.0 OR MIT (1)
+License: https://opensource.org/license/bsd-2-clause / https://www.apache.org/licenses/LICENSE-2.0 / https://opensource.org/license/mit
+- zerocopy 0.8.48
+
+BSD-3-Clause (4)
+License: https://opensource.org/license/bsd-3-clause
+- curve25519-dalek 4.1.3
+- ed25519-dalek 2.2.0
+- subtle 2.6.1
+- x25519-dalek 2.0.1
+
+CDLA-Permissive-2.0 (1)
+License: https://cdla.dev/permissive-2-0/
+- webpki-roots 1.0.7
+
+ISC (3)
+License: https://opensource.org/license/isc-license-txt
+- libloading 0.9.0
+- rustls-webpki 0.103.13
+- untrusted 0.9.0
+
+MIT (39)
+License: https://opensource.org/license/mit
+- aerion 0.1.0
+- bytes 1.11.1
+- cfg_aliases 0.2.1
+- cidr 0.3.2
+- combine 4.6.7
+- data-encoding 2.11.0
+- digest_auth 0.3.1
+- dotenvy 0.15.7
+- generic-array 0.14.7
+- h2 0.4.14
+- h3 0.0.8
+- h3-quinn 0.0.10
+- libm 0.2.16
+- matchers 0.2.0
+- memoffset 0.9.1
+- mio 1.2.0
+- nix 0.30.1
+- nix 0.31.2
+- nu-ansi-term 0.50.3
+- pem 3.0.6
+- sharded-slab 0.1.7
+- slab 0.4.12
+- socks5-impl 0.8.2
+- strsim 0.11.1
+- synstructure 0.13.2
+- tokio 1.52.3
+- tokio-macros 2.7.0
+- tokio-util 0.7.18
+- tproxy-config 7.0.7
+- tracing 0.1.44
+- tracing-attributes 0.1.31
+- tracing-core 0.1.36
+- tracing-log 0.2.0
+- tracing-subscriber 0.3.23
+- tun2proxy 0.7.21
+- udp-stream 0.0.12
+- unsafe-libyaml 0.2.11
+- winnow 0.7.15
+- zmij 1.0.21
+
+MIT OR Apache-2.0 (145)
+- aead 0.5.2
+- aes 0.8.4
+- ahash 0.8.12
+- android_log-sys 0.3.2
+- android_logger 0.15.1
+- anstream 1.0.0
+- anstyle 1.0.14
+- anstyle-parse 1.0.0
+- anstyle-query 1.1.5
+- anyhow 1.0.102
+- arrayvec 0.7.6
+- async-trait 0.1.89
+- base64 0.22.1
+- base64easy 0.1.7
+- bitflags 2.11.1
+- blake2 0.10.6
+- block-buffer 0.10.4
+- cc 1.2.62
+- cfg-if 1.0.4
+- chacha20 0.10.0
+- chrono 0.4.44
+- cipher 0.4.4
+- clap 4.6.1
+- clap_builder 4.6.0
+- clap_derive 4.6.1
+- clap_lex 1.1.0
+- colorchoice 1.0.5
+- cpufeatures 0.2.17
+- critical-section 1.2.0
+- crypto-common 0.1.7
+- ctr 0.9.2
+- deranged 0.5.8
+- digest 0.10.7
+- displaydoc 0.2.5
+- env_filter 0.1.4
+- env_filter 1.0.1
+- env_logger 0.11.10
+- errno 0.3.14
+- etherparse 0.19.0
+- fastbloom 0.14.1
+- find-msvc-tools 0.1.9
+- form_urlencoded 1.2.2
+- futures 0.3.32
+- futures-channel 0.3.32
+- futures-core 0.3.32
+- futures-executor 0.3.32
+- futures-io 0.3.32
+- futures-macro 0.3.32
+- futures-sink 0.3.32
+- futures-task 0.3.32
+- futures-util 0.3.32
+- getrandom 0.2.17
+- getrandom 0.3.4
+- getrandom 0.4.2
+- hashbrown 0.16.1
+- hashbrown 0.17.1
+- hashlink 0.11.0
+- heck 0.5.0
+- hex 0.4.3
+- hickory-proto 0.26.1
+- hkdf 0.12.4
+- hmac 0.12.1
+- http 1.4.0
+- httparse 1.10.1
+- iana-time-zone 0.1.65
+- idna 1.1.0
+- inout 0.1.4
+- ipnet 2.12.0
+- is_terminal_polyfill 1.70.2
+- itoa 1.0.18
+- jni 0.22.4
+- jni-macros 0.22.4
+- jni-sys 0.3.1
+- jni-sys 0.4.1
+- jni-sys-macros 0.4.1
+- lazy_static 1.5.0
+- libc 0.2.186
+- lock_api 0.4.14
+- log 0.4.29
+- md-5 0.10.6
+- num-conv 0.2.1
+- num-traits 0.2.19
+- once_cell 1.21.4
+- opaque-debug 0.3.1
+- parking_lot 0.12.5
+- parking_lot_core 0.9.12
+- percent-encoding 2.3.2
+- powerfmt 0.2.0
+- ppv-lite86 0.2.21
+- proc-macro2 1.0.106
+- quinn 0.11.9
+- quinn-proto 0.11.14
+- quinn-udp 0.5.14
+- quote 1.0.45
+- rand 0.10.1
+- rand 0.8.6
+- rand 0.9.4
+- rand_chacha 0.3.1
+- rand_chacha 0.9.0
+- rand_core 0.10.1
+- rand_core 0.6.4
+- rand_core 0.9.5
+- rcgen 0.13.2
+- regex 1.12.3
+- regex-automata 0.4.14
+- regex-syntax 0.8.10
+- rustc_version 0.4.1
+- rustls-pki-types 1.14.1
+- rustls-platform-verifier 0.6.2
+- rustls-platform-verifier-android 0.1.1
+- scopeguard 1.2.0
+- semver 1.0.28
+- serde 1.0.228
+- serde_core 1.0.228
+- serde_derive 1.0.228
+- serde_json 1.0.149
+- serde_spanned 0.6.9
+- serde_yaml 0.9.34+deprecated
+- sha1 0.10.6
+- sha2 0.10.9
+- shlex 1.3.0
+- signal-hook-registry 1.4.8
+- simdutf8 0.1.5
+- smallvec 1.15.1
+- socket2 0.6.3
+- stable_deref_trait 1.2.1
+- syn 2.0.117
+- terminal_size 0.4.4
+- thiserror 1.0.69
+- thiserror 2.0.18
+- thiserror-impl 1.0.69
+- thiserror-impl 2.0.18
+- thread_local 1.1.9
+- time 0.3.47
+- time-core 0.1.8
+- tokio-rustls 0.26.4
+- toml 0.8.23
+- toml_datetime 0.6.11
+- toml_edit 0.22.27
+- toml_write 0.1.2
+- typenum 1.20.0
+- unicase 2.9.0
+- universal-hash 0.5.1
+- url 2.5.8
+- yasna 0.5.2
+
+MIT OR Apache-2.0 OR Zlib (2)
+- lru-slab 0.1.2
+- tinyvec_macros 0.1.1
+
+MIT/Apache-2.0 (6)
+- android_system_properties 0.1.5
+- ctrlc2 3.7.3
+- daemonize 0.5.0
+- jni 0.21.1
+- siphasher 1.0.3
+- version_check 0.9.5
+
+Unicode-3.0 (18)
+License: https://www.unicode.org/license.txt
+- icu_collections 2.2.0
+- icu_locale_core 2.2.0
+- icu_normalizer 2.2.0
+- icu_normalizer_data 2.2.0
+- icu_properties 2.2.0
+- icu_properties_data 2.2.0
+- icu_provider 2.2.0
+- litemap 0.8.2
+- potential_utf 0.1.5
+- tinystr 0.8.3
+- writeable 0.6.3
+- yoke 0.8.2
+- yoke-derive 0.8.2
+- zerofrom 0.1.7
+- zerofrom-derive 0.1.7
+- zerotrie 0.2.4
+- zerovec 0.11.6
+- zerovec-derive 0.11.3
+
+Unlicense OR MIT (3)
+License: https://unlicense.org / https://opensource.org/license/mit
+- aho-corasick 1.1.4
+- jiff 0.2.24
+- memchr 2.8.0
+
+Unlicense/MIT (2)
+License: https://unlicense.org / https://opensource.org/license/mit
+- same-file 1.0.6
+- walkdir 2.5.0
+
+WTFPL (1)
+License: http://www.wtfpl.net/about/
+- tun 0.8.8
+
+Zlib (1)
+License: https://opensource.org/license/zlib
+- foldhash 0.2.0
+
+Zlib OR Apache-2.0 OR MIT (1)
+- tinyvec 1.11.0
+
+Notes
+- Aerion is pinned to MoeclubM/Aerion rev 9ad7b87f67ce2f7a934b31e0bd7ebf20f2bbcb0d and ships an MIT LICENSE file in that source revision.
+- The local socks5-impl compatibility crate is MIT-licensed project source used instead of the crates.io socks5-impl package with an incompatible license.
+- Chromium Cronet publishes a consolidated license file for Chromium and built-in dependencies at the URL listed above.

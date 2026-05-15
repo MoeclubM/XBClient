@@ -2418,14 +2418,10 @@ dependencies = [
 [[package]]
 name = "socks5-impl"
 version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "150816c2d954315f351129f438f851285e1ddb6d6ccc850ddd45c523d19abda0"
 dependencies = [
  "async-trait",
  "bytes",
- "percent-encoding",
  "serde",
- "thiserror 2.0.18",
  "tokio",
 ]
 

@@ -252,8 +252,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         when (state.screen) {
             PassScreen.NODE_SELECT -> openScreen(PassScreen.NODES)
             PassScreen.APP_RULES -> openScreen(PassScreen.SETTINGS)
-            PassScreen.SETTINGS -> openScreen(PassScreen.PROFILE)
-            PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE -> Unit
+            PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS -> Unit
         }
     }
 
