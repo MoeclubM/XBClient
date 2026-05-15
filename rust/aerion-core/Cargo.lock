@@ -56,6 +56,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "aerion-core"
+version = "0.1.0"
+dependencies = [
+ "aerion",
+ "android_logger",
+ "anyhow",
+ "jni 0.22.4",
+ "log",
+ "once_cell",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-rustls",
+ "tun2proxy",
+ "webpki-roots",
+]
+
+[[package]]
 name = "aes"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1710,9 +1729,9 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.31.2"
+version = "0.31.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d6d0705320c1e6ba1d912b5e37cf18071b6c2e9b7fa8215a1e8a7651966f5d3"
+checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -2981,7 +3000,7 @@ dependencies = [
  "futures",
  "libloading",
  "log",
- "nix 0.31.2",
+ "nix 0.31.3",
  "regex",
  "resolv-conf",
  "rtnetlink",
@@ -3068,9 +3087,9 @@ dependencies = [
 
 [[package]]
 name = "tun"
-version = "0.8.8"
+version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d07399f01137a3754b66fd571f6ad283b99acc86ccc9a5c11a4445253598aac"
+checksum = "bb51dd4da3b9e08057abbaed588d4244bccb0a4122788aff2775b9a4b9aec489"
 dependencies = [
  "bytes",
  "cfg-if",
@@ -3079,7 +3098,7 @@ dependencies = [
  "ipnet",
  "libc",
  "log",
- "nix 0.31.2",
+ "nix 0.31.3",
  "thiserror 2.0.18",
  "tokio",
  "tokio-util",
@@ -3110,7 +3129,7 @@ dependencies = [
  "ipstack",
  "jni 0.22.4",
  "log",
- "nix 0.31.2",
+ "nix 0.31.3",
  "percent-encoding",
  "serde",
  "serde_json",
@@ -3816,25 +3835,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "xbclient-core"
-version = "0.1.0"
-dependencies = [
- "aerion",
- "android_logger",
- "anyhow",
- "jni 0.22.4",
- "log",
- "once_cell",
- "rustls",
- "serde",
- "serde_json",
- "tokio",
- "tokio-rustls",
- "tun2proxy",
- "webpki-roots",
-]
-
-[[package]]
 name = "yasna"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3888,9 +3888,9 @@ dependencies = [
 
 [[package]]
 name = "zerofrom"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69faa1f2a1ea75661980b013019ed6687ed0e83d069bc1114e2cc74c6c04c4df"
+checksum = "0ec05a11813ea801ff6d75110ad09cd0824ddba17dfe17128ea0d5f68e6c5272"
 dependencies = [
  "zerofrom-derive",
 ]

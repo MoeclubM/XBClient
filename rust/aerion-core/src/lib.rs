@@ -24,12 +24,12 @@ static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
             .with_max_level(log::LevelFilter::Info),
     );
     let _ = rustls::crypto::ring::default_provider().install_default();
-    Runtime::new().expect("create xbclient tokio runtime")
+    Runtime::new().expect("create Aerion tokio runtime")
 });
 
 #[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_moe_telecom_xbclient_RustCore_initializeAndroid<'local>(
+pub extern "system" fn Java_moe_telecom_xbclient_AerionCore_initializeAndroid<'local>(
     mut env: EnvUnowned<'local>,
     _object: JObject<'local>,
     service_class: JClass<'local>,
@@ -39,7 +39,7 @@ pub extern "system" fn Java_moe_telecom_xbclient_RustCore_initializeAndroid<'loc
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_moe_telecom_xbclient_RustCore_startAnyTlsVpn<'local>(
+pub extern "system" fn Java_moe_telecom_xbclient_AerionCore_startVpn<'local>(
     mut env: EnvUnowned<'local>,
     _object: JObject<'local>,
     input: JString<'local>,
@@ -53,7 +53,7 @@ pub extern "system" fn Java_moe_telecom_xbclient_RustCore_startAnyTlsVpn<'local>
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_moe_telecom_xbclient_RustCore_testAnyTlsNode<'local>(
+pub extern "system" fn Java_moe_telecom_xbclient_AerionCore_testNode<'local>(
     mut env: EnvUnowned<'local>,
     _object: JObject<'local>,
     input: JString<'local>,
@@ -67,7 +67,7 @@ pub extern "system" fn Java_moe_telecom_xbclient_RustCore_testAnyTlsNode<'local>
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_moe_telecom_xbclient_RustCore_stopAnyTlsVpn<'local>(
+pub extern "system" fn Java_moe_telecom_xbclient_AerionCore_stopVpn<'local>(
     mut env: EnvUnowned<'local>,
     _object: JObject<'local>,
     session_id: i64,

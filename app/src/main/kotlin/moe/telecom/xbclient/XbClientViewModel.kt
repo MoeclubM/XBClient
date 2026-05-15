@@ -1330,7 +1330,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             }
             val (targetHost, targetPort, targetTls) = targetHostPort(_uiState.value.nodeTestTarget.trim().ifEmpty { DEFAULT_NODE_TEST_TARGET })
             val result = JSONObject(
-                RustCore.testAnyTlsNode(
+                AerionCore.testNode(
                     JSONObject()
                         .put("node", testNode)
                         .put("target_host", targetHost)

@@ -1,11 +1,11 @@
 # XBClient
 
-XBClient 是一个面向 Xboard 的 Android 客户端。Android 层使用 Kotlin、Jetpack Compose 与 Material 3；Rust 仅保留 AnyTLS 代理内核，并通过 JNI 提供节点测试与系统 VPN 能力。
+XBClient 是一个面向 Xboard 的 Android 客户端。Android 层使用 Kotlin、Jetpack Compose 与 Material 3；Rust 侧直接接入 Aerion 内核，并通过 JNI 提供节点测试与系统 VPN 能力。
 
 ## 当前能力
 
 - 登录、注册、邀请信息、订阅信息与节点自动刷新。
-- AnyTLS 订阅解析，订阅请求使用 `mihomo` User-Agent。
+- Aerion 节点内核，订阅请求使用 `mihomo` User-Agent。
 - 系统 VPN 连接、重连、停止、通知栏快捷操作、IPv4/IPv6。
 - 节点真连接延迟测试：默认目标 `cp.cloudflare.com`，同一连接测试两次并使用第二次延迟。
 - 应用排除/白名单规则，支持本机应用列表搜索。
@@ -133,7 +133,7 @@ gh secret set XBCLIENT_RELEASE_KEY_PASSWORD
 
 ```powershell
 .\gradlew.bat :app:assembleDebug :app:assembleRelease --stacktrace
-cargo test --manifest-path rust\xbclient-core\Cargo.toml
+cargo test --manifest-path rust\aerion-core\Cargo.toml
 ```
 
 ## 开源许可

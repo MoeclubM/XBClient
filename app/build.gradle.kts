@@ -1,4 +1,3 @@
-import java.util.Locale
 import java.util.Properties
 
 plugins {
@@ -12,35 +11,12 @@ if (rootLocalPropertiesFile.isFile) {
     rootLocalPropertiesFile.inputStream().use { rootLocalProperties.load(it) }
 }
 
-fun sdkDirectory(): File {
-    rootLocalProperties.getProperty("sdk.dir")?.let { return file(it) }
-    System.getenv("ANDROID_SDK_ROOT")?.let { return file(it) }
-    System.getenv("ANDROID_HOME")?.let { return file(it) }
-    val localAppData = System.getenv("LOCALAPPDATA")
-    if (localAppData != null) {
-        return file("$localAppData/Android/Sdk")
-    }
-    error("Android SDK directory is not configured. Set sdk.dir in local.properties.")
-}
-
-val rustCrateDir = rootProject.file("rust/xbclient-core")
 val minAndroidApi = 26
 val latestAndroidApi = 36
 val latestBuildTools = "36.1.0"
 val androidNdkVersion = "28.2.13676358"
-val androidSdkDir = sdkDirectory()
-val androidNdkDir = androidSdkDir.resolve("ndk/$androidNdkVersion")
-val hostOs = System.getProperty("os.name").lowercase(Locale.ROOT)
-val isWindows = hostOs.contains("windows")
-val ndkHostTag = when {
-    isWindows -> "windows-x86_64"
-    hostOs.contains("mac") -> "darwin-x86_64"
-    else -> "linux-x86_64"
-}
-val executableSuffix = if (isWindows) ".cmd" else ""
-val toolSuffix = if (isWindows) ".exe" else ""
-val ndkBinDir = androidNdkDir.resolve("toolchains/llvm/prebuilt/$ndkHostTag/bin")
-val androidRustFlags = "-C link-arg=-Wl,-z,max-page-size=16384"
+extensions.extraProperties["aerionMinAndroidApi"] = minAndroidApi
+extensions.extraProperties["aerionAndroidNdkVersion"] = androidNdkVersion
 val defaultApiUrlRaw = providers.gradleProperty("xbclient.defaultApiUrl")
     .orNull
     ?: providers.environmentVariable("XBCLIENT_DEFAULT_API_URL").orNull
@@ -153,11 +129,6 @@ val releaseStorePassword = signingValue("xbclient.releaseStorePassword", "XBCLIE
 val releaseKeyAlias = signingValue("xbclient.releaseKeyAlias", "XBCLIENT_RELEASE_KEY_ALIAS")
 val releaseKeyPassword = signingValue("xbclient.releaseKeyPassword", "XBCLIENT_RELEASE_KEY_PASSWORD")
 
-val rustTargets = listOf(
-    Triple("arm64-v8a", "aarch64-linux-android", "aarch64-linux-android${minAndroidApi}-clang$executableSuffix"),
-    Triple("x86_64", "x86_64-linux-android", "x86_64-linux-android${minAndroidApi}-clang$executableSuffix"),
-)
-
 android {
     namespace = "moe.telecom.xbclient"
     compileSdk = latestAndroidApi
@@ -196,7 +167,12 @@ android {
         }
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 
@@ -227,47 +203,8 @@ kotlin {
     }
 }
 
-fun rustEnvName(target: String): String =
-    "CARGO_TARGET_${target.uppercase(Locale.ROOT).replace('-', '_')}_LINKER"
-
-fun ccEnvName(prefix: String, target: String): String =
-    "${prefix}_${target.replace('-', '_')}"
-
-rustTargets.forEach { (abi, target, clang) ->
-    val cargoTask = tasks.register<Exec>("cargoBuild${abi.replace("-", "_")}") {
-        workingDir = rustCrateDir
-        inputs.files(fileTree(rustCrateDir.resolve("src")), rustCrateDir.resolve("Cargo.toml"), rustCrateDir.resolve("Cargo.lock"))
-        inputs.property("androidNdkVersion", androidNdkVersion)
-        inputs.property("minAndroidApi", minAndroidApi)
-        inputs.property("rustTarget", target)
-        inputs.property("androidRustFlags", androidRustFlags)
-        outputs.file(rustCrateDir.resolve("target/$target/release/libxbclient_core.so"))
-        val cc = ndkBinDir.resolve(clang).absolutePath
-        val cxx = cc.removeSuffix("clang$executableSuffix") + "clang++$executableSuffix"
-        environment(rustEnvName(target), cc)
-        environment(ccEnvName("CC", target), cc)
-        environment(ccEnvName("CXX", target), cxx)
-        environment(ccEnvName("AR", target), ndkBinDir.resolve("llvm-ar$toolSuffix").absolutePath)
-        environment("ANDROID_NDK_HOME", androidNdkDir.absolutePath)
-        environment("RUSTFLAGS", androidRustFlags)
-        commandLine("cargo", "build", "--release", "--target", target)
-    }
-
-    tasks.register<Copy>("copyRust${abi.replace("-", "_")}") {
-        dependsOn(cargoTask)
-        from(rustCrateDir.resolve("target/$target/release/libxbclient_core.so"))
-        into(layout.buildDirectory.dir("generated/rustJniLibs/$abi"))
-    }
-}
-
-val copyRustJniLibs = tasks.register("copyRustJniLibs") {
-    dependsOn(rustTargets.map { (abi, _, _) -> "copyRust${abi.replace("-", "_")}" })
-}
-
-android.sourceSets.getByName("main").jniLibs.directories.add(layout.buildDirectory.file("generated/rustJniLibs").get().asFile.absolutePath)
-tasks.matching { it.name.startsWith("merge") && it.name.endsWith("JniLibFolders") }.configureEach {
-    dependsOn(copyRustJniLibs)
-}
+android.sourceSets.getByName("main").jniLibs.directories.add(layout.buildDirectory.file("generated/aerionJniLibs").get().asFile.absolutePath)
+apply(from = rootProject.file("gradle/aerion-native.gradle.kts"))
 
 val validateSharedSigning = tasks.register("validateSharedSigning") {
     doLast {

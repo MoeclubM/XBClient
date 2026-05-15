@@ -15,7 +15,7 @@ app/config/release-signing.local.txt
 *.p12
 
 # Rust
-rust/xbclient-core/target/
+rust/*/target/
 
 # IDE
 .idea/

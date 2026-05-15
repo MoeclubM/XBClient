@@ -73,7 +73,7 @@ jobs:
       - name: Check Rust core
         shell: bash
         run: |
-          cd rust/xbclient-core
+          cd rust/aerion-core
           cargo fmt --check
           cargo check
           cargo test

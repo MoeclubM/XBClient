@@ -210,7 +210,7 @@ class XbClientVpnService : VpnService() {
             .put("dns", dnsMode)
             .put("dns_addr", dnsAddress)
             .put("ipv6", ipv6Enabled)
-        val result = JSONObject(RustCore.startAnyTlsVpn(request.toString()))
+        val result = JSONObject(AerionCore.startVpn(request.toString()))
         if (!result.optBoolean("ok")) {
             throw IllegalStateException(result.toString())
         }
@@ -227,7 +227,7 @@ class XbClientVpnService : VpnService() {
     private fun stopNativeVpn() {
         if (vpnSessionId != 0L) {
             try {
-                val result = RustCore.stopAnyTlsVpn(vpnSessionId)
+                val result = AerionCore.stopVpn(vpnSessionId)
                 Log.i("XBClient", "VPN stopped: $result")
             } catch (error: Throwable) {
                 Log.e("XBClient", "stop VPN failed", error)

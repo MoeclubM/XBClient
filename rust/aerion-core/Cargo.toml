@@ -1,11 +1,11 @@
 [package]
-name = "xbclient-core"
+name = "aerion-core"
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
 
 [lib]
-name = "xbclient_core"
+name = "aerion_core"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
@@ -26,4 +26,4 @@ android_logger = "0.15.1"
 tun2proxy = { version = "0.7.21", default-features = false }
 
 [patch.crates-io]
-socks5-impl = { path = "../socks5-impl" }
+socks5-impl = { path = "../third_party/socks5-impl" }
