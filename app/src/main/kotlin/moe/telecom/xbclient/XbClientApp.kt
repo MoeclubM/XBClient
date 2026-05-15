@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -1938,7 +1939,16 @@ private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMode
         contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
     ) {
         item {
-            PageHeader(stringResource(R.string.page_node_select_title))
+            PageHeader(stringResource(R.string.page_node_select_title)) {
+                if (!state.subscriptionBlocked && state.anyTlsNodes.isNotEmpty()) {
+                    FilledTonalButton(
+                        onClick = viewModel::testAllNodes,
+                        enabled = !state.nodesTesting
+                    ) {
+                        Text(stringResource(id = if (state.nodesTesting) R.string.action_test_testing else R.string.action_test_all_nodes))
+                    }
+                }
+            }
             if (state.subscriptionBlocked) {
                 val blockTitle = stringResource(
                     id = when (state.subscriptionBlockReason) {
@@ -2249,7 +2259,7 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
 }
 
 @Composable
-private fun PageHeader(title: String, subtitle: String = "") {
+private fun PageHeader(title: String, subtitle: String = "", actions: @Composable RowScope.() -> Unit = {}) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Surface(
             color = MaterialTheme.colorScheme.primary,
@@ -2264,6 +2274,7 @@ private fun PageHeader(title: String, subtitle: String = "") {
                 Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        actions()
     }
     Spacer(Modifier.height(20.dp))
 }
