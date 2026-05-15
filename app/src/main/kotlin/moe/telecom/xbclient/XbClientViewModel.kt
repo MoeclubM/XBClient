@@ -44,6 +44,8 @@ data class XbClientUiState(
     val subscribeUrl: String = "",
     val subscriptionSummary: String = "",
     val subscriptionBlockReason: String = "",
+    val subscriptionTrafficUsedBytes: Long = 0L,
+    val subscriptionTrafficTotalBytes: Long = 0L,
     val nodesUpdatedAt: Long = 0L,
     val userEmail: String = "",
     val balance: Int = 0,
@@ -473,7 +475,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             themeMode = current.themeMode,
             languageOnboardingDone = current.languageOnboardingDone,
             vpnDisclosureDone = current.vpnDisclosureDone,
-            oauthProviders = current.oauthProviders
+            oauthProviders = current.oauthProviders,
+            registerEmailVerifyEnabled = current.registerEmailVerifyEnabled,
+            registerCaptchaEnabled = current.registerCaptchaEnabled
         )
         _uiState.value = next
         persistState(next)
@@ -532,6 +536,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     subscribeUrl = subscribeUrl,
                     subscriptionSummary = subscriptionSummary(data),
                     subscriptionBlockReason = blockReason,
+                    subscriptionTrafficUsedBytes = (numericValue(data.opt("u")) + numericValue(data.opt("d"))).toLong(),
+                    subscriptionTrafficTotalBytes = numericValue(data.opt("transfer_enable")).toLong(),
                     nodesUpdatedAt = System.currentTimeMillis(),
                     anyTlsNodes = nodes,
                     selectedNodeIndex = if (nodes.getOrNull(selectedIndex)?.connectSupported == true || firstConnectableIndex < 0) selectedIndex else firstConnectableIndex,
@@ -1371,6 +1377,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 subscribeUrl = prefs[Keys.SUBSCRIBE_URL].orEmpty(),
                 subscriptionSummary = prefs[Keys.SUBSCRIPTION_SUMMARY].orEmpty(),
                 subscriptionBlockReason = prefs[Keys.SUBSCRIPTION_BLOCK_REASON].orEmpty(),
+                subscriptionTrafficUsedBytes = prefs[Keys.SUBSCRIPTION_TRAFFIC_USED_BYTES] ?: 0L,
+                subscriptionTrafficTotalBytes = prefs[Keys.SUBSCRIPTION_TRAFFIC_TOTAL_BYTES] ?: 0L,
                 nodesUpdatedAt = prefs[Keys.NODES_UPDATED_AT] ?: 0L,
                 userEmail = prefs[Keys.USER_EMAIL].orEmpty(),
                 balance = prefs[Keys.BALANCE] ?: 0,
@@ -1422,6 +1430,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 subscribeUrl = legacy.getString("subscribe_url", "").orEmpty(),
                 subscriptionSummary = legacy.getString("subscription_summary", "").orEmpty(),
                 subscriptionBlockReason = legacy.getString("subscription_block_reason", "").orEmpty(),
+                subscriptionTrafficUsedBytes = legacy.getLong("subscription_traffic_used_bytes", 0L),
+                subscriptionTrafficTotalBytes = legacy.getLong("subscription_traffic_total_bytes", 0L),
                 nodesUpdatedAt = legacy.getLong("nodes_updated_at", 0L),
                 userEmail = legacy.getString("user_email", "").orEmpty(),
                 balance = legacy.getInt("balance", 0),
@@ -1524,6 +1534,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.SUBSCRIBE_URL] = state.subscribeUrl
             prefs[Keys.SUBSCRIPTION_SUMMARY] = state.subscriptionSummary
             prefs[Keys.SUBSCRIPTION_BLOCK_REASON] = state.subscriptionBlockReason
+            prefs[Keys.SUBSCRIPTION_TRAFFIC_USED_BYTES] = state.subscriptionTrafficUsedBytes
+            prefs[Keys.SUBSCRIPTION_TRAFFIC_TOTAL_BYTES] = state.subscriptionTrafficTotalBytes
             prefs[Keys.NODES_UPDATED_AT] = state.nodesUpdatedAt
             prefs[Keys.USER_EMAIL] = state.userEmail
             prefs[Keys.BALANCE] = state.balance
@@ -1573,6 +1585,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("subscribe_url", state.subscribeUrl)
             .putString("subscription_summary", state.subscriptionSummary)
             .putString("subscription_block_reason", state.subscriptionBlockReason)
+            .putLong("subscription_traffic_used_bytes", state.subscriptionTrafficUsedBytes)
+            .putLong("subscription_traffic_total_bytes", state.subscriptionTrafficTotalBytes)
             .putLong("nodes_updated_at", state.nodesUpdatedAt)
             .putString("user_email", state.userEmail)
             .putInt("balance", state.balance)
@@ -1872,6 +1886,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val SUBSCRIBE_URL = stringPreferencesKey("subscribe_url")
         val SUBSCRIPTION_SUMMARY = stringPreferencesKey("subscription_summary")
         val SUBSCRIPTION_BLOCK_REASON = stringPreferencesKey("subscription_block_reason")
+        val SUBSCRIPTION_TRAFFIC_USED_BYTES = longPreferencesKey("subscription_traffic_used_bytes")
+        val SUBSCRIPTION_TRAFFIC_TOTAL_BYTES = longPreferencesKey("subscription_traffic_total_bytes")
         val NODES_UPDATED_AT = longPreferencesKey("nodes_updated_at")
         val USER_EMAIL = stringPreferencesKey("user_email")
         val BALANCE = intPreferencesKey("balance")

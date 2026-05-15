@@ -76,6 +76,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -1364,6 +1365,17 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                     if (state.subscriptionSummary.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
                         Text(state.subscriptionSummary, style = MaterialTheme.typography.titleMedium)
+                        if (state.subscriptionTrafficTotalBytes > 0L) {
+                            Spacer(Modifier.height(10.dp))
+                            LinearProgressIndicator(
+                                progress = { (state.subscriptionTrafficUsedBytes.toFloat() / state.subscriptionTrafficTotalBytes.toFloat()).coerceIn(0f, 1f) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                            )
+                        }
                     }
                     Spacer(Modifier.height(14.dp))
                     Button(onClick = { viewModel.openScreen(PassScreen.PLANS) }, modifier = Modifier.fillMaxWidth()) {
@@ -1412,6 +1424,17 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
         Section(stringResource(R.string.section_traffic)) {
             Panel {
                 Text(state.subscriptionSummary, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (state.subscriptionTrafficTotalBytes > 0L) {
+                    Spacer(Modifier.height(12.dp))
+                    LinearProgressIndicator(
+                        progress = { (state.subscriptionTrafficUsedBytes.toFloat() / state.subscriptionTrafficTotalBytes.toFloat()).coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    )
+                }
             }
         }
     }
@@ -1583,7 +1606,11 @@ private fun RewardAdSection(
                     modifier = Modifier.size(50.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("AD", style = MaterialTheme.typography.titleMedium)
+                        Icon(
+                            painter = painterResource(R.drawable.ic_gift),
+                            contentDescription = null,
+                            modifier = Modifier.size(26.dp)
+                        )
                     }
                 }
                 Spacer(Modifier.width(14.dp))
