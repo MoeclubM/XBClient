@@ -148,7 +148,7 @@ fun JSONObject.toAnyTlsNode(): AnyTlsNode =
         )
     }
 
-private fun nodeTags(node: JSONObject): List<String> {
+fun nodeTags(node: JSONObject): List<String> {
     val tags = ArrayList<String>()
     when (val value = node.opt("tags")) {
         is JSONArray -> {

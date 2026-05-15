@@ -506,7 +506,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val data = subscribeBody.getJSONObject("data")
                 val subscribeUrl = data.optString("subscribe_url", current.subscribeUrl)
                 val blockReason = subscriptionBlockReason(data)
-                val nodes = if (blockReason.isEmpty()) {
+                val baseNodes = if (blockReason.isEmpty()) {
                     val xbclientNodesResult = XboardApi.request("xbclient_nodes", defaultApiUrl(), current.authData, JSONObject())
                     if (xbclientNodesResult.optBoolean("ok")) {
                         val nodesBody = requireSuccessfulBody("XBClient 节点同步", xbclientNodesResult)
@@ -534,6 +534,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 } else {
                     emptyList()
                 }
+                val nodes = if (baseNodes.isEmpty()) baseNodes else mergeXboardNodeTags(baseNodes)
                 val selectedIndex = _uiState.value.selectedNodeIndex.coerceIn(0, (nodes.size - 1).coerceAtLeast(0))
                 val firstConnectableIndex = nodes.indexOfFirst { it.connectSupported }
                 val next = _uiState.value.copy(
@@ -1640,10 +1641,58 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private fun cachedNodes(value: String): List<AnyTlsNode> =
         if (value.isEmpty()) emptyList() else JSONArray(value).toAnyTlsNodeList()
 
+    private fun mergeXboardNodeTags(nodes: List<AnyTlsNode>): List<AnyTlsNode> {
+        val result = XboardApi.request("nodes", defaultApiUrl(), _uiState.value.authData, JSONObject())
+        val rows = extractDataArray(requireSuccessfulBody("节点标签同步", result))
+        val tagsById = HashMap<Int, List<String>>()
+        val tagsByTypedName = HashMap<String, List<String>>()
+        val tagsByName = HashMap<String, List<String>>()
+        for (index in 0 until rows.length()) {
+            val item = rows.getJSONObject(index)
+            val tags = nodeTags(item)
+            if (tags.isEmpty()) {
+                continue
+            }
+            val id = item.optInt("id")
+            if (id > 0) {
+                tagsById[id] = tags
+            }
+            val name = item.optString("name").trim()
+            val type = item.optString("type").lowercase(Locale.US)
+            if (name.isNotEmpty()) {
+                tagsByName[name] = tags
+                if (type.isNotEmpty()) {
+                    tagsByTypedName["$type|$name"] = tags
+                }
+            }
+        }
+        return nodes.map { node ->
+            val raw = JSONObject(node.rawJson)
+            val id = raw.optInt("id")
+            val name = node.name.trim()
+            val tags = node.tags.ifEmpty {
+                if (id > 0) tagsById[id].orEmpty() else emptyList()
+            }.ifEmpty {
+                tagsByTypedName["${node.protocol}|$name"].orEmpty()
+            }.ifEmpty {
+                tagsByName[name].orEmpty()
+            }
+            if (tags.isEmpty() || tags == node.tags) node else node.copy(tags = tags)
+        }
+    }
+
     private fun nodesJson(nodes: List<AnyTlsNode>): String =
         JSONArray().also { array ->
             for (node in nodes) {
-                array.put(JSONObject(node.rawJson))
+                val item = JSONObject(node.rawJson)
+                if (node.tags.isNotEmpty()) {
+                    item.put("tags", JSONArray().also { tags ->
+                        for (tag in node.tags) {
+                            tags.put(tag)
+                        }
+                    })
+                }
+                array.put(item)
             }
         }.toString()
 
