@@ -50,8 +50,10 @@ class AppOpenAdActivity : ComponentActivity() {
     private var appOpenAd: AppOpenAd? = null
     private var adShowing = false
     private var nextOpened = false
+    private var appOpenLoadStarted = false
     private val timeoutRunnable = Runnable {
         if (!adShowing) {
+            Log.w(TAG, "App open ad load timed out.")
             openMainActivity()
         }
     }
@@ -69,6 +71,9 @@ class AppOpenAdActivity : ComponentActivity() {
             return
         }
         handler.postDelayed(timeoutRunnable, APP_OPEN_AD_SHOW_WINDOW_MS)
+        if (prefs.getBoolean("app_open_ad_enabled", false) && adUnitId.isNotEmpty()) {
+            startAppOpenAdLoad(adUnitId)
+        }
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val configResult = XboardApi.request("admob_reward_config", apiUrl(), prefs.getString("auth_data", "").orEmpty(), org.json.JSONObject())
@@ -80,17 +85,21 @@ class AppOpenAdActivity : ComponentActivity() {
                     .putString("app_open_ad_unit_id", unitId)
                     .apply()
                 if (!enabled || unitId.isEmpty()) {
-                    runOnUiThread { openMainActivity() }
+                    runOnUiThread {
+                        if (!appOpenLoadStarted) {
+                            openMainActivity()
+                        }
+                    }
                     return@launch
                 }
-                MobileAds.initialize(
-                    this@AppOpenAdActivity,
-                    InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID).build()
-                )
-                runOnUiThread { loadAppOpenAd(unitId) }
+                runOnUiThread { startAppOpenAdLoad(unitId) }
             } catch (error: Exception) {
                 Log.w(TAG, "App open config request failed.", error)
-                runOnUiThread { openMainActivity() }
+                runOnUiThread {
+                    if (!appOpenLoadStarted) {
+                        openMainActivity()
+                    }
+                }
             }
         }
     }
@@ -99,6 +108,20 @@ class AppOpenAdActivity : ComponentActivity() {
         handler.removeCallbacks(timeoutRunnable)
         appOpenAd = null
         super.onDestroy()
+    }
+
+    private fun startAppOpenAdLoad(adUnitId: String) {
+        if (appOpenLoadStarted || nextOpened || isFinishing) {
+            return
+        }
+        appOpenLoadStarted = true
+        lifecycleScope.launch(Dispatchers.IO) {
+            MobileAds.initialize(
+                this@AppOpenAdActivity,
+                InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID).build()
+            )
+            runOnUiThread { loadAppOpenAd(adUnitId) }
+        }
     }
 
     private fun loadAppOpenAd(adUnitId: String) {
@@ -181,7 +204,7 @@ class AppOpenAdActivity : ComponentActivity() {
 
     companion object {
         private const val TAG = "XBClientAds"
-        private const val APP_OPEN_AD_SHOW_WINDOW_MS = 4000L
+        private const val APP_OPEN_AD_SHOW_WINDOW_MS = 6500L
     }
 }
 
