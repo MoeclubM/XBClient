@@ -121,6 +121,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -195,6 +196,8 @@ private val ThemeOptions = listOf(
     "dark" to R.string.theme_dark
 )
 
+private val MainTabScreens = setOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
+
 private val OnboardingLanguageTitles = mapOf(
     "" to "Choose language\n选择语言",
     "zh-CN" to "选择语言\nChoose language",
@@ -230,8 +233,8 @@ fun XbClientApp(viewModel: XbClientViewModel) {
             progress.collect { event ->
                 backProgress = event.progress
             }
-            backProgress = 0f
             viewModel.navigateBack()
+            backProgress = 0f
         } catch (error: CancellationException) {
             backProgress = 0f
             throw error
@@ -244,15 +247,22 @@ fun XbClientApp(viewModel: XbClientViewModel) {
     ) {
         XbClientTheme(state.themeMode) {
             XbClientDialogs(state, viewModel)
+            val routeBackProgress = if (
+                state.isLoggedIn &&
+                state.screen !in MainTabScreens &&
+                !state.updateAvailable &&
+                state.oauthWebViewUrl.isEmpty()
+            ) backProgress else 0f
+            val modalBackProgress = if (routeBackProgress > 0f) 0f else backProgress
             Box(
                 modifier = Modifier.graphicsLayer {
-                    alpha = 1f - backProgress * 0.08f
-                    scaleX = 1f - backProgress * 0.025f
-                    scaleY = 1f - backProgress * 0.025f
+                    alpha = 1f - modalBackProgress * 0.08f
+                    scaleX = 1f - modalBackProgress * 0.025f
+                    scaleY = 1f - modalBackProgress * 0.025f
                 }
             ) {
                 if (state.loaded && state.isLoggedIn && state.languageOnboardingDone && state.vpnDisclosureDone) {
-                    MainShell(state, viewModel)
+                    MainShell(state, viewModel, routeBackProgress)
                 } else {
                     LoadingScreen()
                 }
@@ -278,8 +288,8 @@ fun XbClientAuthApp(viewModel: XbClientViewModel) {
             progress.collect { event ->
                 backProgress = event.progress
             }
-            backProgress = 0f
             viewModel.navigateBack()
+            backProgress = 0f
         } catch (error: CancellationException) {
             backProgress = 0f
             throw error
@@ -969,8 +979,13 @@ private fun ThemeChooser(current: String, appLanguage: String, viewModel: XbClie
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
+private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, backProgress: Float) {
     val visibleScreen = if (state.subscriptionBlocked && state.screen == PassScreen.NODE_SELECT) PassScreen.NODES else state.screen
+    val backTargetScreen = when (visibleScreen) {
+        PassScreen.NODE_SELECT -> PassScreen.NODES
+        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
+        else -> null
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -1009,33 +1024,79 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
                 onRefresh = viewModel::refreshCurrentPage,
                 modifier = Modifier.fillMaxSize()
             ) {
-                AnimatedContent(
-                    targetState = visibleScreen,
-                    transitionSpec = { screenTransition() },
-                    label = "main-screen"
-                ) { screen ->
-                    when (screen) {
-                        PassScreen.NODE_SELECT -> NodeSelectScreen(state, viewModel)
-                        PassScreen.APP_RULES -> AppRulesScreen(state, viewModel)
-                        PassScreen.OPEN_SOURCE_LICENSES -> OpenSourceLicensesScreen()
-                        else -> LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 116.dp)
-                        ) {
-                            item {
-                                when (screen) {
-                                    PassScreen.PROFILE -> ProfileScreen(state, viewModel)
-                                    PassScreen.PLANS -> PlansScreen(state, viewModel)
-                                    PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
-                                    else -> HomeScreen(state, viewModel)
-                                }
+                Box(Modifier.fillMaxSize()) {
+                    if (backTargetScreen != null && backProgress > 0f) {
+                        MainScreenContent(
+                            screen = backTargetScreen,
+                            state = state,
+                            viewModel = viewModel,
+                            bottomPadding = 116.dp,
+                            modifier = Modifier.graphicsLayer {
+                                alpha = 0.35f + backProgress * 0.65f
+                                scaleX = 0.96f + backProgress * 0.04f
+                                scaleY = 0.96f + backProgress * 0.04f
+                                translationX = -size.width * 0.06f * (1f - backProgress)
                             }
-                        }
+                        )
+                    }
+                    AnimatedContent(
+                        targetState = visibleScreen,
+                        transitionSpec = { screenTransition() },
+                        modifier = Modifier.graphicsLayer {
+                            if (backTargetScreen != null && backProgress > 0f) {
+                                translationX = size.width * (0.08f + backProgress * 0.82f)
+                                alpha = 1f - backProgress * 0.16f
+                                scaleX = 1f - backProgress * 0.035f
+                                scaleY = 1f - backProgress * 0.035f
+                            }
+                        },
+                        label = "main-screen"
+                    ) { screen ->
+                        MainScreenContent(screen, state, viewModel)
                     }
                 }
             }
-            if (visibleScreen == PassScreen.NODES || visibleScreen == PassScreen.PLANS || visibleScreen == PassScreen.PROFILE || visibleScreen == PassScreen.SETTINGS) {
-                BottomNavigation(state, viewModel, Modifier.align(Alignment.BottomCenter))
+            if (visibleScreen in MainTabScreens || backTargetScreen != null && backTargetScreen in MainTabScreens && backProgress > 0f) {
+                BottomNavigation(
+                    state,
+                    viewModel,
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .graphicsLayer {
+                            alpha = if (visibleScreen in MainTabScreens) 1f else backProgress
+                        }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MainScreenContent(
+    screen: PassScreen,
+    state: XbClientUiState,
+    viewModel: XbClientViewModel,
+    modifier: Modifier = Modifier,
+    bottomPadding: Dp = 28.dp
+) {
+    val contentBottomPadding = if (screen in MainTabScreens) 116.dp else bottomPadding
+    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        when (screen) {
+            PassScreen.NODE_SELECT -> NodeSelectScreen(state, viewModel)
+            PassScreen.APP_RULES -> AppRulesScreen(state, viewModel)
+            PassScreen.OPEN_SOURCE_LICENSES -> OpenSourceLicensesScreen()
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = contentBottomPadding)
+            ) {
+                item {
+                    when (screen) {
+                        PassScreen.PROFILE -> ProfileScreen(state, viewModel)
+                        PassScreen.PLANS -> PlansScreen(state, viewModel)
+                        PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
+                        else -> HomeScreen(state, viewModel)
+                    }
+                }
             }
         }
     }
@@ -1044,7 +1105,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
 @Composable
 private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewModel, modifier: Modifier = Modifier) {
     val selected = when (state.screen) {
-        PassScreen.SETTINGS -> PassScreen.SETTINGS
+        PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
         PassScreen.PROFILE -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
         else -> PassScreen.NODES
@@ -2374,7 +2435,7 @@ private val XbClientUiState.canHandleBack: Boolean
     get() = updateAvailable ||
         oauthWebViewUrl.isNotEmpty() ||
         !isLoggedIn && authMode == AuthMode.REGISTER ||
-        isLoggedIn && screen !in setOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
+        isLoggedIn && screen !in MainTabScreens
 
 private fun AnimatedContentTransitionScope<*>.contentTransition() =
     (fadeIn(animationSpec = tween(180)) togetherWith
