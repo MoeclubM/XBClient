@@ -18,7 +18,6 @@
     <string name="oauth_web_title">Third-party login</string>
     <string name="auth_login_title">Account login</string>
     <string name="auth_register_title">Create account</string>
-    <string name="auth_register_subtitle">After registration, the node page opens automatically.</string>
     <string name="auth_email">Email</string>
     <string name="auth_password">Password</string>
     <string name="auth_login">Log in</string>
@@ -98,6 +97,8 @@
     <string name="reward_watch">Watch ad</string>
     <string name="reward_recent">Recent records</string>
     <string name="reward_credited">Credited</string>
+    <string name="reward_credited_title">Reward received</string>
+    <string name="reward_credited_message">Your reward has been added.</string>
     <string name="reward_pending">Pending</string>
     <string name="reward_failed">Failed</string>
 

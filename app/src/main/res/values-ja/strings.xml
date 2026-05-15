@@ -18,7 +18,6 @@
     <string name="oauth_web_title">サードパーティログイン</string>
     <string name="auth_login_title">アカウントログイン</string>
     <string name="auth_register_title">アカウント登録</string>
-    <string name="auth_register_subtitle">アカウント作成後、自動的にノード画面を開きます。</string>
     <string name="auth_email">メールアドレス</string>
     <string name="auth_password">パスワード</string>
     <string name="auth_login">ログイン</string>
@@ -98,6 +97,8 @@
     <string name="reward_watch">広告を見る</string>
     <string name="reward_recent">最近の記録</string>
     <string name="reward_credited">付与済み</string>
+    <string name="reward_credited_title">受け取り完了</string>
+    <string name="reward_credited_message">特典を付与しました。</string>
     <string name="reward_pending">確認中</string>
     <string name="reward_failed">付与失敗</string>
 

@@ -18,7 +18,6 @@
     <string name="oauth_web_title">Сторонний вход</string>
     <string name="auth_login_title">Вход в аккаунт</string>
     <string name="auth_register_title">Регистрация аккаунта</string>
-    <string name="auth_register_subtitle">После регистрации автоматически откроется экран узлов.</string>
     <string name="auth_email">Email</string>
     <string name="auth_password">Пароль</string>
     <string name="auth_login">Войти</string>
@@ -98,6 +97,8 @@
     <string name="reward_watch">Смотреть рекламу</string>
     <string name="reward_recent">Последние записи</string>
     <string name="reward_credited">Начислено</string>
+    <string name="reward_credited_title">Награда получена</string>
+    <string name="reward_credited_message">Награда начислена.</string>
     <string name="reward_pending">Проверка</string>
     <string name="reward_failed">Ошибка начисления</string>
 

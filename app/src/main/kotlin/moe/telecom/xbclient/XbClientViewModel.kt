@@ -112,6 +112,8 @@ data class XbClientUiState(
     val oauthConfirmProvider: String = "",
     val oauthConfirmEmail: String = "",
     val oauthWebViewUrl: String = "",
+    val rewardCreditedDialog: Boolean = false,
+    val rewardCreditedContent: String = "",
     val noticeDialog: Boolean = false
 ) {
     val isLoggedIn: Boolean
@@ -129,7 +131,6 @@ sealed interface XbClientEvent {
     data class RequestVpnPermission(val nodeIndex: Int) : XbClientEvent
     data class ShowRewardAd(val adUnitId: String, val userId: String, val customData: String) : XbClientEvent
     data class OpenExternalUrl(val url: String) : XbClientEvent
-    data class RewardCredited(val text: String) : XbClientEvent
 }
 
 class XbClientViewModel(application: Application) : AndroidViewModel(application) {
@@ -447,6 +448,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     fun dismissNotices() {
         _uiState.update { it.copy(noticeDialog = false) }
+    }
+
+    fun dismissRewardCreditedDialog() {
+        _uiState.update { it.copy(rewardCreditedDialog = false, rewardCreditedContent = "") }
     }
 
     fun openUpdatePage(context: Context) {
@@ -777,7 +782,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val body = requireSuccessfulBody("广告验证记录", result)
                 val data = body.optJSONObject("data") ?: body
                 if (data.optBoolean("credited")) {
-                    emitEvent(XbClientEvent.RewardCredited(rewardCreditMessage(data)))
+                    showRewardCreditedDialog(rewardContentText(data))
                     pendingRewardScene = ""
                     pendingRewardStartedAt = 0L
                 }
@@ -1843,9 +1848,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         emitEvent(XbClientEvent.Message(text))
     }
 
-    private fun rewardCreditMessage(data: JSONObject): String {
-        val content = rewardContentText(data)
-        return if (content.isBlank()) "广告奖励已发放。" else "广告奖励已发放：$content"
+    private fun showRewardCreditedDialog(content: String) {
+        _uiState.update { it.copy(rewardCreditedDialog = true, rewardCreditedContent = content) }
     }
 
     private fun notifyPendingRewardIfCredited(logs: List<AdRewardLogItem>) {
@@ -1857,8 +1861,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         } ?: return
         pendingRewardScene = ""
         pendingRewardStartedAt = 0L
-        val content = log.rewardContent
-        emitEvent(XbClientEvent.RewardCredited(if (content.isBlank()) "广告奖励已发放。" else "广告奖励已发放：$content"))
+        showRewardCreditedDialog(log.rewardContent)
     }
 
     private fun showDailyNoticeDialog(notices: List<NoticeItem>) {

@@ -38,6 +38,7 @@ data class AnyTlsNode(
     val name: String,
     val host: String,
     val port: Int,
+    val tags: List<String>,
     val rawJson: String
 ) {
     fun displayName(index: Int, fallback: String = "Node ${index + 1}"): String {
@@ -142,9 +143,32 @@ fun JSONObject.toAnyTlsNode(): AnyTlsNode =
             name = optString("name"),
             host = optString("host", optString("server")),
             port = optInt("port", optInt("server_port")),
+            tags = nodeTags(this),
             rawJson = normalizedNodeJson(protocol, rawProtocol)
         )
     }
+
+private fun nodeTags(node: JSONObject): List<String> {
+    val tags = ArrayList<String>()
+    when (val value = node.opt("tags")) {
+        is JSONArray -> {
+            for (index in 0 until value.length()) {
+                val tag = value.optString(index).trim()
+                if (tag.isNotEmpty()) {
+                    tags.add(tag)
+                }
+            }
+        }
+        is String -> value.split(',', '|').map { it.trim() }.filterTo(tags) { it.isNotEmpty() }
+    }
+    for (key in arrayOf("tag", "label", "group")) {
+        val tag = node.optString(key).trim()
+        if (tag.isNotEmpty()) {
+            tags.add(tag)
+        }
+    }
+    return tags.distinct()
+}
 
 private fun JSONObject.normalizedNodeJson(protocol: String, rawProtocol: String): String {
     val node = JSONObject(toString())

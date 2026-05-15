@@ -18,7 +18,6 @@
     <string name="oauth_web_title">第三方登录</string>
     <string name="auth_login_title">账号登录</string>
     <string name="auth_register_title">账号注册</string>
-    <string name="auth_register_subtitle">创建账号后会直接进入节点页面。</string>
     <string name="auth_email">邮箱</string>
     <string name="auth_password">密码</string>
     <string name="auth_login">登录</string>
@@ -98,6 +97,8 @@
     <string name="reward_watch">观看广告</string>
     <string name="reward_recent">最近记录</string>
     <string name="reward_credited">已发放</string>
+    <string name="reward_credited_title">领取成功</string>
+    <string name="reward_credited_message">奖励已到账。</string>
     <string name="reward_pending">验证中</string>
     <string name="reward_failed">发放失败</string>
 

@@ -18,7 +18,6 @@
     <string name="oauth_web_title">ورود با سرویس دیگر</string>
     <string name="auth_login_title">ورود به حساب</string>
     <string name="auth_register_title">ثبت حساب</string>
-    <string name="auth_register_subtitle">پس از ثبت‌نام، صفحه گره‌ها به‌صورت خودکار باز می‌شود.</string>
     <string name="auth_email">ایمیل</string>
     <string name="auth_password">رمز عبور</string>
     <string name="auth_login">ورود</string>
@@ -98,6 +97,8 @@
     <string name="reward_watch">دیدن تبلیغ</string>
     <string name="reward_recent">سوابق اخیر</string>
     <string name="reward_credited">اعمال شد</string>
+    <string name="reward_credited_title">پاداش دریافت شد</string>
+    <string name="reward_credited_message">پاداش به حساب شما افزوده شد.</string>
     <string name="reward_pending">در حال تأیید</string>
     <string name="reward_failed">اعمال ناموفق</string>
 

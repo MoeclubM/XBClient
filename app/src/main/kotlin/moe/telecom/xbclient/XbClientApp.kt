@@ -45,6 +45,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -763,7 +764,7 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
     val legalRequired = BuildConfig.USER_AGREEMENT_URL.trim().isNotEmpty() && BuildConfig.PRIVACY_POLICY_URL.trim().isNotEmpty()
     val registerEnabled = !legalRequired || legalAccepted
     Column(modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))) {
-        PageHeader(stringResource(R.string.auth_register_title), stringResource(R.string.auth_register_subtitle))
+        PageHeader(stringResource(R.string.auth_register_title))
         OutlinedCard(
             colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -1977,6 +1978,27 @@ private fun NodeRow(
                     )
                 }
             }
+            if (node.tags.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    for (tag in node.tags) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text(
+                                tag,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -2054,6 +2076,46 @@ private fun AppRulesScreen(state: XbClientUiState, viewModel: XbClientViewModel)
 @Composable
 private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
+    if (state.rewardCreditedDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissRewardCreditedDialog,
+            icon = {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.size(58.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_gift),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                }
+            },
+            title = { Text(stringResource(R.string.reward_credited_title)) },
+            text = {
+                val rewardText = if (state.rewardCreditedContent.isBlank()) {
+                    stringResource(R.string.reward_credited_message)
+                } else {
+                    state.rewardCreditedContent
+                }
+                Text(
+                    rewardText,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(onClick = viewModel::dismissRewardCreditedDialog) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+            shape = RoundedCornerShape(28.dp)
+        )
+    }
     if (state.updateAvailable) {
         AlertDialog(
             onDismissRequest = viewModel::dismissUpdateDialog,
@@ -2110,9 +2172,11 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
             LazyColumn(Modifier.heightIn(max = 520.dp)) {
                 itemsIndexed(state.anyTlsNodes, key = { index, node -> "${node.displayName(index)}-$index" }) { index, node ->
                     val visibleTestText = visibleNodeTestText(state.nodeTestResults[index])
+                    val tagsText = node.tags.joinToString(" · ").takeIf { it.isNotEmpty() }
+                    val supportingText = listOfNotNull(node.protocolLabel, tagsText, visibleTestText).joinToString(" · ")
                     ListItem(
                         headlineContent = { Text(node.displayName(index, stringResource(R.string.node_default_name, index + 1))) },
-                        supportingContent = { Text(if (visibleTestText == null) node.protocolLabel else "${node.protocolLabel} · $visibleTestText") },
+                        supportingContent = { Text(supportingText) },
                         trailingContent = { if (index == state.selectedNodeIndex) Text(stringResource(R.string.common_selected)) },
                         modifier = Modifier.clickable { viewModel.chooseNodeFromDialog(index) }
                     )
