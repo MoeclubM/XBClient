@@ -101,8 +101,6 @@ jobs:
         run: |
           rustup target add \
             aarch64-linux-android \
-            armv7-linux-androideabi \
-            i686-linux-android \
             x86_64-linux-android
 
       - name: Build signed release APKs and AAB
@@ -116,20 +114,6 @@ jobs:
         with:
           name: xbclient-release-arm64-v8a-${{ github.ref_name }}
           path: app/build/outputs/apk/release/app-arm64-v8a-release.apk
-          if-no-files-found: error
-
-      - name: Upload release armeabi-v7a APK
-        uses: actions/upload-artifact@v6
-        with:
-          name: xbclient-release-armeabi-v7a-${{ github.ref_name }}
-          path: app/build/outputs/apk/release/app-armeabi-v7a-release.apk
-          if-no-files-found: error
-
-      - name: Upload release x86 APK
-        uses: actions/upload-artifact@v6
-        with:
-          name: xbclient-release-x86-${{ github.ref_name }}
-          path: app/build/outputs/apk/release/app-x86-release.apk
           if-no-files-found: error
 
       - name: Upload release x86_64 APK

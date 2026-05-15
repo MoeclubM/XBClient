@@ -155,8 +155,6 @@ val releaseKeyPassword = signingValue("xbclient.releaseKeyPassword", "XBCLIENT_R
 
 val rustTargets = listOf(
     Triple("arm64-v8a", "aarch64-linux-android", "aarch64-linux-android${minAndroidApi}-clang$executableSuffix"),
-    Triple("armeabi-v7a", "armv7-linux-androideabi", "armv7a-linux-androideabi${minAndroidApi}-clang$executableSuffix"),
-    Triple("x86", "i686-linux-android", "i686-linux-android${minAndroidApi}-clang$executableSuffix"),
     Triple("x86_64", "x86_64-linux-android", "x86_64-linux-android${minAndroidApi}-clang$executableSuffix"),
 )
 
@@ -213,7 +211,7 @@ android {
             isEnable = true
             isUniversalApk = true
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            include("arm64-v8a", "x86_64")
         }
     }
 
