@@ -15,7 +15,7 @@ dependencies = [
 [[package]]
 name = "aerion"
 version = "0.1.0"
-source = "git+https://github.com/MoeclubM/Aerion.git?rev=9ad7b87f67ce2f7a934b31e0bd7ebf20f2bbcb0d#9ad7b87f67ce2f7a934b31e0bd7ebf20f2bbcb0d"
+source = "git+https://github.com/MoeclubM/Aerion.git?rev=a85e1e3d0a1b39c36f44bcfd721f5872edc05cb0#a85e1e3d0a1b39c36f44bcfd721f5872edc05cb0"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -45,6 +45,7 @@ dependencies = [
  "serde_yaml",
  "sha1",
  "sha2",
+ "shadowsocks",
  "tokio",
  "tokio-rustls",
  "toml",
@@ -3827,7 +3828,6 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
- "shadowsocks",
  "tokio",
  "tokio-rustls",
  "tun2proxy",

@@ -2,34 +2,21 @@ use aerion::padding::PaddingScheme;
 use aerion::vless_transport::VlessTransportConfig;
 use aerion::{
     ClientConfig, Hysteria2ClientConfig, MieruClientConfig, MieruTransport, NaiveClientConfig,
-    RealityClientConfig, TrojanClientConfig, UtlsFingerprint, VlessClientConfig, VmessClientConfig,
-    run_client_listener, run_hysteria2_client_listener, run_mieru_client_listener,
-    run_naive_client_listener, run_trojan_client_listener, run_vless_client_listener,
-    run_vmess_client_listener,
+    RealityClientConfig, ShadowsocksClientConfig, TrojanClientConfig, UtlsFingerprint,
+    VlessClientConfig, VmessClientConfig, run_client_listener, run_hysteria2_client_listener,
+    run_mieru_client_listener, run_naive_client_listener, run_shadowsocks_client_listener,
+    run_trojan_client_listener, run_vless_client_listener, run_vmess_client_listener,
 };
 use anyhow::{Context, Result, bail, ensure};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
-use shadowsocks::config::{ServerAddr as ShadowsocksServerAddr, ServerConfig, ServerType};
-use shadowsocks::context::{
-    Context as ShadowsocksContext, SharedContext as ShadowsocksSharedContext,
-};
-use shadowsocks::crypto::CipherKind;
-use shadowsocks::relay::socks5::{
-    Address as ShadowsocksAddress, Command as ShadowsocksCommand, HandshakeRequest,
-    HandshakeResponse, Reply as ShadowsocksReply, SOCKS5_AUTH_METHOD_NONE,
-    SOCKS5_AUTH_METHOD_NOT_ACCEPTABLE, TcpRequestHeader, TcpResponseHeader,
-};
-use shadowsocks::relay::tcprelay::ProxyClientStream;
-use shadowsocks::relay::udprelay::{MAXIMUM_UDP_PAYLOAD_SIZE, ProxySocket};
-use std::collections::{BTreeMap, HashMap};
-use std::io::Cursor;
+use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 #[cfg(target_os = "android")]
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream, UdpSocket};
+use tokio::net::{TcpListener, TcpStream};
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, timeout};
 
@@ -62,13 +49,6 @@ enum AerionProxyConfig {
     Mieru(MieruClientConfig),
     Naive(NaiveClientConfig),
     Shadowsocks(ShadowsocksClientConfig),
-}
-
-#[derive(Clone)]
-struct ShadowsocksClientConfig {
-    server: ServerConfig,
-    context: ShadowsocksSharedContext,
-    udp: bool,
 }
 
 async fn start_aerion_socks(node: Value) -> Result<(SocketAddr, JoinHandle<()>)> {
@@ -113,7 +93,7 @@ fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionProxyC
         "vmess" => vmess_config(node, listen).map(AerionProxyConfig::Vmess),
         "mieru" => mieru_config(node, listen).map(AerionProxyConfig::Mieru),
         "naive" => naive_config(node, listen).map(AerionProxyConfig::Naive),
-        "ss" => shadowsocks_config(node).map(AerionProxyConfig::Shadowsocks),
+        "ss" => shadowsocks_config(node, listen).map(AerionProxyConfig::Shadowsocks),
         other => bail!("unsupported Aerion node protocol: {other}"),
     }
 }
@@ -381,226 +361,23 @@ fn naive_config(node: &Value, listen: SocketAddr) -> Result<NaiveClientConfig> {
     })
 }
 
-fn shadowsocks_config(node: &Value) -> Result<ShadowsocksClientConfig> {
+fn shadowsocks_config(node: &Value, listen: SocketAddr) -> Result<ShadowsocksClientConfig> {
     ensure!(
         field(node, &["plugin", "plugin-opts", "plugin_opts"]).is_none(),
-        "Shadowsocks plugin is not supported by this core binding"
+        "Shadowsocks plugin is not supported by Aerion"
     );
     ensure!(
         !udp_over_tcp_enabled(node),
-        "Shadowsocks UDP-over-TCP is not supported by this core binding"
+        "Shadowsocks UDP-over-TCP is not supported by Aerion"
     );
-    let server_host = node_string(node, &["server", "host", "address"])?;
-    let server_port = node_port(node, &["port", "server_port", "server-port"])?;
-    let method_text = node_string(node, &["cipher", "method", "security"])?;
-    let method = method_text
-        .parse::<CipherKind>()
-        .map_err(|_| anyhow::anyhow!("unsupported Shadowsocks cipher {method_text}"))?;
-    let server_addr = server_host
-        .parse::<IpAddr>()
-        .map(|ip| ShadowsocksServerAddr::SocketAddr(SocketAddr::new(ip, server_port)))
-        .unwrap_or_else(|_| ShadowsocksServerAddr::DomainName(server_host, server_port));
     Ok(ShadowsocksClientConfig {
-        server: ServerConfig::new(
-            server_addr,
-            node_string(node, &["password", "passwd"])?,
-            method,
-        )
-        .context("build Shadowsocks server config")?,
-        context: ShadowsocksContext::new_shared(ServerType::Local),
+        listen,
+        server_host: node_string(node, &["server", "host", "address"])?,
+        server_port: node_port(node, &["port", "server_port", "server-port"])?,
+        method: node_string(node, &["cipher", "method", "security"])?,
+        password: node_string(node, &["password", "passwd"])?,
         udp: node_bool(node, &["udp"], true),
     })
-}
-
-async fn run_shadowsocks_client_listener(
-    listener: TcpListener,
-    config: ShadowsocksClientConfig,
-) -> Result<()> {
-    loop {
-        let (stream, peer) = listener.accept().await.context("accept SOCKS client")?;
-        let config = config.clone();
-        tokio::spawn(async move {
-            if let Err(error) = handle_shadowsocks_socks(stream, config).await {
-                log::warn!("Shadowsocks SOCKS client {peer} failed: {error:?}");
-            }
-        });
-    }
-}
-
-async fn handle_shadowsocks_socks(
-    mut local: TcpStream,
-    config: ShadowsocksClientConfig,
-) -> Result<()> {
-    let handshake = HandshakeRequest::read_from(&mut local)
-        .await
-        .context("read Shadowsocks SOCKS handshake")?;
-    if !handshake.methods.contains(&SOCKS5_AUTH_METHOD_NONE) {
-        HandshakeResponse::new(SOCKS5_AUTH_METHOD_NOT_ACCEPTABLE)
-            .write_to(&mut local)
-            .await
-            .context("write Shadowsocks SOCKS handshake rejection")?;
-        bail!("SOCKS client did not offer no-auth method");
-    }
-    HandshakeResponse::new(SOCKS5_AUTH_METHOD_NONE)
-        .write_to(&mut local)
-        .await
-        .context("write Shadowsocks SOCKS handshake response")?;
-
-    let request = TcpRequestHeader::read_from(&mut local)
-        .await
-        .context("read Shadowsocks SOCKS request")?;
-    match request.command {
-        ShadowsocksCommand::TcpConnect => {
-            let remote =
-                ProxyClientStream::connect(config.context.clone(), &config.server, request.address)
-                    .await;
-            let mut remote = match remote {
-                Ok(remote) => remote,
-                Err(error) => {
-                    TcpResponseHeader::new(
-                        ShadowsocksReply::GeneralFailure,
-                        shadowsocks_empty_address(),
-                    )
-                    .write_to(&mut local)
-                    .await
-                    .context("write Shadowsocks SOCKS connect failure")?;
-                    return Err(error).context("connect Shadowsocks TCP target");
-                }
-            };
-            TcpResponseHeader::new(
-                ShadowsocksReply::Succeeded,
-                ShadowsocksAddress::SocketAddress(local.local_addr()?),
-            )
-            .write_to(&mut local)
-            .await
-            .context("write Shadowsocks SOCKS connect success")?;
-            tokio::io::copy_bidirectional(&mut local, &mut remote)
-                .await
-                .context("relay Shadowsocks TCP")?;
-            Ok(())
-        }
-        ShadowsocksCommand::UdpAssociate => {
-            ensure!(config.udp, "Shadowsocks UDP is disabled by client config");
-            handle_shadowsocks_udp_associate(local, config).await
-        }
-        ShadowsocksCommand::TcpBind => {
-            TcpResponseHeader::new(
-                ShadowsocksReply::CommandNotSupported,
-                shadowsocks_empty_address(),
-            )
-            .write_to(&mut local)
-            .await
-            .context("write Shadowsocks SOCKS bind rejection")?;
-            bail!("SOCKS TCP BIND command is not supported")
-        }
-    }
-}
-
-async fn handle_shadowsocks_udp_associate(
-    mut control: TcpStream,
-    config: ShadowsocksClientConfig,
-) -> Result<()> {
-    let bind_ip = match control.local_addr()?.ip() {
-        IpAddr::V4(ip) if ip.is_unspecified() => IpAddr::V4(Ipv4Addr::LOCALHOST),
-        ip => ip,
-    };
-    let udp = UdpSocket::bind(SocketAddr::new(bind_ip, 0))
-        .await
-        .with_context(|| format!("bind Shadowsocks SOCKS UDP associate socket on {bind_ip}:0"))?;
-    TcpResponseHeader::new(
-        ShadowsocksReply::Succeeded,
-        ShadowsocksAddress::SocketAddress(udp.local_addr()?),
-    )
-    .write_to(&mut control)
-    .await
-    .context("write Shadowsocks SOCKS UDP associate success")?;
-
-    let proxy = ProxySocket::connect(config.context.clone(), &config.server)
-        .await
-        .context("connect Shadowsocks UDP relay")?;
-    let mut peers = HashMap::<ShadowsocksAddress, SocketAddr>::new();
-    let udp_buffer_len = MAXIMUM_UDP_PAYLOAD_SIZE + ShadowsocksAddress::max_serialized_len() + 3;
-    let mut local_buffer = vec![0u8; udp_buffer_len];
-    let mut remote_buffer = vec![0u8; udp_buffer_len];
-    let mut control_buffer = [0u8; 1];
-    loop {
-        tokio::select! {
-            read = udp.recv_from(&mut local_buffer) => {
-                let (read, peer) = read.context("receive SOCKS UDP packet")?;
-                let (target, payload) = parse_shadowsocks_socks_udp_packet(&local_buffer[..read])?;
-                proxy.send(&target, payload).await.context("send Shadowsocks UDP packet")?;
-                peers.insert(target, peer);
-            }
-            read = proxy.recv(&mut remote_buffer) => {
-                let (read, target, _) = read.context("receive Shadowsocks UDP packet")?;
-                let peer = peers
-                    .get(&target)
-                    .copied()
-                    .with_context(|| format!("missing SOCKS UDP peer for {target:?}"))?;
-                let packet = encode_shadowsocks_socks_udp_packet(&target, &remote_buffer[..read])?;
-                udp.send_to(&packet, peer)
-                    .await
-                    .with_context(|| format!("send SOCKS UDP response to {peer}"))?;
-            }
-            read = control.read(&mut control_buffer) => {
-                if read.context("read Shadowsocks SOCKS UDP control connection")? == 0 {
-                    return Ok(());
-                }
-            }
-        }
-    }
-}
-
-fn parse_shadowsocks_socks_udp_packet(packet: &[u8]) -> Result<(ShadowsocksAddress, &[u8])> {
-    ensure!(packet.len() >= 4, "SOCKS UDP packet is too short");
-    ensure!(
-        packet[0] == 0 && packet[1] == 0,
-        "invalid SOCKS UDP reserved bytes"
-    );
-    ensure!(
-        packet[2] == 0,
-        "fragmented SOCKS UDP packet is not supported by Shadowsocks"
-    );
-    let mut cursor = Cursor::new(&packet[3..]);
-    let target = ShadowsocksAddress::read_cursor(&mut cursor).context("parse SOCKS UDP target")?;
-    let payload_start = 3 + cursor.position() as usize;
-    Ok((target, &packet[payload_start..]))
-}
-
-fn encode_shadowsocks_socks_udp_packet(
-    target: &ShadowsocksAddress,
-    payload: &[u8],
-) -> Result<Vec<u8>> {
-    let mut packet = Vec::with_capacity(3 + target.serialized_len() + payload.len());
-    packet.extend_from_slice(&[0, 0, 0]);
-    match target {
-        ShadowsocksAddress::SocketAddress(SocketAddr::V4(addr)) => {
-            packet.push(0x01);
-            packet.extend_from_slice(&addr.ip().octets());
-            packet.extend_from_slice(&addr.port().to_be_bytes());
-        }
-        ShadowsocksAddress::SocketAddress(SocketAddr::V6(addr)) => {
-            packet.push(0x04);
-            packet.extend_from_slice(&addr.ip().octets());
-            packet.extend_from_slice(&addr.port().to_be_bytes());
-        }
-        ShadowsocksAddress::DomainNameAddress(host, port) => {
-            ensure!(
-                host.len() <= u8::MAX as usize,
-                "SOCKS UDP domain is too long"
-            );
-            packet.push(0x03);
-            packet.push(host.len() as u8);
-            packet.extend_from_slice(host.as_bytes());
-            packet.extend_from_slice(&port.to_be_bytes());
-        }
-    }
-    packet.extend_from_slice(payload);
-    Ok(packet)
-}
-
-fn shadowsocks_empty_address() -> ShadowsocksAddress {
-    ShadowsocksAddress::SocketAddress(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0))
 }
 
 fn node_protocol(node: &Value) -> Result<String> {
