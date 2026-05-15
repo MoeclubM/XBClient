@@ -1111,6 +1111,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
     }
     val navScreens = listOf(PassScreen.NODES, PassScreen.NODE_SELECT, PassScreen.PLANS, PassScreen.PROFILE)
     var navDragging by remember { mutableStateOf(false) }
+    var navDragActive by remember { mutableStateOf(false) }
     var navDragOffsetPx by remember { mutableFloatStateOf(0f) }
     var navDragVelocityPx by remember { mutableFloatStateOf(0f) }
     var navLastDragAt by remember { mutableStateOf(0L) }
@@ -1125,7 +1126,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(42.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.78f),
             tonalElevation = 0.dp,
             shadowElevation = 0.dp
         ) {
@@ -1154,10 +1155,53 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                     label = "bottom-nav-pill"
                 )
                 val liquidStretch by animateFloatAsState(
-                    targetValue = if (navDragging) (abs(navDragVelocityPx) / 3200f).coerceIn(0f, 0.22f) else 0f,
+                    targetValue = if (navDragging) (abs(navDragVelocityPx) / 2600f).coerceIn(0f, 0.32f) else 0f,
                     animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
                     label = "bottom-nav-liquid-stretch"
                 )
+                val dropletAlpha by animateFloatAsState(
+                    targetValue = if (navDragging && abs(navDragOffsetPx) > 2f) (0.18f + liquidStretch * 0.65f).coerceAtMost(0.38f) else 0f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                    label = "bottom-nav-liquid-droplet"
+                )
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .padding(horizontal = 24.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                ) {}
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = if (navDragVelocityPx >= 0f) pillOffset + 8.dp else pillOffset + itemWidth - 40.dp)
+                        .size(34.dp)
+                        .graphicsLayer {
+                            alpha = dropletAlpha
+                            scaleX = 1f + liquidStretch * 0.8f
+                            scaleY = 1f - liquidStretch * 0.2f
+                        },
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
+                ) {}
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = if (navDragVelocityPx >= 0f) pillOffset + 4.dp else pillOffset + itemWidth - 24.dp)
+                        .size(16.dp)
+                        .graphicsLayer {
+                            alpha = dropletAlpha * 0.72f
+                            scaleX = 1f + liquidStretch
+                            scaleY = 1f - liquidStretch * 0.18f
+                        },
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f),
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
+                ) {}
                 Surface(
                     modifier = Modifier
                         .offset(x = pillOffset)
@@ -1166,10 +1210,10 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                         .graphicsLayer {
                             scaleX = 1f + liquidStretch
                             scaleY = 1f - liquidStretch * 0.28f
-                        },
+                    },
                     shape = RoundedCornerShape(31.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.68f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f)),
                     tonalElevation = 0.dp,
                     shadowElevation = 0.dp
                 ) {}
@@ -1178,30 +1222,39 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                         .fillMaxSize()
                         .pointerInput(selectedIndex, itemWidthPx) {
                             detectHorizontalDragGestures(
-                                onDragStart = {
-                                    navDragging = true
+                                onDragStart = { start ->
+                                    val selectedStart = selectedIndex.toFloat() * itemWidthPx
+                                    navDragActive = start.x >= selectedStart && start.x <= selectedStart + itemWidthPx
+                                    navDragging = navDragActive
                                     navDragOffsetPx = 0f
                                     navDragVelocityPx = 0f
                                     navLastDragAt = System.currentTimeMillis()
                                 },
                                 onHorizontalDrag = { _, dragAmount ->
-                                    val now = System.currentTimeMillis()
-                                    val elapsed = (now - navLastDragAt).coerceAtLeast(1L)
-                                    navLastDragAt = now
-                                    navDragVelocityPx = dragAmount / elapsed * 1000f
-                                    navDragOffsetPx = (navDragOffsetPx + dragAmount).coerceIn(
-                                        -selectedIndex.toFloat() * itemWidthPx,
-                                        (navScreens.lastIndex - selectedIndex).toFloat() * itemWidthPx
-                                    )
+                                    if (navDragActive) {
+                                        val now = System.currentTimeMillis()
+                                        val elapsed = (now - navLastDragAt).coerceAtLeast(1L)
+                                        navLastDragAt = now
+                                        navDragVelocityPx = dragAmount / elapsed * 1000f
+                                        navDragOffsetPx = (navDragOffsetPx + dragAmount).coerceIn(
+                                            -selectedIndex.toFloat() * itemWidthPx,
+                                            (navScreens.lastIndex - selectedIndex).toFloat() * itemWidthPx
+                                        )
+                                    }
                                 },
                                 onDragEnd = {
                                     val targetIndex = (selectedIndex + (navDragOffsetPx / itemWidthPx).roundToInt()).coerceIn(0, navScreens.lastIndex)
+                                    val active = navDragActive
+                                    navDragActive = false
                                     navDragging = false
                                     navDragOffsetPx = 0f
                                     navDragVelocityPx = 0f
-                                    viewModel.openScreen(navScreens[targetIndex])
+                                    if (active) {
+                                        viewModel.openScreen(navScreens[targetIndex])
+                                    }
                                 },
                                 onDragCancel = {
+                                    navDragActive = false
                                     navDragging = false
                                     navDragOffsetPx = 0f
                                     navDragVelocityPx = 0f
