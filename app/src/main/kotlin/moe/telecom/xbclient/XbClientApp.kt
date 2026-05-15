@@ -1123,9 +1123,8 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(42.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.92f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            tonalElevation = 3.dp,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            tonalElevation = 0.dp,
             shadowElevation = 0.dp
         ) {
             BoxWithConstraints(
@@ -1169,7 +1168,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                     shape = RoundedCornerShape(31.dp),
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
-                    tonalElevation = 2.dp,
+                    tonalElevation = 0.dp,
                     shadowElevation = 0.dp
                 ) {}
                 Row(
