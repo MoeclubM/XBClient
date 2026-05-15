@@ -136,6 +136,10 @@ gh secret set XBCLIENT_RELEASE_KEY_PASSWORD
 cargo test --manifest-path rust\xbclient-core\Cargo.toml
 ```
 
+## 开源许可
+
+本项目采用 Apache License 2.0 开源。详见 `LICENSE` 与 `NOTICE`。
+
 ## 发布与历史清理
 
 清理真实 API、真实名称或广告 ID 后，需要重写 Git 历史并强推：

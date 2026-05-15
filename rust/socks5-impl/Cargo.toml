@@ -2,7 +2,7 @@
 name = "socks5-impl"
 version = "0.8.2"
 edition = "2024"
-license = "MIT"
+license = "Apache-2.0"
 description = "Minimal SOCKS protocol primitives used by tun2proxy"
 publish = false
 

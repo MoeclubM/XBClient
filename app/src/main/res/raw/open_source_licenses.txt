@@ -1,4 +1,7 @@
-Open source and SDK notices
+XBClient license and third-party notices
+
+XBClient is licensed under the Apache License, Version 2.0.
+License: https://www.apache.org/licenses/LICENSE-2.0
 
 This notice lists third-party components resolved for the Android release runtime classpath and the Android Rust target. GPL/LGPL/AGPL dependencies were checked and are not used.
 
@@ -186,9 +189,10 @@ Rust / Cargo components (aarch64-linux-android target)
 (MIT OR Apache-2.0) AND Unicode-3.0 (1)
 - unicode-ident 1.0.24
 
-Apache-2.0 (1)
+Apache-2.0 (2)
 License: https://www.apache.org/licenses/LICENSE-2.0
 - ipstack 1.0.0
+- socks5-impl 0.8.2
 
 Apache-2.0 / MIT (1)
 - fnv 1.0.7
@@ -261,7 +265,7 @@ License: https://opensource.org/license/isc-license-txt
 - rustls-webpki 0.103.13
 - untrusted 0.9.0
 
-MIT (39)
+MIT (38)
 License: https://opensource.org/license/mit
 - aerion 0.1.0
 - bytes 1.11.1
@@ -285,7 +289,6 @@ License: https://opensource.org/license/mit
 - pem 3.0.6
 - sharded-slab 0.1.7
 - slab 0.4.12
-- socks5-impl 0.8.2
 - strsim 0.11.1
 - synstructure 0.13.2
 - tokio 1.52.3
@@ -507,5 +510,5 @@ Zlib OR Apache-2.0 OR MIT (1)
 
 Notes
 - Aerion is pinned to MoeclubM/Aerion rev 9ad7b87f67ce2f7a934b31e0bd7ebf20f2bbcb0d and ships an MIT LICENSE file in that source revision.
-- The local socks5-impl compatibility crate is MIT-licensed project source used instead of the crates.io socks5-impl package with an incompatible license.
+- The local socks5-impl compatibility crate is Apache-2.0 project source used instead of the crates.io socks5-impl package with an incompatible license.
 - Chromium Cronet publishes a consolidated license file for Chromium and built-in dependencies at the URL listed above.
