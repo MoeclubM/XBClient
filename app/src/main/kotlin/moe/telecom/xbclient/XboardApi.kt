@@ -27,6 +27,21 @@ object XboardApi {
         .connectTimeout(30000, TimeUnit.MILLISECONDS)
         .readTimeout(30000, TimeUnit.MILLISECONDS)
         .build()
+    private val supportedSubscriptionNodeTypes = setOf(
+        "anytls",
+        "hysteria2",
+        "hy2",
+        "trojan",
+        "vless",
+        "vmess",
+        "mieru",
+        "mierus",
+        "naive",
+        "naive+https",
+        "naive+quic",
+        "ss",
+        "shadowsocks"
+    )
 
     fun request(action: String, baseUrl: String, authData: String, params: JSONObject): JSONObject {
         val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
@@ -233,14 +248,14 @@ object XboardApi {
         for (item in proxies) {
             val proxy = item as Map<*, *>
             val type = proxy["type"]?.toString()?.lowercase(Locale.US).orEmpty()
-            if (type != "anytls" && type != "hysteria2" && type != "hy2") {
+            if (type !in supportedSubscriptionNodeTypes) {
                 continue
             }
             val name = proxy["name"]?.toString().orEmpty()
             if (name.startsWith("剩余流量：") || name.startsWith("距离下次重置剩余：") || name.startsWith("套餐到期：")) {
                 continue
             }
-            nodes.put(if (type == "anytls") anyTlsNode(proxy) else hysteria2Node(proxy))
+            nodes.put(proxyNode(proxy, type))
         }
         return JSONObject()
             .put("ok", true)
@@ -251,53 +266,23 @@ object XboardApi {
             .put("nodes", nodes)
     }
 
-    private fun anyTlsNode(proxy: Map<*, *>): JSONObject {
-        val host = proxy["server"].toString()
-        return JSONObject()
-            .put("type", "anytls")
-            .put("name", proxy["name"]?.toString().orEmpty())
-            .put("raw", toJson(proxy).toString())
-            .put("host", host)
-            .put("port", proxy["port"].toString().toInt())
-            .put("password", proxy["password"].toString())
-            .put("sni", proxy["sni"]?.toString().takeUnless { it.isNullOrEmpty() } ?: host)
-            .put("insecure", proxy["skip-cert-verify"] == true)
-            .put("udp", proxy["udp"] == true)
-    }
-
-    private fun hysteria2Node(proxy: Map<*, *>): JSONObject {
-        val host = proxy["server"].toString()
-        val obfs = proxy["obfs"]
-        val obfsType = when (obfs) {
-            is Map<*, *> -> obfs["type"]?.toString().orEmpty()
-            null -> ""
-            else -> obfs.toString()
+    private fun proxyNode(proxy: Map<*, *>, type: String): JSONObject {
+        val raw = toJson(proxy) as JSONObject
+        val node = JSONObject(raw.toString())
+        val protocol = when (type) {
+            "hy2" -> "hysteria2"
+            "mierus" -> "mieru"
+            "naive+https", "naive+quic" -> "naive"
+            "shadowsocks" -> "ss"
+            else -> type
         }
-        val obfsPassword = proxy["obfs-password"]?.toString()
-            ?: proxy["obfs_password"]?.toString()
-            ?: proxy["obfsPassword"]?.toString()
-            ?: if (obfs is Map<*, *>) obfs["password"]?.toString() else null
-        val port = (proxy["port"] ?: proxy["server-port"] ?: proxy["server_port"]).toString().toInt()
-        val node = JSONObject()
-            .put("type", "hysteria2")
-            .put("name", proxy["name"]?.toString().orEmpty())
-            .put("raw", toJson(proxy).toString())
-            .put("host", host)
-            .put("server", host)
-            .put("port", port)
-            .put("password", proxy["password"].toString())
-            .put("sni", proxy["sni"]?.toString().takeUnless { it.isNullOrEmpty() } ?: proxy["servername"]?.toString().takeUnless { it.isNullOrEmpty() } ?: host)
-            .put("insecure", proxy["skip-cert-verify"] == true || proxy["insecure"] == true)
-            .put("udp", proxy["udp"] != false)
-        if (obfsType.isNotEmpty()) {
-            node.put("obfs", obfsType)
+        node.put("type", protocol)
+        node.put("raw", raw.toString())
+        if (node.optString("host").isEmpty() && node.optString("server").isNotEmpty()) {
+            node.put("host", node.optString("server"))
         }
-        if (!obfsPassword.isNullOrEmpty()) {
-            node.put("obfs-password", obfsPassword)
-        }
-        val down = proxy["down"] ?: proxy["download"] ?: proxy["down_mbps"] ?: proxy["down-mbps"]
-        if (down != null) {
-            node.put("down", down.toString().toLong())
+        if (type == "naive+quic") {
+            node.put("quic", true)
         }
         return node
     }

@@ -78,6 +78,8 @@ data class AnyTlsNode(
             "vmess",
             "mieru",
             "mierus",
+            "ss",
+            "shadowsocks",
             "naive",
             "naive+https",
             "naive+quic" -> true
@@ -138,6 +140,7 @@ fun JSONObject.toAnyTlsNode(): AnyTlsNode =
             "hy2" -> "hysteria2"
             "mierus" -> "mieru"
             "naive+https", "naive+quic" -> "naive"
+            "shadowsocks" -> "ss"
             else -> rawProtocol
         }
         AnyTlsNode(
@@ -174,7 +177,7 @@ fun nodeTags(node: JSONObject): List<String> {
 
 private fun JSONObject.normalizedNodeJson(protocol: String, rawProtocol: String): String {
     val node = JSONObject(toString())
-    if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive")) {
+    if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive", "ss")) {
         if (node.optString("host").isEmpty() && node.optString("server").isNotEmpty()) {
             node.put("host", node.optString("server"))
         }
@@ -182,7 +185,7 @@ private fun JSONObject.normalizedNodeJson(protocol: String, rawProtocol: String)
         if (rawProtocol == "naive+quic") {
             node.put("quic", true)
         }
-        if (!node.has("insecure")) {
+        if (protocol != "ss" && !node.has("insecure")) {
             node.put("insecure", node.optBoolean("skip-cert-verify", false))
         }
         node.remove("skip-cert-verify")
