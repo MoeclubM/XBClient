@@ -31,7 +31,8 @@ enum class PassScreen {
     PROFILE,
     SETTINGS,
     NODE_SELECT,
-    APP_RULES
+    APP_RULES,
+    OPEN_SOURCE_LICENSES
 }
 
 data class AnyTlsNode(

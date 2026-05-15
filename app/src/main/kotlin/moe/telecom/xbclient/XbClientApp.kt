@@ -1017,6 +1017,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
                     when (screen) {
                         PassScreen.NODE_SELECT -> NodeSelectScreen(state, viewModel)
                         PassScreen.APP_RULES -> AppRulesScreen(state, viewModel)
+                        PassScreen.OPEN_SOURCE_LICENSES -> OpenSourceLicensesScreen()
                         else -> LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 116.dp)
@@ -1033,7 +1034,9 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
                     }
                 }
             }
-            BottomNavigation(state, viewModel, Modifier.align(Alignment.BottomCenter))
+            if (visibleScreen == PassScreen.NODES || visibleScreen == PassScreen.PLANS || visibleScreen == PassScreen.PROFILE || visibleScreen == PassScreen.SETTINGS) {
+                BottomNavigation(state, viewModel, Modifier.align(Alignment.BottomCenter))
+            }
         }
     }
 }
@@ -1041,17 +1044,12 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel) {
 @Composable
 private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewModel, modifier: Modifier = Modifier) {
     val selected = when (state.screen) {
-        PassScreen.SETTINGS, PassScreen.APP_RULES -> PassScreen.SETTINGS
+        PassScreen.SETTINGS -> PassScreen.SETTINGS
         PassScreen.PROFILE -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
-        PassScreen.NODE_SELECT -> if (state.subscriptionBlocked) PassScreen.NODES else PassScreen.NODE_SELECT
         else -> PassScreen.NODES
     }
-    val navScreens = if (state.subscriptionBlocked) {
-        listOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
-    } else {
-        listOf(PassScreen.NODES, PassScreen.NODE_SELECT, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
-    }
+    val navScreens = listOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
     var navDragging by remember { mutableStateOf(false) }
     var navDragActive by remember { mutableStateOf(false) }
     var navDragOffsetPx by remember { mutableFloatStateOf(0f) }
@@ -1077,10 +1075,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                     .height(76.dp)
                     .padding(horizontal = 8.dp, vertical = 7.dp)
             ) {
-                val selectedIndex = when (selected) {
-                    PassScreen.PLANS, PassScreen.PROFILE, PassScreen.NODE_SELECT, PassScreen.SETTINGS -> navScreens.indexOf(selected).coerceAtLeast(0)
-                    else -> 0
-                }
+                val selectedIndex = navScreens.indexOf(selected).coerceAtLeast(0)
                 val itemWidth = maxWidth / navScreens.size
                 val density = LocalDensity.current
                 val itemWidthPx = with(density) { itemWidth.toPx() }
@@ -1199,7 +1194,6 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                         BottomNavButton(
                             selected = selected == screen,
                             icon = when (screen) {
-                                PassScreen.NODE_SELECT -> R.drawable.ic_nav_nodes
                                 PassScreen.PLANS -> R.drawable.ic_nav_plans
                                 PassScreen.PROFILE -> R.drawable.ic_nav_profile
                                 PassScreen.SETTINGS -> R.drawable.ic_nav_settings
@@ -1207,7 +1201,6 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                             },
                             label = stringResource(
                                 id = when (screen) {
-                                    PassScreen.NODE_SELECT -> R.string.nav_nodes
                                     PassScreen.PLANS -> R.string.nav_plans
                                     PassScreen.PROFILE -> R.string.nav_profile
                                     PassScreen.SETTINGS -> R.string.common_settings
@@ -1822,11 +1815,6 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     }
     Section(stringResource(R.string.section_about)) {
         Panel {
-            val openSourceLicenses = remember(context) {
-                context.resources.openRawResource(R.raw.open_source_licenses)
-                    .bufferedReader()
-                    .use { it.readText() }
-            }
             Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(4.dp))
             Text(
@@ -1850,13 +1838,34 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
             Spacer(Modifier.height(14.dp))
             HorizontalDivider()
             Spacer(Modifier.height(12.dp))
-            Text(stringResource(R.string.about_open_source_licenses), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                openSourceLicenses,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            LinkText(stringResource(R.string.about_open_source_licenses)) {
+                viewModel.openScreen(PassScreen.OPEN_SOURCE_LICENSES)
+            }
+        }
+    }
+}
+
+@Composable
+private fun OpenSourceLicensesScreen() {
+    val context = LocalContext.current
+    val licenses = remember(context) {
+        context.resources.openRawResource(R.raw.open_source_licenses)
+            .bufferedReader()
+            .use { it.readText() }
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
+    ) {
+        item {
+            PageHeader(stringResource(R.string.about_open_source_licenses))
+            Panel {
+                Text(
+                    licenses,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -1865,7 +1874,7 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
 private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 116.dp)
+        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
     ) {
         item {
             PageHeader(stringResource(R.string.page_node_select_title))
@@ -2008,7 +2017,7 @@ private fun AppRulesScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 116.dp)
+        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
     ) {
         item {
             PageHeader(stringResource(R.string.page_app_rules_title), stringResource(R.string.page_app_rules_subtitle))
@@ -2377,14 +2386,16 @@ private fun AnimatedContentTransitionScope<PassScreen>.screenTransition(): Conte
         PassScreen.NODE_SELECT -> 1
         PassScreen.PLANS -> 2
         PassScreen.PROFILE -> 3
-        PassScreen.SETTINGS, PassScreen.APP_RULES -> 4
+        PassScreen.SETTINGS -> 4
+        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> 5
     }
     val targetOrder = when (targetState) {
         PassScreen.NODES -> 0
         PassScreen.NODE_SELECT -> 1
         PassScreen.PLANS -> 2
         PassScreen.PROFILE -> 3
-        PassScreen.SETTINGS, PassScreen.APP_RULES -> 4
+        PassScreen.SETTINGS -> 4
+        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> 5
     }
     return if (targetOrder >= initialOrder) {
         (slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) +

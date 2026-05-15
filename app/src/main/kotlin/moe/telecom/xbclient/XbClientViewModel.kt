@@ -197,6 +197,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             PassScreen.PLANS -> Unit
             PassScreen.NODE_SELECT -> refreshSubscriptionAndNodes()
             PassScreen.APP_RULES -> Unit
+            PassScreen.OPEN_SOURCE_LICENSES -> Unit
             PassScreen.SETTINGS -> Unit
             PassScreen.NODES -> {
                 refreshSubscriptionAndNodes()
@@ -224,6 +225,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshUserInfo(showErrors = true)
             }
             PassScreen.SETTINGS, PassScreen.APP_RULES -> refreshUserInfo(showErrors = true)
+            PassScreen.OPEN_SOURCE_LICENSES -> Unit
             PassScreen.NODES -> {
                 refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
                 refreshUserInfo(showErrors = true)
@@ -251,7 +253,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
         when (state.screen) {
             PassScreen.NODE_SELECT -> openScreen(PassScreen.NODES)
-            PassScreen.APP_RULES -> openScreen(PassScreen.SETTINGS)
+            PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> openScreen(PassScreen.SETTINGS)
             PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS -> Unit
         }
     }
