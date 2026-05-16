@@ -15,7 +15,7 @@ dependencies = [
 [[package]]
 name = "aerion"
 version = "0.1.0"
-source = "git+https://github.com/MoeclubM/Aerion.git?rev=0f168603fda598585e6d702f78a7c2c6cbc7ac09#0f168603fda598585e6d702f78a7c2c6cbc7ac09"
+source = "git+https://github.com/MoeclubM/Aerion.git?rev=25a981bad21a571a88292680966855cabf76edcd#25a981bad21a571a88292680966855cabf76edcd"
 dependencies = [
  "aes",
  "aes-gcm",
