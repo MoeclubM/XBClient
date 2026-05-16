@@ -211,12 +211,12 @@ fn vless_config(node: &Value, listen: SocketAddr) -> Result<VlessClientConfig> {
 }
 
 fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
-    ensure_tcp_network(node)?;
     ensure!(
         node_optional_u64(node, &["alterId", "alter_id"])?.unwrap_or(0) == 0,
         "legacy VMess alterId is not supported by Aerion"
     );
     let server_host = node_string(node, &["server", "host", "address"])?;
+    let transport = vless_transport(node)?;
     let tls_options = object_field(node, &["tls"]);
     let security = node_optional_string(node, &["security"]);
     let tls = tls_options
@@ -233,6 +233,11 @@ fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
             })
         })
         .unwrap_or_else(|| "auto".to_string());
+    let client_fingerprint = client_fingerprint(node)?;
+    ensure!(
+        tls || client_fingerprint.is_none(),
+        "Aerion VMess client cannot use client fingerprint without TLS"
+    );
     Ok(VmessClientConfig {
         listen,
         server_port: node_port(node, &["port", "server_port", "server-port"])?,
@@ -245,22 +250,27 @@ fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
             .or_else(|| node_optional_string(node, &["sni", "servername", "server-name", "peer"]))
             .unwrap_or_else(|| server_host.clone()),
         server_host,
-        insecure: tls_options
-            .map(|opts| {
-                map_bool(
-                    opts,
-                    &["insecure", "skip-cert-verify", "skip_cert_verify"],
-                    false,
-                )
-            })
-            .unwrap_or_else(|| {
-                node_bool(
-                    node,
-                    &["insecure", "skip-cert-verify", "allowInsecure"],
-                    false,
-                )
-            }),
-        client_fingerprint: client_fingerprint(node)?,
+        insecure: if tls {
+            tls_options
+                .map(|opts| {
+                    map_bool(
+                        opts,
+                        &["insecure", "skip-cert-verify", "skip_cert_verify"],
+                        false,
+                    )
+                })
+                .unwrap_or_else(|| {
+                    node_bool(
+                        node,
+                        &["insecure", "skip-cert-verify", "allowInsecure"],
+                        false,
+                    )
+                })
+        } else {
+            false
+        },
+        client_fingerprint,
+        transport,
     })
 }
 
@@ -584,7 +594,7 @@ fn client_fingerprint(node: &Value) -> Result<Option<UtlsFingerprint>> {
 fn ensure_tcp_network(node: &Value) -> Result<()> {
     ensure!(
         object_field(node, &["transport"]).is_none_or(|transport| transport.is_empty()),
-        "Aerion binding currently supports raw TCP transport for this protocol; transport object is only supported for VLESS"
+        "Aerion binding currently supports raw TCP transport for this protocol; transport object is mapped by VLESS/VMess"
     );
     let network = node_optional_string(node, &["network"]).unwrap_or_else(|| "tcp".to_string());
     ensure!(
@@ -935,6 +945,35 @@ mod tests {
         assert!(!config.tls);
         assert!(config.reality.is_none());
         assert_eq!(config.server_port, 80);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_vmess_websocket() -> Result<()> {
+        let node = serde_json::json!({
+            "type": "vmess",
+            "server": "example.com",
+            "server_port": 80,
+            "uuid": "a3482e88-686a-4a58-8126-99c9df64b7bf",
+            "alter_id": 0,
+            "transport": {
+                "type": "ws",
+                "path": "/vmess",
+                "headers": { "Host": "edge.example.com" }
+            }
+        });
+        let AerionProxyConfig::Vmess(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected VMess config")
+        };
+        assert!(!config.tls);
+        assert_eq!(config.transport.kind, VlessTransportKind::WebSocket);
+        assert_eq!(config.transport.path, "/vmess");
+        assert_eq!(
+            config.transport.request_host("example.com"),
+            "edge.example.com"
+        );
         Ok(())
     }
 
