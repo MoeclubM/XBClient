@@ -451,17 +451,15 @@ fn shadowsocks_config(node: &Value, listen: SocketAddr) -> Result<ShadowsocksCli
         field(node, &["plugin", "plugin-opts", "plugin_opts"]).is_none(),
         "Shadowsocks plugin is not supported by Aerion"
     );
-    ensure!(
-        !udp_over_tcp_enabled(node),
-        "Shadowsocks UDP-over-TCP is not supported by Aerion"
-    );
+    let udp_over_tcp = udp_over_tcp_enabled(node);
     Ok(ShadowsocksClientConfig {
         listen,
         server_host: node_string(node, &["server", "host", "address"])?,
         server_port: node_port(node, &["port", "server_port", "server-port"])?,
         method: node_string(node, &["cipher", "method", "security"])?,
         password: node_string(node, &["password", "passwd"])?,
-        udp: node_bool(node, &["udp"], true),
+        udp: node_bool(node, &["udp"], true) || udp_over_tcp,
+        udp_over_tcp,
     })
 }
 
@@ -945,6 +943,27 @@ mod tests {
         assert!(!config.tls);
         assert!(config.reality.is_none());
         assert_eq!(config.server_port, 80);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_shadowsocks_udp_over_tcp() -> Result<()> {
+        let node = serde_json::json!({
+            "type": "ss",
+            "server": "example.com",
+            "server_port": 8388,
+            "method": "aes-128-gcm",
+            "password": "secret",
+            "network": "tcp",
+            "udp_over_tcp": { "enabled": true }
+        });
+        let AerionProxyConfig::Shadowsocks(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected Shadowsocks config")
+        };
+        assert!(config.udp);
+        assert!(config.udp_over_tcp);
         Ok(())
     }
 
