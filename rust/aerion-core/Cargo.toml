@@ -9,7 +9,7 @@ name = "aerion_core"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-aerion = { git = "https://github.com/MoeclubM/Aerion.git", rev = "74e45706dce53b9bc32a480b87626bd9481a320f" }
+aerion = { git = "https://github.com/MoeclubM/Aerion.git", rev = "d897e9b31693074ffc7a705beea9020489578fb0" }
 anyhow = "1.0.102"
 jni = "0.22.4"
 log = "0.4.29"
