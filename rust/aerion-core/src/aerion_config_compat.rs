@@ -993,6 +993,26 @@ mod tests {
     }
 
     #[test]
+    fn parses_vmess_xudp() -> Result<()> {
+        let node = serde_json::json!({
+            "type": "vmess",
+            "server": "example.com",
+            "server_port": 80,
+            "uuid": "a3482e88-686a-4a58-8126-99c9df64b7bf",
+            "alter_id": 0,
+            "packet_encoding": "xudp"
+        });
+        let AerionProxyConfig::Vmess(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected VMess config")
+        };
+        assert!(!config.tls);
+        assert_eq!(config.packet_encoding, "xudp");
+        Ok(())
+    }
+
+    #[test]
     fn parses_trojan_websocket() -> Result<()> {
         let node = serde_json::json!({
             "type": "trojan",
