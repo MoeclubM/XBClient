@@ -5,6 +5,7 @@ use aerion::{
     ClientConfig, Hysteria2ClientConfig, MieruClientConfig, MieruTrafficPattern, MieruTransport,
     NaiveClientConfig, RealityClientConfig, ShadowsocksClientConfig, TrojanClientConfig,
     TuicClientConfig, UtlsFingerprint, VlessClientConfig, VmessClientConfig,
+    ensure_vmess_packet_encoding,
 };
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Map, Value};
@@ -238,11 +239,18 @@ fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
         tls || client_fingerprint.is_none(),
         "Aerion VMess client cannot use client fingerprint without TLS"
     );
+    let packet_encoding = node_optional_string(
+        node,
+        &["packet-encoding", "packet_encoding", "packetEncoding"],
+    )
+    .unwrap_or_default();
+    ensure_vmess_packet_encoding(&packet_encoding)?;
     Ok(VmessClientConfig {
         listen,
         server_port: node_port(node, &["port", "server_port", "server-port"])?,
         user_id: node_string(node, &["uuid", "id", "user_id"])?,
         security: cipher,
+        packet_encoding,
         udp: node_bool(node, &["udp"], false),
         tls,
         sni: tls_options
@@ -975,6 +983,7 @@ mod tests {
             "server_port": 80,
             "uuid": "a3482e88-686a-4a58-8126-99c9df64b7bf",
             "alter_id": 0,
+            "packet_encoding": "packetaddr",
             "transport": {
                 "type": "ws",
                 "path": "/vmess",
@@ -987,6 +996,7 @@ mod tests {
             bail!("expected VMess config")
         };
         assert!(!config.tls);
+        assert_eq!(config.packet_encoding, "packetaddr");
         assert_eq!(config.transport.kind, VlessTransportKind::WebSocket);
         assert_eq!(config.transport.path, "/vmess");
         assert_eq!(
