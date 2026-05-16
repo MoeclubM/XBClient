@@ -75,18 +75,31 @@ fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientC
         "Hysteria2 port hopping is not supported by this Aerion core binding"
     );
     let server_host = node_string(node, &["server", "host", "address"])?;
+    let tls = object_field(node, &["tls"]);
     Ok(Hysteria2ClientConfig {
         listen,
         server_port: node_port(node, &["port", "server_port", "server-port"])?,
         password: node_string(node, &["password", "auth"])?,
-        sni: node_optional_string(node, &["sni", "servername", "server-name", "peer"])
+        sni: tls
+            .and_then(|opts| map_string(opts, &["server_name", "server-name", "serverName"]))
+            .or_else(|| node_optional_string(node, &["sni", "servername", "server-name", "peer"]))
             .unwrap_or_else(|| server_host.clone()),
         server_host,
-        insecure: node_bool(
-            node,
-            &["insecure", "skip-cert-verify", "allowInsecure"],
-            false,
-        ),
+        insecure: tls
+            .map(|opts| {
+                map_bool(
+                    opts,
+                    &["insecure", "skip-cert-verify", "skip_cert_verify"],
+                    false,
+                )
+            })
+            .unwrap_or_else(|| {
+                node_bool(
+                    node,
+                    &["insecure", "skip-cert-verify", "allowInsecure"],
+                    false,
+                )
+            }),
         obfs: node_optional_string(node, &["obfs"])
             .or_else(|| object_field(node, &["obfs"]).and_then(|opts| map_string(opts, &["type"]))),
         obfs_password: node_optional_string(
@@ -109,8 +122,10 @@ fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientC
 
 fn trojan_config(node: &Value, listen: SocketAddr) -> Result<TrojanClientConfig> {
     ensure_tcp_network(node)?;
+    let tls = object_field(node, &["tls"]);
     ensure!(
-        node_bool(node, &["tls"], true),
+        tls.map(|opts| map_bool(opts, &["enabled"], true))
+            .unwrap_or_else(|| node_bool(node, &["tls"], true)),
         "Aerion Trojan client requires TLS"
     );
     let server_host = node_string(node, &["server", "host", "address"])?;
@@ -118,14 +133,26 @@ fn trojan_config(node: &Value, listen: SocketAddr) -> Result<TrojanClientConfig>
         listen,
         server_port: node_port(node, &["port", "server_port", "server-port"])?,
         password: node_string(node, &["password", "passwd"])?,
-        sni: node_optional_string(node, &["sni", "servername", "server-name", "peer"])
+        sni: tls
+            .and_then(|opts| map_string(opts, &["server_name", "server-name", "serverName"]))
+            .or_else(|| node_optional_string(node, &["sni", "servername", "server-name", "peer"]))
             .unwrap_or_else(|| server_host.clone()),
         server_host,
-        insecure: node_bool(
-            node,
-            &["insecure", "skip-cert-verify", "allowInsecure"],
-            false,
-        ),
+        insecure: tls
+            .map(|opts| {
+                map_bool(
+                    opts,
+                    &["insecure", "skip-cert-verify", "skip_cert_verify"],
+                    false,
+                )
+            })
+            .unwrap_or_else(|| {
+                node_bool(
+                    node,
+                    &["insecure", "skip-cert-verify", "allowInsecure"],
+                    false,
+                )
+            }),
         udp: node_bool(node, &["udp"], true),
         client_fingerprint: client_fingerprint(node)?,
     })
@@ -133,23 +160,39 @@ fn trojan_config(node: &Value, listen: SocketAddr) -> Result<TrojanClientConfig>
 
 fn vless_config(node: &Value, listen: SocketAddr) -> Result<VlessClientConfig> {
     let server_host = node_string(node, &["server", "host", "address"])?;
+    let tls = object_field(node, &["tls"]);
     let reality = reality_config(node)?;
     ensure!(
-        reality.is_some() || node_bool(node, &["tls"], true),
+        reality.is_some()
+            || tls
+                .map(|opts| map_bool(opts, &["enabled"], true))
+                .unwrap_or_else(|| node_bool(node, &["tls"], true)),
         "Aerion VLESS client requires TLS or REALITY"
     );
     Ok(VlessClientConfig {
         listen,
         server_port: node_port(node, &["port", "server_port", "server-port"])?,
         user_id: node_string(node, &["uuid", "id", "user_id"])?,
-        sni: node_optional_string(node, &["sni", "servername", "server-name", "peer"])
+        sni: tls
+            .and_then(|opts| map_string(opts, &["server_name", "server-name", "serverName"]))
+            .or_else(|| node_optional_string(node, &["sni", "servername", "server-name", "peer"]))
             .unwrap_or_else(|| server_host.clone()),
         server_host,
-        insecure: node_bool(
-            node,
-            &["insecure", "skip-cert-verify", "allowInsecure"],
-            false,
-        ),
+        insecure: tls
+            .map(|opts| {
+                map_bool(
+                    opts,
+                    &["insecure", "skip-cert-verify", "skip_cert_verify"],
+                    false,
+                )
+            })
+            .unwrap_or_else(|| {
+                node_bool(
+                    node,
+                    &["insecure", "skip-cert-verify", "allowInsecure"],
+                    false,
+                )
+            }),
         flow: node_optional_string(node, &["flow"]).unwrap_or_default(),
         packet_encoding: node_optional_string(node, &["packet-encoding", "packet_encoding"])
             .unwrap_or_default(),
@@ -168,8 +211,11 @@ fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
         "legacy VMess alterId is not supported by Aerion"
     );
     let server_host = node_string(node, &["server", "host", "address"])?;
+    let tls_options = object_field(node, &["tls"]);
     let security = node_optional_string(node, &["security"]);
-    let tls = node_bool(node, &["tls"], false)
+    let tls = tls_options
+        .map(|opts| map_bool(opts, &["enabled"], true))
+        .unwrap_or_else(|| node_bool(node, &["tls"], false))
         || security
             .as_deref()
             .map(|value| value.eq_ignore_ascii_case("tls"))
@@ -188,14 +234,26 @@ fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
         security: cipher,
         udp: node_bool(node, &["udp"], false),
         tls,
-        sni: node_optional_string(node, &["sni", "servername", "server-name", "peer"])
+        sni: tls_options
+            .and_then(|opts| map_string(opts, &["server_name", "server-name", "serverName"]))
+            .or_else(|| node_optional_string(node, &["sni", "servername", "server-name", "peer"]))
             .unwrap_or_else(|| server_host.clone()),
         server_host,
-        insecure: node_bool(
-            node,
-            &["insecure", "skip-cert-verify", "allowInsecure"],
-            false,
-        ),
+        insecure: tls_options
+            .map(|opts| {
+                map_bool(
+                    opts,
+                    &["insecure", "skip-cert-verify", "skip_cert_verify"],
+                    false,
+                )
+            })
+            .unwrap_or_else(|| {
+                node_bool(
+                    node,
+                    &["insecure", "skip-cert-verify", "allowInsecure"],
+                    false,
+                )
+            }),
         client_fingerprint: client_fingerprint(node)?,
     })
 }
@@ -406,6 +464,24 @@ fn node_protocol(node: &Value) -> Result<String> {
 
 fn vless_transport(node: &Value) -> Result<VlessTransportConfig> {
     let network = node_optional_string(node, &["network"]).unwrap_or_else(|| "tcp".to_string());
+    if let Some(opts) = object_field(node, &["transport"]) {
+        let kind = map_string(opts, &["type"]).unwrap_or_else(|| network.clone());
+        let host = map_string(opts, &["host"]).or_else(|| header_value(opts, "host"));
+        let path = if kind.eq_ignore_ascii_case("grpc") {
+            map_string(opts, &["service_name", "serviceName", "path"])
+        } else {
+            map_string(opts, &["path"])
+        };
+        if kind.eq_ignore_ascii_case("xhttp") || kind.eq_ignore_ascii_case("splithttp") {
+            return VlessTransportConfig::xhttp(
+                path,
+                host,
+                map_headers(Some(opts)),
+                map_string(opts, &["mode"]),
+            );
+        }
+        return VlessTransportConfig::from_network(&kind, path, host, map_headers(Some(opts)));
+    }
     if network.eq_ignore_ascii_case("grpc") {
         let opts = object_field(node, &["grpc-opts", "grpc_opts"]);
         return VlessTransportConfig::from_network(
@@ -436,20 +512,29 @@ fn vless_transport(node: &Value) -> Result<VlessTransportConfig> {
 
 fn reality_config(node: &Value) -> Result<Option<RealityClientConfig>> {
     let opts = object_field(node, &["reality-opts", "reality_opts"]);
+    let tls_reality = object_field(node, &["tls"])
+        .and_then(|tls| tls.get("reality"))
+        .and_then(Value::as_object);
     let public_key = opts
         .and_then(|opts| map_string(opts, &["public-key", "public_key"]))
+        .or_else(|| tls_reality.and_then(|opts| map_string(opts, &["public_key", "public-key"])))
         .or_else(|| node_optional_string(node, &["public-key", "public_key", "pbk"]));
     let Some(public_key) = public_key else {
         return Ok(None);
     };
     let short_id = opts
         .and_then(|opts| map_string(opts, &["short-id", "short_id"]))
+        .or_else(|| tls_reality.and_then(|opts| map_string(opts, &["short_id", "short-id"])))
         .or_else(|| node_optional_string(node, &["short-id", "short_id", "sid"]))
         .unwrap_or_default();
     RealityClientConfig::from_strings(&public_key, &short_id).map(Some)
 }
 
 fn client_fingerprint(node: &Value) -> Result<Option<UtlsFingerprint>> {
+    let tls = object_field(node, &["tls"]);
+    let tls_utls = tls
+        .and_then(|tls| tls.get("utls"))
+        .and_then(Value::as_object);
     let Some(value) = node_optional_string(
         node,
         &[
@@ -458,13 +543,43 @@ fn client_fingerprint(node: &Value) -> Result<Option<UtlsFingerprint>> {
             "fingerprint",
             "fp",
         ],
-    ) else {
+    )
+    .or_else(|| {
+        tls.and_then(|opts| {
+            map_string(
+                opts,
+                &[
+                    "client-fingerprint",
+                    "client_fingerprint",
+                    "fingerprint",
+                    "fp",
+                ],
+            )
+        })
+    })
+    .or_else(|| {
+        tls_utls.and_then(|opts| {
+            map_string(
+                opts,
+                &[
+                    "client-fingerprint",
+                    "client_fingerprint",
+                    "fingerprint",
+                    "fp",
+                ],
+            )
+        })
+    }) else {
         return Ok(None);
     };
     UtlsFingerprint::from_mihomo_name(&value)
 }
 
 fn ensure_tcp_network(node: &Value) -> Result<()> {
+    ensure!(
+        object_field(node, &["transport"]).is_none_or(|transport| transport.is_empty()),
+        "Aerion binding currently supports raw TCP transport for this protocol; transport object is only supported for VLESS"
+    );
     let network = node_optional_string(node, &["network"]).unwrap_or_else(|| "tcp".to_string());
     ensure!(
         network.trim().is_empty()
@@ -698,6 +813,13 @@ fn map_headers(opts: Option<&Map<String, Value>>) -> Vec<(String, String)> {
         .collect()
 }
 
+fn header_value(map: &Map<String, Value>, name: &str) -> Option<String> {
+    map_headers(Some(map))
+        .into_iter()
+        .find(|(key, _)| key.eq_ignore_ascii_case(name))
+        .map(|(_, value)| value)
+}
+
 fn udp_over_tcp_enabled(node: &Value) -> bool {
     object_field(node, &["udp_over_tcp", "udp-over-tcp"])
         .map(|opts| map_bool(opts, &["enabled"], false))
@@ -739,4 +861,77 @@ fn parse_mieru_hash(value: &str) -> Result<[u8; 32]> {
             .context("parse Mieru hashed password hex")?;
     }
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aerion::vless_transport::VlessTransportKind;
+
+    #[test]
+    fn parses_sing_box_vless_reality_transport() -> Result<()> {
+        let node = serde_json::json!({
+            "type": "vless",
+            "server": "example.com",
+            "server_port": 443,
+            "uuid": "a3482e88-686a-4a58-8126-99c9df64b7bf",
+            "flow": "xtls-rprx-vision",
+            "packet_encoding": "xudp",
+            "tls": {
+                "enabled": true,
+                "server_name": "front.example.com",
+                "insecure": true,
+                "utls": { "enabled": true, "fingerprint": "chrome" },
+                "reality": {
+                    "enabled": true,
+                    "public_key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+                    "short_id": "a1b2"
+                }
+            },
+            "transport": {
+                "type": "grpc",
+                "service_name": "TunService",
+                "headers": { "Host": "edge.example.com" }
+            }
+        });
+        let AerionProxyConfig::Vless(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected VLESS config")
+        };
+        assert_eq!(config.sni, "front.example.com");
+        assert!(config.insecure);
+        assert!(config.reality.is_some());
+        assert_eq!(config.client_fingerprint, Some(UtlsFingerprint::Chrome));
+        assert_eq!(config.transport.kind, VlessTransportKind::Grpc);
+        assert_eq!(config.transport.path, "/TunService/Tun");
+        assert_eq!(
+            config.transport.request_host("example.com"),
+            "edge.example.com"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_sing_box_hysteria2_tls() -> Result<()> {
+        let node = serde_json::json!({
+            "type": "hysteria2",
+            "server": "hy2.example.com",
+            "server_port": 443,
+            "password": "secret",
+            "tls": {
+                "enabled": true,
+                "server_name": "front.example.com",
+                "insecure": true
+            }
+        });
+        let AerionProxyConfig::Hysteria2(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected Hysteria2 config")
+        };
+        assert_eq!(config.sni, "front.example.com");
+        assert!(config.insecure);
+        Ok(())
+    }
 }
