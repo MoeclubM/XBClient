@@ -122,7 +122,7 @@ fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientC
 }
 
 fn trojan_config(node: &Value, listen: SocketAddr) -> Result<TrojanClientConfig> {
-    ensure_tcp_network(node)?;
+    let transport = vless_transport(node)?;
     let tls = object_field(node, &["tls"]);
     ensure!(
         tls.map(|opts| map_bool(opts, &["enabled"], true))
@@ -156,6 +156,7 @@ fn trojan_config(node: &Value, listen: SocketAddr) -> Result<TrojanClientConfig>
             }),
         udp: node_bool(node, &["udp"], true),
         client_fingerprint: client_fingerprint(node)?,
+        transport,
     })
 }
 
@@ -597,21 +598,6 @@ fn client_fingerprint(node: &Value) -> Result<Option<UtlsFingerprint>> {
     UtlsFingerprint::from_mihomo_name(&value)
 }
 
-fn ensure_tcp_network(node: &Value) -> Result<()> {
-    ensure!(
-        object_field(node, &["transport"]).is_none_or(|transport| transport.is_empty()),
-        "Aerion binding currently supports raw TCP transport for this protocol; transport object is mapped by VLESS/VMess"
-    );
-    let network = node_optional_string(node, &["network"]).unwrap_or_else(|| "tcp".to_string());
-    ensure!(
-        network.trim().is_empty()
-            || network.eq_ignore_ascii_case("tcp")
-            || network.eq_ignore_ascii_case("raw"),
-        "Aerion binding currently supports raw TCP transport for this protocol, got network={network}"
-    );
-    Ok(())
-}
-
 fn mux_enabled(node: &Value) -> bool {
     match field(node, &["mux"]) {
         Some(Value::Bool(value)) => *value,
@@ -999,6 +985,33 @@ mod tests {
         assert_eq!(config.packet_encoding, "packetaddr");
         assert_eq!(config.transport.kind, VlessTransportKind::WebSocket);
         assert_eq!(config.transport.path, "/vmess");
+        assert_eq!(
+            config.transport.request_host("example.com"),
+            "edge.example.com"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_trojan_websocket() -> Result<()> {
+        let node = serde_json::json!({
+            "type": "trojan",
+            "server": "example.com",
+            "server_port": 443,
+            "password": "secret",
+            "transport": {
+                "type": "ws",
+                "path": "/trojan",
+                "headers": { "Host": "edge.example.com" }
+            }
+        });
+        let AerionProxyConfig::Trojan(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected Trojan config")
+        };
+        assert_eq!(config.transport.kind, VlessTransportKind::WebSocket);
+        assert_eq!(config.transport.path, "/trojan");
         assert_eq!(
             config.transport.request_host("example.com"),
             "edge.example.com"
