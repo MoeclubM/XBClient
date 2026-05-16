@@ -162,24 +162,27 @@ fn vless_config(node: &Value, listen: SocketAddr) -> Result<VlessClientConfig> {
     let server_host = node_string(node, &["server", "host", "address"])?;
     let tls = object_field(node, &["tls"]);
     let reality = reality_config(node)?;
+    let tls_enabled = reality.is_none()
+        && tls
+            .map(|opts| map_bool(opts, &["enabled"], true))
+            .unwrap_or_else(|| node_bool(node, &["tls"], true));
+    let client_fingerprint = client_fingerprint(node)?;
     ensure!(
-        reality.is_some()
-            || tls
-                .map(|opts| map_bool(opts, &["enabled"], true))
-                .unwrap_or_else(|| node_bool(node, &["tls"], true)),
-        "Aerion VLESS client requires TLS or REALITY"
+        tls_enabled || reality.is_some() || client_fingerprint.is_none(),
+        "Aerion VLESS client cannot use client fingerprint without TLS or REALITY"
     );
     Ok(VlessClientConfig {
         listen,
         server_port: node_port(node, &["port", "server_port", "server-port"])?,
         user_id: node_string(node, &["uuid", "id", "user_id"])?,
+        tls: tls_enabled,
         sni: tls
             .and_then(|opts| map_string(opts, &["server_name", "server-name", "serverName"]))
             .or_else(|| node_optional_string(node, &["sni", "servername", "server-name", "peer"]))
             .unwrap_or_else(|| server_host.clone()),
         server_host,
-        insecure: tls
-            .map(|opts| {
+        insecure: if tls_enabled {
+            tls.map(|opts| {
                 map_bool(
                     opts,
                     &["insecure", "skip-cert-verify", "skip_cert_verify"],
@@ -192,13 +195,16 @@ fn vless_config(node: &Value, listen: SocketAddr) -> Result<VlessClientConfig> {
                     &["insecure", "skip-cert-verify", "allowInsecure"],
                     false,
                 )
-            }),
+            })
+        } else {
+            false
+        },
         flow: node_optional_string(node, &["flow"]).unwrap_or_default(),
         packet_encoding: node_optional_string(node, &["packet-encoding", "packet_encoding"])
             .unwrap_or_default(),
         mux: mux_enabled(node),
         udp: node_bool(node, &["udp"], true),
-        client_fingerprint: client_fingerprint(node)?,
+        client_fingerprint,
         reality,
         transport: vless_transport(node)?,
     })
@@ -900,7 +906,7 @@ mod tests {
             bail!("expected VLESS config")
         };
         assert_eq!(config.sni, "front.example.com");
-        assert!(config.insecure);
+        assert!(!config.tls);
         assert!(config.reality.is_some());
         assert_eq!(config.client_fingerprint, Some(UtlsFingerprint::Chrome));
         assert_eq!(config.transport.kind, VlessTransportKind::Grpc);
@@ -909,6 +915,26 @@ mod tests {
             config.transport.request_host("example.com"),
             "edge.example.com"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_raw_vless() -> Result<()> {
+        let node = serde_json::json!({
+            "type": "vless",
+            "server": "example.com",
+            "server_port": 80,
+            "uuid": "a3482e88-686a-4a58-8126-99c9df64b7bf",
+            "tls": { "enabled": false }
+        });
+        let AerionProxyConfig::Vless(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected VLESS config")
+        };
+        assert!(!config.tls);
+        assert!(config.reality.is_none());
+        assert_eq!(config.server_port, 80);
         Ok(())
     }
 
