@@ -393,6 +393,17 @@ fn naive_config(node: &Value, listen: SocketAddr) -> Result<NaiveClientConfig> {
                     )
                 })
                 .unwrap_or(false),
+        quic_congestion_control: node_optional_string(
+            node,
+            &[
+                "quic-congestion-control",
+                "quic_congestion_control",
+                "quicCongestionControl",
+                "congestion-control",
+                "congestion_control",
+            ],
+        )
+        .unwrap_or_else(aerion::naive::default_naive_quic_congestion_control),
     })
 }
 
@@ -1059,6 +1070,28 @@ mod tests {
         };
         assert_eq!(config.sni, "front.example.com");
         assert!(config.insecure);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_naive_quic_congestion_control() -> Result<()> {
+        let node = serde_json::json!({
+            "type": "naive",
+            "server": "naive.example.com",
+            "server_port": 443,
+            "username": "user",
+            "password": "secret",
+            "quic": true,
+            "quic_congestion_control": "reno",
+            "tls": { "enabled": true }
+        });
+        let AerionProxyConfig::Naive(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected Naive config")
+        };
+        assert!(config.quic);
+        assert_eq!(config.quic_congestion_control, "reno");
         Ok(())
     }
 }
