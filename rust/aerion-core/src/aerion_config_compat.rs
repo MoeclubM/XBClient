@@ -416,6 +416,21 @@ fn naive_config(node: &Value, listen: SocketAddr) -> Result<NaiveClientConfig> {
                     false,
                 )
             }),
+        ca_cert_paths: tls
+            .and_then(|opts| {
+                ["certificate_path", "certificate-path", "ca_cert", "ca-cert"]
+                    .iter()
+                    .find_map(|key| opts.get(*key))
+                    .and_then(value_to_path_list)
+            })
+            .or_else(|| {
+                field(
+                    node,
+                    &["certificate_path", "certificate-path", "ca_cert", "ca-cert"],
+                )
+                .and_then(value_to_path_list)
+            })
+            .unwrap_or_default(),
         extra_headers: naive_extra_headers(node)?,
         udp_over_tcp: udp_over_tcp_enabled(node),
         quic: node_optional_string(node, &["type", "protocol"])
@@ -1141,7 +1156,10 @@ mod tests {
             "password": "secret",
             "quic": true,
             "quic_congestion_control": "reno",
-            "tls": { "enabled": true }
+            "tls": {
+                "enabled": true,
+                "certificate_path": ["ca.pem", "backup-ca.pem"]
+            }
         });
         let AerionProxyConfig::Naive(config) =
             node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
@@ -1150,6 +1168,10 @@ mod tests {
         };
         assert!(config.quic);
         assert_eq!(config.quic_congestion_control, "reno");
+        assert_eq!(
+            config.ca_cert_paths,
+            vec![PathBuf::from("ca.pem"), PathBuf::from("backup-ca.pem")]
+        );
         Ok(())
     }
 }
