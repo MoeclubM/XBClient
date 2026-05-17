@@ -11,6 +11,7 @@ use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 
 pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionProxyConfig> {
     let protocol = node_protocol(node)?;
@@ -122,6 +123,21 @@ fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientC
                     ],
                 )
             }),
+        ca_cert_paths: tls
+            .and_then(|opts| {
+                ["certificate_path", "certificate-path", "ca_cert", "ca-cert"]
+                    .iter()
+                    .find_map(|key| opts.get(*key))
+                    .and_then(value_to_path_list)
+            })
+            .or_else(|| {
+                field(
+                    node,
+                    &["certificate_path", "certificate-path", "ca_cert", "ca-cert"],
+                )
+                .and_then(value_to_path_list)
+            })
+            .unwrap_or_default(),
         obfs: node_optional_string(node, &["obfs"])
             .or_else(|| object_field(node, &["obfs"]).and_then(|opts| map_string(opts, &["type"]))),
         obfs_password: node_optional_string(
@@ -786,6 +802,27 @@ fn node_string_list(node: &Value, keys: &[&str]) -> Option<Vec<String>> {
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
                 .map(str::to_string)
+                .collect(),
+        ),
+        _ => None,
+    }
+}
+
+fn value_to_path_list(value: &Value) -> Option<Vec<PathBuf>> {
+    match value {
+        Value::Array(values) => Some(
+            values
+                .iter()
+                .filter_map(value_to_string)
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from)
+                .collect(),
+        ),
+        Value::String(text) => Some(
+            text.lines()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from)
                 .collect(),
         ),
         _ => None,
