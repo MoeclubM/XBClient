@@ -101,6 +101,27 @@ fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientC
                     false,
                 )
             }),
+        certificate_fingerprint: tls
+            .and_then(|opts| {
+                map_string(
+                    opts,
+                    &[
+                        "fingerprint",
+                        "certificate_fingerprint",
+                        "certificate-fingerprint",
+                    ],
+                )
+            })
+            .or_else(|| {
+                node_optional_string(
+                    node,
+                    &[
+                        "fingerprint",
+                        "certificate_fingerprint",
+                        "certificate-fingerprint",
+                    ],
+                )
+            }),
         obfs: node_optional_string(node, &["obfs"])
             .or_else(|| object_field(node, &["obfs"]).and_then(|opts| map_string(opts, &["type"]))),
         obfs_password: node_optional_string(
