@@ -56,6 +56,7 @@ fn anytls_config(node: &Value, listen: SocketAddr) -> Result<ClientConfig> {
                     false,
                 )
             }),
+        ca_cert_paths: tls_ca_cert_paths(node, tls),
         padding_scheme: node_string_list(node, &["padding_scheme", "padding-scheme"])
             .filter(|lines| !lines.is_empty())
             .unwrap_or_else(PaddingScheme::default_lines),
@@ -123,21 +124,7 @@ fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientC
                     ],
                 )
             }),
-        ca_cert_paths: tls
-            .and_then(|opts| {
-                ["certificate_path", "certificate-path", "ca_cert", "ca-cert"]
-                    .iter()
-                    .find_map(|key| opts.get(*key))
-                    .and_then(value_to_path_list)
-            })
-            .or_else(|| {
-                field(
-                    node,
-                    &["certificate_path", "certificate-path", "ca_cert", "ca-cert"],
-                )
-                .and_then(value_to_path_list)
-            })
-            .unwrap_or_default(),
+        ca_cert_paths: tls_ca_cert_paths(node, tls),
         obfs: node_optional_string(node, &["obfs"])
             .or_else(|| object_field(node, &["obfs"]).and_then(|opts| map_string(opts, &["type"]))),
         obfs_password: node_optional_string(
@@ -191,6 +178,7 @@ fn trojan_config(node: &Value, listen: SocketAddr) -> Result<TrojanClientConfig>
                     false,
                 )
             }),
+        ca_cert_paths: tls_ca_cert_paths(node, tls),
         udp: node_bool(node, &["udp"], true),
         client_fingerprint: client_fingerprint(node)?,
         transport,
@@ -238,6 +226,7 @@ fn vless_config(node: &Value, listen: SocketAddr) -> Result<VlessClientConfig> {
         } else {
             false
         },
+        ca_cert_paths: tls_ca_cert_paths(node, tls),
         flow: node_optional_string(node, &["flow"]).unwrap_or_default(),
         packet_encoding: node_optional_string(node, &["packet-encoding", "packet_encoding"])
             .unwrap_or_default(),
@@ -315,6 +304,7 @@ fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
         } else {
             false
         },
+        ca_cert_paths: tls_ca_cert_paths(node, tls_options),
         client_fingerprint,
         transport,
     })
@@ -416,21 +406,7 @@ fn naive_config(node: &Value, listen: SocketAddr) -> Result<NaiveClientConfig> {
                     false,
                 )
             }),
-        ca_cert_paths: tls
-            .and_then(|opts| {
-                ["certificate_path", "certificate-path", "ca_cert", "ca-cert"]
-                    .iter()
-                    .find_map(|key| opts.get(*key))
-                    .and_then(value_to_path_list)
-            })
-            .or_else(|| {
-                field(
-                    node,
-                    &["certificate_path", "certificate-path", "ca_cert", "ca-cert"],
-                )
-                .and_then(value_to_path_list)
-            })
-            .unwrap_or_default(),
+        ca_cert_paths: tls_ca_cert_paths(node, tls),
         extra_headers: naive_extra_headers(node)?,
         udp_over_tcp: udp_over_tcp_enabled(node),
         quic: node_optional_string(node, &["type", "protocol"])
@@ -492,6 +468,7 @@ fn tuic_config(node: &Value, listen: SocketAddr) -> Result<TuicClientConfig> {
                     false,
                 )
             }),
+        ca_cert_paths: tls_ca_cert_paths(node, tls),
         udp: node_bool(node, &["udp"], true),
         udp_relay_mode: node_optional_string(node, &["udp-relay-mode", "udp_relay_mode"])
             .unwrap_or_else(|| "native".to_string()),
@@ -844,6 +821,23 @@ fn value_to_path_list(value: &Value) -> Option<Vec<PathBuf>> {
     }
 }
 
+fn tls_ca_cert_paths(node: &Value, tls: Option<&Map<String, Value>>) -> Vec<PathBuf> {
+    tls.and_then(|opts| {
+        ["certificate_path", "certificate-path", "ca_cert", "ca-cert"]
+            .iter()
+            .find_map(|key| opts.get(*key))
+            .and_then(value_to_path_list)
+    })
+    .or_else(|| {
+        field(
+            node,
+            &["certificate_path", "certificate-path", "ca_cert", "ca-cert"],
+        )
+        .and_then(value_to_path_list)
+    })
+    .unwrap_or_default()
+}
+
 fn node_alpn_list(node: &Value, tls: Option<&Map<String, Value>>) -> Option<Vec<String>> {
     field(node, &["alpn"])
         .or_else(|| tls.and_then(|opts| opts.get("alpn")))
@@ -1143,6 +1137,82 @@ mod tests {
         };
         assert_eq!(config.sni, "front.example.com");
         assert!(config.insecure);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_client_tls_custom_roots() -> Result<()> {
+        let anytls = serde_json::json!({
+            "type": "anytls",
+            "server": "anytls.example.com",
+            "server_port": 443,
+            "password": "secret",
+            "tls": { "enabled": true, "certificate_path": "anytls-ca.pem" }
+        });
+        let AerionProxyConfig::AnyTls(config) =
+            node_to_proxy_config(&anytls, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected AnyTLS config")
+        };
+        assert_eq!(config.ca_cert_paths, vec![PathBuf::from("anytls-ca.pem")]);
+
+        let vless = serde_json::json!({
+            "type": "vless",
+            "server": "vless.example.com",
+            "server_port": 443,
+            "uuid": "a3482e88-686a-4a58-8126-99c9df64b7bf",
+            "tls": { "enabled": true, "certificate_path": ["vless-ca.pem"] }
+        });
+        let AerionProxyConfig::Vless(config) =
+            node_to_proxy_config(&vless, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected VLESS config")
+        };
+        assert_eq!(config.ca_cert_paths, vec![PathBuf::from("vless-ca.pem")]);
+
+        let vmess = serde_json::json!({
+            "type": "vmess",
+            "server": "vmess.example.com",
+            "server_port": 443,
+            "uuid": "a3482e88-686a-4a58-8126-99c9df64b7bf",
+            "alter_id": 0,
+            "tls": { "enabled": true, "certificate_path": "vmess-ca.pem" }
+        });
+        let AerionProxyConfig::Vmess(config) =
+            node_to_proxy_config(&vmess, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected VMess config")
+        };
+        assert_eq!(config.ca_cert_paths, vec![PathBuf::from("vmess-ca.pem")]);
+
+        let trojan = serde_json::json!({
+            "type": "trojan",
+            "server": "trojan.example.com",
+            "server_port": 443,
+            "password": "secret",
+            "tls": { "enabled": true, "certificate_path": "trojan-ca.pem" }
+        });
+        let AerionProxyConfig::Trojan(config) =
+            node_to_proxy_config(&trojan, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected Trojan config")
+        };
+        assert_eq!(config.ca_cert_paths, vec![PathBuf::from("trojan-ca.pem")]);
+
+        let tuic = serde_json::json!({
+            "type": "tuic",
+            "server": "tuic.example.com",
+            "server_port": 443,
+            "uuid": "a3482e88-686a-4a58-8126-99c9df64b7bf",
+            "password": "secret",
+            "tls": { "enabled": true, "certificate_path": "tuic-ca.pem" }
+        });
+        let AerionProxyConfig::Tuic(config) =
+            node_to_proxy_config(&tuic, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected TUIC config")
+        };
+        assert_eq!(config.ca_cert_paths, vec![PathBuf::from("tuic-ca.pem")]);
         Ok(())
     }
 
