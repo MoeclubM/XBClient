@@ -509,6 +509,6 @@ Zlib OR Apache-2.0 OR MIT (1)
 - tinyvec 1.11.0
 
 Notes
-- Aerion is pinned to MoeclubM/Aerion rev ae99b0edb06ff6e70175e0adaf6d634dfd0de58b and ships an MIT LICENSE file in that source revision.
+- Aerion is pinned to MoeclubM/Aerion rev 517ee1e0c91ce679b597a370dfd4b2ed878b455b and ships an MIT LICENSE file in that source revision.
 - The local socks5-impl compatibility crate under rust/third_party is Apache-2.0 project source used instead of the crates.io socks5-impl package with an incompatible license.
 - Chromium Cronet publishes a consolidated license file for Chromium and built-in dependencies at the URL listed above.
