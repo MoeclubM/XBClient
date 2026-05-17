@@ -59,6 +59,7 @@ fn anytls_config(node: &Value, listen: SocketAddr) -> Result<ClientConfig> {
         ca_cert_paths: tls_ca_cert_paths(node, tls),
         ca_certificates: tls_ca_certificates(node, tls),
         disable_system_roots: tls_disable_system_roots(node, tls),
+        pinned_cert_sha256: tls_pinned_cert_sha256(node, tls),
         padding_scheme: node_string_list(node, &["padding_scheme", "padding-scheme"])
             .filter(|lines| !lines.is_empty())
             .unwrap_or_else(PaddingScheme::default_lines),
@@ -129,6 +130,7 @@ fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientC
         ca_cert_paths: tls_ca_cert_paths(node, tls),
         ca_certificates: tls_ca_certificates(node, tls),
         disable_system_roots: tls_disable_system_roots(node, tls),
+        pinned_cert_sha256: tls_pinned_cert_sha256(node, tls),
         obfs: node_optional_string(node, &["obfs"])
             .or_else(|| object_field(node, &["obfs"]).and_then(|opts| map_string(opts, &["type"]))),
         obfs_password: node_optional_string(
@@ -185,6 +187,7 @@ fn trojan_config(node: &Value, listen: SocketAddr) -> Result<TrojanClientConfig>
         ca_cert_paths: tls_ca_cert_paths(node, tls),
         ca_certificates: tls_ca_certificates(node, tls),
         disable_system_roots: tls_disable_system_roots(node, tls),
+        pinned_cert_sha256: tls_pinned_cert_sha256(node, tls),
         udp: node_bool(node, &["udp"], true),
         client_fingerprint: client_fingerprint(node)?,
         transport,
@@ -235,6 +238,7 @@ fn vless_config(node: &Value, listen: SocketAddr) -> Result<VlessClientConfig> {
         ca_cert_paths: tls_ca_cert_paths(node, tls),
         ca_certificates: tls_ca_certificates(node, tls),
         disable_system_roots: tls_disable_system_roots(node, tls),
+        pinned_cert_sha256: tls_pinned_cert_sha256(node, tls),
         flow: node_optional_string(node, &["flow"]).unwrap_or_default(),
         packet_encoding: node_optional_string(node, &["packet-encoding", "packet_encoding"])
             .unwrap_or_default(),
@@ -315,6 +319,7 @@ fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
         ca_cert_paths: tls_ca_cert_paths(node, tls_options),
         ca_certificates: tls_ca_certificates(node, tls_options),
         disable_system_roots: tls_disable_system_roots(node, tls_options),
+        pinned_cert_sha256: tls_pinned_cert_sha256(node, tls_options),
         client_fingerprint,
         transport,
     })
@@ -419,6 +424,7 @@ fn naive_config(node: &Value, listen: SocketAddr) -> Result<NaiveClientConfig> {
         ca_cert_paths: tls_ca_cert_paths(node, tls),
         ca_certificates: tls_ca_certificates(node, tls),
         disable_system_roots: tls_disable_system_roots(node, tls),
+        pinned_cert_sha256: tls_pinned_cert_sha256(node, tls),
         extra_headers: naive_extra_headers(node)?,
         udp_over_tcp: udp_over_tcp_enabled(node),
         quic: node_optional_string(node, &["type", "protocol"])
@@ -483,6 +489,7 @@ fn tuic_config(node: &Value, listen: SocketAddr) -> Result<TuicClientConfig> {
         ca_cert_paths: tls_ca_cert_paths(node, tls),
         ca_certificates: tls_ca_certificates(node, tls),
         disable_system_roots: tls_disable_system_roots(node, tls),
+        pinned_cert_sha256: tls_pinned_cert_sha256(node, tls),
         udp: node_bool(node, &["udp"], true),
         udp_relay_mode: node_optional_string(node, &["udp-relay-mode", "udp_relay_mode"])
             .unwrap_or_else(|| "native".to_string()),
@@ -913,6 +920,23 @@ fn tls_disable_system_roots(node: &Value, tls: Option<&Map<String, Value>>) -> b
     tls.map(|opts| map_bool(opts, keys, false)).unwrap_or(false) || node_bool(node, keys, false)
 }
 
+fn tls_pinned_cert_sha256(node: &Value, tls: Option<&Map<String, Value>>) -> Vec<String> {
+    let keys = &[
+        "pinnedPeerCertSha256",
+        "pinned_peer_cert_sha256",
+        "pinned-peer-cert-sha256",
+        "certificate-sha256",
+        "certificateSha256",
+    ];
+    tls.and_then(|opts| {
+        keys.iter()
+            .find_map(|key| opts.get(*key))
+            .and_then(value_to_certificate_list)
+    })
+    .or_else(|| field(node, keys).and_then(value_to_certificate_list))
+    .unwrap_or_default()
+}
+
 fn node_alpn_list(node: &Value, tls: Option<&Map<String, Value>>) -> Option<Vec<String>> {
     field(node, &["alpn"])
         .or_else(|| tls.and_then(|opts| opts.get("alpn")))
@@ -1204,6 +1228,7 @@ mod tests {
                 "server_name": "front.example.com",
                 "insecure": true,
                 "disable_system_root": true,
+                "pinnedPeerCertSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "certificate": "hy2-inline-ca"
             }
         });
@@ -1216,6 +1241,10 @@ mod tests {
         assert!(config.insecure);
         assert_eq!(config.ca_certificates, vec!["hy2-inline-ca"]);
         assert!(config.disable_system_roots);
+        assert_eq!(
+            config.pinned_cert_sha256,
+            vec!["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+        );
         Ok(())
     }
 
@@ -1230,6 +1259,7 @@ mod tests {
                 "enabled": true,
                 "certificate_path": "anytls-ca.pem",
                 "disableSystemRoot": true,
+                "pinnedPeerCertSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 "certificate": "anytls-inline-ca"
             }
         });
@@ -1241,6 +1271,10 @@ mod tests {
         assert_eq!(config.ca_cert_paths, vec![PathBuf::from("anytls-ca.pem")]);
         assert_eq!(config.ca_certificates, vec!["anytls-inline-ca"]);
         assert!(config.disable_system_roots);
+        assert_eq!(
+            config.pinned_cert_sha256,
+            vec!["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+        );
 
         let vless = serde_json::json!({
             "type": "vless",
