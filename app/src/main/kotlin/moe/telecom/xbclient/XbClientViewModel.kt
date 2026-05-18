@@ -1336,7 +1336,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             }
             testNode.put("host", resolvedHost)
             val protocol = testNode.optString("type")
-            if (protocol == "hysteria2" || protocol == "hy2") {
+            if (protocol == "hysteria2" || protocol == "hy2" || protocol == "mieru") {
                 testNode.put("server", resolvedHost)
             }
             val (targetHost, targetPort, targetTls) = targetHostPort(_uiState.value.nodeTestTarget.trim().ifEmpty { DEFAULT_NODE_TEST_TARGET })

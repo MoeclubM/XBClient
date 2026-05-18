@@ -197,7 +197,7 @@ class XbClientVpnService : VpnService() {
         }
         node.put("host", resolvedHost)
         val protocol = node.optString("type")
-        if (protocol == "hysteria2" || protocol == "hy2") {
+        if (protocol == "hysteria2" || protocol == "hy2" || protocol == "mieru") {
             node.put("server", resolvedHost)
         }
         currentNodeJson = node.toString()

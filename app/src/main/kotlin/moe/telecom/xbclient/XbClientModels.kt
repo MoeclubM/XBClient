@@ -394,16 +394,20 @@ fun subscriptionBlockReason(data: JSONObject): String {
 }
 
 fun readableNodeTestError(error: String): String {
+    val normalized = error.lowercase(Locale.US)
     if (error.contains("read AnyTLS frame header")) {
         return "失败：AnyTLS 服务器断开连接（$error）"
     }
     if (error.contains("Hysteria2 target test")) {
         return "失败：Hysteria2 连接失败（$error）"
     }
-    if (error.contains("SOCKS connect failed: general failure")) {
-        return "失败：连接超时"
-    }
-    if (error.contains("timed out")) {
+    if (
+        normalized.contains("timed out") ||
+        normalized.contains("timeout") ||
+        normalized.contains("socks connect failed: general failure") ||
+        normalized.contains("read socks connect response") ||
+        normalized.contains("early eof")
+    ) {
         return "失败：连接超时"
     }
     return "失败：$error"
