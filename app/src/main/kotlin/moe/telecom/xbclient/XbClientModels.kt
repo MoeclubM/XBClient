@@ -401,10 +401,10 @@ fun readableNodeTestError(error: String): String {
         return "失败：Hysteria2 连接失败（$error）"
     }
     if (error.contains("SOCKS connect failed: general failure")) {
-        return "失败：代理连接失败或超时（请检查服务端是否运行、账号密码是否正确）"
+        return "失败：连接超时"
     }
     if (error.contains("timed out")) {
-        return "失败：连接超时（$error）"
+        return "失败：连接超时"
     }
     return "失败：$error"
 }
