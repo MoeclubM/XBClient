@@ -1,4 +1,6 @@
-use anyhow::{Context, Result};
+#[cfg(windows)]
+use anyhow::Context;
+use anyhow::Result;
 
 #[cfg(windows)]
 pub fn set_socks(host: &str, port: u16) -> Result<()> {
