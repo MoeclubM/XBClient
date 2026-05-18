@@ -2,6 +2,9 @@ name: Beta Builds
 
 run-name: Beta Builds · ${{ github.head_ref || github.ref_name }} · @${{ github.actor }} · #${{ github.run_number }}
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 on:
   push:
     branches:
@@ -134,4 +137,55 @@ jobs:
         with:
           name: xbclient-beta-aab-${{ github.run_number }}
           path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+  desktop-windows:
+    runs-on: windows-latest
+    env:
+      CARGO_TERM_COLOR: always
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Install pnpm
+        shell: bash
+        run: |
+          npm install -g pnpm@10.20.0
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install web deps
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile=false
+
+      - name: Type-check web
+        shell: bash
+        run: |
+          pnpm --filter xbclient-web typecheck
+
+      - name: Build web
+        shell: bash
+        run: |
+          pnpm --filter xbclient-web build
+
+      - name: Build Tauri Windows
+        shell: bash
+        run: |
+          cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --release
+
+      - name: Upload beta Windows exe
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-beta-windows-${{ github.run_number }}
+          path: apps/desktop/src-tauri/target/release/xbclient-desktop.exe
           if-no-files-found: error

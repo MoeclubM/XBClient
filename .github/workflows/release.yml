@@ -2,6 +2,9 @@ name: Release Builds
 
 run-name: Release Builds · ${{ github.ref_name }} · @${{ github.actor }} · #${{ github.run_number }}
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 on:
   push:
     tags:
