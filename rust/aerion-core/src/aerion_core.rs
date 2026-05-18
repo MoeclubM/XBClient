@@ -179,9 +179,9 @@ async fn socks_connect(stream: &mut TcpStream, target_host: &str, target_port: u
         .context("read SOCKS connect response")?;
     if header[0] != 0x05 || header[1] != 0x00 {
         bail!(
-            "SOCKS connect failed: {}: {:02x?}",
+            "SOCKS connect failed: {} (reply 0x{:02x})",
             socks_reply_name(header[1]),
-            header
+            header[1]
         );
     }
     match header[3] {
