@@ -41,6 +41,18 @@ async function bootstrap() {
     }
     const capabilities = await runtimeCapabilities()
     useAppStore.getState().setCapabilities(capabilities)
+    useAppStore.getState().setProfile({ paymentEnabled: capabilities.admob ? false : true })
+    if (!capabilities.admob) {
+      useAppStore.getState().setAdmobConfig({
+        admobCloudEnabled: false,
+        planRewardAdEnabled: false,
+        pointsRewardAdEnabled: false,
+        appOpenAdEnabled: false,
+        planRewardedAdUnitId: '',
+        pointsRewardedAdUnitId: '',
+        appOpenAdUnitId: '',
+      })
+    }
     if (!capabilities.system_proxy) {
       useAppStore.getState().setSettings({ autoApplyProxy: false })
     }

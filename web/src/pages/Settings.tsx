@@ -12,7 +12,17 @@ function parseSocksAddr(addr: string): { host: string; port: number } {
 }
 
 export function SettingsPage() {
-  const { settings, capabilities, vpn, setSettings } = useAppStore()
+  const {
+    settings,
+    capabilities,
+    vpn,
+    admobCloudEnabled,
+    appOpenAdEnabled,
+    paymentEnabled,
+    planRewardAdEnabled,
+    pointsRewardAdEnabled,
+    setSettings,
+  } = useAppStore()
   const systemProxySupported = capabilities?.system_proxy === true
   const autostartSupported = capabilities?.autostart === true
   const [error, setError] = useState('')
@@ -103,8 +113,20 @@ export function SettingsPage() {
         </label>
       </section>
       <section className="rounded-2xl bg-slate-900/60 p-5 text-sm ring-1 ring-white/10">
-        <p>支付入口：始终开启</p>
-        <p className="mt-1 text-xs text-slate-400">Tauri Win/Android/iOS 版不接入 AdMob SDK。</p>
+        {capabilities?.admob ? (
+          <>
+            <p>AdMob：{admobCloudEnabled ? '云控已开启' : '云控未开启'}</p>
+            <p className="mt-1 text-xs text-slate-400">
+              激励套餐 {planRewardAdEnabled ? '开启' : '关闭'} · 激励积分 {pointsRewardAdEnabled ? '开启' : '关闭'} · 开屏广告 {appOpenAdEnabled ? '开启' : '关闭'}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">支付：{paymentEnabled ? '云控已开启' : '云控未开启'}</p>
+          </>
+        ) : (
+          <>
+            <p>支付入口：始终开启</p>
+            <p className="mt-1 text-xs text-slate-400">当前平台不接入广告，也不受广告云控支付限制。</p>
+          </>
+        )}
         <a className="mt-3 inline-block text-sky-300 hover:text-sky-200" href="#/settings/licenses">
           开源许可
         </a>

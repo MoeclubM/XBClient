@@ -69,6 +69,7 @@ export function Profile() {
     baseUrl,
     authData,
     email,
+    capabilities,
     vpn,
     balance,
     commissionBalance,
@@ -80,6 +81,7 @@ export function Profile() {
     invites,
     notices,
     subscription,
+    setAdmobConfig,
     setProfile,
     setInvites,
     setNotices,
@@ -114,10 +116,41 @@ export function Profile() {
           setProfile({
             currencySymbol: data.currency_symbol ?? data.currency ?? '',
             currencyUnit: data.currency_unit ?? '',
-            paymentEnabled: true,
+            paymentEnabled: capabilities?.admob ? false : true,
             inviteForce: Boolean(data.invite_force),
             inviteCommissionRate: Math.round(numericValue(data.commission_rate)),
             inviteCommissionBalance: Math.round(numericValue(data.invite_commission_balance)),
+          })
+        }
+        if (capabilities?.admob) {
+          const admob = await xboardRequest<{ data?: Record<string, unknown>; message?: string }>('admob_reward_config', { baseUrl, authData })
+          if (cancelled) return
+          if (admob.ok) {
+            const data = admob.body?.data ?? {}
+            const adEnabled = Boolean(data.ad_enabled)
+            setProfile({ paymentEnabled: Boolean(data.payment_enabled) })
+            setAdmobConfig({
+              admobCloudEnabled: adEnabled,
+              planRewardAdEnabled: adEnabled && Boolean(data.plan_reward_ad_enabled),
+              pointsRewardAdEnabled: adEnabled && Boolean(data.points_reward_ad_enabled),
+              appOpenAdEnabled: adEnabled && Boolean(data.app_open_ad_enabled),
+              planRewardedAdUnitId: String(data.plan_rewarded_ad_unit_id ?? ''),
+              pointsRewardedAdUnitId: String(data.points_rewarded_ad_unit_id ?? ''),
+              appOpenAdUnitId: String(data.app_open_ad_unit_id ?? ''),
+            })
+          } else {
+            setError(admob.body?.message ?? admob.error ?? `HTTP ${admob.status}`)
+          }
+        } else {
+          setProfile({ paymentEnabled: true })
+          setAdmobConfig({
+            admobCloudEnabled: false,
+            planRewardAdEnabled: false,
+            pointsRewardAdEnabled: false,
+            appOpenAdEnabled: false,
+            planRewardedAdUnitId: '',
+            pointsRewardedAdUnitId: '',
+            appOpenAdUnitId: '',
           })
         }
         if (inviteList.ok) setInvites(parseInvites(inviteList.body))
@@ -134,7 +167,7 @@ export function Profile() {
     return () => {
       cancelled = true
     }
-  }, [authData, baseUrl, setProfile, setInvites, setNotices])
+  }, [authData, baseUrl, capabilities?.admob, setAdmobConfig, setProfile, setInvites, setNotices])
 
   async function generateInvite() {
     try {

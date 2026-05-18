@@ -59,9 +59,12 @@ export function Plans() {
     baseUrl,
     authData,
     balance,
+    capabilities,
     currencySymbol,
     currencyUnit,
+    paymentEnabled,
     plans,
+    setAdmobConfig,
     setProfile,
     setPlans,
   } = useAppStore()
@@ -92,8 +95,39 @@ export function Plans() {
           commissionBalance: Math.round(numericValue(infoData.commission_balance)),
           currencySymbol: String(configData.currency_symbol ?? configData.currency ?? ''),
           currencyUnit: String(configData.currency_unit ?? ''),
-          paymentEnabled: true,
-        })
+          paymentEnabled: capabilities?.admob ? false : true,
+          })
+        if (capabilities?.admob) {
+          const admob = await xboardRequest<XboardBody<Record<string, unknown>>>('admob_reward_config', { baseUrl, authData })
+          if (cancelled) return
+          if (admob.ok) {
+            const data = admob.body?.data ?? {}
+            const adEnabled = Boolean(data.ad_enabled)
+            setProfile({ paymentEnabled: Boolean(data.payment_enabled) })
+            setAdmobConfig({
+              admobCloudEnabled: adEnabled,
+              planRewardAdEnabled: adEnabled && Boolean(data.plan_reward_ad_enabled),
+              pointsRewardAdEnabled: adEnabled && Boolean(data.points_reward_ad_enabled),
+              appOpenAdEnabled: adEnabled && Boolean(data.app_open_ad_enabled),
+              planRewardedAdUnitId: String(data.plan_rewarded_ad_unit_id ?? ''),
+              pointsRewardedAdUnitId: String(data.points_rewarded_ad_unit_id ?? ''),
+              appOpenAdUnitId: String(data.app_open_ad_unit_id ?? ''),
+            })
+          } else {
+            setMessage(admob.body?.message ?? admob.error ?? `HTTP ${admob.status}`)
+          }
+        } else {
+          setProfile({ paymentEnabled: true })
+          setAdmobConfig({
+            admobCloudEnabled: false,
+            planRewardAdEnabled: false,
+            pointsRewardAdEnabled: false,
+            appOpenAdEnabled: false,
+            planRewardedAdUnitId: '',
+            pointsRewardedAdUnitId: '',
+            appOpenAdUnitId: '',
+          })
+        }
         setPlans(planRows(response.body?.data).map(parsePlan))
       } catch (err) {
         if (!cancelled) setMessage(err instanceof Error ? err.message : String(err))
@@ -105,14 +139,31 @@ export function Plans() {
     return () => {
       cancelled = true
     }
-  }, [authData, baseUrl, setPlans, setProfile])
+  }, [authData, baseUrl, capabilities?.admob, setAdmobConfig, setPlans, setProfile])
 
   async function openPlanPage(planId: number) {
     setMessage('')
-    const response = await xboardRequest<XboardBody<string>>('xbclient_plan_payment', {
+    if (capabilities?.admob) {
+      if (!paymentEnabled) {
+        setMessage('云控未开启支付。')
+        return
+      }
+      const response = await xboardRequest<XboardBody<string>>('xbclient_plan_payment', {
+        baseUrl,
+        authData,
+        params: { plan_id: planId },
+      })
+      if (!response.ok || !response.body?.data) {
+        setMessage(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
+        return
+      }
+      await openExternal(response.body.data)
+      return
+    }
+    const response = await xboardRequest<XboardBody<string>>('quick_login_url', {
       baseUrl,
       authData,
-      params: { plan_id: planId },
+      params: { redirect: `/#/plan/${planId}` },
     })
     if (!response.ok || !response.body?.data) {
       setMessage(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
@@ -123,6 +174,10 @@ export function Plans() {
 
   async function buyWithBalance(plan: PlanItem, price: PlanPrice) {
     setMessage('')
+    if (capabilities?.admob && !paymentEnabled) {
+      setMessage('云控未开启支付。')
+      return
+    }
     if (price.amount > balance) {
       setMessage('账户金额不足，当前只允许账户金额足额抵扣。')
       return
@@ -158,7 +213,9 @@ export function Plans() {
       <header>
         <h1 className="text-xl font-semibold">套餐</h1>
         <p className="text-xs text-slate-400">
-          支付入口始终开启；Tauri 版不接入 AdMob，余额足额时可直接账户金额支付。
+          {capabilities?.admob
+            ? '移动端广告和支付开关由云控配置控制。'
+            : '当前平台不接入广告，支付入口始终开启。'}
         </p>
       </header>
       {message && <p className="text-sm text-amber-300">{message}</p>}
@@ -206,9 +263,10 @@ export function Plans() {
             <div className="mt-4 flex justify-end">
               <button
                 onClick={() => void openPlanPage(plan.id)}
+                disabled={capabilities?.admob && !paymentEnabled}
                 className="rounded-lg bg-sky-500 px-4 py-2 text-sm hover:bg-sky-400"
               >
-                前往网页购买
+                {capabilities?.admob && !paymentEnabled ? '云控未开启支付' : '前往网页购买'}
               </button>
             </div>
           </li>

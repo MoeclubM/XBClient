@@ -77,6 +77,13 @@ interface AppState {
   currencySymbol: string
   currencyUnit: string
   paymentEnabled: boolean
+  admobCloudEnabled: boolean
+  planRewardAdEnabled: boolean
+  pointsRewardAdEnabled: boolean
+  appOpenAdEnabled: boolean
+  planRewardedAdUnitId: string
+  pointsRewardedAdUnitId: string
+  appOpenAdUnitId: string
   inviteForce: boolean
   inviteCommissionRate: number
   inviteCommissionBalance: number
@@ -99,6 +106,15 @@ interface AppState {
     | 'inviteForce'
     | 'inviteCommissionRate'
     | 'inviteCommissionBalance'
+  >>): void
+  setAdmobConfig(patch: Partial<Pick<AppState,
+    | 'admobCloudEnabled'
+    | 'planRewardAdEnabled'
+    | 'pointsRewardAdEnabled'
+    | 'appOpenAdEnabled'
+    | 'planRewardedAdUnitId'
+    | 'pointsRewardedAdUnitId'
+    | 'appOpenAdUnitId'
   >>): void
   setPlans(plans: PlanItem[]): void
   setInvites(invites: InviteItem[]): void
@@ -135,6 +151,13 @@ export const useAppStore = create<AppState>((set) => ({
   currencySymbol: '',
   currencyUnit: '',
   paymentEnabled: true,
+  admobCloudEnabled: false,
+  planRewardAdEnabled: false,
+  pointsRewardAdEnabled: false,
+  appOpenAdEnabled: false,
+  planRewardedAdUnitId: '',
+  pointsRewardedAdUnitId: '',
+  appOpenAdUnitId: '',
   inviteForce: false,
   inviteCommissionRate: 0,
   inviteCommissionBalance: 0,
@@ -154,6 +177,7 @@ export const useAppStore = create<AppState>((set) => ({
   setSettings: (patch) => set((state) => ({ settings: { ...state.settings, ...patch } })),
   setCapabilities: (capabilities) => set({ capabilities }),
   setProfile: (patch) => set((state) => ({ ...state, ...patch })),
+  setAdmobConfig: (patch) => set((state) => ({ ...state, ...patch })),
   setPlans: (plans) => set({ plans }),
   setInvites: (invites) => set({ invites }),
   setNotices: (notices) => set({ notices }),
@@ -171,6 +195,13 @@ export const useAppStore = create<AppState>((set) => ({
       currencySymbol: '',
       currencyUnit: '',
       paymentEnabled: true,
+      admobCloudEnabled: false,
+      planRewardAdEnabled: false,
+      pointsRewardAdEnabled: false,
+      appOpenAdEnabled: false,
+      planRewardedAdUnitId: '',
+      pointsRewardedAdUnitId: '',
+      appOpenAdUnitId: '',
       inviteForce: false,
       inviteCommissionRate: 0,
       inviteCommissionBalance: 0,

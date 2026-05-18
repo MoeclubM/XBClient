@@ -25,6 +25,7 @@ const ACTIONS: Record<string, ActionDef> = {
   order_save: { method: 'POST', path: '/api/v1/user/order/save', auth: true },
   order_checkout: { method: 'POST', path: '/api/v1/user/order/checkout', auth: true },
   nodes: { method: 'GET', path: '/api/v1/user/server/fetch', auth: true },
+  admob_reward_config: { method: 'GET', path: '/api/v1/admob/user/config', auth: true },
   xbclient_plan_payment: { method: 'POST', path: '/api/v1/admob/user/plan-payment', auth: true },
   xbclient_nodes: { method: 'GET', path: '/api/v1/admob/user/nodes', auth: true },
   notices: { method: 'GET', path: '/api/v1/user/notice/fetch', auth: true },
