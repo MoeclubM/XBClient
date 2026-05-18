@@ -16,6 +16,12 @@ app/config/release-signing.local.txt
 
 # Rust
 rust/*/target/
+apps/*/src-tauri/target/
+apps/*/src-tauri/gen/schemas/
+
+# Node / Web
+node_modules/
+web/dist/
 
 # IDE
 .idea/
