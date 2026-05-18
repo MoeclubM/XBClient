@@ -1,10 +1,12 @@
 use crate::aerion_config_compat::node_to_proxy_config;
 use crate::aerion_protocol::spawn_aerion_listener;
 use anyhow::{Context, Result, bail, ensure};
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-#[cfg(target_os = "android")]
+use std::sync::Mutex as StdMutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -32,6 +34,15 @@ struct TestNodeRequest {
     timeout_ms: Option<u64>,
 }
 
+#[derive(Deserialize)]
+struct StartSocksRequest {
+    node: Value,
+}
+
+static NEXT_SOCKS_SESSION_ID: AtomicU64 = AtomicU64::new(1);
+static SOCKS_SESSIONS: Lazy<StdMutex<HashMap<u64, JoinHandle<()>>>> =
+    Lazy::new(|| StdMutex::new(HashMap::new()));
+
 async fn start_aerion_socks(node: Value) -> Result<(SocketAddr, JoinHandle<()>)> {
     let listen = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
     let listener = TcpListener::bind(listen)
@@ -41,6 +52,33 @@ async fn start_aerion_socks(node: Value) -> Result<(SocketAddr, JoinHandle<()>)>
     let config = node_to_proxy_config(&node, local_addr)?;
     let task = spawn_aerion_listener(listener, config);
     Ok((local_addr, task))
+}
+
+pub async fn start_socks_from_json(input: &str) -> Result<String> {
+    let request: StartSocksRequest =
+        serde_json::from_str(input).context("parse start SOCKS request")?;
+    let (socks_addr, task) = start_aerion_socks(request.node).await?;
+    let session_id = NEXT_SOCKS_SESSION_ID.fetch_add(1, Ordering::SeqCst);
+    SOCKS_SESSIONS
+        .lock()
+        .expect("SOCKS session map lock poisoned")
+        .insert(session_id, task);
+    Ok(json!({
+        "ok": true,
+        "session_id": session_id,
+        "socks_addr": socks_addr.to_string(),
+    })
+    .to_string())
+}
+
+pub async fn stop_socks(session_id: u64) -> Result<String> {
+    let task = SOCKS_SESSIONS
+        .lock()
+        .expect("SOCKS session map lock poisoned")
+        .remove(&session_id)
+        .with_context(|| format!("SOCKS session not found: {session_id}"))?;
+    task.abort();
+    Ok(json!({"ok": true, "session_id": session_id}).to_string())
 }
 
 pub async fn test_node_from_json(input: &str) -> Result<String> {
@@ -219,17 +257,16 @@ where
 #[cfg(target_os = "android")]
 mod platform {
     use super::*;
-    use once_cell::sync::Lazy;
-    use std::collections::HashMap;
-    use std::sync::Mutex as StdMutex;
-    use tun2proxy::{ArgDns, ArgProxy, ArgVerbosity, Args, CancellationToken};
+    use aerion::{
+        TunCancellationToken, TunConfig, TunDnsStrategy, TunVerbosity, socks_proxy_url, spawn_tun,
+    };
 
     static NEXT_VPN_SESSION_ID: AtomicU64 = AtomicU64::new(1);
     static VPN_SESSIONS: Lazy<StdMutex<HashMap<u64, VpnSession>>> =
         Lazy::new(|| StdMutex::new(HashMap::new()));
 
     struct VpnSession {
-        shutdown: CancellationToken,
+        shutdown: TunCancellationToken,
         proxy_task: JoinHandle<()>,
     }
 
@@ -238,26 +275,25 @@ mod platform {
             serde_json::from_str(input).context("parse start VPN request")?;
         let mtu = request.mtu.unwrap_or(1500);
         let dns = match request.dns.as_deref().unwrap_or("over_tcp") {
-            "virtual" => ArgDns::Virtual,
-            "direct" => ArgDns::Direct,
-            "over_tcp" => ArgDns::OverTcp,
+            "virtual" => TunDnsStrategy::Virtual,
+            "direct" => TunDnsStrategy::Direct,
+            "over_tcp" => TunDnsStrategy::OverTcp,
             other => bail!("unsupported VPN DNS strategy: {other}"),
         };
         let dns_addr: IpAddr = request.dns_addr.parse().context("parse VPN DNS address")?;
         let (socks_addr, proxy_task) = start_aerion_socks(request.node).await?;
-        let proxy_url = format!("socks5://{socks_addr}");
-        let proxy = ArgProxy::try_from(proxy_url.as_str())
-            .map_err(|error| anyhow::anyhow!("parse tun2proxy proxy URL: {error}"))?;
-        let shutdown = CancellationToken::new();
-        let mut args = Args::default();
-        args.proxy(proxy)
-            .tun_fd(Some(request.tun_fd))
-            .close_fd_on_drop(false)
-            .dns(dns)
-            .dns_addr(dns_addr)
-            .ipv6_enabled(request.ipv6.unwrap_or(false))
-            .verbosity(ArgVerbosity::Info);
-
+        let mut tun_config = TunConfig::new(socks_proxy_url(socks_addr));
+        tun_config.tun_fd = Some(request.tun_fd);
+        tun_config.close_fd_on_drop = false;
+        tun_config.setup = false;
+        tun_config.mtu = mtu;
+        tun_config.packet_information = false;
+        tun_config.dns = dns;
+        tun_config.dns_addr = dns_addr;
+        tun_config.ipv6 = request.ipv6.unwrap_or(false);
+        tun_config.verbosity = TunVerbosity::Info;
+        let runtime = spawn_tun(tun_config).context("spawn Aerion TUN runtime")?;
+        let shutdown = runtime.shutdown_token();
         let session_id = NEXT_VPN_SESSION_ID.fetch_add(1, Ordering::SeqCst);
         VPN_SESSIONS
             .lock()
@@ -270,9 +306,8 @@ mod platform {
                 },
             );
         tokio::spawn(async move {
-            let result = tun2proxy::general_run_async(args, mtu, false, shutdown).await;
-            if let Err(error) = result {
-                log::error!("Aerion tun2proxy exited with error: {error:?}");
+            if let Err(error) = runtime.wait().await {
+                log::error!("Aerion TUN runtime exited with error: {error:?}");
             }
             if let Some(session) = VPN_SESSIONS
                 .lock()

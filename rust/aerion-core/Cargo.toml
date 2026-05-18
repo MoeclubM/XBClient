@@ -9,7 +9,7 @@ name = "aerion_core"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-aerion = { git = "https://github.com/MoeclubM/Aerion.git", rev = "d580a72627a61d72589ac479939ff650ac78bd44" }
+aerion = { git = "https://github.com/MoeclubM/Aerion.git", rev = "15e77a780019afaa45ff8289f0b5168713aaabe5" }
 anyhow = "1.0.102"
 jni = "0.22.4"
 log = "0.4.29"
@@ -23,7 +23,6 @@ webpki-roots = "1.0.7"
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.15.1"
-tun2proxy = { version = "0.7.21", default-features = false }
 
 [patch.crates-io]
 socks5-impl = { path = "../third_party/socks5-impl" }

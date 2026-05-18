@@ -1386,4 +1386,32 @@ mod tests {
         assert_eq!(config.ca_certificates, vec!["naive-inline-ca"]);
         Ok(())
     }
+
+    #[test]
+    fn parses_mieru_transport_and_hash() -> Result<()> {
+        let node = serde_json::json!({
+            "type": "mieru",
+            "server": "mieru.example.com",
+            "server_port": 8964,
+            "username": "alice",
+            "hashed_password": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+            "transport": "udp",
+            "mtu": 1400
+        });
+        let AerionProxyConfig::Mieru(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected Mieru config")
+        };
+        assert_eq!(config.server_host, "mieru.example.com");
+        assert_eq!(config.server_port, 8964);
+        assert_eq!(config.username, "alice");
+        let hashed_password = config.hashed_password.context("hashed password")?;
+        assert_eq!(hashed_password[0], 0);
+        assert_eq!(hashed_password[31], 31);
+        assert_eq!(config.transport, MieruTransport::Udp);
+        assert_eq!(config.mtu, 1400);
+        assert!(config.traffic_pattern.is_none());
+        Ok(())
+    }
 }

@@ -4,6 +4,10 @@ mod aerion_protocol;
 #[cfg(target_os = "android")]
 mod android;
 
+pub use aerion_core::{
+    start_socks_from_json, start_vpn_from_json, stop_socks, stop_vpn, test_node_from_json,
+};
+
 use anyhow::{Context, Result};
 use jni::errors::{Result as JniResult, ThrowRuntimeExAndDefault};
 #[cfg(target_os = "android")]
@@ -86,18 +90,6 @@ pub extern "system" fn Java_moe_telecom_xbclient_AerionCore_stopVpn<'local>(
         JString::from_str(env, output)
     })
     .resolve::<ThrowRuntimeExAndDefault>()
-}
-
-async fn start_vpn_from_json(input: &str) -> Result<String> {
-    aerion_core::start_vpn_from_json(input).await
-}
-
-async fn test_node_from_json(input: &str) -> Result<String> {
-    aerion_core::test_node_from_json(input).await
-}
-
-async fn stop_vpn(session_id: u64) -> Result<String> {
-    aerion_core::stop_vpn(session_id).await
 }
 
 fn call_string<'local>(

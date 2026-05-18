@@ -15,7 +15,7 @@ dependencies = [
 [[package]]
 name = "aerion"
 version = "0.1.0"
-source = "git+https://github.com/MoeclubM/Aerion.git?rev=d580a72627a61d72589ac479939ff650ac78bd44#d580a72627a61d72589ac479939ff650ac78bd44"
+source = "git+https://github.com/MoeclubM/Aerion.git?rev=15e77a780019afaa45ff8289f0b5168713aaabe5#15e77a780019afaa45ff8289f0b5168713aaabe5"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -38,6 +38,7 @@ dependencies = [
  "md-5",
  "quinn",
  "rcgen",
+ "regex",
  "rustls",
  "rustls-pemfile",
  "serde",
@@ -49,8 +50,10 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "toml",
+ "tproxy-config",
  "tracing",
  "tracing-subscriber",
+ "tun2proxy",
  "webpki-roots",
  "x25519-dalek",
 ]
@@ -70,7 +73,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-rustls",
- "tun2proxy",
  "webpki-roots",
 ]
 
