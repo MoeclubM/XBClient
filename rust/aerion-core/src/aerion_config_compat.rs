@@ -138,6 +138,10 @@ fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientC
             &["obfs-password", "obfs_password", "obfsPassword"],
         )
         .or_else(|| obfs_nested_password(node)),
+        upload_bandwidth: node_optional_bandwidth_u64(
+            node,
+            &["up", "upload", "up_mbps", "up-mbps"],
+        )?,
         download_bandwidth: node_optional_bandwidth_u64(
             node,
             &["down", "download", "down_mbps", "down-mbps"],
@@ -1223,6 +1227,8 @@ mod tests {
             "server": "hy2.example.com",
             "server_port": 443,
             "password": "secret",
+            "up": "123 mbps",
+            "down": 456,
             "tls": {
                 "enabled": true,
                 "server_name": "front.example.com",
@@ -1239,6 +1245,8 @@ mod tests {
         };
         assert_eq!(config.sni, "front.example.com");
         assert!(config.insecure);
+        assert_eq!(config.upload_bandwidth, Some(123));
+        assert_eq!(config.download_bandwidth, Some(456));
         assert_eq!(config.ca_certificates, vec!["hy2-inline-ca"]);
         assert!(config.disable_system_roots);
         assert_eq!(
