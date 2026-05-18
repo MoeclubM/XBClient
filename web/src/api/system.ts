@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
+import { openUrl } from '@tauri-apps/plugin-opener'
 
 export interface RuntimeCapabilities {
   platform: string
@@ -8,6 +9,8 @@ export interface RuntimeCapabilities {
   tray: boolean
   local_socks: boolean
   vpn: boolean
+  payment: boolean
+  admob: boolean
 }
 
 export async function runtimeCapabilities(): Promise<RuntimeCapabilities> {
@@ -33,4 +36,8 @@ export async function autostartIsEnabled(): Promise<boolean> {
 export async function autostartSetEnabled(value: boolean): Promise<void> {
   if (value) await enable()
   else await disable()
+}
+
+export async function openExternal(url: string): Promise<void> {
+  await openUrl(url)
 }

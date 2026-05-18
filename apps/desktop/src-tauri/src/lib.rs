@@ -8,7 +8,9 @@ mod tray;
 pub fn run() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let builder = tauri::Builder::default().plugin(tauri_plugin_store::Builder::default().build());
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_opener::init());
 
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     let builder = builder

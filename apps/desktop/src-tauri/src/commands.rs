@@ -38,6 +38,8 @@ pub struct RuntimeCapabilities {
     pub tray: bool,
     pub local_socks: bool,
     pub vpn: bool,
+    pub payment: bool,
+    pub admob: bool,
 }
 
 #[derive(Deserialize)]
@@ -68,6 +70,8 @@ pub fn runtime_capabilities() -> RuntimeCapabilities {
         )),
         local_socks: true,
         vpn: false,
+        payment: true,
+        admob: false,
     }
 }
 

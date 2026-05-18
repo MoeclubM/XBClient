@@ -19,13 +19,20 @@ const ACTIONS: Record<string, ActionDef> = {
   register: { method: 'POST', path: '/api/v1/passport/auth/register', auth: false },
   user_info: { method: 'GET', path: '/api/v1/user/info', auth: true },
   user_subscribe: { method: 'GET', path: '/api/v1/user/getSubscribe', auth: true },
+  user_config: { method: 'GET', path: '/api/v1/user/comm/config', auth: true },
+  user_stat: { method: 'GET', path: '/api/v1/user/getStat', auth: true },
   plan_fetch: { method: 'GET', path: '/api/v1/user/plan/fetch', auth: true },
+  order_save: { method: 'POST', path: '/api/v1/user/order/save', auth: true },
+  order_checkout: { method: 'POST', path: '/api/v1/user/order/checkout', auth: true },
   nodes: { method: 'GET', path: '/api/v1/user/server/fetch', auth: true },
+  xbclient_plan_payment: { method: 'POST', path: '/api/v1/admob/user/plan-payment', auth: true },
   xbclient_nodes: { method: 'GET', path: '/api/v1/admob/user/nodes', auth: true },
   notices: { method: 'GET', path: '/api/v1/user/notice/fetch', auth: true },
   invite_fetch: { method: 'GET', path: '/api/v1/user/invite/fetch', auth: true },
   invite_save: { method: 'GET', path: '/api/v1/user/invite/save', auth: true },
   invite_details: { method: 'GET', path: '/api/v1/user/invite/details', auth: true },
+  passport_quick_login_url: { method: 'POST', path: '/api/v1/passport/auth/getQuickLoginUrl', auth: false },
+  quick_login_url: { method: 'POST', path: '/api/v1/user/getQuickLoginUrl', auth: true },
 }
 
 export interface XboardOptions {

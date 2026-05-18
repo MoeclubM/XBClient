@@ -27,6 +27,7 @@ import {
 } from '../nodes'
 import { useAppStore, type AppNode, type AppSettings } from '../store'
 import { clearSession, saveSettings } from '../store/persist'
+import { formatTrafficBytes, formatUnixDate, numericValue } from '../format'
 
 interface XboardBody {
   data?: unknown
@@ -46,6 +47,35 @@ function extractRows(value: unknown): RawNode[] {
 
 function responseError(response: { status: number; error?: string; body?: XboardBody }): string {
   return response.body?.message || response.error || `HTTP ${response.status}`
+}
+
+function subscriptionState(data: Record<string, unknown>) {
+  const used = numericValue(data.u) + numericValue(data.d)
+  const total = numericValue(data.transfer_enable)
+  const plan = data.plan && typeof data.plan === 'object' ? (data.plan as Record<string, unknown>) : null
+  const planName = String(plan?.name ?? '')
+  const expiredAt = numericValue(data.expired_at)
+  const lines = []
+  if (planName) lines.push(planName)
+  if (total > 0) lines.push(`已用 ${formatTrafficBytes(used)} / ${formatTrafficBytes(total)}`)
+  if (expiredAt > 0) lines.push(`到期 ${formatUnixDate(expiredAt)}`)
+  const planId = numericValue(data.plan_id)
+  const blockReason =
+    planId <= 0 && !plan
+      ? 'no_plan'
+      : expiredAt > 0 && expiredAt <= Date.now() / 1000
+        ? 'expired'
+        : total <= 0 || used >= total
+          ? 'traffic_exceeded'
+          : ''
+  return {
+    summary: lines.join(' · '),
+    blockReason: blockReason as '' | 'no_plan' | 'expired' | 'traffic_exceeded',
+    trafficUsedBytes: used,
+    trafficTotalBytes: total,
+    planName,
+    expiredAt,
+  }
 }
 
 function parseSocksAddr(addr: string): { host: string; port: number } {
@@ -71,6 +101,7 @@ export function Home() {
     setNodeResult,
     setVpn,
     setSettings,
+    setSubscriptionState,
     reset,
   } = useAppStore()
   const [loading, setLoading] = useState(false)
@@ -96,12 +127,13 @@ export function Home() {
         setError(responseError(sub))
         return
       }
-      const data = sub.body?.data as { subscribe_url?: string } | undefined
+      const data = sub.body?.data as Record<string, unknown> | undefined
       const url = data?.subscribe_url
-      if (!url) {
+      if (typeof url !== 'string' || !url) {
         setError('订阅响应缺少 subscribe_url')
         return
       }
+      setSubscriptionState(subscriptionState(data))
 
       let list: AppNode[] = []
       const xbclientNodes = await xboardRequest<XboardBody>('xbclient_nodes', {
