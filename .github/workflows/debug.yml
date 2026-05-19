@@ -19,7 +19,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-beta:
+  android-beta:
+    name: Android beta APK/AAB
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
@@ -59,7 +60,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platforms;android-37.0 build-tools;37.0.0 ndk;28.2.13676358'
+          packages: 'platforms;android-36 build-tools;36.1.0 ndk;28.2.13676358'
 
       - name: Prepare local.properties
         shell: bash
@@ -139,7 +140,47 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
-  desktop-windows:
+      - name: Set up Node.js for Tauri Android
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Install pnpm
+        shell: bash
+        run: |
+          npm install -g pnpm@10.20.0
+          pnpm install --frozen-lockfile=false
+
+      - name: Build signed Tauri beta APKs and AAB
+        shell: bash
+        run: |
+          pnpm --filter secovpn android:build -- --apk --aab --split-per-abi --target aarch64 x86_64 --ci
+
+      - name: Collect Tauri beta Android artifacts
+        shell: bash
+        run: |
+          mkdir -p artifacts/tauri-android/apk artifacts/tauri-android/aab
+          find apps/tauri/src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -print0 \
+            | while IFS= read -r -d '' file; do cp "$file" "artifacts/tauri-android/apk/tauri-$(basename "$file")"; done
+          find apps/tauri/src-tauri/gen/android/app/build/outputs/bundle -name '*.aab' -print0 \
+            | while IFS= read -r -d '' file; do cp "$file" "artifacts/tauri-android/aab/tauri-$(basename "$file")"; done
+
+      - name: Upload beta Tauri Android APKs
+        uses: actions/upload-artifact@v6
+        with:
+          name: secovpn-beta-android-apks-${{ github.run_number }}
+          path: artifacts/tauri-android/apk/*.apk
+          if-no-files-found: error
+
+      - name: Upload beta Tauri Android AABs
+        uses: actions/upload-artifact@v6
+        with:
+          name: secovpn-beta-android-aabs-${{ github.run_number }}
+          path: artifacts/tauri-android/aab/*.aab
+          if-no-files-found: error
+
+  windows-beta:
+    name: Windows beta
     runs-on: windows-latest
     env:
       CARGO_TERM_COLOR: always
@@ -181,11 +222,11 @@ jobs:
       - name: Build Tauri Windows
         shell: bash
         run: |
-          cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --release
+          pnpm --filter secovpn build
 
       - name: Upload beta Windows exe
         uses: actions/upload-artifact@v6
         with:
-          name: xbclient-beta-windows-${{ github.run_number }}
-          path: apps/desktop/src-tauri/target/release/xbclient-desktop.exe
+          name: secovpn-beta-windows-${{ github.run_number }}
+          path: apps/tauri/src-tauri/target/release/secovpn.exe
           if-no-files-found: error

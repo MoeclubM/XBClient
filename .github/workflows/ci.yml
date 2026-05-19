@@ -20,7 +20,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  android:
+    name: Android native and Tauri Android
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
@@ -60,7 +61,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platforms;android-37.0 build-tools;37.0.0 ndk;28.2.13676358'
+          packages: 'platforms;android-36 build-tools;36.1.0 ndk;28.2.13676358'
 
       - name: Prepare local.properties
         shell: bash
@@ -121,9 +122,15 @@ jobs:
       - name: Check Tauri Android
         shell: bash
         run: |
-          cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --target aarch64-linux-android --release
+          cargo check --manifest-path apps/tauri/src-tauri/Cargo.toml --target aarch64-linux-android --release
 
-  tauri-windows:
+      - name: Build Tauri Android debug APK
+        shell: bash
+        run: |
+          pnpm --filter secovpn android:build -- --apk --target aarch64 --debug --ci
+
+  windows-tauri:
+    name: Windows app
     runs-on: windows-latest
     env:
       CARGO_TERM_COLOR: always
@@ -163,9 +170,9 @@ jobs:
       - name: Check Tauri Windows
         shell: bash
         run: |
-          cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --release
+          cargo check --manifest-path apps/tauri/src-tauri/Cargo.toml --release
 
       - name: Build Tauri Windows
         shell: bash
         run: |
-          cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --release
+          pnpm --filter secovpn build

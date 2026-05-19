@@ -1,0 +1,11 @@
+{
+  "$schema": "https://schema.tauri.app/config/2/capability",
+  "identifier": "default",
+  "description": "Default capability for SecOVPN window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "store:default",
+    "opener:default"
+  ]
+}

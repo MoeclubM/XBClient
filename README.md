@@ -136,6 +136,32 @@ gh secret set XBCLIENT_RELEASE_KEY_PASSWORD
 cargo test --manifest-path rust\aerion-core\Cargo.toml
 ```
 
+## Tauri 全平台
+
+Tauri 入口位于 `apps/tauri`，复用 `web` 前端与 `rust/aerion-core`。开发模式固定使用
+`http://127.0.0.1:5173`，避免 Windows 上 `localhost` 解析差异导致 WebView 先打开空白页。
+
+```powershell
+pnpm install
+pnpm --filter secovpn dev
+pnpm --filter secovpn build
+```
+
+本地调试只需要先跑 `pnpm --filter secovpn dev`；Tauri 会自动启动 Vite。
+如果 Windows 提示找不到 `link.exe`，需要安装 Visual Studio Build Tools 的 MSVC 与 Windows SDK。
+Tauri 版本不把 `local.properties` / CI Secrets 里的站点、User-Agent 等业务构建配置写进应用。
+站点地址在登录页输入并保存到本机应用数据。
+
+Tauri Android 工程已生成在 `apps/tauri/src-tauri/gen/android`：
+
+```powershell
+pnpm --filter secovpn android:dev
+pnpm --filter secovpn android:build
+```
+
+CI 会额外产出 Tauri Android APK/AAB。Tauri Android 的 `applicationId`、release 签名与版本号
+复用原 Kotlin Android 配置，因此同一提交的两个 Android 版本不能同时安装，只能互相覆盖安装。
+
 ## 开源许可
 
 本项目采用 Apache License 2.0 开源。详见 `LICENSE` 与 `NOTICE`。

@@ -6,7 +6,7 @@ settings:
 
 importers:
 
-  apps/desktop:
+  apps/tauri:
     devDependencies:
       '@tauri-apps/cli':
         specifier: ^2

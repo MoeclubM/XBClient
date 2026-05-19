@@ -3,10 +3,60 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="./logo.svg" />
     <title>XBClient</title>
+    <style>
+      html,
+      body,
+      #root {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: #0b0f14;
+      }
+
+      .startup {
+        min-height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #e6edf3;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, "PingFang SC",
+          "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      }
+
+      .startup-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .startup-card img {
+        width: 72px;
+        height: 72px;
+        filter: drop-shadow(0 16px 34px rgba(14, 116, 190, 0.35));
+      }
+
+      .startup-card p {
+        margin: 0;
+        color: #94a3b8;
+        font-size: 14px;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="startup">
+        <div class="startup-card">
+          <img src="./logo.svg" alt="XBClient" />
+          <p>XBClient 正在启动…</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

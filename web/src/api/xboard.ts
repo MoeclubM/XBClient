@@ -50,9 +50,8 @@ export async function xboardRequest<T = unknown>(
   const def = ACTIONS[action]
   if (!def) throw new Error(`unknown action: ${action}`)
   const url = normalizeBaseUrl(options.baseUrl) + def.path
-  const headers: Record<string, string> = {
-    'User-Agent': options.userAgent ?? 'SecOneApp',
-  }
+  const headers: Record<string, string> = {}
+  if (options.userAgent) headers['User-Agent'] = options.userAgent
   if (def.auth) {
     if (!options.authData) throw new Error(`action ${action} requires auth`)
     headers.Authorization = options.authData
@@ -121,7 +120,7 @@ export async function aerionStop(sessionId: number): Promise<{ ok: boolean; sess
   return invoke('aerion_stop', { sessionId })
 }
 
-function normalizeBaseUrl(value: string): string {
+export function normalizeBaseUrl(value: string): string {
   const v = value.trim().replace(/\/+$/, '')
   if (/^https?:\/\//i.test(v)) return v
   return `https://${v}`

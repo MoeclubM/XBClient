@@ -4,6 +4,7 @@ import { xboardRequest } from '../api/xboard'
 import { useAppStore, type InviteItem, type NoticeItem } from '../store'
 import { clearSession } from '../store/persist'
 import { formatMoney, formatUnixDate, numericValue } from '../format'
+import { useTranslation } from '../i18n'
 
 interface UserInfoBody {
   data?: {
@@ -65,11 +66,11 @@ function parseNotices(body: NoticeFetchBody | undefined): NoticeItem[] {
 
 export function Profile() {
   const navigate = useNavigate()
+  const t = useTranslation()
   const {
     baseUrl,
     authData,
     email,
-    capabilities,
     vpn,
     balance,
     commissionBalance,
@@ -81,7 +82,6 @@ export function Profile() {
     invites,
     notices,
     subscription,
-    setAdmobConfig,
     setProfile,
     setInvites,
     setNotices,
@@ -116,41 +116,10 @@ export function Profile() {
           setProfile({
             currencySymbol: data.currency_symbol ?? data.currency ?? '',
             currencyUnit: data.currency_unit ?? '',
-            paymentEnabled: capabilities?.admob ? false : true,
+            paymentEnabled: true,
             inviteForce: Boolean(data.invite_force),
             inviteCommissionRate: Math.round(numericValue(data.commission_rate)),
             inviteCommissionBalance: Math.round(numericValue(data.invite_commission_balance)),
-          })
-        }
-        if (capabilities?.admob) {
-          const admob = await xboardRequest<{ data?: Record<string, unknown>; message?: string }>('admob_reward_config', { baseUrl, authData })
-          if (cancelled) return
-          if (admob.ok) {
-            const data = admob.body?.data ?? {}
-            const adEnabled = Boolean(data.ad_enabled)
-            setProfile({ paymentEnabled: Boolean(data.payment_enabled) })
-            setAdmobConfig({
-              admobCloudEnabled: adEnabled,
-              planRewardAdEnabled: adEnabled && Boolean(data.plan_reward_ad_enabled),
-              pointsRewardAdEnabled: adEnabled && Boolean(data.points_reward_ad_enabled),
-              appOpenAdEnabled: adEnabled && Boolean(data.app_open_ad_enabled),
-              planRewardedAdUnitId: String(data.plan_rewarded_ad_unit_id ?? ''),
-              pointsRewardedAdUnitId: String(data.points_rewarded_ad_unit_id ?? ''),
-              appOpenAdUnitId: String(data.app_open_ad_unit_id ?? ''),
-            })
-          } else {
-            setError(admob.body?.message ?? admob.error ?? `HTTP ${admob.status}`)
-          }
-        } else {
-          setProfile({ paymentEnabled: true })
-          setAdmobConfig({
-            admobCloudEnabled: false,
-            planRewardAdEnabled: false,
-            pointsRewardAdEnabled: false,
-            appOpenAdEnabled: false,
-            planRewardedAdUnitId: '',
-            pointsRewardedAdUnitId: '',
-            appOpenAdUnitId: '',
           })
         }
         if (inviteList.ok) setInvites(parseInvites(inviteList.body))
@@ -167,7 +136,7 @@ export function Profile() {
     return () => {
       cancelled = true
     }
-  }, [authData, baseUrl, capabilities?.admob, setAdmobConfig, setProfile, setInvites, setNotices])
+  }, [authData, baseUrl, setProfile, setInvites, setNotices])
 
   async function generateInvite() {
     try {
@@ -204,55 +173,97 @@ export function Profile() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4 p-6">
-      <header>
-        <h1 className="text-xl font-semibold">个人中心</h1>
-        <p className="text-xs text-slate-400 break-all">{email || '未登录'}</p>
+    <main className="mx-auto max-w-3xl space-y-5 p-6 pb-24">
+      <header className="border-b border-outline-variant/30 pb-3 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-primary">{t('nav_profile')}</h1>
+          <p className="mt-1 text-xs text-on-surface-variant font-medium break-all">{email || '未登录'}</p>
+        </div>
+        <button
+          onClick={() => void logout()}
+          className="rounded-xl bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-500/20 active:scale-95 transition-all cursor-pointer border border-rose-500/20"
+        >
+          👋 {t('logout')}
+        </button>
       </header>
-      <section className="space-y-2 rounded-2xl bg-slate-900/60 p-5 ring-1 ring-white/10">
-        <p className="text-sm text-slate-400">账户余额</p>
-        <p className="text-2xl font-semibold">{formatMoney(balance, currencySymbol, currencyUnit)}</p>
-        <p className="text-xs text-slate-500">佣金余额：{formatMoney(commissionBalance, currencySymbol, currencyUnit)}</p>
+
+      {error && (
+        <p className="rounded-lg bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20">
+          {error}
+        </p>
+      )}
+
+      {/* Main Balance Sheet */}
+      <section className="space-y-4 rounded-2xl bg-surface-low p-6 shadow-md border border-outline-variant/40 relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-6 -translate-y-6 h-28 w-28 rounded-full bg-primary/5 filter blur-xl"></div>
+        <div>
+          <p className="text-xs font-bold text-on-surface-variant tracking-wider uppercase">{t('balance')}</p>
+          <p className="text-3xl font-extrabold text-primary mt-1.5">{formatMoney(balance, currencySymbol, currencyUnit)}</p>
+        </div>
+
+        <div className="flex items-center gap-1.5 text-xs text-on-surface-variant font-semibold">
+          <span>{t('commission_balance')}:</span>
+          <span className="text-emerald-500 font-bold">{formatMoney(commissionBalance, currencySymbol, currencyUnit)}</span>
+        </div>
+
         {subscription.summary && (
-          <p className="mt-3 text-sm text-slate-300">{subscription.summary}</p>
+          <div className="mt-4 pt-4 border-t border-outline-variant/20 space-y-1">
+            <p className="text-sm font-semibold text-on-background leading-relaxed">{subscription.summary}</p>
+            {subscription.expiredAt > 0 && (
+              <p className="text-xs text-on-surface-variant font-medium">
+                📅 {t('expires_at')}: {formatUnixDate(subscription.expiredAt)}
+              </p>
+            )}
+          </div>
         )}
-        {subscription.expiredAt > 0 && (
-          <p className="text-xs text-slate-500">到期：{formatUnixDate(subscription.expiredAt)}</p>
-        )}
+
         {vpn && (
-          <p className="text-xs text-emerald-300">当前连接：socks5://{vpn.socksAddr}</p>
+          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 flex items-center justify-between text-xs text-emerald-500 font-bold">
+            <span>🟢 SOCKS Status</span>
+            <span className="font-mono">socks5://{vpn.socksAddr}</span>
+          </div>
         )}
       </section>
+
+      {/* Invites Management Section */}
       {(inviteForce || inviteCommissionRate > 0) && (
-        <section className="space-y-3 rounded-2xl bg-slate-900/60 p-5 ring-1 ring-white/10">
+        <section className="space-y-4 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium">邀请</h2>
+            <h2 className="text-sm font-bold tracking-tight">{t('invites_title')}</h2>
             <button
               onClick={() => void generateInvite()}
-              className="rounded-lg bg-sky-500 px-3 py-1 text-xs hover:bg-sky-400"
+              className="rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-primary/95 hover:shadow active:scale-95 transition-all cursor-pointer"
             >
-              生成邀请码
+              ➕ {t('invite_generate')}
             </button>
           </div>
-          <p className="text-xs text-slate-400">分佣比例 {inviteCommissionRate}% · 佣金 {formatMoney(inviteCommissionBalance, currencySymbol, currencyUnit)}</p>
+
+          <p className="text-xs text-on-surface-variant font-medium">
+            💸 {t('commission')}: <span className="font-bold text-primary">{inviteCommissionRate}%</span> · {t('commission_balance')}: <span className="font-bold text-emerald-500">{formatMoney(inviteCommissionBalance, currencySymbol, currencyUnit)}</span>
+          </p>
+
           {invites.length === 0 ? (
-            <p className="text-xs text-slate-500">{loading ? '加载中…' : '暂无邀请码，点击右上角生成。'}</p>
+            <p className="text-xs text-on-surface-variant font-medium italic pt-2">
+              {loading ? '...' : t('invites_empty')}
+            </p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
               {invites.map((invite) => (
                 <li
                   key={invite.code}
-                  className="flex items-center justify-between rounded-lg bg-slate-800/60 px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded-xl bg-surface p-3 border border-outline-variant/30 hover:border-primary/20 transition-all duration-200"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-mono">{invite.code}</p>
-                    <p className="text-xs text-slate-500">{invite.status === 0 ? '未使用' : '已使用'}</p>
+                    <p className="truncate font-mono font-bold text-sm text-primary tracking-wide">{invite.code}</p>
+                    <p className={`text-[10px] font-bold mt-0.5 ${invite.status === 0 ? 'text-amber-500' : 'text-on-surface-variant'}`}>
+                      {invite.status === 0 ? t('unused') : t('used')}
+                    </p>
                   </div>
                   <button
                     onClick={() => void copyCode(invite.code)}
-                    className="rounded-lg bg-slate-700 px-3 py-1 text-xs hover:bg-slate-600"
+                    className="rounded-lg bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer"
                   >
-                    {copied === invite.code ? '已复制' : '复制'}
+                    {copied === invite.code ? `✓ ${t('copied')}` : `📋 ${t('copy')}`}
                   </button>
                 </li>
               ))}
@@ -260,29 +271,31 @@ export function Profile() {
           )}
         </section>
       )}
+
+      {/* Notices Section */}
       {notices.length > 0 && (
-        <section className="space-y-3 rounded-2xl bg-slate-900/60 p-5 ring-1 ring-white/10">
-          <h2 className="text-sm font-medium">公告</h2>
-          <ul className="space-y-3">
+        <section className="space-y-4 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+          <h2 className="text-sm font-bold tracking-tight text-primary">📣 {t('announcement')}</h2>
+          <ul className="space-y-4">
             {notices.map((notice) => (
-              <li key={notice.id} className="space-y-1 border-l-2 border-sky-500/40 pl-3">
-                <p className="text-sm font-medium">{notice.title}</p>
-                <p className="whitespace-pre-wrap text-xs text-slate-400">{notice.content.replace(/<[^>]+>/g, '')}</p>
+              <li
+                key={notice.id}
+                className="space-y-2 border-l-3 border-primary/50 pl-3.5 py-0.5"
+              >
+                <p className="text-sm font-bold text-on-background">{notice.title}</p>
+                <p className="whitespace-pre-wrap text-xs text-on-surface-variant leading-relaxed">
+                  {notice.content.replace(/<[^>]+>/g, '')}
+                </p>
                 {notice.createdAt > 0 && (
-                  <p className="text-[10px] text-slate-500">{formatUnixDate(notice.createdAt)}</p>
+                  <p className="text-[10px] font-bold text-on-surface-variant">
+                    📅 {formatUnixDate(notice.createdAt)}
+                  </p>
                 )}
               </li>
             ))}
           </ul>
         </section>
       )}
-      <button
-        onClick={() => void logout()}
-        className="w-full rounded-lg bg-slate-800 py-3 text-sm hover:bg-slate-700"
-      >
-        退出登录
-      </button>
-      {error && <p className="text-sm text-rose-400">{error}</p>}
     </main>
   )
 }

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -27,13 +27,35 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-async function bootstrap() {
+function LoadingScreen() {
+  return (
+    <main className="flex min-h-full items-center justify-center p-6">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <img
+          className="h-20 w-20 drop-shadow-[0_18px_38px_rgba(14,116,190,0.35)]"
+          src="./logo.svg"
+          alt="XBClient"
+        />
+        <div>
+          <h1 className="text-xl font-semibold">SecOVPN</h1>
+          <p className="mt-1 text-sm text-slate-400">正在读取登录状态…</p>
+        </div>
+      </div>
+    </main>
+  )
+}
+
+async function loadBootstrapState() {
   try {
     const session = await loadSession()
     if (session) useAppStore.getState().setSession(session)
   } catch (error) {
     console.error('load session failed', error)
   }
+  void loadSettingsAndCapabilities()
+}
+
+async function loadSettingsAndCapabilities() {
   try {
     const persisted = await loadSettings()
     if (Object.keys(persisted).length > 0) {
@@ -41,18 +63,7 @@ async function bootstrap() {
     }
     const capabilities = await runtimeCapabilities()
     useAppStore.getState().setCapabilities(capabilities)
-    useAppStore.getState().setProfile({ paymentEnabled: capabilities.admob ? false : true })
-    if (!capabilities.admob) {
-      useAppStore.getState().setAdmobConfig({
-        admobCloudEnabled: false,
-        planRewardAdEnabled: false,
-        pointsRewardAdEnabled: false,
-        appOpenAdEnabled: false,
-        planRewardedAdUnitId: '',
-        pointsRewardedAdUnitId: '',
-        appOpenAdUnitId: '',
-      })
-    }
+    useAppStore.getState().setProfile({ paymentEnabled: true })
     if (!capabilities.system_proxy) {
       useAppStore.getState().setSettings({ autoApplyProxy: false })
     }
@@ -65,31 +76,56 @@ async function bootstrap() {
   } catch (error) {
     console.error('load settings failed', error)
   }
-  ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <HashRouter>
-          <Routes>
-            <Route path="/" element={<RootRedirect />} />
-            <Route path="/login" element={<Login />} />
-            <Route
-              element={
-                <AuthGuard>
-                  <MainLayout />
-                </AuthGuard>
-              }
-            >
-              <Route path="/home" element={<Home />} />
-              <Route path="/plans" element={<Plans />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/settings/licenses" element={<Licenses />} />
-            </Route>
-          </Routes>
-        </HashRouter>
-      </QueryClientProvider>
-    </React.StrictMode>,
+}
+
+const bootstrapPromise = loadBootstrapState()
+
+function App() {
+  const [ready, setReady] = useState(false)
+  const themeMode = useAppStore((s) => s.settings.themeMode)
+
+  useEffect(() => {
+    bootstrapPromise.finally(() => setReady(true))
+  }, [])
+
+  useEffect(() => {
+    const el = document.documentElement
+    if (themeMode === 'light' || themeMode === 'dark') {
+      el.setAttribute('data-theme', themeMode)
+    } else {
+      el.removeAttribute('data-theme')
+    }
+  }, [themeMode])
+
+  if (!ready) return <LoadingScreen />
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/login" element={<Login />} />
+          <Route
+            element={
+              <AuthGuard>
+                <MainLayout />
+              </AuthGuard>
+            }
+          >
+            <Route path="/home" element={<Home />} />
+            <Route path="/plans" element={<Plans />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/licenses" element={<Licenses />} />
+          </Route>
+        </Routes>
+      </HashRouter>
+    </QueryClientProvider>
   )
 }
 
-bootstrap()
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)

@@ -26,6 +26,8 @@ export interface AppSettings {
   autostart: boolean
   nodeDns: string
   nodeTestTarget: string
+  themeMode: 'system' | 'light' | 'dark'
+  appLanguage: 'system' | 'zh-CN' | 'en' | 'ja' | 'ru' | 'fa'
 }
 
 export interface PlanPrice {
@@ -144,6 +146,8 @@ export const useAppStore = create<AppState>((set) => ({
     autostart: false,
     nodeDns: DEFAULT_NODE_DNS,
     nodeTestTarget: DEFAULT_NODE_TEST_TARGET,
+    themeMode: 'system',
+    appLanguage: 'system',
   },
   capabilities: null,
   balance: 0,
