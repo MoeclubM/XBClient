@@ -14,6 +14,18 @@ export interface RuntimeCapabilities {
   admob: boolean
 }
 
+export interface RewardedAdRequest {
+  adUnitId: string
+  userId: string
+  customData: string
+}
+
+export interface RewardedAdResult {
+  earned: boolean
+  rewardType: string
+  rewardAmount: number
+}
+
 export async function runtimeCapabilities(): Promise<RuntimeCapabilities> {
   return invoke('runtime_capabilities')
 }
@@ -44,6 +56,11 @@ export async function openExternal(url: string): Promise<void> {
 }
 
 export async function openInAppBrowser(url: string, title = 'SecOVPN'): Promise<void> {
+  const capabilities = await runtimeCapabilities()
+  if (capabilities.platform === 'android' || capabilities.platform === 'ios') {
+    await openUrl(url, 'inAppBrowser')
+    return
+  }
   await new Promise<void>((resolve, reject) => {
     const label = `browser-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const webview = new WebviewWindow(label, {
@@ -58,4 +75,12 @@ export async function openInAppBrowser(url: string, title = 'SecOVPN'): Promise<
     void webview.once('tauri://created', () => resolve())
     void webview.once('tauri://error', (event) => reject(new Error(String(event.payload))))
   })
+}
+
+export async function showRewardedAd(request: RewardedAdRequest): Promise<RewardedAdResult> {
+  return invoke('admob_show_rewarded', { request })
+}
+
+export async function showAppOpenAd(adUnitId: string): Promise<{ shown: boolean }> {
+  return invoke('admob_show_app_open', { request: { adUnitId } })
 }

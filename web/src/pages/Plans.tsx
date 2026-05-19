@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { xboardRequest } from '../api/xboard'
-import { openInAppBrowser } from '../api/system'
+import { openInAppBrowser, showRewardedAd } from '../api/system'
 import { useAppStore, type PlanItem, type PlanPrice } from '../store'
 import { formatMoney, formatTrafficGb, numericValue } from '../format'
 import { enabled, parseRewardLogs, rewardStatusText } from '../reward'
@@ -67,6 +67,9 @@ export function Plans() {
     currencyUnit,
     paymentEnabled,
     planRewardAdEnabled,
+    planRewardedAdUnitId,
+    planRewardSsvUserId,
+    planRewardSsvCustomData,
     capabilities,
     adRewardLogs,
     plans,
@@ -76,6 +79,7 @@ export function Plans() {
     setPlans,
   } = useAppStore()
   const [loading, setLoading] = useState(false)
+  const [rewardLoading, setRewardLoading] = useState(false)
   const [message, setMessage] = useState('')
   const mobileControl = capabilities?.admob === true
   const planLogs = adRewardLogs.filter((log) => log.scene === 'plan')
@@ -122,7 +126,11 @@ export function Plans() {
               pointsRewardAdEnabled: adEnabled && enabled(data.points_reward_ad_enabled),
               appOpenAdEnabled: enabled(data.app_open_ad_enabled),
               planRewardedAdUnitId: String(data.plan_rewarded_ad_unit_id ?? ''),
+              planRewardSsvUserId: String(data.plan_ssv_user_id ?? ''),
+              planRewardSsvCustomData: String(data.plan_ssv_custom_data ?? ''),
               pointsRewardedAdUnitId: String(data.points_rewarded_ad_unit_id ?? ''),
+              pointsRewardSsvUserId: String(data.points_ssv_user_id ?? ''),
+              pointsRewardSsvCustomData: String(data.points_ssv_custom_data ?? ''),
               appOpenAdUnitId: String(data.app_open_ad_unit_id ?? ''),
               githubProjectUrl: String(data.github_project_url ?? ''),
             })
@@ -134,7 +142,11 @@ export function Plans() {
               pointsRewardAdEnabled: false,
               appOpenAdEnabled: false,
               planRewardedAdUnitId: '',
+              planRewardSsvUserId: '',
+              planRewardSsvCustomData: '',
               pointsRewardedAdUnitId: '',
+              pointsRewardSsvUserId: '',
+              pointsRewardSsvCustomData: '',
               appOpenAdUnitId: '',
             })
             setMessage(`云控配置加载失败：${rewardConfig.body?.message ?? rewardConfig.error ?? `HTTP ${rewardConfig.status}`}`)
@@ -152,7 +164,11 @@ export function Plans() {
             pointsRewardAdEnabled: false,
             appOpenAdEnabled: false,
             planRewardedAdUnitId: '',
+            planRewardSsvUserId: '',
+            planRewardSsvCustomData: '',
             pointsRewardedAdUnitId: '',
+            pointsRewardSsvUserId: '',
+            pointsRewardSsvCustomData: '',
             appOpenAdUnitId: '',
           })
           setRewardLogs([])
@@ -194,6 +210,51 @@ export function Plans() {
       return
     }
     await openInAppBrowser(response.body.data, '套餐购买')
+  }
+
+  async function watchPlanRewardAd() {
+    setMessage('')
+    setRewardLoading(true)
+    try {
+      await showRewardedAd({
+        adUnitId: planRewardedAdUnitId,
+        userId: planRewardSsvUserId,
+        customData: planRewardSsvCustomData,
+      })
+      const pending = await xboardRequest<XboardBody<Record<string, unknown>>>('xbclient_reward_pending', {
+        baseUrl,
+        authData,
+        params: { custom_data: planRewardSsvCustomData },
+      })
+      if (!pending.ok || pending.body?.status === 'fail') {
+        setMessage(pending.body?.message ?? pending.error ?? `HTTP ${pending.status}`)
+        return
+      }
+      const [info, rewardHistory] = await Promise.all([
+        xboardRequest<XboardBody<Record<string, unknown>>>('user_info', { baseUrl, authData }),
+        xboardRequest<XboardBody<unknown>>('xbclient_reward_history', { baseUrl, authData }),
+      ])
+      if (info.ok) {
+        const data = info.body?.data ?? {}
+        setProfile({
+          balance: Math.round(numericValue(data.balance)),
+          commissionBalance: Math.round(numericValue(data.commission_balance)),
+        })
+      } else {
+        setMessage(`用户信息刷新失败：${info.body?.message ?? info.error ?? `HTTP ${info.status}`}`)
+        return
+      }
+      if (!rewardHistory.ok) {
+        setMessage(`广告奖励记录加载失败：${rewardHistory.body?.message ?? rewardHistory.error ?? `HTTP ${rewardHistory.status}`}`)
+        return
+      }
+      setRewardLogs(parseRewardLogs(rewardHistory.body?.data))
+      setMessage(pending.body?.message ?? '广告奖励验证已提交。')
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : String(err))
+    } finally {
+      setRewardLoading(false)
+    }
   }
 
   async function buyWithBalance(plan: PlanItem, price: PlanPrice) {
@@ -256,17 +317,17 @@ export function Plans() {
             <div>
               <h2 className="text-sm font-bold tracking-tight text-primary">🎁 {t('plan_reward_ad_title')}</h2>
               <p className="mt-1 text-xs text-on-surface-variant leading-relaxed">
-                {planRewardAdEnabled ? t('reward_ad_unavailable') : t('reward_ad_cloud_off')}
+                {planRewardAdEnabled ? '观看 AdMob 激励广告后提交服务器验证。' : t('reward_ad_cloud_off')}
               </p>
             </div>
             {planRewardAdEnabled && (
               <button
                 type="button"
-                disabled
-                title={capabilities?.admob ? 'Tauri 前端未接入广告展示调用。' : t('reward_ad_unavailable')}
-                className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary opacity-60 border border-primary/20"
+                disabled={rewardLoading}
+                onClick={() => void watchPlanRewardAd()}
+                className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary border border-primary/20 disabled:opacity-60"
               >
-                {t('reward_watch')}
+                {rewardLoading ? '加载中…' : t('reward_watch')}
               </button>
             )}
           </div>

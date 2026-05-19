@@ -101,7 +101,11 @@ interface AppState {
   pointsRewardAdEnabled: boolean
   appOpenAdEnabled: boolean
   planRewardedAdUnitId: string
+  planRewardSsvUserId: string
+  planRewardSsvCustomData: string
   pointsRewardedAdUnitId: string
+  pointsRewardSsvUserId: string
+  pointsRewardSsvCustomData: string
   appOpenAdUnitId: string
   githubProjectUrl: string
   inviteForce: boolean
@@ -137,7 +141,11 @@ interface AppState {
     | 'pointsRewardAdEnabled'
     | 'appOpenAdEnabled'
     | 'planRewardedAdUnitId'
+    | 'planRewardSsvUserId'
+    | 'planRewardSsvCustomData'
     | 'pointsRewardedAdUnitId'
+    | 'pointsRewardSsvUserId'
+    | 'pointsRewardSsvCustomData'
     | 'appOpenAdUnitId'
     | 'githubProjectUrl'
   >>): void
@@ -191,7 +199,11 @@ export const useAppStore = create<AppState>((set) => ({
   pointsRewardAdEnabled: false,
   appOpenAdEnabled: false,
   planRewardedAdUnitId: '',
+  planRewardSsvUserId: '',
+  planRewardSsvCustomData: '',
   pointsRewardedAdUnitId: '',
+  pointsRewardSsvUserId: '',
+  pointsRewardSsvCustomData: '',
   appOpenAdUnitId: '',
   githubProjectUrl: '',
   inviteForce: false,
@@ -242,7 +254,11 @@ export const useAppStore = create<AppState>((set) => ({
       pointsRewardAdEnabled: false,
       appOpenAdEnabled: false,
       planRewardedAdUnitId: '',
+      planRewardSsvUserId: '',
+      planRewardSsvCustomData: '',
       pointsRewardedAdUnitId: '',
+      pointsRewardSsvUserId: '',
+      pointsRewardSsvCustomData: '',
       appOpenAdUnitId: '',
       githubProjectUrl: '',
       inviteForce: false,

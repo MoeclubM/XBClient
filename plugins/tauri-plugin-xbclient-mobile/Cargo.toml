@@ -1,0 +1,13 @@
+[package]
+name = "tauri-plugin-xbclient-mobile"
+version = "0.1.0"
+edition = "2024"
+links = "tauri-plugin-xbclient-mobile"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+tauri = "2"
+thiserror = "2"

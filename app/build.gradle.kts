@@ -231,6 +231,7 @@ tasks.matching {
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.04.01"))
     implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.browser:browser:1.8.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.datastore:datastore-preferences:1.2.1")

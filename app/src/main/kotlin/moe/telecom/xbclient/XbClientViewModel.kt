@@ -458,7 +458,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun openUpdatePage(context: Context) {
         val url = _uiState.value.latestDownloadUrl.ifEmpty { _uiState.value.latestReleaseUrl }
         if (url.isNotEmpty()) {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            BrowserOpener.open(context, url)
         }
         dismissUpdateDialog()
     }
@@ -822,7 +822,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val body = requireSuccessfulBody("网页登录", result)
                 val loginUrl = body.getString("data")
                 withContext(Dispatchers.Main) {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loginUrl)))
+                    BrowserOpener.open(context, loginUrl)
                 }
             } catch (error: Exception) {
                 emitMessage("套餐打开失败：${error.message}")

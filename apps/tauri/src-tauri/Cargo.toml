@@ -21,6 +21,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 tauri = { version = "2", features = [] }
+tauri-plugin-xbclient-mobile = { path = "../../../plugins/tauri-plugin-xbclient-mobile" }
 tauri-plugin-opener = "2"
 tauri-plugin-store = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }

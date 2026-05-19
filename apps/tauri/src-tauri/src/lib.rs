@@ -10,6 +10,7 @@ pub fn run() {
 
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_xbclient_mobile::init())
         .plugin(tauri_plugin_opener::init());
 
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
@@ -38,6 +39,8 @@ pub fn run() {
             commands::aerion_test_node,
             commands::aerion_start_socks,
             commands::aerion_stop,
+            commands::admob_show_rewarded,
+            commands::admob_show_app_open,
             commands::system_proxy_set,
             commands::system_proxy_clear,
         ])

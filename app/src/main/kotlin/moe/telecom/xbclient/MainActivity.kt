@@ -8,7 +8,6 @@ import android.content.IntentFilter
 import android.content.res.Configuration
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -94,10 +93,7 @@ class MainActivity : ComponentActivity() {
                         is XbClientEvent.Message -> Toast.makeText(this@MainActivity, event.text, Toast.LENGTH_SHORT).show()
                         is XbClientEvent.RequestVpnPermission -> requestVpnPermission(event.nodeIndex)
                         is XbClientEvent.ShowRewardAd -> showRewardedAd(event.adUnitId, event.userId, event.customData)
-                        is XbClientEvent.OpenExternalUrl -> startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse(event.url))
-                                .addCategory(Intent.CATEGORY_BROWSABLE)
-                        )
+                        is XbClientEvent.OpenExternalUrl -> BrowserOpener.open(this@MainActivity, event.url)
                     }
                 }
             }

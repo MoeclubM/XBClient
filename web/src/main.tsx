@@ -12,7 +12,7 @@ import { Licenses } from './pages/Licenses'
 import { MainLayout } from './components/MainLayout'
 import { useAppStore } from './store'
 import { loadSession, loadSettings } from './store/persist'
-import { autostartIsEnabled, runtimeCapabilities } from './api/system'
+import { autostartIsEnabled, runtimeCapabilities, showAppOpenAd } from './api/system'
 import './styles.css'
 
 const queryClient = new QueryClient()
@@ -84,6 +84,9 @@ const bootstrapPromise = loadBootstrapState()
 function App() {
   const [ready, setReady] = useState(false)
   const themeMode = useAppStore((s) => s.settings.themeMode)
+  const capabilities = useAppStore((s) => s.capabilities)
+  const appOpenAdEnabled = useAppStore((s) => s.appOpenAdEnabled)
+  const appOpenAdUnitId = useAppStore((s) => s.appOpenAdUnitId)
 
   useEffect(() => {
     bootstrapPromise.finally(() => setReady(true))
@@ -97,6 +100,12 @@ function App() {
       el.removeAttribute('data-theme')
     }
   }, [themeMode])
+
+  useEffect(() => {
+    if (capabilities?.admob && appOpenAdEnabled && appOpenAdUnitId) {
+      void showAppOpenAd(appOpenAdUnitId).catch((error) => console.error('show app open ad failed', error))
+    }
+  }, [capabilities?.admob, appOpenAdEnabled, appOpenAdUnitId])
 
   if (!ready) return <LoadingScreen />
 

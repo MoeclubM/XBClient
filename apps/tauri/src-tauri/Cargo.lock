@@ -4403,6 +4403,7 @@ dependencies = [
  "tauri-plugin-autostart",
  "tauri-plugin-opener",
  "tauri-plugin-store",
+ "tauri-plugin-xbclient-mobile",
  "tokio",
  "windows-sys 0.59.0",
  "winreg 0.55.0",
@@ -5273,6 +5274,16 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "tauri-plugin-xbclient-mobile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

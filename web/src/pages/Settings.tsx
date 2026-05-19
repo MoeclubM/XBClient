@@ -66,7 +66,11 @@ export function SettingsPage() {
           pointsRewardAdEnabled: false,
           appOpenAdEnabled: false,
           planRewardedAdUnitId: '',
+          planRewardSsvUserId: '',
+          planRewardSsvCustomData: '',
           pointsRewardedAdUnitId: '',
+          pointsRewardSsvUserId: '',
+          pointsRewardSsvCustomData: '',
           appOpenAdUnitId: '',
         })
         setError(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
@@ -81,7 +85,11 @@ export function SettingsPage() {
         pointsRewardAdEnabled: adEnabled && enabled(data.points_reward_ad_enabled),
         appOpenAdEnabled: enabled(data.app_open_ad_enabled),
         planRewardedAdUnitId: String(data.plan_rewarded_ad_unit_id ?? ''),
+        planRewardSsvUserId: String(data.plan_ssv_user_id ?? ''),
+        planRewardSsvCustomData: String(data.plan_ssv_custom_data ?? ''),
         pointsRewardedAdUnitId: String(data.points_rewarded_ad_unit_id ?? ''),
+        pointsRewardSsvUserId: String(data.points_ssv_user_id ?? ''),
+        pointsRewardSsvCustomData: String(data.points_ssv_custom_data ?? ''),
         appOpenAdUnitId: String(data.app_open_ad_unit_id ?? ''),
         githubProjectUrl: String(data.github_project_url ?? ''),
       })

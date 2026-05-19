@@ -27,6 +27,16 @@ val applicationIdRaw = providers.gradleProperty("xbclient.applicationId").orNull
     ?: repoLocalProperties.getProperty("XBCLIENT_APPLICATION_ID")?.takeIf { it.isNotBlank() }
     ?: "moe.telecom.xbclient"
 val xbclientApplicationId = applicationIdRaw.trim()
+val admobAppIdRaw = providers.gradleProperty("xbclient.admobAppId")
+    .orNull
+    ?: providers.environmentVariable("XBCLIENT_ADMOB_APP_ID").orNull
+    ?: repoLocalProperties.getProperty("xbclient.admobAppId")
+    ?: repoLocalProperties.getProperty("XBCLIENT_ADMOB_APP_ID")
+    ?: error("XBCLIENT_ADMOB_APP_ID, -Pxbclient.admobAppId or local.properties xbclient.admobAppId is required")
+val admobAppId = admobAppIdRaw
+    .trim()
+    .takeIf { it.isNotEmpty() }
+    ?: error("AdMob App ID is empty")
 fun signingValue(gradleProperty: String, environmentVariable: String): String? =
     providers.gradleProperty(gradleProperty).orNull
         ?: providers.environmentVariable(environmentVariable).orNull
@@ -74,11 +84,13 @@ android {
     namespace = "moe.telecom.xbclient.tauri"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
+        manifestPlaceholders["admobAppId"] = admobAppId
         applicationId = xbclientApplicationId
         minSdk = minAndroidApi
         targetSdk = latestAndroidApi
         versionCode = appVersionCode
         versionName = appVersionName
+        buildConfigField("String", "ADMOB_APP_ID", "\"${admobAppId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
     signingConfigs {
         create("release") {
@@ -156,9 +168,15 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-process:2.10.0")
+    implementation("com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:1.0.1")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")
+}
+
+configurations.configureEach {
+    exclude(group = "com.google.android.gms", module = "play-services-ads")
+    exclude(group = "com.google.android.gms", module = "play-services-ads-lite")
 }
 
 apply(from = "tauri.build.gradle.kts")

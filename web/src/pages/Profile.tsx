@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { xboardRequest } from '../api/xboard'
+import { showRewardedAd } from '../api/system'
 import { useAppStore, type InviteItem, type NoticeItem } from '../store'
 import { clearSession } from '../store/persist'
 import { formatMoney, formatUnixDate, numericValue } from '../format'
@@ -53,6 +54,7 @@ interface NoticeFetchBody {
 interface XboardBody<T = unknown> {
   data?: T
   message?: string
+  status?: string
 }
 
 function parseInvites(body: InviteFetchBody | undefined): InviteItem[] {
@@ -87,6 +89,9 @@ export function Profile() {
     currencySymbol,
     currencyUnit,
     pointsRewardAdEnabled,
+    pointsRewardedAdUnitId,
+    pointsRewardSsvUserId,
+    pointsRewardSsvCustomData,
     capabilities,
     inviteForce,
     inviteCommissionRate,
@@ -103,6 +108,7 @@ export function Profile() {
     reset,
   } = useAppStore()
   const [loading, setLoading] = useState(false)
+  const [rewardLoading, setRewardLoading] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
   const mobileControl = capabilities?.admob === true
@@ -156,7 +162,11 @@ export function Profile() {
               pointsRewardAdEnabled: adEnabled && enabled(data.points_reward_ad_enabled),
               appOpenAdEnabled: enabled(data.app_open_ad_enabled),
               planRewardedAdUnitId: String(data.plan_rewarded_ad_unit_id ?? ''),
+              planRewardSsvUserId: String(data.plan_ssv_user_id ?? ''),
+              planRewardSsvCustomData: String(data.plan_ssv_custom_data ?? ''),
               pointsRewardedAdUnitId: String(data.points_rewarded_ad_unit_id ?? ''),
+              pointsRewardSsvUserId: String(data.points_ssv_user_id ?? ''),
+              pointsRewardSsvCustomData: String(data.points_ssv_custom_data ?? ''),
               appOpenAdUnitId: String(data.app_open_ad_unit_id ?? ''),
               githubProjectUrl: String(data.github_project_url ?? ''),
             })
@@ -168,7 +178,11 @@ export function Profile() {
               pointsRewardAdEnabled: false,
               appOpenAdEnabled: false,
               planRewardedAdUnitId: '',
+              planRewardSsvUserId: '',
+              planRewardSsvCustomData: '',
               pointsRewardedAdUnitId: '',
+              pointsRewardSsvUserId: '',
+              pointsRewardSsvCustomData: '',
               appOpenAdUnitId: '',
             })
             setError(rewardConfig.body?.message ?? rewardConfig.error ?? `HTTP ${rewardConfig.status}`)
@@ -186,7 +200,11 @@ export function Profile() {
             pointsRewardAdEnabled: false,
             appOpenAdEnabled: false,
             planRewardedAdUnitId: '',
+            planRewardSsvUserId: '',
+            planRewardSsvCustomData: '',
             pointsRewardedAdUnitId: '',
+            pointsRewardSsvUserId: '',
+            pointsRewardSsvCustomData: '',
             appOpenAdUnitId: '',
           })
           setRewardLogs([])
@@ -228,6 +246,50 @@ export function Profile() {
       window.setTimeout(() => setCopied((current) => (current === code ? null : current)), 1500)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function watchPointsRewardAd() {
+    setError('')
+    setRewardLoading(true)
+    try {
+      await showRewardedAd({
+        adUnitId: pointsRewardedAdUnitId,
+        userId: pointsRewardSsvUserId,
+        customData: pointsRewardSsvCustomData,
+      })
+      const pending = await xboardRequest<XboardBody<Record<string, unknown>>>('xbclient_reward_pending', {
+        baseUrl,
+        authData,
+        params: { custom_data: pointsRewardSsvCustomData },
+      })
+      if (!pending.ok || pending.body?.status === 'fail') {
+        setError(pending.body?.message ?? pending.error ?? `HTTP ${pending.status}`)
+        return
+      }
+      const [info, rewardHistory] = await Promise.all([
+        xboardRequest<UserInfoBody>('user_info', { baseUrl, authData }),
+        xboardRequest<XboardBody<unknown>>('xbclient_reward_history', { baseUrl, authData }),
+      ])
+      if (info.ok) {
+        const data = info.body?.data ?? {}
+        setProfile({
+          balance: Math.round(numericValue(data.balance)),
+          commissionBalance: Math.round(numericValue(data.commission_balance)),
+        })
+      } else {
+        setError(`用户信息刷新失败：${info.body?.message ?? info.error ?? `HTTP ${info.status}`}`)
+        return
+      }
+      if (!rewardHistory.ok) {
+        setError(`广告奖励记录加载失败：${rewardHistory.body?.message ?? rewardHistory.error ?? `HTTP ${rewardHistory.status}`}`)
+        return
+      }
+      setRewardLogs(parseRewardLogs(rewardHistory.body?.data))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setRewardLoading(false)
     }
   }
 
@@ -313,17 +375,17 @@ export function Profile() {
             <div>
               <h2 className="text-sm font-bold tracking-tight text-primary">🎁 {t('points_reward_ad_title')}</h2>
               <p className="mt-1 text-xs text-on-surface-variant leading-relaxed">
-                {pointsRewardAdEnabled ? t('reward_ad_unavailable') : t('reward_ad_cloud_off')}
+                {pointsRewardAdEnabled ? '观看 AdMob 激励广告后提交服务器验证。' : t('reward_ad_cloud_off')}
               </p>
             </div>
             {pointsRewardAdEnabled && (
               <button
                 type="button"
-                disabled
-                title={capabilities?.admob ? 'Tauri 前端未接入广告展示调用。' : t('reward_ad_unavailable')}
-                className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary opacity-60 border border-primary/20"
+                disabled={rewardLoading}
+                onClick={() => void watchPointsRewardAd()}
+                className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary border border-primary/20 disabled:opacity-60"
               >
-                {t('reward_watch')}
+                {rewardLoading ? '加载中…' : t('reward_watch')}
               </button>
             )}
           </div>

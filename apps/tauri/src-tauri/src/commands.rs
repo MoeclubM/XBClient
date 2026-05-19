@@ -4,6 +4,9 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::time::Duration;
+use tauri_plugin_xbclient_mobile::{
+    AppOpenAdRequest, AppOpenAdResult, RewardedAdRequest, RewardedAdResult, XbClientMobileExt,
+};
 
 static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
     reqwest::Client::builder()
@@ -197,6 +200,28 @@ pub async fn aerion_stop(session_id: u64) -> Result<Value, String> {
         .await
         .map_err(|error| format!("{error:#}"))?;
     serde_json::from_str(&output).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn admob_show_rewarded(
+    app: tauri::AppHandle,
+    request: RewardedAdRequest,
+) -> Result<RewardedAdResult, String> {
+    app.xbclient_mobile()
+        .show_rewarded_ad(request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn admob_show_app_open(
+    app: tauri::AppHandle,
+    request: AppOpenAdRequest,
+) -> Result<AppOpenAdResult, String> {
+    app.xbclient_mobile()
+        .show_app_open_ad(request)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

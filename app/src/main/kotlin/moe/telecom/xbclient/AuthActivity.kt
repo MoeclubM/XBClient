@@ -3,7 +3,6 @@ package moe.telecom.xbclient
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -28,10 +27,7 @@ class AuthActivity : ComponentActivity() {
                 viewModel.events.collect { event ->
                     when (event) {
                         is XbClientEvent.Message -> Toast.makeText(this@AuthActivity, event.text, Toast.LENGTH_SHORT).show()
-                        is XbClientEvent.OpenExternalUrl -> startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse(event.url))
-                                .addCategory(Intent.CATEGORY_BROWSABLE)
-                        )
+                        is XbClientEvent.OpenExternalUrl -> BrowserOpener.open(this@AuthActivity, event.url)
                         else -> Unit
                     }
                 }
