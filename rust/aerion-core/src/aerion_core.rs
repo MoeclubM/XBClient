@@ -22,7 +22,13 @@ struct StartVpnRequest {
     mtu: Option<u16>,
     dns: Option<String>,
     dns_addr: String,
+    virtual_dns_pool: Option<String>,
+    bypass: Option<Vec<String>>,
     ipv6: Option<bool>,
+    tcp_timeout_secs: Option<u64>,
+    udp_timeout_secs: Option<u64>,
+    max_sessions: Option<usize>,
+    exit_on_fatal_error: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -290,7 +296,26 @@ mod platform {
         tun_config.packet_information = false;
         tun_config.dns = dns;
         tun_config.dns_addr = dns_addr;
+        if let Some(virtual_dns_pool) = request.virtual_dns_pool {
+            tun_config.virtual_dns_pool = virtual_dns_pool;
+        }
+        if let Some(bypass) = request.bypass {
+            tun_config.bypass = bypass;
+        }
         tun_config.ipv6 = request.ipv6.unwrap_or(false);
+        if let Some(tcp_timeout_secs) = request.tcp_timeout_secs {
+            tun_config.tcp_timeout_secs = tcp_timeout_secs;
+        }
+        if let Some(udp_timeout_secs) = request.udp_timeout_secs {
+            tun_config.udp_timeout_secs = udp_timeout_secs;
+        }
+        if let Some(max_sessions) = request.max_sessions {
+            tun_config.max_sessions = max_sessions;
+        }
+        if let Some(exit_on_fatal_error) = request.exit_on_fatal_error {
+            tun_config.exit_on_fatal_error = exit_on_fatal_error;
+        }
+        let virtual_dns_pool = tun_config.virtual_dns_pool.clone();
         tun_config.verbosity = TunVerbosity::Info;
         let runtime = spawn_tun(tun_config).context("spawn Aerion TUN runtime")?;
         let shutdown = runtime.shutdown_token();
@@ -322,6 +347,9 @@ mod platform {
             "ok": true,
             "session_id": session_id,
             "mtu": mtu,
+            "dns": request.dns.unwrap_or_else(|| "over_tcp".to_string()),
+            "dns_addr": dns_addr.to_string(),
+            "virtual_dns_pool": virtual_dns_pool,
         })
         .to_string())
     }

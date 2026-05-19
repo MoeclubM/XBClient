@@ -69,6 +69,7 @@ data class XbClientUiState(
     val directDns: String = DEFAULT_DIRECT_DNS,
     val nodeTestTarget: String = DEFAULT_NODE_TEST_TARGET,
     val vpnDnsMode: String = DNS_MODE_OVER_TCP,
+    val virtualDnsPool: String = DEFAULT_VIRTUAL_DNS_POOL,
     val vpnIpv6Enabled: Boolean = true,
     val vpnRequested: Boolean = false,
     val vpnStarting: Boolean = false,
@@ -1002,9 +1003,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         persistState(_uiState.value)
     }
 
-    fun saveDnsAndTestSettings(nodeDns: String, overseasDns: String, directDns: String, nodeTestTarget: String) {
-        if (nodeDns.trim().isEmpty() || overseasDns.trim().isEmpty() || directDns.trim().isEmpty() || nodeTestTarget.trim().isEmpty()) {
-            emitMessage("DNS 与测试目标不能为空。")
+    fun saveDnsAndTestSettings(nodeDns: String, overseasDns: String, directDns: String, nodeTestTarget: String, vpnDnsMode: String, virtualDnsPool: String) {
+        if (nodeDns.trim().isEmpty() || overseasDns.trim().isEmpty() || directDns.trim().isEmpty() || nodeTestTarget.trim().isEmpty() || virtualDnsPool.trim().isEmpty()) {
+            emitMessage("DNS、Fake-IP 地址池与测试目标不能为空。")
+            return
+        }
+        if (vpnDnsMode !in setOf(DNS_MODE_OVER_TCP, DNS_MODE_VIRTUAL, DNS_MODE_DIRECT)) {
+            emitMessage("DNS 模式无效。")
             return
         }
         updateAndPersist {
@@ -1012,7 +1017,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 nodeDns = nodeDns.trim(),
                 overseasDns = overseasDns.trim(),
                 directDns = directDns.trim(),
-                nodeTestTarget = nodeTestTarget.trim()
+                nodeTestTarget = nodeTestTarget.trim(),
+                vpnDnsMode = vpnDnsMode,
+                virtualDnsPool = virtualDnsPool.trim()
             )
         }
         emitMessage("设置已保存。")
@@ -1244,6 +1251,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             putExtra(XbClientVpnService.EXTRA_OVERSEAS_DNS, state.overseasDns)
             putExtra(XbClientVpnService.EXTRA_DIRECT_DNS, state.directDns)
             putExtra(XbClientVpnService.EXTRA_DNS_MODE, state.vpnDnsMode)
+            putExtra(XbClientVpnService.EXTRA_VIRTUAL_DNS_POOL, state.virtualDnsPool)
             putExtra(XbClientVpnService.EXTRA_IPV6_ENABLED, state.vpnIpv6Enabled)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -1419,6 +1427,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 directDns = prefs[Keys.DIRECT_DNS] ?: DEFAULT_DIRECT_DNS,
                 nodeTestTarget = (prefs[Keys.NODE_TEST_TARGET] ?: DEFAULT_NODE_TEST_TARGET).let { if (it == "cp.cloudflare.com") DEFAULT_NODE_TEST_TARGET else it },
                 vpnDnsMode = prefs[Keys.VPN_DNS_MODE] ?: DNS_MODE_OVER_TCP,
+                virtualDnsPool = prefs[Keys.VIRTUAL_DNS_POOL] ?: DEFAULT_VIRTUAL_DNS_POOL,
                 vpnIpv6Enabled = prefs[Keys.VPN_IPV6_ENABLED] ?: true,
                 vpnRequested = legacy.getBoolean("vpn_running", false),
                 adEnabled = prefs[Keys.AD_ENABLED] ?: false,
@@ -1472,6 +1481,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 directDns = legacy.getString("direct_dns", DEFAULT_DIRECT_DNS).orEmpty(),
                 nodeTestTarget = legacy.getString("node_test_target", DEFAULT_NODE_TEST_TARGET).orEmpty().let { if (it == "cp.cloudflare.com") DEFAULT_NODE_TEST_TARGET else it },
                 vpnDnsMode = legacy.getString("vpn_dns_mode", DNS_MODE_OVER_TCP).orEmpty(),
+                virtualDnsPool = legacy.getString("virtual_dns_pool", DEFAULT_VIRTUAL_DNS_POOL).orEmpty(),
                 vpnIpv6Enabled = legacy.getBoolean("vpn_ipv6_enabled", true),
                 vpnRequested = legacy.getBoolean("vpn_running", false),
                 adEnabled = legacy.getBoolean("ad_enabled", false),
@@ -1576,6 +1586,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.DIRECT_DNS] = state.directDns
             prefs[Keys.NODE_TEST_TARGET] = state.nodeTestTarget
             prefs[Keys.VPN_DNS_MODE] = state.vpnDnsMode
+            prefs[Keys.VIRTUAL_DNS_POOL] = state.virtualDnsPool
             prefs[Keys.VPN_IPV6_ENABLED] = state.vpnIpv6Enabled
             prefs[Keys.VPN_RUNNING] = state.vpnRequested
             prefs[Keys.AD_ENABLED] = state.adEnabled
@@ -1627,6 +1638,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("direct_dns", state.directDns)
             .putString("node_test_target", state.nodeTestTarget)
             .putString("vpn_dns_mode", state.vpnDnsMode)
+            .putString("virtual_dns_pool", state.virtualDnsPool)
             .putBoolean("vpn_ipv6_enabled", state.vpnIpv6Enabled)
             .putBoolean("vpn_running", state.vpnRequested)
             .putBoolean("ad_enabled", state.adEnabled)
@@ -1974,6 +1986,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val DIRECT_DNS = stringPreferencesKey("direct_dns")
         val NODE_TEST_TARGET = stringPreferencesKey("node_test_target")
         val VPN_DNS_MODE = stringPreferencesKey("vpn_dns_mode")
+        val VIRTUAL_DNS_POOL = stringPreferencesKey("virtual_dns_pool")
         val VPN_IPV6_ENABLED = booleanPreferencesKey("vpn_ipv6_enabled")
         val VPN_RUNNING = booleanPreferencesKey("vpn_running")
         val AD_ENABLED = booleanPreferencesKey("ad_enabled")

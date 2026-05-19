@@ -33,6 +33,7 @@ class XbClientVpnService : VpnService() {
     private var currentOverseasDns = DEFAULT_OVERSEAS_DNS
     private var currentDirectDns = DEFAULT_DIRECT_DNS
     private var currentDnsMode = DNS_MODE_OVER_TCP
+    private var currentVirtualDnsPool = DEFAULT_VIRTUAL_DNS_POOL
     private var currentIpv6Enabled = true
     private var tunInterface: ParcelFileDescriptor? = null
 
@@ -60,11 +61,13 @@ class XbClientVpnService : VpnService() {
                 val allowedApps = currentAllowedApps
                 val nodeDns = currentNodeDns
                 val overseasDns = currentOverseasDns
+                val directDns = currentDirectDns
                 val dnsMode = currentDnsMode
+                val virtualDnsPool = currentVirtualDnsPool
                 val ipv6Enabled = currentIpv6Enabled
                 serviceScope.launch {
                     try {
-                        startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, dnsMode, ipv6Enabled)
+                        startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, directDns, dnsMode, virtualDnsPool, ipv6Enabled)
                         startForegroundNotification(getString(R.string.vpn_notification_current_node, currentNodeName()))
                         publishVpnState(true)
                     } catch (error: CancellationException) {
@@ -87,7 +90,7 @@ class XbClientVpnService : VpnService() {
                         }
                         currentNodeIndex = (currentNodeIndex + 1) % nodes.length()
                         currentNodeJson = nodes.getJSONObject(currentNodeIndex).toString()
-                        startVpn(currentNodeJson, currentExcludedApps, currentAllowedApps, currentNodeDns, currentOverseasDns, currentDnsMode, currentIpv6Enabled)
+                        startVpn(currentNodeJson, currentExcludedApps, currentAllowedApps, currentNodeDns, currentOverseasDns, currentDirectDns, currentDnsMode, currentVirtualDnsPool, currentIpv6Enabled)
                         startForegroundNotification(getString(R.string.vpn_notification_current_node, currentNodeName()))
                         publishVpnState(true)
                     } catch (error: CancellationException) {
@@ -110,6 +113,7 @@ class XbClientVpnService : VpnService() {
                 val overseasDns = intent.getStringExtra(EXTRA_OVERSEAS_DNS) ?: DEFAULT_OVERSEAS_DNS
                 val directDns = intent.getStringExtra(EXTRA_DIRECT_DNS) ?: DEFAULT_DIRECT_DNS
                 val dnsMode = intent.getStringExtra(EXTRA_DNS_MODE) ?: DNS_MODE_OVER_TCP
+                val virtualDnsPool = intent.getStringExtra(EXTRA_VIRTUAL_DNS_POOL) ?: DEFAULT_VIRTUAL_DNS_POOL
                 val ipv6Enabled = intent.getBooleanExtra(EXTRA_IPV6_ENABLED, true)
                 currentNodeJson = nodeJson
                 currentNodesJson = nodesJson
@@ -120,11 +124,12 @@ class XbClientVpnService : VpnService() {
                 currentOverseasDns = overseasDns
                 currentDirectDns = directDns
                 currentDnsMode = dnsMode
+                currentVirtualDnsPool = virtualDnsPool
                 currentIpv6Enabled = ipv6Enabled
                 startForegroundNotification(getString(R.string.vpn_notification_connecting))
                 serviceScope.launch {
                     try {
-                        startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, dnsMode, ipv6Enabled)
+                        startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, directDns, dnsMode, virtualDnsPool, ipv6Enabled)
                         startForegroundNotification(getString(R.string.vpn_notification_current_node, currentNodeName()))
                         publishVpnState(true)
                     } catch (error: CancellationException) {
@@ -151,9 +156,9 @@ class XbClientVpnService : VpnService() {
         super.onDestroy()
     }
 
-    private fun startVpn(nodeJson: String?, excludedApps: String?, allowedApps: String?, nodeDns: String, overseasDns: String, dnsMode: String, ipv6Enabled: Boolean) {
+    private fun startVpn(nodeJson: String?, excludedApps: String?, allowedApps: String?, nodeDns: String, overseasDns: String, directDns: String, dnsMode: String, virtualDnsPool: String, ipv6Enabled: Boolean) {
         stopNativeVpn()
-        val dnsAddress = XboardApi.dnsAddressForVpn(overseasDns)
+        val dnsAddress = XboardApi.dnsAddressForVpn(if (dnsMode == DNS_MODE_DIRECT) directDns else overseasDns)
         val builder = Builder()
             .setSession(getString(R.string.app_name))
             .setMtu(1500)
@@ -209,6 +214,7 @@ class XbClientVpnService : VpnService() {
             .put("mtu", 1500)
             .put("dns", dnsMode)
             .put("dns_addr", dnsAddress)
+            .put("virtual_dns_pool", virtualDnsPool)
             .put("ipv6", ipv6Enabled)
         val result = JSONObject(AerionCore.startVpn(request.toString()))
         if (!result.optBoolean("ok")) {
@@ -316,13 +322,16 @@ class XbClientVpnService : VpnService() {
         const val EXTRA_OVERSEAS_DNS = "overseas_dns"
         const val EXTRA_DIRECT_DNS = "direct_dns"
         const val EXTRA_DNS_MODE = "dns_mode"
+        const val EXTRA_VIRTUAL_DNS_POOL = "virtual_dns_pool"
         const val EXTRA_IPV6_ENABLED = "ipv6_enabled"
         const val EXTRA_RUNNING = "running"
         const val EXTRA_ERROR = "error"
         private const val DEFAULT_NODE_DNS = "https://dns.alidns.com/resolve"
         private const val DEFAULT_OVERSEAS_DNS = "https://cloudflare-dns.com/dns-query"
         private const val DEFAULT_DIRECT_DNS = "223.5.5.5"
+        private const val DEFAULT_VIRTUAL_DNS_POOL = "198.18.0.0/15"
         private const val DNS_MODE_OVER_TCP = "over_tcp"
+        private const val DNS_MODE_DIRECT = "direct"
         private const val PRIVATE_IPV4_CLIENT = "172.19.0.1"
         private const val PRIVATE_IPV4_DNS = "172.19.0.2"
         private const val PRIVATE_IPV6_CLIENT = "fdfe:dcba:9876::1"

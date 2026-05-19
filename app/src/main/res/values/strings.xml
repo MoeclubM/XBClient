@@ -138,6 +138,12 @@
     <string name="dns_node_label">解析节点域名的本地 DNS</string>
     <string name="dns_overseas_label">连接后解析域名的海外 DNS</string>
     <string name="dns_direct_label">连接后解析分流直连域名的 DNS</string>
+    <string name="dns_mode_label">连接内 DNS 模式</string>
+    <string name="dns_mode_over_tcp">TCP 转发</string>
+    <string name="dns_mode_virtual">Fake-IP</string>
+    <string name="dns_mode_direct">直连 DNS</string>
+    <string name="dns_virtual_pool_label">Fake-IP 地址池</string>
+    <string name="dns_virtual_pool_help">Fake-IP 模式会把域名映射到该虚拟地址池，便于移动端按域名连接。</string>
     <string name="enable_ipv6">IPv6</string>
     <string name="node_test_target_label">测试目标网站</string>
     <string name="node_test_help">可填写域名、域名:端口或 http/https 地址。节点测试会连续完成两次 HEAD 请求并显示第二次延迟。</string>

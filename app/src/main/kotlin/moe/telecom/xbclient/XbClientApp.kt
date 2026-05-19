@@ -1800,6 +1800,8 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     var nodeDns by rememberSaveable(state.nodeDns) { mutableStateOf(state.nodeDns) }
     var overseasDns by rememberSaveable(state.overseasDns) { mutableStateOf(state.overseasDns) }
     var directDns by rememberSaveable(state.directDns) { mutableStateOf(state.directDns) }
+    var vpnDnsMode by rememberSaveable(state.vpnDnsMode) { mutableStateOf(state.vpnDnsMode) }
+    var virtualDnsPool by rememberSaveable(state.virtualDnsPool) { mutableStateOf(state.virtualDnsPool) }
     var nodeTestTarget by rememberSaveable(state.nodeTestTarget) { mutableStateOf(state.nodeTestTarget) }
     PageHeader(stringResource(R.string.common_settings), stringResource(R.string.page_settings_subtitle))
     Section(stringResource(R.string.section_appearance)) {
@@ -1852,6 +1854,26 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(value = directDns, onValueChange = { directDns = it }, label = { Text(stringResource(R.string.dns_direct_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
+            Text(stringResource(R.string.dns_mode_label), style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                for ((mode, label) in listOf(
+                    DNS_MODE_OVER_TCP to stringResource(R.string.dns_mode_over_tcp),
+                    DNS_MODE_VIRTUAL to stringResource(R.string.dns_mode_virtual),
+                    DNS_MODE_DIRECT to stringResource(R.string.dns_mode_direct)
+                )) {
+                    if (vpnDnsMode == mode) {
+                        Button(onClick = { vpnDnsMode = mode }, modifier = Modifier.weight(1f)) { Text(label) }
+                    } else {
+                        OutlinedButton(onClick = { vpnDnsMode = mode }, modifier = Modifier.weight(1f)) { Text(label) }
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(value = virtualDnsPool, onValueChange = { virtualDnsPool = it }, label = { Text(stringResource(R.string.dns_virtual_pool_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(6.dp))
+            Text(stringResource(R.string.dns_virtual_pool_help), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.enable_ipv6))
                 Switch(checked = state.vpnIpv6Enabled, onCheckedChange = viewModel::setIpv6Enabled)
@@ -1868,7 +1890,7 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
             )
             Spacer(Modifier.height(14.dp))
             Button(
-                onClick = { viewModel.saveDnsAndTestSettings(nodeDns, overseasDns, directDns, nodeTestTarget) },
+                onClick = { viewModel.saveDnsAndTestSettings(nodeDns, overseasDns, directDns, nodeTestTarget, vpnDnsMode, virtualDnsPool) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(stringResource(R.string.common_save_settings))
