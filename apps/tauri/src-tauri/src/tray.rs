@@ -17,6 +17,7 @@ pub fn install<R: Runtime + 'static>(app: &AppHandle<R>) -> tauri::Result<()> {
         .icon(
             app.default_window_icon()
                 .cloned()
+                .map(|icon| icon.to_owned())
                 .unwrap_or_else(build_icon),
         )
         .menu(&menu)
