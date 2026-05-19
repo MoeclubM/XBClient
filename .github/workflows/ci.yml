@@ -127,7 +127,7 @@ jobs:
       - name: Build Tauri Android debug APK
         shell: bash
         run: |
-          pnpm --filter secovpn android:build -- --apk --target aarch64 --debug --ci
+          pnpm --filter secovpn android:build --apk --target aarch64 --debug --ci
 
   windows-tauri:
     name: Windows app

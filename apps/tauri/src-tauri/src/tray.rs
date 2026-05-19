@@ -6,7 +6,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
 
-pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
+pub fn install<R: Runtime + 'static>(app: &AppHandle<R>) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "tray:show", "显示窗口", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "tray:quit", "退出", true, None::<&str>)?;
@@ -40,7 +40,7 @@ pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     Ok(())
 }
 
-fn show_main<R: Runtime>(app: &AppHandle<R>) {
+fn show_main<R: Runtime + 'static>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();

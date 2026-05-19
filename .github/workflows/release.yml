@@ -155,7 +155,7 @@ jobs:
       - name: Build signed Tauri release APKs and AAB
         shell: bash
         run: |
-          pnpm --filter secovpn android:build -- --apk --aab --split-per-abi --target aarch64 x86_64 --ci
+          pnpm --filter secovpn android:build --apk --aab --split-per-abi --target aarch64 x86_64 --ci
 
       - name: Collect Tauri release Android artifacts
         shell: bash
