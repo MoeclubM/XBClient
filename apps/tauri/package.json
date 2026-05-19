@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tauri dev",
-    "build": "tauri build",
+    "dev": "node ../../scripts/tauri-sync-version.mjs dev",
+    "build": "node ../../scripts/tauri-sync-version.mjs build",
     "android:init": "tauri android init",
-    "android:dev": "tauri android dev",
-    "android:build": "tauri android build"
+    "android:dev": "node ../../scripts/tauri-sync-version.mjs android dev",
+    "android:build": "node ../../scripts/tauri-sync-version.mjs android build"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

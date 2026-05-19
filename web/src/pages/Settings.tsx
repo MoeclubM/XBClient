@@ -173,6 +173,23 @@ export function SettingsPage() {
             onChange={(event) => void persist({ nodeTestTarget: event.target.value })}
           />
         </label>
+
+        <hr className="border-t border-outline-variant/20" />
+
+        <label className="block space-y-1.5">
+          <span className="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">
+            {t('api_user_agent')}
+          </span>
+          <input
+            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary transition-all font-mono"
+            placeholder={t('api_user_agent_placeholder')}
+            value={settings.apiUserAgent}
+            onChange={(event) => void persist({ apiUserAgent: event.target.value.trim() })}
+          />
+          <span className="block text-[10px] text-on-surface-variant">
+            {t('api_user_agent_desc')}
+          </span>
+        </label>
       </section>
 
       {/* Licenses Link Section */}

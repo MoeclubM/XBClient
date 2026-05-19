@@ -70,6 +70,9 @@ const TRANSLATIONS = {
     admob_payment_on: '支付入口：始终开启',
     admob_payment_off: '支付入口：云控未开启',
     site_placeholder: 'https://example.com',
+    api_user_agent: 'API User-Agent',
+    api_user_agent_placeholder: '留空则使用系统默认',
+    api_user_agent_desc: '用于 Xboard API 与 DoH 请求；订阅仍固定使用 mihomo / sing-box。',
   },
   en: {
     nav_nodes: 'Nodes',
@@ -140,6 +143,9 @@ const TRANSLATIONS = {
     admob_payment_on: 'Payment: Enabled',
     admob_payment_off: 'Payment: Disabled by Cloud',
     site_placeholder: 'https://example.com',
+    api_user_agent: 'API User-Agent',
+    api_user_agent_placeholder: 'Leave empty for system default',
+    api_user_agent_desc: 'Used for Xboard API and DoH requests; subscriptions still use mihomo / sing-box.',
   },
   ja: {
     nav_nodes: 'ノード',
@@ -210,6 +216,9 @@ const TRANSLATIONS = {
     admob_payment_on: '決済機能：常に有効',
     admob_payment_off: '決済機能：クラウドで無効',
     site_placeholder: 'https://example.com',
+    api_user_agent: 'API User-Agent',
+    api_user_agent_placeholder: '空欄ならシステム既定',
+    api_user_agent_desc: 'Xboard API と DoH リクエストに使用します。購読は mihomo / sing-box のままです。',
   },
   ru: {
     nav_nodes: 'Узлы',
@@ -280,6 +289,9 @@ const TRANSLATIONS = {
     admob_payment_on: 'Оплата: Всегда включена',
     admob_payment_off: 'Оплата: Отключена облаком',
     site_placeholder: 'https://example.com',
+    api_user_agent: 'API User-Agent',
+    api_user_agent_placeholder: 'Оставьте пустым для значения системы',
+    api_user_agent_desc: 'Используется для Xboard API и DoH; подписки всё равно используют mihomo / sing-box.',
   },
   fa: {
     nav_nodes: 'سرورها',
@@ -350,6 +362,9 @@ const TRANSLATIONS = {
     admob_payment_on: 'پرداخت: همیشه فعال',
     admob_payment_off: 'پرداخت: غیرفعال توسط ابری',
     site_placeholder: 'https://example.com',
+    api_user_agent: 'API User-Agent',
+    api_user_agent_placeholder: 'برای پیش‌فرض سیستم خالی بگذارید',
+    api_user_agent_desc: 'برای Xboard API و DoH استفاده می‌شود؛ اشتراک همچنان mihomo / sing-box است.',
   }
 }
 

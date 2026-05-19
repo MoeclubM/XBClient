@@ -76,7 +76,11 @@ pub fn runtime_capabilities() -> RuntimeCapabilities {
 }
 
 #[tauri::command]
-pub async fn resolve_node_host(dns_url: String, host: String) -> Result<String, String> {
+pub async fn resolve_node_host(
+    dns_url: String,
+    host: String,
+    user_agent: Option<String>,
+) -> Result<String, String> {
     let host = host.trim();
     if host.parse::<IpAddr>().is_ok() {
         return Ok(host.to_string());
@@ -91,9 +95,17 @@ pub async fn resolve_node_host(dns_url: String, host: String) -> Result<String, 
         url.query_pairs_mut()
             .append_pair("name", host)
             .append_pair("type", record_type);
-        let response = HTTP_CLIENT
+        let mut request = HTTP_CLIENT
             .get(url)
-            .header("Accept", "application/dns-json, application/json")
+            .header("Accept", "application/dns-json, application/json");
+        if let Some(value) = user_agent
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            request = request.header("User-Agent", value);
+        }
+        let response = request
             .send()
             .await
             .map_err(|error| format!("节点 DNS 请求失败：{error}"))?;

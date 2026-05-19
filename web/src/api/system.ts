@@ -17,8 +17,8 @@ export async function runtimeCapabilities(): Promise<RuntimeCapabilities> {
   return invoke('runtime_capabilities')
 }
 
-export async function resolveNodeHost(dnsUrl: string, host: string): Promise<string> {
-  return invoke('resolve_node_host', { dnsUrl, host })
+export async function resolveNodeHost(dnsUrl: string, host: string, userAgent = ''): Promise<string> {
+  return invoke('resolve_node_host', { dnsUrl, host, userAgent })
 }
 
 export async function systemProxySet(host: string, port: number): Promise<void> {

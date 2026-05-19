@@ -26,6 +26,7 @@ export interface AppSettings {
   autostart: boolean
   nodeDns: string
   nodeTestTarget: string
+  apiUserAgent: string
   themeMode: 'system' | 'light' | 'dark'
   appLanguage: 'system' | 'zh-CN' | 'en' | 'ja' | 'ru' | 'fa'
 }
@@ -146,6 +147,7 @@ export const useAppStore = create<AppState>((set) => ({
     autostart: false,
     nodeDns: DEFAULT_NODE_DNS,
     nodeTestTarget: DEFAULT_NODE_TEST_TARGET,
+    apiUserAgent: '',
     themeMode: 'system',
     appLanguage: 'system',
   },

@@ -16,6 +16,7 @@ export function Login() {
 
   const [mode, setMode] = useState<AuthMode>('login')
   const [baseUrl, setBaseUrl] = useState('')
+  const [apiUserAgent, setApiUserAgent] = useState(settings.apiUserAgent)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [inviteCode, setInviteCode] = useState('')
@@ -23,9 +24,11 @@ export function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function persistSettings(patch: Partial<typeof settings>) {
-    const next = { ...settings, ...patch }
-    setSettings(patch)
+  async function saveApiUserAgent() {
+    const value = apiUserAgent.trim()
+    if (value === settings.apiUserAgent) return
+    const next = { ...settings, apiUserAgent: value }
+    setSettings({ apiUserAgent: value })
     await saveSettings(next).catch((err) => console.error('Save settings failed', err))
   }
 
@@ -35,11 +38,12 @@ export function Login() {
     setMessage('')
     setLoading(true)
     try {
+      await saveApiUserAgent()
       const params: Record<string, string> = { email, password }
       if (mode === 'register' && inviteCode.trim()) params.invite_code = inviteCode.trim()
       const response = await xboardRequest<{ data?: { auth_data?: string; token?: string }; message?: string }>(
         mode,
-        { baseUrl, params },
+        { baseUrl, params, userAgent: apiUserAgent.trim() },
       )
       if (!response.ok) {
         setError(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
@@ -66,35 +70,7 @@ export function Login() {
   }
 
   return (
-    <main className="flex min-h-full flex-col bg-background-app text-on-background transition-all-200">
-      {/* Top Header Bars for Lang and Theme */}
-      <header className="flex w-full items-center justify-between p-4 max-w-sm mx-auto">
-        <select
-          value={settings.appLanguage}
-          onChange={(e) => persistSettings({ appLanguage: e.target.value as any })}
-          className="rounded-lg bg-surface px-2.5 py-1.5 text-xs border border-outline-variant/30 text-on-surface-variant cursor-pointer outline-none hover:border-primary/50 transition-all duration-150"
-        >
-          <option value="system">🌐 Language: System</option>
-          <option value="zh-CN">中文</option>
-          <option value="en">English</option>
-          <option value="ja">日本語</option>
-          <option value="ru">Русский</option>
-          <option value="fa">فارسی</option>
-        </select>
-
-        <select
-          value={settings.themeMode}
-          onChange={(e) => persistSettings({ themeMode: e.target.value as any })}
-          className="rounded-lg bg-surface px-2.5 py-1.5 text-xs border border-outline-variant/30 text-on-surface-variant cursor-pointer outline-none hover:border-primary/50 transition-all duration-150"
-        >
-          <option value="system">🎨 Theme: System</option>
-          <option value="light">☀️ Light</option>
-          <option value="dark">🌙 Dark</option>
-        </select>
-      </header>
-
-      {/* Main Form Box */}
-      <div className="flex flex-1 items-center justify-center p-6 pb-20">
+    <main className="flex min-h-full items-center justify-center bg-background-app p-6 pb-20 text-on-background transition-all-200">
         <form
           onSubmit={submit}
           className="w-full max-w-sm space-y-5 rounded-2xl bg-surface-low p-6 shadow-xl border border-outline-variant/40 animate-content-size"
@@ -132,6 +108,18 @@ export function Login() {
                 onChange={(e) => setBaseUrl(e.target.value)}
                 required
               />
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('api_user_agent')}</span>
+              <input
+                className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-150"
+                placeholder={t('api_user_agent_placeholder')}
+                value={apiUserAgent}
+                onChange={(e) => setApiUserAgent(e.target.value)}
+                onBlur={() => void saveApiUserAgent()}
+              />
+              <span className="mt-1 block text-[10px] text-on-surface-variant">{t('api_user_agent_desc')}</span>
             </label>
 
             <label className="block">
@@ -190,7 +178,6 @@ export function Login() {
             {loading ? t('action_connecting') : mode === 'login' ? t('login') : t('register')}
           </button>
         </form>
-      </div>
     </main>
   )
 }

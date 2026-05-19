@@ -51,6 +51,7 @@ export async function loadSettings(): Promise<Partial<AppSettings>> {
   const autostart = await store.get<boolean>('autostart')
   const nodeDns = await store.get<string>('nodeDns')
   const nodeTestTarget = await store.get<string>('nodeTestTarget')
+  const apiUserAgent = await store.get<string>('apiUserAgent')
   const themeMode = await store.get<string>('themeMode')
   const appLanguage = await store.get<string>('appLanguage')
   const result: Partial<AppSettings> = {}
@@ -58,6 +59,7 @@ export async function loadSettings(): Promise<Partial<AppSettings>> {
   if (typeof autostart === 'boolean') result.autostart = autostart
   if (typeof nodeDns === 'string' && nodeDns.trim()) result.nodeDns = nodeDns
   if (typeof nodeTestTarget === 'string' && nodeTestTarget.trim()) result.nodeTestTarget = nodeTestTarget
+  if (typeof apiUserAgent === 'string') result.apiUserAgent = apiUserAgent
   if (themeMode === 'system' || themeMode === 'light' || themeMode === 'dark') result.themeMode = themeMode
   if (appLanguage === 'system' || appLanguage === 'zh-CN' || appLanguage === 'en' || appLanguage === 'ja' || appLanguage === 'ru' || appLanguage === 'fa') {
     result.appLanguage = appLanguage
@@ -71,6 +73,7 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
   await store.set('autostart', settings.autostart)
   await store.set('nodeDns', settings.nodeDns)
   await store.set('nodeTestTarget', settings.nodeTestTarget)
+  await store.set('apiUserAgent', settings.apiUserAgent)
   await store.set('themeMode', settings.themeMode)
   await store.set('appLanguage', settings.appLanguage)
   await store.save()

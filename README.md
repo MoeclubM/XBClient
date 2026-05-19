@@ -150,7 +150,8 @@ pnpm --filter secovpn build
 本地调试只需要先跑 `pnpm --filter secovpn dev`；Tauri 会自动启动 Vite。
 如果 Windows 提示找不到 `link.exe`，需要安装 Visual Studio Build Tools 的 MSVC 与 Windows SDK。
 Tauri 版本不把 `local.properties` / CI Secrets 里的站点、User-Agent 等业务构建配置写进应用。
-站点地址在登录页输入并保存到本机应用数据。
+站点地址和 API User-Agent 在登录页或设置页输入并保存到本机应用数据。
+Tauri 打包会通过 `scripts/tauri-sync-version.mjs` 复用 Kotlin Android 的 Git 版本号规则。
 
 Tauri Android 工程已生成在 `apps/tauri/src-tauri/gen/android`：
 

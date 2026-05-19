@@ -214,7 +214,7 @@ export function Home() {
 
   async function resolveAerionNode(node: AppNode): Promise<unknown> {
     const host = rawNodeHost(node)
-    const resolvedHost = await resolveNodeHost(settings.nodeDns, host)
+    const resolvedHost = await resolveNodeHost(settings.nodeDns, host, settings.apiUserAgent)
     return aerionNodeWithResolvedHost(node, resolvedHost)
   }
 
