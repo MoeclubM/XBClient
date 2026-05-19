@@ -35,16 +35,16 @@ export function SettingsPage() {
   } = useAppStore()
   const systemProxySupported = capabilities?.system_proxy === true
   const autostartSupported = capabilities?.autostart === true
+  const mobileControl = capabilities?.admob === true
   const [error, setError] = useState('')
   const [appVersion, setAppVersion] = useState('')
-  const capabilityRows: Array<[string, boolean | undefined]> = [
+  const capabilityRows: Array<[string, boolean | undefined]> = ([
     ['Local SOCKS', capabilities?.local_socks],
     ['System Proxy', systemProxySupported],
     ['Autostart', autostartSupported],
     ['Tray', capabilities?.tray],
     ['VPN', capabilities?.vpn],
-    ['AdMob', capabilities?.admob],
-  ]
+  ] as Array<[string, boolean | undefined]>).concat(mobileControl ? [['AdMob', capabilities?.admob]] : [])
 
   useEffect(() => {
     void getVersion()
@@ -55,7 +55,7 @@ export function SettingsPage() {
   useEffect(() => {
     let cancelled = false
     async function loadRewardConfig() {
-      if (!authData) return
+      if (!authData || !mobileControl) return
       const response = await xboardRequest<XboardBody<Record<string, unknown>>>('admob_reward_config', { baseUrl, authData })
       if (cancelled) return
       if (!response.ok || !response.body?.data) {
@@ -90,7 +90,7 @@ export function SettingsPage() {
     return () => {
       cancelled = true
     }
-  }, [authData, baseUrl, setAdmobConfig, setProfile])
+  }, [authData, baseUrl, mobileControl, setAdmobConfig, setProfile])
 
   async function persist(patch: Partial<AppSettings>) {
     const next = { ...settings, ...patch }

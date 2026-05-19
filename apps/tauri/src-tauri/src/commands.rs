@@ -70,7 +70,7 @@ pub fn runtime_capabilities() -> RuntimeCapabilities {
         )),
         local_socks: true,
         vpn: false,
-        payment: true,
+        payment: cfg!(any(target_os = "android", target_os = "ios")),
         admob: cfg!(any(target_os = "android", target_os = "ios")),
     }
 }

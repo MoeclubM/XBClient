@@ -105,6 +105,7 @@ export function Profile() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
+  const mobileControl = capabilities?.admob === true
   const pointsLogs = adRewardLogs.filter((log) => log.scene === 'points')
 
   useEffect(() => {
@@ -114,12 +115,10 @@ export function Profile() {
       setLoading(true)
       setError('')
       try {
-        const [info, config, inviteList, rewardConfig, rewardHistory] = await Promise.all([
+        const [info, config, inviteList] = await Promise.all([
           xboardRequest<UserInfoBody>('user_info', { baseUrl, authData }),
           xboardRequest<UserConfigBody>('user_config', { baseUrl, authData }),
           xboardRequest<InviteFetchBody>('invite_fetch', { baseUrl, authData }),
-          xboardRequest<XboardBody<Record<string, unknown>>>('admob_reward_config', { baseUrl, authData }),
-          xboardRequest<XboardBody<unknown>>('xbclient_reward_history', { baseUrl, authData }),
         ])
         if (cancelled) return
         if (info.ok) {
@@ -141,22 +140,46 @@ export function Profile() {
             inviteCommissionBalance: Math.round(numericValue(data.invite_commission_balance)),
           })
         }
-        if (rewardConfig.ok && rewardConfig.body?.data) {
-          const data = rewardConfig.body.data
-          const adEnabled = enabled(data.ad_enabled)
-          setProfile({ paymentEnabled: enabled(data.payment_enabled) })
-          setAdmobConfig({
-            admobCloudEnabled: adEnabled,
-            planRewardAdEnabled: adEnabled && enabled(data.plan_reward_ad_enabled),
-            pointsRewardAdEnabled: adEnabled && enabled(data.points_reward_ad_enabled),
-            appOpenAdEnabled: enabled(data.app_open_ad_enabled),
-            planRewardedAdUnitId: String(data.plan_rewarded_ad_unit_id ?? ''),
-            pointsRewardedAdUnitId: String(data.points_rewarded_ad_unit_id ?? ''),
-            appOpenAdUnitId: String(data.app_open_ad_unit_id ?? ''),
-            githubProjectUrl: String(data.github_project_url ?? ''),
-          })
+        if (mobileControl) {
+          const [rewardConfig, rewardHistory] = await Promise.all([
+            xboardRequest<XboardBody<Record<string, unknown>>>('admob_reward_config', { baseUrl, authData }),
+            xboardRequest<XboardBody<unknown>>('xbclient_reward_history', { baseUrl, authData }),
+          ])
+          if (cancelled) return
+          if (rewardConfig.ok && rewardConfig.body?.data) {
+            const data = rewardConfig.body.data
+            const adEnabled = enabled(data.ad_enabled)
+            setProfile({ paymentEnabled: enabled(data.payment_enabled) })
+            setAdmobConfig({
+              admobCloudEnabled: adEnabled,
+              planRewardAdEnabled: adEnabled && enabled(data.plan_reward_ad_enabled),
+              pointsRewardAdEnabled: adEnabled && enabled(data.points_reward_ad_enabled),
+              appOpenAdEnabled: enabled(data.app_open_ad_enabled),
+              planRewardedAdUnitId: String(data.plan_rewarded_ad_unit_id ?? ''),
+              pointsRewardedAdUnitId: String(data.points_rewarded_ad_unit_id ?? ''),
+              appOpenAdUnitId: String(data.app_open_ad_unit_id ?? ''),
+              githubProjectUrl: String(data.github_project_url ?? ''),
+            })
+          } else {
+            setProfile({ paymentEnabled: false })
+            setAdmobConfig({
+              admobCloudEnabled: false,
+              planRewardAdEnabled: false,
+              pointsRewardAdEnabled: false,
+              appOpenAdEnabled: false,
+              planRewardedAdUnitId: '',
+              pointsRewardedAdUnitId: '',
+              appOpenAdUnitId: '',
+            })
+            setError(rewardConfig.body?.message ?? rewardConfig.error ?? `HTTP ${rewardConfig.status}`)
+          }
+          if (rewardHistory.ok) {
+            setRewardLogs(parseRewardLogs(rewardHistory.body?.data))
+          } else {
+            setError(rewardHistory.body?.message ?? rewardHistory.error ?? `HTTP ${rewardHistory.status}`)
+          }
         } else {
-          setProfile({ paymentEnabled: false })
+          setProfile({ paymentEnabled: true })
           setAdmobConfig({
             admobCloudEnabled: false,
             planRewardAdEnabled: false,
@@ -166,12 +189,7 @@ export function Profile() {
             pointsRewardedAdUnitId: '',
             appOpenAdUnitId: '',
           })
-          setError(rewardConfig.body?.message ?? rewardConfig.error ?? `HTTP ${rewardConfig.status}`)
-        }
-        if (rewardHistory.ok) {
-          setRewardLogs(parseRewardLogs(rewardHistory.body?.data))
-        } else {
-          setError(rewardHistory.body?.message ?? rewardHistory.error ?? `HTTP ${rewardHistory.status}`)
+          setRewardLogs([])
         }
         if (inviteList.ok) setInvites(parseInvites(inviteList.body))
         const noticeResponse = await xboardRequest<NoticeFetchBody>('notices', { baseUrl, authData })
@@ -187,7 +205,7 @@ export function Profile() {
     return () => {
       cancelled = true
     }
-  }, [authData, baseUrl, setAdmobConfig, setProfile, setRewardLogs, setInvites, setNotices])
+  }, [authData, baseUrl, mobileControl, setAdmobConfig, setProfile, setRewardLogs, setInvites, setNotices])
 
   async function generateInvite() {
     try {
@@ -283,7 +301,7 @@ export function Profile() {
         )}
       </section>
 
-      {(pointsRewardAdEnabled || pointsLogs.length > 0) && (
+      {mobileControl && (pointsRewardAdEnabled || pointsLogs.length > 0) && (
         <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
           <div className="flex items-center justify-between gap-3">
             <div>
