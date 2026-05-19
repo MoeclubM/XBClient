@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getVersion } from '@tauri-apps/api/app'
-import { autostartSetEnabled, openExternal, systemProxyClear, systemProxySet } from '../api/system'
+import { autostartSetEnabled, openInAppBrowser, systemProxyClear, systemProxySet } from '../api/system'
 import { xboardRequest } from '../api/xboard'
 import { useAppStore, type AppSettings } from '../store'
 import { saveSettings } from '../store/persist'
@@ -299,7 +299,7 @@ export function SettingsPage() {
         {githubProjectUrl && (
           <button
             type="button"
-            onClick={() => void openExternal(githubProjectUrl)}
+            onClick={() => void openInAppBrowser(githubProjectUrl, t('source_code'))}
             className="w-full rounded-xl bg-surface px-4 py-2 text-left text-xs font-bold text-primary border border-outline-variant/25 hover:border-primary/30"
           >
             🔗 {t('source_code')}: <span className="font-mono break-all">{githubProjectUrl}</span>

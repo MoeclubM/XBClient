@@ -250,6 +250,12 @@ export function Profile() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => navigate('/services')}
+            className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer border border-primary/20"
+          >
+            🧩 {t('nav_services')}
+          </button>
+          <button
             onClick={() => navigate('/settings')}
             className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer border border-primary/20"
           >

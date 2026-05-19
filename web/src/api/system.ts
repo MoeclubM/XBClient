@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 export interface RuntimeCapabilities {
   platform: string
@@ -40,4 +41,21 @@ export async function autostartSetEnabled(value: boolean): Promise<void> {
 
 export async function openExternal(url: string): Promise<void> {
   await openUrl(url)
+}
+
+export async function openInAppBrowser(url: string, title = 'SecOVPN'): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const label = `browser-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const webview = new WebviewWindow(label, {
+      url,
+      title,
+      width: 1024,
+      height: 720,
+      minWidth: 720,
+      minHeight: 520,
+      focus: true,
+    })
+    void webview.once('tauri://created', () => resolve())
+    void webview.once('tauri://error', (event) => reject(new Error(String(event.payload))))
+  })
 }

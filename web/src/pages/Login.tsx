@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { openExternal } from '../api/system'
+import { openInAppBrowser } from '../api/system'
 import { normalizeBaseUrl, xboardRequest } from '../api/xboard'
 import { useAppStore, type AppSettings, type OAuthProvider } from '../store'
 import { saveSession, saveSettings } from '../store/persist'
@@ -212,7 +212,7 @@ export function Login() {
       url.searchParams.set('client', 'app')
       url.searchParams.set('app_scheme', 'secone')
       if (scene === 'register' && inviteCode.trim()) url.searchParams.set('invite_code', inviteCode.trim())
-      await openExternal(url.toString())
+      await openInAppBrowser(url.toString(), `${provider.label || provider.driver} OAuth`)
       setMessage(t('oauth_external_notice'))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))

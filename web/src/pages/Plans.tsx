@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { xboardRequest } from '../api/xboard'
-import { openExternal } from '../api/system'
+import { openInAppBrowser } from '../api/system'
 import { useAppStore, type PlanItem, type PlanPrice } from '../store'
 import { formatMoney, formatTrafficGb, numericValue } from '../format'
 import { enabled, parseRewardLogs, rewardStatusText } from '../reward'
@@ -181,7 +181,7 @@ export function Plans() {
         setMessage(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
         return
       }
-      await openExternal(response.body.data)
+      await openInAppBrowser(response.body.data, '套餐购买')
       return
     }
     const response = await xboardRequest<XboardBody<string>>('quick_login_url', {
@@ -193,7 +193,7 @@ export function Plans() {
       setMessage(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
       return
     }
-    await openExternal(response.body.data)
+    await openInAppBrowser(response.body.data, '套餐购买')
   }
 
   async function buyWithBalance(plan: PlanItem, price: PlanPrice) {

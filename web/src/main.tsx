@@ -6,6 +6,7 @@ import { Login } from './pages/Login'
 import { Home } from './pages/Home'
 import { Plans } from './pages/Plans'
 import { Profile } from './pages/Profile'
+import { Services } from './pages/Services'
 import { SettingsPage } from './pages/Settings'
 import { Licenses } from './pages/Licenses'
 import { MainLayout } from './components/MainLayout'
@@ -115,6 +116,7 @@ function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/plans" element={<Plans />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/services" element={<Services />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/licenses" element={<Licenses />} />
           </Route>
