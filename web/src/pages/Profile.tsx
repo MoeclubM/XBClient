@@ -4,6 +4,7 @@ import { xboardRequest } from '../api/xboard'
 import { useAppStore, type InviteItem, type NoticeItem } from '../store'
 import { clearSession } from '../store/persist'
 import { formatMoney, formatUnixDate, numericValue } from '../format'
+import { enabled, parseRewardLogs, rewardStatusText } from '../reward'
 import { useTranslation } from '../i18n'
 
 interface UserInfoBody {
@@ -17,6 +18,7 @@ interface UserInfoBody {
     plan_id?: number
     plan?: { name?: string }
   }
+  message?: string
 }
 
 interface UserConfigBody {
@@ -28,10 +30,12 @@ interface UserConfigBody {
     commission_rate?: number
     invite_commission_balance?: number
   }
+  message?: string
 }
 
 interface InviteFetchBody {
   data?: { codes?: Array<{ code?: string; status?: number }>; codes_list?: Array<{ code?: string; status?: number }> }
+  message?: string
 }
 
 interface NoticeFetchBody {
@@ -43,6 +47,12 @@ interface NoticeFetchBody {
     message?: string
     created_at?: number
   }>
+  message?: string
+}
+
+interface XboardBody<T = unknown> {
+  data?: T
+  message?: string
 }
 
 function parseInvites(body: InviteFetchBody | undefined): InviteItem[] {
@@ -76,13 +86,18 @@ export function Profile() {
     commissionBalance,
     currencySymbol,
     currencyUnit,
+    pointsRewardAdEnabled,
+    capabilities,
     inviteForce,
     inviteCommissionRate,
     inviteCommissionBalance,
     invites,
     notices,
+    adRewardLogs,
     subscription,
     setProfile,
+    setAdmobConfig,
+    setRewardLogs,
     setInvites,
     setNotices,
     reset,
@@ -90,6 +105,7 @@ export function Profile() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
+  const pointsLogs = adRewardLogs.filter((log) => log.scene === 'points')
 
   useEffect(() => {
     let cancelled = false
@@ -98,10 +114,12 @@ export function Profile() {
       setLoading(true)
       setError('')
       try {
-        const [info, config, inviteList] = await Promise.all([
+        const [info, config, inviteList, rewardConfig, rewardHistory] = await Promise.all([
           xboardRequest<UserInfoBody>('user_info', { baseUrl, authData }),
           xboardRequest<UserConfigBody>('user_config', { baseUrl, authData }),
           xboardRequest<InviteFetchBody>('invite_fetch', { baseUrl, authData }),
+          xboardRequest<XboardBody<Record<string, unknown>>>('admob_reward_config', { baseUrl, authData }),
+          xboardRequest<XboardBody<unknown>>('xbclient_reward_history', { baseUrl, authData }),
         ])
         if (cancelled) return
         if (info.ok) {
@@ -110,17 +128,50 @@ export function Profile() {
             balance: Math.round(numericValue(data.balance)),
             commissionBalance: Math.round(numericValue(data.commission_balance)),
           })
+        } else {
+          setError(info.body?.message ?? info.error ?? `HTTP ${info.status}`)
         }
         if (config.ok) {
           const data = config.body?.data ?? {}
           setProfile({
             currencySymbol: data.currency_symbol ?? data.currency ?? '',
-            currencyUnit: data.currency_unit ?? '',
-            paymentEnabled: true,
+            currencyUnit: data.currency_unit ?? data.currency ?? '',
             inviteForce: Boolean(data.invite_force),
             inviteCommissionRate: Math.round(numericValue(data.commission_rate)),
             inviteCommissionBalance: Math.round(numericValue(data.invite_commission_balance)),
           })
+        }
+        if (rewardConfig.ok && rewardConfig.body?.data) {
+          const data = rewardConfig.body.data
+          const adEnabled = enabled(data.ad_enabled)
+          setProfile({ paymentEnabled: enabled(data.payment_enabled) })
+          setAdmobConfig({
+            admobCloudEnabled: adEnabled,
+            planRewardAdEnabled: adEnabled && enabled(data.plan_reward_ad_enabled),
+            pointsRewardAdEnabled: adEnabled && enabled(data.points_reward_ad_enabled),
+            appOpenAdEnabled: enabled(data.app_open_ad_enabled),
+            planRewardedAdUnitId: String(data.plan_rewarded_ad_unit_id ?? ''),
+            pointsRewardedAdUnitId: String(data.points_rewarded_ad_unit_id ?? ''),
+            appOpenAdUnitId: String(data.app_open_ad_unit_id ?? ''),
+            githubProjectUrl: String(data.github_project_url ?? ''),
+          })
+        } else {
+          setProfile({ paymentEnabled: false })
+          setAdmobConfig({
+            admobCloudEnabled: false,
+            planRewardAdEnabled: false,
+            pointsRewardAdEnabled: false,
+            appOpenAdEnabled: false,
+            planRewardedAdUnitId: '',
+            pointsRewardedAdUnitId: '',
+            appOpenAdUnitId: '',
+          })
+          setError(rewardConfig.body?.message ?? rewardConfig.error ?? `HTTP ${rewardConfig.status}`)
+        }
+        if (rewardHistory.ok) {
+          setRewardLogs(parseRewardLogs(rewardHistory.body?.data))
+        } else {
+          setError(rewardHistory.body?.message ?? rewardHistory.error ?? `HTTP ${rewardHistory.status}`)
         }
         if (inviteList.ok) setInvites(parseInvites(inviteList.body))
         const noticeResponse = await xboardRequest<NoticeFetchBody>('notices', { baseUrl, authData })
@@ -136,7 +187,7 @@ export function Profile() {
     return () => {
       cancelled = true
     }
-  }, [authData, baseUrl, setProfile, setInvites, setNotices])
+  }, [authData, baseUrl, setAdmobConfig, setProfile, setRewardLogs, setInvites, setNotices])
 
   async function generateInvite() {
     try {
@@ -174,26 +225,33 @@ export function Profile() {
 
   return (
     <main className="mx-auto max-w-3xl space-y-5 p-6 pb-24">
-      <header className="border-b border-outline-variant/30 pb-3 flex items-center justify-between">
+      <header className="border-b border-outline-variant/30 pb-3 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-primary">{t('nav_profile')}</h1>
           <p className="mt-1 text-xs text-on-surface-variant font-medium break-all">{email || '未登录'}</p>
         </div>
-        <button
-          onClick={() => void logout()}
-          className="rounded-xl bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-500/20 active:scale-95 transition-all cursor-pointer border border-rose-500/20"
-        >
-          👋 {t('logout')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/settings')}
+            className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer border border-primary/20"
+          >
+            ⚙️ {t('settings_button')}
+          </button>
+          <button
+            onClick={() => void logout()}
+            className="rounded-xl bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-500/20 active:scale-95 transition-all cursor-pointer border border-rose-500/20"
+          >
+            👋 {t('logout')}
+          </button>
+        </div>
       </header>
 
       {error && (
-        <p className="rounded-lg bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20">
+        <p className="rounded-lg bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20 break-words">
           {error}
         </p>
       )}
 
-      {/* Main Balance Sheet */}
       <section className="space-y-4 rounded-2xl bg-surface-low p-6 shadow-md border border-outline-variant/40 relative overflow-hidden">
         <div className="absolute right-0 top-0 translate-x-6 -translate-y-6 h-28 w-28 rounded-full bg-primary/5 filter blur-xl"></div>
         <div>
@@ -225,7 +283,48 @@ export function Profile() {
         )}
       </section>
 
-      {/* Invites Management Section */}
+      {(pointsRewardAdEnabled || pointsLogs.length > 0) && (
+        <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold tracking-tight text-primary">🎁 {t('points_reward_ad_title')}</h2>
+              <p className="mt-1 text-xs text-on-surface-variant leading-relaxed">
+                {pointsRewardAdEnabled ? t('reward_ad_unavailable') : t('reward_ad_cloud_off')}
+              </p>
+            </div>
+            {pointsRewardAdEnabled && (
+              <button
+                type="button"
+                disabled
+                title={capabilities?.admob ? 'Tauri 前端未接入广告展示调用。' : t('reward_ad_unavailable')}
+                className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary opacity-60 border border-primary/20"
+              >
+                {t('reward_watch')}
+              </button>
+            )}
+          </div>
+          {pointsLogs.length > 0 && (
+            <div className="space-y-2 border-t border-outline-variant/20 pt-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('reward_recent')}</p>
+              <ul className="space-y-2">
+                {pointsLogs.slice(0, 3).map((log) => (
+                  <li key={log.id || `${log.transactionId}-${log.createdAt}`} className="flex items-center justify-between gap-3 text-xs">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-on-background">{log.rewardContent || rewardStatusText(log.status)}</p>
+                      {log.createdAt > 0 && <p className="mt-0.5 text-[10px] text-on-surface-variant">{formatUnixDate(log.createdAt)}</p>}
+                      {log.status === 'failed' && log.error && <p className="mt-0.5 text-[10px] text-rose-500">{log.error}</p>}
+                    </div>
+                    <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 font-bold text-primary">
+                      {rewardStatusText(log.status)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
+
       {(inviteForce || inviteCommissionRate > 0) && (
         <section className="space-y-4 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
           <div className="flex items-center justify-between">
@@ -272,7 +371,6 @@ export function Profile() {
         </section>
       )}
 
-      {/* Notices Section */}
       {notices.length > 0 && (
         <section className="space-y-4 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
           <h2 className="text-sm font-bold tracking-tight text-primary">📣 {t('announcement')}</h2>

@@ -57,6 +57,22 @@ export interface NoticeItem {
   createdAt: number
 }
 
+export interface OAuthProvider {
+  driver: string
+  label: string
+}
+
+export interface AdRewardLogItem {
+  id: number
+  scene: string
+  transactionId: string
+  status: string
+  error: string
+  rewardContent: string
+  usedAt: number
+  createdAt: number
+}
+
 export interface SubscriptionState {
   summary: string
   blockReason: '' | 'no_plan' | 'expired' | 'traffic_exceeded'
@@ -87,9 +103,14 @@ interface AppState {
   planRewardedAdUnitId: string
   pointsRewardedAdUnitId: string
   appOpenAdUnitId: string
+  githubProjectUrl: string
   inviteForce: boolean
   inviteCommissionRate: number
   inviteCommissionBalance: number
+  oauthProviders: OAuthProvider[]
+  registerEmailVerifyEnabled: boolean
+  registerCaptchaEnabled: boolean
+  adRewardLogs: AdRewardLogItem[]
   plans: PlanItem[]
   invites: InviteItem[]
   notices: NoticeItem[]
@@ -118,7 +139,15 @@ interface AppState {
     | 'planRewardedAdUnitId'
     | 'pointsRewardedAdUnitId'
     | 'appOpenAdUnitId'
+    | 'githubProjectUrl'
   >>): void
+  setAuthConfig(patch: Partial<Pick<AppState,
+    | 'oauthProviders'
+    | 'inviteForce'
+    | 'registerEmailVerifyEnabled'
+    | 'registerCaptchaEnabled'
+  >>): void
+  setRewardLogs(logs: AdRewardLogItem[]): void
   setPlans(plans: PlanItem[]): void
   setInvites(invites: InviteItem[]): void
   setNotices(notices: NoticeItem[]): void
@@ -164,9 +193,14 @@ export const useAppStore = create<AppState>((set) => ({
   planRewardedAdUnitId: '',
   pointsRewardedAdUnitId: '',
   appOpenAdUnitId: '',
+  githubProjectUrl: '',
   inviteForce: false,
   inviteCommissionRate: 0,
   inviteCommissionBalance: 0,
+  oauthProviders: [],
+  registerEmailVerifyEnabled: false,
+  registerCaptchaEnabled: false,
+  adRewardLogs: [],
   plans: [],
   invites: [],
   notices: [],
@@ -184,6 +218,8 @@ export const useAppStore = create<AppState>((set) => ({
   setCapabilities: (capabilities) => set({ capabilities }),
   setProfile: (patch) => set((state) => ({ ...state, ...patch })),
   setAdmobConfig: (patch) => set((state) => ({ ...state, ...patch })),
+  setAuthConfig: (patch) => set((state) => ({ ...state, ...patch })),
+  setRewardLogs: (adRewardLogs) => set({ adRewardLogs }),
   setPlans: (plans) => set({ plans }),
   setInvites: (invites) => set({ invites }),
   setNotices: (notices) => set({ notices }),
@@ -208,9 +244,14 @@ export const useAppStore = create<AppState>((set) => ({
       planRewardedAdUnitId: '',
       pointsRewardedAdUnitId: '',
       appOpenAdUnitId: '',
+      githubProjectUrl: '',
       inviteForce: false,
       inviteCommissionRate: 0,
       inviteCommissionBalance: 0,
+      oauthProviders: [],
+      registerEmailVerifyEnabled: false,
+      registerCaptchaEnabled: false,
+      adRewardLogs: [],
       plans: [],
       invites: [],
       notices: [],

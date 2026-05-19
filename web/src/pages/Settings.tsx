@@ -1,8 +1,16 @@
-import { useState } from 'react'
-import { autostartSetEnabled, systemProxyClear, systemProxySet } from '../api/system'
+import { useEffect, useState } from 'react'
+import { getVersion } from '@tauri-apps/api/app'
+import { autostartSetEnabled, openExternal, systemProxyClear, systemProxySet } from '../api/system'
+import { xboardRequest } from '../api/xboard'
 import { useAppStore, type AppSettings } from '../store'
 import { saveSettings } from '../store/persist'
+import { enabled } from '../reward'
 import { useTranslation } from '../i18n'
+
+interface XboardBody<T = unknown> {
+  data?: T
+  message?: string
+}
 
 function parseSocksAddr(addr: string): { host: string; port: number } {
   const idx = addr.lastIndexOf(':')
@@ -15,14 +23,74 @@ function parseSocksAddr(addr: string): { host: string; port: number } {
 export function SettingsPage() {
   const t = useTranslation()
   const {
+    baseUrl,
+    authData,
     settings,
     capabilities,
     vpn,
+    githubProjectUrl,
     setSettings,
+    setProfile,
+    setAdmobConfig,
   } = useAppStore()
   const systemProxySupported = capabilities?.system_proxy === true
   const autostartSupported = capabilities?.autostart === true
   const [error, setError] = useState('')
+  const [appVersion, setAppVersion] = useState('')
+  const capabilityRows: Array<[string, boolean | undefined]> = [
+    ['Local SOCKS', capabilities?.local_socks],
+    ['System Proxy', systemProxySupported],
+    ['Autostart', autostartSupported],
+    ['Tray', capabilities?.tray],
+    ['VPN', capabilities?.vpn],
+    ['AdMob', capabilities?.admob],
+  ]
+
+  useEffect(() => {
+    void getVersion()
+      .then(setAppVersion)
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadRewardConfig() {
+      if (!authData) return
+      const response = await xboardRequest<XboardBody<Record<string, unknown>>>('admob_reward_config', { baseUrl, authData })
+      if (cancelled) return
+      if (!response.ok || !response.body?.data) {
+        setProfile({ paymentEnabled: false })
+        setAdmobConfig({
+          admobCloudEnabled: false,
+          planRewardAdEnabled: false,
+          pointsRewardAdEnabled: false,
+          appOpenAdEnabled: false,
+          planRewardedAdUnitId: '',
+          pointsRewardedAdUnitId: '',
+          appOpenAdUnitId: '',
+        })
+        setError(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
+        return
+      }
+      const data = response.body.data
+      const adEnabled = enabled(data.ad_enabled)
+      setProfile({ paymentEnabled: enabled(data.payment_enabled) })
+      setAdmobConfig({
+        admobCloudEnabled: adEnabled,
+        planRewardAdEnabled: adEnabled && enabled(data.plan_reward_ad_enabled),
+        pointsRewardAdEnabled: adEnabled && enabled(data.points_reward_ad_enabled),
+        appOpenAdEnabled: enabled(data.app_open_ad_enabled),
+        planRewardedAdUnitId: String(data.plan_rewarded_ad_unit_id ?? ''),
+        pointsRewardedAdUnitId: String(data.points_rewarded_ad_unit_id ?? ''),
+        appOpenAdUnitId: String(data.app_open_ad_unit_id ?? ''),
+        githubProjectUrl: String(data.github_project_url ?? ''),
+      })
+    }
+    void loadRewardConfig().catch((err) => setError(err instanceof Error ? err.message : String(err)))
+    return () => {
+      cancelled = true
+    }
+  }, [authData, baseUrl, setAdmobConfig, setProfile])
 
   async function persist(patch: Partial<AppSettings>) {
     const next = { ...settings, ...patch }
@@ -73,7 +141,28 @@ export function SettingsPage() {
         </p>
       )}
 
-      {/* Core App Settings Panel */}
+      <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+        <div>
+          <h2 className="text-sm font-bold tracking-tight text-primary">{t('platform_status')}</h2>
+          <p className="mt-1 text-xs text-on-surface-variant">
+            {t('current_platform')}: <span className="font-mono">{capabilities?.platform ?? '-'}</span>
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {capabilityRows.map(([label, value]) => (
+            <div key={String(label)} className="flex items-center justify-between rounded-xl bg-surface px-3 py-2 text-xs border border-outline-variant/25">
+              <span className="font-semibold text-on-surface-variant">{label}</span>
+              <span className={`font-bold ${value ? 'text-emerald-500' : 'text-on-surface-variant'}`}>
+                {value ? 'ON' : 'OFF'}
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="rounded-xl bg-primary/10 p-3 text-xs leading-relaxed text-primary border border-primary/20">
+          {t('android_only_settings')}
+        </p>
+      </section>
+
       <section className="space-y-5 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
         <label className="flex items-center justify-between gap-4 cursor-pointer">
           <span className="space-y-0.5">
@@ -192,17 +281,30 @@ export function SettingsPage() {
         </label>
       </section>
 
-      {/* Licenses Link Section */}
-      <section className="rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40 flex items-center justify-between">
-        <span className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">
-          {t('licenses')}
-        </span>
-        <a
-          className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer"
-          href="#/settings/licenses"
-        >
-          📜 {t('licenses')}
-        </a>
+      <section className="space-y-4 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold tracking-tight text-primary">{t('about')}</h2>
+            <p className="mt-1 text-xs text-on-surface-variant">
+              {t('app_version')}: <span className="font-mono">{appVersion || '-'}</span>
+            </p>
+          </div>
+          <a
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer"
+            href="#/settings/licenses"
+          >
+            📜 {t('licenses')}
+          </a>
+        </div>
+        {githubProjectUrl && (
+          <button
+            type="button"
+            onClick={() => void openExternal(githubProjectUrl)}
+            className="w-full rounded-xl bg-surface px-4 py-2 text-left text-xs font-bold text-primary border border-outline-variant/25 hover:border-primary/30"
+          >
+            🔗 {t('source_code')}: <span className="font-mono break-all">{githubProjectUrl}</span>
+          </button>
+        )}
       </section>
     </main>
   )

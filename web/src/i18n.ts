@@ -73,6 +73,34 @@ const TRANSLATIONS = {
     api_user_agent: 'API User-Agent',
     api_user_agent_placeholder: '留空则使用系统默认',
     api_user_agent_desc: '用于 Xboard API 与 DoH 请求；订阅仍固定使用 mihomo / sing-box。',
+    load_site_config: '加载站点配置',
+    site_config_loaded: '站点配置已加载。',
+    auth_options: '登录选项',
+    email_code: '邮箱验证码',
+    captcha_token: '验证令牌',
+    send_email_verify: '发送邮箱验证码',
+    email_verify_sent: '邮箱验证码已发送。',
+    oauth_login: 'OAuth 登录',
+    oauth_register: 'OAuth 注册',
+    oauth_verify: 'OAuth verify / token',
+    token_login: 'Token 登录',
+    oauth_external_notice: '已打开 OAuth 页面；当前 Tauri 前端不会模拟回调，请将回调链接中的 verify/token 粘贴回来完成登录。',
+    plan_reward_ad_title: '套餐激励广告',
+    points_reward_ad_title: '积分激励广告',
+    reward_watch: '观看广告',
+    reward_recent: '最近奖励记录',
+    reward_ad_unavailable: '当前平台未接入 AdMob 展示 API，不会模拟奖励成功。',
+    reward_ad_cloud_off: '云控未开启该广告入口。',
+    reward_status_credited: '已入账',
+    reward_status_failed: '失败',
+    reward_status_pending: '处理中',
+    settings_button: '设置',
+    platform_status: '平台能力',
+    about: '关于',
+    app_version: '应用版本',
+    source_code: '项目源码',
+    current_platform: '当前平台',
+    android_only_settings: 'Android VPN 专属的应用规则、VPN 权限、IPv6/分流由 Kotlin Android 端处理；当前 Tauri 前端使用本地 SOCKS 与系统代理。',
   },
   en: {
     nav_nodes: 'Nodes',
@@ -375,9 +403,10 @@ export function useTranslation() {
     ? (navigator.language.startsWith('zh') ? 'zh-CN' : 'en')
     : (appLanguage || 'zh-CN')
 
-  const dict = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS['zh-CN']
+  type TranslationKey = keyof typeof TRANSLATIONS['zh-CN']
+  const dict = (TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS['zh-CN']) as Partial<Record<TranslationKey, string>>
 
-  return (key: keyof typeof TRANSLATIONS['zh-CN']) => {
+  return (key: TranslationKey) => {
     return dict[key] || TRANSLATIONS['zh-CN'][key] || String(key)
   }
 }
