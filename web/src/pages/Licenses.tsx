@@ -22,7 +22,7 @@ export function Licenses() {
           </p>
         </div>
         <a
-          className="inline-flex items-center gap-1 rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all"
+          className="inline-flex items-center gap-1 rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20"
           href="#/settings"
         >
           ← {t('nav_settings')}
@@ -33,12 +33,12 @@ export function Licenses() {
         {ITEMS.map(([name, url]) => (
           <li
             key={name}
-            className="flex items-center justify-between rounded-2xl bg-surface-low p-4 shadow-sm border border-outline-variant/40 hover:border-primary/40 transition-all duration-200"
+            className="flex items-center justify-between rounded-2xl bg-surface-low p-4 border border-outline-variant/40 hover:border-primary/40"
           >
             <span className="font-bold text-sm tracking-wide">{name}</span>
             <button
               onClick={() => void openExternal(url)}
-              className="rounded-xl bg-primary/10 px-4 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer"
+              className="rounded-xl bg-primary/10 px-4 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 cursor-pointer"
             >
               🌐 Open
             </button>

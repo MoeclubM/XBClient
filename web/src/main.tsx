@@ -32,7 +32,7 @@ function LoadingScreen() {
     <main className="flex min-h-full items-center justify-center p-6">
       <div className="flex flex-col items-center gap-4 text-center">
         <img
-          className="h-20 w-20 drop-shadow-[0_18px_38px_rgba(14,116,190,0.35)]"
+          className="h-20 w-20"
           src="./logo.png"
           alt="Logo"
         />

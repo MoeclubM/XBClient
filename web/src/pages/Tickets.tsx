@@ -185,14 +185,14 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
       {message && (
         <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs font-bold text-primary flex items-center justify-between">
           <span>ℹ️ {message}</span>
-          <button onClick={() => setMessage('')} className="text-on-surface-variant hover:text-primary transition-colors cursor-pointer">✕</button>
+          <button onClick={() => setMessage('')} className="text-on-surface-variant hover:text-primary cursor-pointer">✕</button>
         </div>
       )}
 
       {/* Main workspace */}
       <section className="grid gap-6 md:grid-cols-5 min-h-[500px]">
         {/* Left Column: Ticket List */}
-        <section className="md:col-span-2 rounded-2xl bg-surface-low p-4 shadow-sm border border-outline-variant/40 flex flex-col max-h-[600px]">
+        <section className="md:col-span-2 rounded-2xl bg-surface-low p-4 border border-outline-variant/40 flex flex-col max-h-[600px]">
           <div className="pb-3 border-b border-outline-variant/20 mb-3 flex items-center justify-between">
             <h2 className="text-sm font-extrabold text-on-background">我的工单列表 ({tickets.length})</h2>
             <button onClick={() => void loadTickets(false)} className="text-xs text-primary font-bold hover:underline cursor-pointer">刷新</button>
@@ -200,7 +200,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
 
           {loading ? (
             <div className="flex-1 flex items-center justify-center p-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+              <p className="text-xs font-semibold text-on-surface-variant">加载中...</p>
             </div>
           ) : tickets.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-on-surface-variant">
@@ -222,7 +222,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
                   <li
                     key={id || index}
                     onClick={() => void openTicket(id)}
-                    className={`rounded-xl p-3 border transition-all duration-150 cursor-pointer flex flex-col gap-1.5 ${
+                    className={`rounded-xl p-3 border cursor-pointer flex flex-col gap-1.5 ${
                       isSelected
                         ? 'bg-primary/10 border-primary/30'
                         : 'bg-surface border-outline-variant/30 hover:border-primary/20'
@@ -248,7 +248,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
         </section>
 
         {/* Right Column: Chat/Messages Detail */}
-        <section className="md:col-span-3 rounded-2xl bg-surface-low p-4 shadow-sm border border-outline-variant/40 flex flex-col max-h-[600px]">
+        <section className="md:col-span-3 rounded-2xl bg-surface-low p-4 border border-outline-variant/40 flex flex-col max-h-[600px]">
           {selectedTicketId ? (
             <div className="flex flex-col h-full flex-1">
               {/* Detail Header */}
@@ -263,7 +263,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
                   <button
                     onClick={closeTicket}
                     disabled={closing}
-                    className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all cursor-pointer shrink-0 disabled:opacity-40"
+                    className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 cursor-pointer shrink-0 disabled:opacity-40"
                   >
                     {closing ? '正在关闭...' : '关闭工单'}
                   </button>
@@ -273,7 +273,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
               {/* Chat View */}
               {loadingDetail ? (
                 <div className="flex-1 flex items-center justify-center p-8">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                  <p className="text-xs font-semibold text-on-surface-variant">加载中...</p>
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
@@ -292,7 +292,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
                         <div className={`text-[10px] text-on-surface-variant mb-1 font-bold ${isStaff ? 'text-left' : 'text-right'}`}>
                           {senderName} · <span className="font-mono font-medium">{time}</span>
                         </div>
-                        <div className={`rounded-2xl px-3.5 py-2.5 text-xs whitespace-pre-wrap leading-relaxed shadow-xs border ${
+                        <div className={`rounded-2xl px-3.5 py-2.5 text-xs whitespace-pre-wrap leading-relaxed border ${
                           isStaff
                             ? 'bg-surface text-on-background border-outline-variant/35 rounded-tl-xs'
                             : 'bg-primary text-white border-primary/20 rounded-tr-xs'
@@ -309,7 +309,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
               {!isClosed ? (
                 <form className="mt-auto space-y-2 border-t border-outline-variant/20 pt-3" onSubmit={replyTicket}>
                   <textarea
-                    className="w-full rounded-xl bg-surface px-3 py-2.5 text-xs outline-none border border-outline-variant/50 focus:border-primary/50 transition-colors"
+                    className="w-full rounded-xl bg-surface px-3 py-2.5 text-xs outline-none border border-outline-variant/50 focus:border-primary/50"
                     placeholder="请输入回复问题的内容..."
                     rows={3}
                     value={ticketReply}
@@ -319,11 +319,11 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
                   />
                   <div className="flex justify-end">
                     <button
-                      className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow hover:bg-primary/95 active:scale-95 transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1"
+                      className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/95 cursor-pointer disabled:opacity-40 flex items-center gap-1"
                       type="submit"
                       disabled={replying}
                     >
-                      {replying && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-1"></div>}
+                      {replying && <span>提交中...</span>}
                       回复工单
                     </button>
                   </div>
@@ -348,14 +348,14 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
 
       {/* Create Ticket Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <form className="bg-surface-low border border-outline-variant/40 rounded-3xl w-full max-w-md p-5 flex flex-col shadow-2xl relative" onSubmit={createTicket}>
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <form className="bg-surface-low border border-outline-variant/40 rounded-3xl w-full max-w-md p-5 flex flex-col relative" onSubmit={createTicket}>
             <header className="flex items-center justify-between pb-3.5 border-b border-outline-variant/20 mb-4">
               <h2 className="text-base font-extrabold text-on-background">新建服务工单</h2>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="h-8 w-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant hover:bg-rose-500 hover:text-white transition-all cursor-pointer"
+                className="h-8 w-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant hover:bg-rose-500 hover:text-white cursor-pointer"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -367,7 +367,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
               <div className="space-y-1">
                 <label className="text-[10px] font-extrabold text-primary uppercase">主题 / Subject</label>
                 <input
-                  className="w-full rounded-xl bg-surface px-3 py-2 text-xs outline-none border border-outline-variant/50 focus:border-primary/50 transition-colors"
+                  className="w-full rounded-xl bg-surface px-3 py-2 text-xs outline-none border border-outline-variant/50 focus:border-primary/50"
                   placeholder="如：节点无法连接、套餐状态异常"
                   value={ticketSubject}
                   onChange={(event) => setTicketSubject(event.target.value)}
@@ -379,7 +379,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
               <div className="space-y-1">
                 <label className="text-[10px] font-extrabold text-primary uppercase">问题描述 / Message</label>
                 <textarea
-                  className="w-full rounded-xl bg-surface px-3 py-2 text-xs outline-none border border-outline-variant/50 focus:border-primary/50 transition-colors"
+                  className="w-full rounded-xl bg-surface px-3 py-2 text-xs outline-none border border-outline-variant/50 focus:border-primary/50"
                   placeholder="请详细描述您遇到的问题或故障现象，以便客服能快速为您定位问题。"
                   rows={4}
                   value={ticketMessage}
@@ -394,17 +394,17 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="rounded-xl border border-outline-variant/60 px-4 py-2 text-xs font-bold text-on-surface hover:bg-on-surface-variant/5 transition-all cursor-pointer"
+                className="rounded-xl border border-outline-variant/60 px-4 py-2 text-xs font-bold text-on-surface hover:bg-on-surface-variant/5 cursor-pointer"
                 disabled={submitting}
               >
                 取消
               </button>
               <button
                 type="submit"
-                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow hover:bg-primary/95 transition-all cursor-pointer flex items-center gap-1 disabled:opacity-40"
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/95 cursor-pointer flex items-center gap-1 disabled:opacity-40"
                 disabled={submitting}
               >
-                {submitting && <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-1"></div>}
+                {submitting && <span>提交中...</span>}
                 提交工单
               </button>
             </footer>

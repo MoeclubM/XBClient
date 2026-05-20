@@ -356,8 +356,7 @@ export function Profile() {
         </p>
       )}
 
-      <section className="space-y-4 rounded-2xl bg-surface-low p-6 shadow-md border border-outline-variant/40 relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-6 -translate-y-6 h-28 w-28 rounded-full bg-primary/5 filter blur-xl"></div>
+      <section className="space-y-4 rounded-2xl bg-surface-low p-6 border border-outline-variant/40">
         <div>
           <p className="text-xs font-bold text-on-surface-variant tracking-wider uppercase">{t('balance')}</p>
           <p className="text-3xl font-extrabold text-primary mt-1.5">{formatMoney(balance, currencySymbol, currencyUnit)}</p>
@@ -388,7 +387,7 @@ export function Profile() {
       </section>
 
       {mobileControl && pointsRewardAdEnabled && (
-        <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+        <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold tracking-tight text-primary">🎁 {t('points_reward_ad_title')}</h2>
@@ -425,12 +424,12 @@ export function Profile() {
       )}
 
       {(inviteForce || inviteCommissionRate > 0) && (
-        <section className="space-y-4 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+        <section className="space-y-4 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold tracking-tight">{t('invites_title')}</h2>
             <button
               onClick={() => void generateInvite()}
-              className="rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-primary/95 hover:shadow active:scale-95 transition-all cursor-pointer"
+              className="rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-white hover:bg-primary/95 cursor-pointer"
             >
               ➕ {t('invite_generate')}
             </button>
@@ -449,7 +448,7 @@ export function Profile() {
               {invites.map((invite) => (
                 <li
                   key={invite.code}
-                  className="flex items-center justify-between rounded-xl bg-surface p-3 border border-outline-variant/30 hover:border-primary/20 transition-all duration-200"
+                  className="flex items-center justify-between rounded-xl bg-surface p-3 border border-outline-variant/30 hover:border-primary/20"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-mono font-bold text-sm text-primary tracking-wide">{invite.code}</p>
@@ -459,7 +458,7 @@ export function Profile() {
                   </div>
                   <button
                     onClick={() => void copyCode(invite.code)}
-                    className="rounded-lg bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer"
+                    className="rounded-lg bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 cursor-pointer"
                   >
                     {copied === invite.code ? `✓ ${t('copied')}` : `📋 ${t('copy')}`}
                   </button>
@@ -471,7 +470,7 @@ export function Profile() {
       )}
 
       {notices.length > 0 && (
-        <section className="space-y-4 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+        <section className="space-y-4 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
           <h2 className="text-sm font-bold tracking-tight text-primary">📣 {t('announcement')}</h2>
           <ul className="space-y-4">
             {notices.map((notice) => (

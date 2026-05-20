@@ -55,7 +55,7 @@ export function AccountSecurity({ baseUrl, authData, loading, sessions, setSessi
 
   return (
     <section className="grid gap-4 md:grid-cols-2">
-      <form onSubmit={changePassword} className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+      <form onSubmit={changePassword} className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
         <h2 className="text-sm font-bold tracking-tight text-primary">账号安全</h2>
         <input className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50" type="password" placeholder="当前密码" value={oldPassword} onChange={(event) => setOldPassword(event.target.value)} required />
         <input className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50" type="password" placeholder="新密码" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required />
@@ -65,11 +65,11 @@ export function AccountSecurity({ baseUrl, authData, loading, sessions, setSessi
         </div>
       </form>
 
-      <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+      <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold tracking-tight text-primary">活跃会话</h2>
           {loading && (
-            <div className="h-3.5 w-3.5 animate-spin rounded-full border border-primary border-t-transparent"></div>
+            <span className="text-[10px] font-semibold text-on-surface-variant">加载中...</span>
           )}
         </div>
         <ul className="space-y-2 max-h-64 overflow-y-auto">

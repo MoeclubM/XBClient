@@ -309,7 +309,7 @@ export function Plans() {
       </header>
 
       {mobileControl && planRewardAdEnabled && (
-        <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+        <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold tracking-tight text-primary">🎁 {t('plan_reward_ad_title')}</h2>
@@ -352,7 +352,7 @@ export function Plans() {
       )}
       {loading && plans.length === 0 && (
         <div className="flex justify-center p-8">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <p className="text-xs font-semibold text-on-surface-variant">加载中...</p>
         </div>
       )}
       {!loading && plans.length === 0 && <p className="text-xs text-on-surface-variant font-medium">暂无可用套餐。</p>}
@@ -361,7 +361,7 @@ export function Plans() {
         {plans.map((plan) => (
           <li
             key={plan.id}
-            className="rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40 hover:border-primary/25 transition-all duration-200"
+            className="rounded-2xl bg-surface-low p-5 border border-outline-variant/40 hover:border-primary/25"
           >
             <div className="flex items-start justify-between gap-3 pb-3 border-b border-outline-variant/20">
               <div className="min-w-0">
@@ -373,7 +373,7 @@ export function Plans() {
                 )}
               </div>
               {plan.prices.length > 0 && (
-                <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-extrabold text-primary border border-primary/20 shadow-sm">
+                <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-extrabold text-primary border border-primary/20">
                   {formatMoney(plan.prices[0].amount, currencySymbol, currencyUnit)} 起
                 </span>
               )}
@@ -413,7 +413,7 @@ export function Plans() {
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={() => void openPlanPage(plan.id)}
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-primary/95 hover:shadow active:scale-95 transition-all cursor-pointer"
+                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/95 cursor-pointer"
                 >
                   🛒 {t('purchase_web')}
                 </button>

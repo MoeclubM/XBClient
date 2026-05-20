@@ -86,7 +86,7 @@ export function TicketsPanel({ baseUrl, authData, tickets, setTickets, setMessag
 
   return (
     <section className="grid gap-4 lg:grid-cols-2">
-      <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+      <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
         <h2 className="text-sm font-bold tracking-tight text-primary">工单</h2>
         <form className="space-y-2" onSubmit={createTicket}>
           <input className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50" placeholder="标题" value={ticketSubject} onChange={(event) => setTicketSubject(event.target.value)} required />
@@ -109,7 +109,7 @@ export function TicketsPanel({ baseUrl, authData, tickets, setTickets, setMessag
         </ul>
       </section>
 
-      <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+      <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold tracking-tight text-primary">工单详情</h2>
           {selectedTicketId && <button className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-500" onClick={() => void closeTicket()}>关闭工单</button>}

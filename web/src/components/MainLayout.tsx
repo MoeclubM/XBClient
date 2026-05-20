@@ -52,7 +52,7 @@ export function MainLayout() {
   ]
 
   return (
-    <div className="flex min-h-full flex-col bg-background-app text-on-background transition-all-200">
+    <div className="flex min-h-full flex-col bg-background-app text-on-background">
       <div className={`flex-1 overflow-y-auto ${hideNav ? '' : 'pb-[calc(5rem+env(safe-area-inset-bottom,0px))]'}`}>
         <Outlet />
       </div>

@@ -70,7 +70,7 @@ export function LogsKnowledge({ baseUrl, authData, setMessage }: Props) {
 
   return (
     <section className="grid gap-4 lg:grid-cols-3">
-      <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+      <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
         <h2 className="text-sm font-bold tracking-tight text-primary">流量日志</h2>
         <button className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary border border-primary/20" onClick={() => void loadTrafficLogs()}>加载流量日志</button>
         <ul className="space-y-2 max-h-72 overflow-y-auto">
@@ -86,13 +86,13 @@ export function LogsKnowledge({ baseUrl, authData, setMessage }: Props) {
         </ul>
       </section>
 
-      <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+      <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
         <h2 className="text-sm font-bold tracking-tight text-primary">Telegram</h2>
         <button className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary border border-primary/20" onClick={() => void loadTelegram()}>加载并打开 Bot</button>
         <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-xl bg-surface p-3 text-xs text-on-surface-variant border border-outline-variant/25">{telegramInfo ? shortJson(telegramInfo) : '未加载。'}</pre>
       </section>
 
-      <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+      <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
         <h2 className="text-sm font-bold tracking-tight text-primary">知识库</h2>
         <form className="flex gap-2" onSubmit={searchKnowledge}>
           <input className="min-w-0 flex-1 rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50" placeholder="关键词" value={knowledgeKeyword} onChange={(event) => setKnowledgeKeyword(event.target.value)} />

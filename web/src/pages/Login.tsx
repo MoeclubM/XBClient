@@ -324,14 +324,14 @@ export function Login() {
   }
 
   return (
-    <main className="flex min-h-full items-center justify-center bg-background-app p-6 pb-20 text-on-background transition-all-200">
+    <main className="flex min-h-full items-center justify-center bg-background-app p-6 pb-20 text-on-background">
       <form
         onSubmit={submit}
-        className="w-full max-w-2xl space-y-5 rounded-2xl bg-surface-low p-6 shadow-xl border border-outline-variant/40"
+        className="w-full max-w-2xl space-y-5 rounded-2xl bg-surface-low p-6 border border-outline-variant/40"
       >
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/30 pb-4">
           <div className="flex items-center gap-3">
-            <img className="h-10 w-10 shrink-0 filter drop-shadow-[0_4px_10px_rgba(11,87,208,0.25)]" src="./logo.png" alt={appName || 'Logo'} />
+            <img className="h-10 w-10 shrink-0" src="./logo.png" alt={appName || 'Logo'} />
             <div className="min-w-0">
               <h1 className="text-lg font-bold tracking-tight text-primary">
                 {appName} {mode === 'login' ? t('login') : t('register')}
@@ -368,7 +368,7 @@ export function Login() {
                 setError('')
                 setMessage('')
               }}
-              className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 active:scale-95 transition-all duration-150"
+              className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
             >
               {mode === 'login' ? t('register_account') : t('back_to_login')}
             </button>
@@ -380,7 +380,7 @@ export function Login() {
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('email')}</span>
             <input
-              className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-150"
+              className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary"
               type="email"
               placeholder="name@example.com"
               value={email}
@@ -392,7 +392,7 @@ export function Login() {
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('password')}</span>
             <input
-              className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-150"
+              className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary"
               type="password"
               placeholder="••••••••"
               value={password}
@@ -408,7 +408,7 @@ export function Login() {
                   {t('invite_code')}{inviteForce ? ' *' : ''}
                 </span>
                 <input
-                  className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-150"
+                  className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary"
                   placeholder="Code"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
@@ -420,7 +420,7 @@ export function Login() {
                 <label className="block">
                   <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('captcha_token')}</span>
                   <input
-                    className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-150"
+                    className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary"
                     value={captcha}
                     onChange={(e) => setCaptcha(e.target.value)}
                   />
@@ -432,7 +432,7 @@ export function Login() {
                   <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('email_code')}</span>
                   <div className="flex gap-2">
                     <input
-                      className="min-w-0 flex-1 rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-150"
+                      className="min-w-0 flex-1 rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary"
                       value={emailCode}
                       onChange={(e) => setEmailCode(e.target.value)}
                       required
@@ -475,7 +475,7 @@ export function Login() {
                     key={provider.driver}
                     type="button"
                     onClick={() => void openOAuth(provider, mode)}
-                    className="rounded-xl bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 border border-primary/20"
+                    className="rounded-xl bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/20 border border-primary/20"
                   >
                     {mode === 'login' ? t('oauth_login') : t('oauth_register')} · {provider.label || provider.driver}
                   </button>
@@ -528,7 +528,7 @@ export function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white shadow-md shadow-primary/20 hover:bg-primary/95 hover:shadow-primary/30 active:scale-95 disabled:opacity-50 transition-all duration-150 cursor-pointer"
+          className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white hover:bg-primary/95 disabled:opacity-50 cursor-pointer"
         >
           {loading ? t('action_connecting') : mode === 'login' ? t('login') : t('register')}
         </button>

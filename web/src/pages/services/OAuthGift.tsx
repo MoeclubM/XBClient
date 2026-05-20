@@ -79,7 +79,7 @@ export function OAuthGift({ baseUrl, authData, oauthProviders, bindings, setBind
 
   return (
     <section className="grid gap-4 md:grid-cols-2">
-      <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+      <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
         <h2 className="text-sm font-bold tracking-tight text-primary">OAuth 绑定</h2>
         <div className="flex flex-wrap gap-2">
           {oauthProviders.map((provider) => {
@@ -98,7 +98,7 @@ export function OAuthGift({ baseUrl, authData, oauthProviders, bindings, setBind
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+      <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
         <h2 className="text-sm font-bold tracking-tight text-primary">礼品卡</h2>
         <div className="flex gap-2">
           <input className="min-w-0 flex-1 rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50" placeholder="礼品卡代码" value={giftCode} onChange={(event) => setGiftCode(event.target.value)} />

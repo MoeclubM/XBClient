@@ -140,7 +140,7 @@ export function SettingsPage() {
         </p>
       )}
 
-      <section className="space-y-5 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+      <section className="space-y-5 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
         {systemProxySupported && (
           <>
             <label className="flex items-center justify-between gap-4 cursor-pointer">
@@ -193,7 +193,7 @@ export function SettingsPage() {
           <select
             value={settings.themeMode}
             onChange={(e) => void persist({ themeMode: e.target.value as any })}
-            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary transition-all cursor-pointer font-medium"
+            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer font-medium"
           >
             <option value="system">🎨 {t('theme_system')}</option>
             <option value="light">☀️ {t('theme_light')}</option>
@@ -211,7 +211,7 @@ export function SettingsPage() {
           <select
             value={settings.appLanguage}
             onChange={(e) => void persist({ appLanguage: e.target.value as any })}
-            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary transition-all cursor-pointer font-medium"
+            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer font-medium"
           >
             <option value="system">🌐 Language: System</option>
             <option value="zh-CN">中文</option>
@@ -229,7 +229,7 @@ export function SettingsPage() {
             {t('node_dns')}
           </span>
           <input
-            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary transition-all font-mono"
+            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary font-mono"
             value={settings.nodeDns}
             onChange={(event) => void persist({ nodeDns: event.target.value })}
           />
@@ -242,7 +242,7 @@ export function SettingsPage() {
             {t('node_test_target')}
           </span>
           <input
-            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary transition-all font-mono"
+            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary font-mono"
             value={settings.nodeTestTarget}
             onChange={(event) => void persist({ nodeTestTarget: event.target.value })}
           />
@@ -250,7 +250,7 @@ export function SettingsPage() {
 
       </section>
 
-      <section className="space-y-4 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
+      <section className="space-y-4 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold tracking-tight text-primary">{t('about')}</h2>
@@ -259,7 +259,7 @@ export function SettingsPage() {
             </p>
           </div>
           <a
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20 cursor-pointer"
             href="#/settings/licenses"
           >
             📜 {t('licenses')}
