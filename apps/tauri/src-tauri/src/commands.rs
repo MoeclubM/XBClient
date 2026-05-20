@@ -80,8 +80,8 @@ pub fn runtime_capabilities() -> RuntimeCapabilities {
             target_os = "macos",
             target_os = "linux"
         )),
-        local_socks: true,
-        vpn: false,
+        local_socks: !cfg!(target_os = "android"),
+        vpn: cfg!(target_os = "android"),
         payment: cfg!(any(target_os = "android", target_os = "ios")),
         admob: cfg!(any(target_os = "android", target_os = "ios")),
     }
@@ -89,13 +89,8 @@ pub fn runtime_capabilities() -> RuntimeCapabilities {
 
 #[tauri::command]
 pub fn runtime_config() -> Result<RuntimeConfig, String> {
-    let app_name = option_env!("XBCLIENT_APP_NAME")
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or("XBClient")
-        .to_string();
     Ok(RuntimeConfig {
-        app_name,
+        app_name: required_build_config("XBCLIENT_APP_NAME", option_env!("XBCLIENT_APP_NAME"))?,
         default_api_url: required_build_config(
             "XBCLIENT_DEFAULT_API_URL",
             option_env!("XBCLIENT_DEFAULT_API_URL"),
@@ -263,6 +258,33 @@ pub async fn admob_show_app_open(
 ) -> Result<AppOpenAdResult, String> {
     app.xbclient_mobile()
         .show_app_open_ad(request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn android_start_vpn(
+    app: tauri::AppHandle,
+    request: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    app.xbclient_mobile()
+        .start_vpn(request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn android_stop_vpn(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    app.xbclient_mobile()
+        .stop_vpn()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn android_get_vpn_state(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    app.xbclient_mobile()
+        .get_vpn_state()
         .await
         .map_err(|error| error.to_string())
 }

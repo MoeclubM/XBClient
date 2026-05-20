@@ -71,7 +71,7 @@ export function Login() {
   const registerCaptchaEnabled = useAppStore((s) => s.registerCaptchaEnabled)
   const setAuthConfig = useAppStore((s) => s.setAuthConfig)
   const baseUrl = buildConfig?.default_api_url ?? ''
-  const appName = buildConfig?.app_name ?? 'XBClient'
+  const appName = buildConfig?.app_name ?? ''
   const oauthCallbackSupported = capabilities?.platform === 'android'
 
   const [mode, setMode] = useState<AuthMode>('login')
@@ -327,11 +327,11 @@ export function Login() {
     <main className="flex min-h-full items-center justify-center bg-background-app p-6 pb-20 text-on-background transition-all-200">
       <form
         onSubmit={submit}
-        className="w-full max-w-2xl space-y-5 rounded-2xl bg-surface-low p-6 shadow-xl border border-outline-variant/40 animate-content-size"
+        className="w-full max-w-2xl space-y-5 rounded-2xl bg-surface-low p-6 shadow-xl border border-outline-variant/40"
       >
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/30 pb-4">
           <div className="flex items-center gap-3">
-            <img className="h-10 w-10 shrink-0 filter drop-shadow-[0_4px_10px_rgba(11,87,208,0.25)]" src="./logo.png" alt="XBClient" />
+            <img className="h-10 w-10 shrink-0 filter drop-shadow-[0_4px_10px_rgba(11,87,208,0.25)]" src="./logo.png" alt={appName || 'Logo'} />
             <div className="min-w-0">
               <h1 className="text-lg font-bold tracking-tight text-primary">
                 {appName} {mode === 'login' ? t('login') : t('register')}
@@ -376,9 +376,6 @@ export function Login() {
           </div>
         </div>
 
-        <section className="rounded-2xl bg-primary/10 p-3 text-xs font-semibold text-primary border border-primary/20">
-          {configLoading ? '服务配置加载中…' : configLoaded ? '服务配置已同步。' : '服务配置等待同步。'}
-        </section>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
@@ -407,7 +404,7 @@ export function Login() {
 
           {mode === 'register' && (
             <>
-              <label className="block animate-slide-down">
+              <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-on-surface-variant">
                   {t('invite_code')}{inviteForce ? ' *' : ''}
                 </span>
@@ -421,7 +418,7 @@ export function Login() {
               </label>
 
               {registerCaptchaEnabled && (
-                <label className="block animate-slide-down">
+                <label className="block">
                   <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('captcha_token')}</span>
                   <input
                     className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-150"
@@ -432,7 +429,7 @@ export function Login() {
               )}
 
               {registerEmailVerifyEnabled && (
-                <label className="block animate-slide-down md:col-span-2">
+                <label className="block md:col-span-2">
                   <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('email_code')}</span>
                   <div className="flex gap-2">
                     <input
@@ -456,65 +453,67 @@ export function Login() {
           )}
         </div>
 
-        <section className="space-y-3 rounded-2xl bg-surface p-4 border border-outline-variant/30">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">{t('auth_options')}</h2>
-            {!configLoaded && (
-              <button
-                type="button"
-                onClick={() => void loadGuestConfig(true)}
-                disabled={configLoading}
-                className="text-[10px] font-semibold text-primary disabled:opacity-50"
-              >
-                {configLoading ? t('refreshing') : '重新同步'}
-              </button>
-            )}
-          </div>
-
-          {oauthCallbackSupported && oauthProviders.length > 0 ? (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {oauthProviders.map((provider) => (
+        {(oauthCallbackSupported || oauthConfirm) && (
+          <section className="space-y-3 rounded-2xl bg-surface p-4 border border-outline-variant/30">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">{t('auth_options')}</h2>
+              {!configLoaded && (
                 <button
-                  key={provider.driver}
                   type="button"
-                  onClick={() => void openOAuth(provider, mode)}
-                  className="rounded-xl bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 border border-primary/20"
+                  onClick={() => void loadGuestConfig(true)}
+                  disabled={configLoading}
+                  className="text-[10px] font-semibold text-primary disabled:opacity-50"
                 >
-                  {mode === 'login' ? t('oauth_login') : t('oauth_register')} · {provider.label || provider.driver}
+                  {configLoading ? t('refreshing') : '重新同步'}
                 </button>
-              ))}
+              )}
             </div>
-          ) : oauthCallbackSupported ? (
-            <p className="text-xs text-on-surface-variant">服务配置同步后会显示可用 OAuth 登录方式。</p>
-          ) : (
-            <p className="text-xs text-on-surface-variant">当前平台未接入应用链接回调，OAuth 入口已关闭。</p>
-          )}
 
-          {oauthConfirm && (
-            <div className="rounded-2xl bg-primary/10 p-3 text-xs text-primary border border-primary/20 space-y-3">
-              <p className="font-semibold">
-                确认使用 {oauthConfirm.provider || 'OAuth'} 注册{oauthConfirm.email ? `：${oauthConfirm.email}` : ''}
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => void confirmOAuthRegister()}
-                  disabled={tokenLoading}
-                  className="rounded-xl bg-primary px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
-                >
-                  {tokenLoading ? t('action_connecting') : '确认注册'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOauthConfirm(null)}
-                  className="rounded-xl bg-surface px-3 py-2 text-xs font-bold text-on-surface-variant border border-outline-variant/30"
-                >
-                  取消
-                </button>
+            {oauthCallbackSupported && oauthProviders.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {oauthProviders.map((provider) => (
+                  <button
+                    key={provider.driver}
+                    type="button"
+                    onClick={() => void openOAuth(provider, mode)}
+                    className="rounded-xl bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 border border-primary/20"
+                  >
+                    {mode === 'login' ? t('oauth_login') : t('oauth_register')} · {provider.label || provider.driver}
+                  </button>
+                ))}
               </div>
-            </div>
-          )}
-        </section>
+            ) : oauthCallbackSupported ? (
+              <p className="text-xs text-on-surface-variant">服务配置同步后会显示可用 OAuth 登录方式。</p>
+            ) : (
+              <p className="text-xs text-on-surface-variant">当前平台未接入应用链接回调，OAuth 入口已关闭。</p>
+            )}
+
+            {oauthConfirm && (
+              <div className="rounded-2xl bg-primary/10 p-3 text-xs text-primary border border-primary/20 space-y-3">
+                <p className="font-semibold">
+                  确认使用 {oauthConfirm.provider || 'OAuth'} 注册{oauthConfirm.email ? `：${oauthConfirm.email}` : ''}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void confirmOAuthRegister()}
+                    disabled={tokenLoading}
+                    className="rounded-xl bg-primary px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                  >
+                    {tokenLoading ? t('action_connecting') : '确认注册'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOauthConfirm(null)}
+                    className="rounded-xl bg-surface px-3 py-2 text-xs font-bold text-on-surface-variant border border-outline-variant/30"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         {message && (
           <p className="rounded-lg bg-emerald-500/10 p-2.5 text-xs font-medium text-emerald-500 border border-emerald-500/20">

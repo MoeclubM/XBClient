@@ -300,36 +300,31 @@ export function Plans() {
     setMessage('账户金额支付成功，请回到节点页刷新订阅。')
   }
 
+  const isErrorMsg = message.includes('失败') || message.includes('错误') || message.includes('fail') || message.includes('error') || message.includes('HTTP')
+
   return (
-    <main className="mx-auto max-w-3xl space-y-5 p-6 pb-24">
+    <main className="mx-auto max-w-3xl space-y-5 px-6 pb-24 pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
       <header className="border-b border-outline-variant/30 pb-3">
         <h1 className="text-xl font-bold tracking-tight text-primary">{t('nav_plans')}</h1>
-        <p className="mt-1 text-xs text-on-surface-variant font-medium">
-          {mobileControl
-            ? (paymentEnabled ? '云控支付已开启，套餐卡片使用 XBClient 专用网页支付入口。' : '云控支付未开启，当前显示账户余额支付入口。')
-            : '请选择合适的套餐订阅，支持使用账户金额抵扣或前往网页购买。'}
-        </p>
       </header>
 
-      {mobileControl && (planRewardAdEnabled || !paymentEnabled) && (
+      {mobileControl && planRewardAdEnabled && (
         <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold tracking-tight text-primary">🎁 {t('plan_reward_ad_title')}</h2>
               <p className="mt-1 text-xs text-on-surface-variant leading-relaxed">
-                {planRewardAdEnabled ? '观看 AdMob 激励广告后提交服务器验证。' : t('reward_ad_cloud_off')}
+                观看 AdMob 激励广告后提交服务器验证。
               </p>
             </div>
-            {planRewardAdEnabled && (
-              <button
-                type="button"
-                disabled={rewardLoading}
-                onClick={() => void watchPlanRewardAd()}
-                className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary border border-primary/20 disabled:opacity-60"
-              >
-                {rewardLoading ? '加载中…' : t('reward_watch')}
-              </button>
-            )}
+            <button
+              type="button"
+              disabled={rewardLoading}
+              onClick={() => void watchPlanRewardAd()}
+              className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary border border-primary/20 disabled:opacity-60"
+            >
+              {rewardLoading ? '加载中…' : t('reward_watch')}
+            </button>
           </div>
           {planLogs.length > 0 && (
             <ul className="space-y-2 border-t border-outline-variant/20 pt-3">
@@ -338,9 +333,6 @@ export function Plans() {
                   <span className="min-w-0 truncate text-on-surface-variant">
                     {log.rewardContent || rewardStatusText(log.status)}
                   </span>
-                  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 font-bold text-primary">
-                    {rewardStatusText(log.status)}
-                  </span>
                 </li>
               ))}
             </ul>
@@ -348,13 +340,21 @@ export function Plans() {
         </section>
       )}
 
-      {message && (
+      {message && !isErrorMsg && (
         <p className="rounded-lg bg-primary/10 p-3 text-xs font-semibold text-primary border border-primary/20">
           {message}
         </p>
       )}
-
-      {loading && plans.length === 0 && <p className="text-xs text-on-surface-variant font-medium">套餐加载中…</p>}
+      {message && isErrorMsg && (
+        <p className="rounded-lg bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20 break-words">
+          {message}
+        </p>
+      )}
+      {loading && plans.length === 0 && (
+        <div className="flex justify-center p-8">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+        </div>
+      )}
       {!loading && plans.length === 0 && <p className="text-xs text-on-surface-variant font-medium">暂无可用套餐。</p>}
 
       <ul className="space-y-4">

@@ -68,7 +68,9 @@ export function AccountSecurity({ baseUrl, authData, loading, sessions, setSessi
       <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold tracking-tight text-primary">活跃会话</h2>
-          {loading && <span className="text-xs text-on-surface-variant">加载中…</span>}
+          {loading && (
+            <div className="h-3.5 w-3.5 animate-spin rounded-full border border-primary border-t-transparent"></div>
+          )}
         </div>
         <ul className="space-y-2 max-h-64 overflow-y-auto">
           {sessions.map((session, index) => (

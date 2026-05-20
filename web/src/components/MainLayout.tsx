@@ -40,14 +40,11 @@ export function MainLayout() {
       )
     },
     {
-      to: '/services',
+      to: '/tickets',
       label: t('nav_services'),
       icon: (
         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 7h16"></path>
-          <path d="M4 12h16"></path>
-          <path d="M4 17h10"></path>
-          <circle cx="18" cy="17" r="2"></circle>
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
         </svg>
       )
     },
@@ -65,11 +62,11 @@ export function MainLayout() {
 
   return (
     <div className="flex min-h-full flex-col bg-background-app text-on-background transition-all-200">
-      <div className={`flex-1 overflow-y-auto ${hideNav ? '' : 'pb-20'}`}>
+      <div className={`flex-1 overflow-y-auto ${hideNav ? '' : 'pb-[calc(5rem+env(safe-area-inset-bottom,0px))]'}`}>
         <Outlet />
       </div>
       {!hideNav && (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-outline-variant/30 bg-[var(--nav-bg)] backdrop-blur-lg shadow-lg">
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-outline-variant/30 bg-[var(--nav-bg)] backdrop-blur-lg shadow-lg pb-[env(safe-area-inset-bottom,0px)]">
           <ul className="mx-auto flex max-w-3xl items-center justify-around h-16 px-4">
             {TABS.map((tab) => (
               <li key={tab.to} className="flex-1 flex justify-center">

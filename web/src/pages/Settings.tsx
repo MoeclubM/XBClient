@@ -38,13 +38,7 @@ export function SettingsPage() {
   const mobileControl = capabilities?.admob === true
   const [error, setError] = useState('')
   const [appVersion, setAppVersion] = useState('')
-  const capabilityRows: Array<[string, boolean | undefined]> = ([
-    ['Local SOCKS', capabilities?.local_socks],
-    ['System Proxy', systemProxySupported],
-    ['Autostart', autostartSupported],
-    ['Tray', capabilities?.tray],
-    ['VPN', capabilities?.vpn],
-  ] as Array<[string, boolean | undefined]>).concat(mobileControl ? [['AdMob', capabilities?.admob]] : [])
+
 
   useEffect(() => {
     void getVersion()
@@ -135,78 +129,61 @@ export function SettingsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-5 p-6 pb-24">
+    <main className="mx-auto max-w-3xl space-y-5 px-6 pb-24 pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
       <header className="border-b border-outline-variant/30 pb-3">
         <h1 className="text-xl font-bold tracking-tight text-primary">{t('nav_settings')}</h1>
-        <p className="mt-1 text-xs text-on-surface-variant font-medium">
-          {t('system_proxy_desc')}
-        </p>
       </header>
 
       {error && (
-        <p className="rounded-lg bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20">
+        <p className="rounded-xl bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20 break-words">
           {error}
         </p>
       )}
 
-      <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
-        <div>
-          <h2 className="text-sm font-bold tracking-tight text-primary">{t('platform_status')}</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">
-            {t('current_platform')}: <span className="font-mono">{capabilities?.platform ?? '-'}</span>
-          </p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {capabilityRows.map(([label, value]) => (
-            <div key={String(label)} className="flex items-center justify-between rounded-xl bg-surface px-3 py-2 text-xs border border-outline-variant/25">
-              <span className="font-semibold text-on-surface-variant">{label}</span>
-              <span className={`font-bold ${value ? 'text-emerald-500' : 'text-on-surface-variant'}`}>
-                {value ? 'ON' : 'OFF'}
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className="rounded-xl bg-primary/10 p-3 text-xs leading-relaxed text-primary border border-primary/20">
-          {t('android_only_settings')}
-        </p>
-      </section>
-
       <section className="space-y-5 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
-        <label className="flex items-center justify-between gap-4 cursor-pointer">
-          <span className="space-y-0.5">
-            <span className="block text-sm font-semibold text-on-background">{t('system_proxy')}</span>
-            <span className="block text-xs text-on-surface-variant leading-relaxed">
-              {t('system_proxy_desc')}
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            className="size-4 shrink-0 accent-primary cursor-pointer disabled:opacity-40"
-            checked={settings.autoApplyProxy && systemProxySupported}
-            disabled={!systemProxySupported}
-            onChange={(event) => void toggleSystemProxy(event.target.checked)}
-          />
-        </label>
+        {systemProxySupported && (
+          <>
+            <label className="flex items-center justify-between gap-4 cursor-pointer">
+              <span className="space-y-0.5">
+                <span className="block text-sm font-semibold text-on-background">{t('system_proxy')}</span>
+                <span className="block text-xs text-on-surface-variant leading-relaxed">
+                  {t('system_proxy_desc')}
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                className="size-4 shrink-0 accent-primary cursor-pointer disabled:opacity-40"
+                checked={settings.autoApplyProxy && systemProxySupported}
+                disabled={!systemProxySupported}
+                onChange={(event) => void toggleSystemProxy(event.target.checked)}
+              />
+            </label>
 
-        <hr className="border-t border-outline-variant/20" />
+            <hr className="border-t border-outline-variant/20" />
+          </>
+        )}
 
-        <label className="flex items-center justify-between gap-4 cursor-pointer">
-          <span className="space-y-0.5">
-            <span className="block text-sm font-semibold text-on-background">{t('autostart')}</span>
-            <span className="block text-xs text-on-surface-variant leading-relaxed">
-              {t('autostart_desc')}
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            className="size-4 shrink-0 accent-primary cursor-pointer disabled:opacity-40"
-            checked={settings.autostart && autostartSupported}
-            disabled={!autostartSupported}
-            onChange={(event) => void toggleAutostart(event.target.checked)}
-          />
-        </label>
+        {autostartSupported && (
+          <>
+            <label className="flex items-center justify-between gap-4 cursor-pointer">
+              <span className="space-y-0.5">
+                <span className="block text-sm font-semibold text-on-background">{t('autostart')}</span>
+                <span className="block text-xs text-on-surface-variant leading-relaxed">
+                  {t('autostart_desc')}
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                className="size-4 shrink-0 accent-primary cursor-pointer disabled:opacity-40"
+                checked={settings.autostart && autostartSupported}
+                disabled={!autostartSupported}
+                onChange={(event) => void toggleAutostart(event.target.checked)}
+              />
+            </label>
 
-        <hr className="border-t border-outline-variant/20" />
+            <hr className="border-t border-outline-variant/20" />
+          </>
+        )}
 
         {/* Dynamic Theme Changer */}
         <label className="block space-y-1.5">

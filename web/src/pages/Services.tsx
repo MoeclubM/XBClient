@@ -12,7 +12,7 @@ export function Services() {
   const t = useTranslation()
   const baseUrl = useAppStore((s) => s.baseUrl)
   const authData = useAppStore((s) => s.authData)
-  const appName = useAppStore((s) => s.buildConfig?.app_name ?? 'XBClient')
+  const appName = useAppStore((s) => s.buildConfig?.app_name ?? '')
   const oauthProviders = useAppStore((s) => s.oauthProviders)
   const setAuthConfig = useAppStore((s) => s.setAuthConfig)
 

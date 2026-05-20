@@ -70,7 +70,7 @@ export async function openExternal(url: string): Promise<void> {
   await openUrl(url)
 }
 
-export async function openInAppBrowser(url: string, title = 'XBClient'): Promise<void> {
+export async function openInAppBrowser(url: string, title = 'Browser'): Promise<void> {
   const capabilities = await runtimeCapabilities()
   if (capabilities.platform === 'android' || capabilities.platform === 'ios') {
     await openUrl(url, 'inAppBrowser')
@@ -98,4 +98,30 @@ export async function showRewardedAd(request: RewardedAdRequest): Promise<Reward
 
 export async function showAppOpenAd(adUnitId: string): Promise<{ shown: boolean }> {
   return invoke('admob_show_app_open', { request: { adUnitId } })
+}
+
+export interface AndroidVpnPayload {
+  nodeJson: string
+  nodesJson: string
+  nodeIndex: number
+  excludedApps: string
+  allowedApps: string
+  nodeDns: string
+  overseasDns: string
+  directDns: string
+  dnsMode: string
+  virtualDnsPool: string
+  ipv6Enabled: boolean
+}
+
+export async function androidStartVpn(request: AndroidVpnPayload): Promise<unknown> {
+  return invoke('android_start_vpn', { request })
+}
+
+export async function androidStopVpn(): Promise<unknown> {
+  return invoke('android_stop_vpn')
+}
+
+export async function androidGetVpnState(): Promise<{ running: boolean; nodeIndex: number }> {
+  return invoke('android_get_vpn_state')
 }

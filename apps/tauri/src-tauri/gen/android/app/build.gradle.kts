@@ -32,8 +32,9 @@ val appNameRaw = providers.gradleProperty("xbclient.appName")
     ?: providers.environmentVariable("XBCLIENT_APP_NAME").orNull
     ?: repoLocalProperties.getProperty("xbclient.appName")
     ?: repoLocalProperties.getProperty("XBCLIENT_APP_NAME")
-    ?: "XBClient"
-val appName = appNameRaw.trim().ifEmpty { "XBClient" }
+    ?: error("XBCLIENT_APP_NAME, -Pxbclient.appName or local.properties xbclient.appName is required")
+val appName = appNameRaw.trim().takeIf { it.isNotEmpty() }
+    ?: error("App name is empty")
 val admobAppIdRaw = providers.gradleProperty("xbclient.admobAppId")
     .orNull
     ?: providers.environmentVariable("XBCLIENT_ADMOB_APP_ID").orNull

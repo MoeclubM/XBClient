@@ -6,7 +6,7 @@ import { Login } from './pages/Login'
 import { Home } from './pages/Home'
 import { Plans } from './pages/Plans'
 import { Profile } from './pages/Profile'
-import { Services } from './pages/Services'
+import { Tickets } from './pages/Tickets'
 import { SettingsPage } from './pages/Settings'
 import { Licenses } from './pages/Licenses'
 import { MainLayout } from './components/MainLayout'
@@ -29,19 +29,14 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 }
 
 function LoadingScreen() {
-  const appName = useAppStore((s) => s.buildConfig?.app_name ?? 'XBClient')
   return (
     <main className="flex min-h-full items-center justify-center p-6">
       <div className="flex flex-col items-center gap-4 text-center">
         <img
           className="h-20 w-20 drop-shadow-[0_18px_38px_rgba(14,116,190,0.35)]"
           src="./logo.png"
-          alt="XBClient"
+          alt="Logo"
         />
-        <div>
-          <h1 className="text-xl font-semibold">{appName}</h1>
-          <p className="mt-1 text-sm text-slate-400">正在读取登录状态…</p>
-        </div>
       </div>
     </main>
   )
@@ -140,7 +135,7 @@ function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/plans" element={<Plans />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/services" element={<Services />} />
+            <Route path="/tickets" element={<Tickets />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/licenses" element={<Licenses />} />
           </Route>

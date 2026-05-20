@@ -67,6 +67,9 @@ pub fn run() {
             commands::aerion_stop,
             commands::admob_show_rewarded,
             commands::admob_show_app_open,
+            commands::android_start_vpn,
+            commands::android_stop_vpn,
+            commands::android_get_vpn_state,
             commands::system_proxy_set,
             commands::system_proxy_clear,
         ])

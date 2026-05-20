@@ -12,6 +12,9 @@ import {
   resolveNodeHost,
   systemProxyClear,
   systemProxySet,
+  androidStartVpn,
+  androidStopVpn,
+  androidGetVpnState,
 } from '../api/system'
 import {
   DEFAULT_NODE_TEST_TARGET,
@@ -107,7 +110,6 @@ export function Home() {
   } = useAppStore()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
   const [connectingIndex, setConnectingIndex] = useState<number | null>(null)
 
   // Custom dialog state matching mobile client BottomSheet
@@ -121,6 +123,11 @@ export function Home() {
   useEffect(() => {
     if (!authData) navigate('/login', { replace: true })
   }, [authData, navigate])
+
+  // Auto-load subscription & nodes on mount
+  useEffect(() => {
+    if (authData && nodes.length === 0) void refresh()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let unlisten: (() => void) | undefined
@@ -146,6 +153,56 @@ export function Home() {
       unlisten?.()
     }
   }, [updateVpnTraffic])
+
+  // Synchronize Android VPN native state
+  useEffect(() => {
+    if (capabilities?.platform !== 'android') return
+
+    // 1. Initial state check
+    void androidGetVpnState()
+      .then((state) => {
+        if (state.running && state.nodeIndex >= 0) {
+          setVpn({
+            sessionId: 0,
+            socksAddr: '',
+            nodeIndex: state.nodeIndex,
+            uploadBytes: 0,
+            downloadBytes: 0,
+          })
+        }
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+
+    // 2. State change subscription
+    let unlisten: (() => void) | undefined
+    void listen<{ running: boolean; nodeIndex: number; error?: string }>(
+      'plugin:xbclient-mobile|vpnStateChanged',
+      (event) => {
+        const { running, nodeIndex, error } = event.payload
+        if (running && nodeIndex >= 0) {
+          setVpn({
+            sessionId: 0,
+            socksAddr: '',
+            nodeIndex,
+            uploadBytes: 0,
+            downloadBytes: 0,
+          })
+        } else {
+          setVpn(null)
+          setConnectingIndex(null)
+          if (error) {
+            setError(error)
+          }
+        }
+      }
+    ).then((val) => {
+      unlisten = val
+    })
+
+    return () => {
+      unlisten?.()
+    }
+  }, [capabilities?.platform, setVpn])
 
   // Track active VPN index
   useEffect(() => {
@@ -174,9 +231,8 @@ export function Home() {
     return `${h}:${m}:${s}`
   }
 
-  async function refresh() {
+  async function refresh() { // auto-load on mount
     setError('')
-    setNotice('')
     setLoading(true)
     try {
       const sub = await xboardRequest<XboardBody>('user_subscribe', {
@@ -218,7 +274,6 @@ export function Home() {
           (meta.nodes ?? []).map((node) => toAppNode(node as RawNode)),
           (singBox.nodes ?? []).map((node) => toAppNode(node as RawNode)),
         )
-        setNotice('XBClient 节点接口不可用，已使用原订阅节点。')
       } else {
         setError(responseError(xbclientNodes))
         return
@@ -274,6 +329,10 @@ export function Home() {
     }
   }
 
+  async function testAllNodes() {
+    await Promise.all(nodes.map((_, index) => testNode(index)))
+  }
+
   async function applySystemProxy(socksAddr: string) {
     if (!settings.autoApplyProxy) return
     if (!capabilities?.system_proxy) {
@@ -295,12 +354,49 @@ export function Home() {
       setError(t('unsupported_protocol'))
       return
     }
-    if (settings.autoApplyProxy && !capabilities?.system_proxy) {
-      setError('当前平台不支持系统代理接管，请关闭自动接管后手动配置 SOCKS。')
-      return
-    }
     setError('')
     setConnectingIndex(index)
+
+    if (capabilities?.platform === 'android') {
+      try {
+        if (vpn) {
+          await androidStopVpn()
+        }
+        const payload = {
+          nodeJson: node.rawJson,
+          nodesJson: JSON.stringify(nodes.map((item) => JSON.parse(item.rawJson))),
+          nodeIndex: index,
+          excludedApps: '',
+          allowedApps: '',
+          nodeDns: settings.nodeDns,
+          overseasDns: 'https://cloudflare-dns.com/dns-query',
+          directDns: '223.5.5.5',
+          dnsMode: 'over_tcp',
+          virtualDnsPool: '198.18.0.0/15',
+          ipv6Enabled: true,
+        }
+        await androidStartVpn(payload)
+        setVpn({
+          sessionId: 0,
+          socksAddr: '',
+          nodeIndex: index,
+          uploadBytes: 0,
+          downloadBytes: 0,
+        })
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setConnectingIndex(null)
+      }
+      return
+    }
+
+    if (settings.autoApplyProxy && !capabilities?.system_proxy) {
+      setError('当前平台不支持系统代理接管，请关闭自动接管后手动配置 SOCKS。')
+      setConnectingIndex(null)
+      return
+    }
+
     try {
       if (vpn) {
         await aerionStop(vpn.sessionId)
@@ -327,6 +423,18 @@ export function Home() {
   }
 
   async function disconnect() {
+    if (capabilities?.platform === 'android') {
+      try {
+        await androidStopVpn()
+        setVpn(null)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setConnectingIndex(null)
+      }
+      return
+    }
+
     if (!vpn) return
     try {
       await aerionStop(vpn.sessionId)
@@ -366,6 +474,8 @@ export function Home() {
 
   const selectedNode = nodes[selectedNodeIndex] || nodes[0]
   const isCurrentlyConnecting = connectingIndex !== null
+  const nativeAndroidVpn = capabilities?.platform === 'android'
+  const appName = buildConfig?.app_name ?? ''
 
   // Progress calculations
   const trafficUsed = subscription.trafficUsedBytes
@@ -373,37 +483,28 @@ export function Home() {
   const progressPercent = trafficTotal > 0 ? Math.min(100, (trafficUsed / trafficTotal) * 100) : 0
 
   return (
-    <main className="mx-auto max-w-2xl p-6 space-y-5 pb-24">
+    <main className="mx-auto max-w-2xl px-6 pb-24 space-y-5 pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
       {/* Top Header Row */}
-      <header className="flex items-center justify-between border-b border-outline-variant/30 pb-3.5">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between gap-3 border-b border-outline-variant/30 pb-3.5">
+        <div className="flex min-w-0 items-center gap-3">
           <img className="h-9 w-9 shrink-0 filter drop-shadow-[0_4px_8px_rgba(11,87,208,0.2)]" src="./logo.png" alt="Logo" />
           <div className="min-w-0">
-            <h1 className="text-base font-bold tracking-tight text-primary break-all">XBClient · {email.split('@')[0]}</h1>
+            <h1 className="text-base font-bold tracking-tight text-primary break-all">{appName ? `${appName} · ` : ''}{email.split('@')[0]}</h1>
             <p className="text-[10px] text-on-surface-variant font-medium break-all">{baseUrl}</p>
           </div>
         </div>
         <button
-          onClick={refresh}
+          onClick={() => void refresh()}
           disabled={loading}
-          className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-primary/95 hover:shadow active:scale-95 disabled:opacity-40 transition-all flex items-center gap-1.5 cursor-pointer"
+          className="shrink-0 rounded-xl bg-primary/10 px-3 py-2 text-xs font-bold text-primary border border-primary/20 disabled:opacity-50"
         >
-          <svg className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.27 15" />
-          </svg>
           {loading ? t('refreshing') : t('refresh_sub')}
         </button>
       </header>
 
-      {/* Messages banner */}
-      {notice && (
-        <p className="rounded-xl bg-amber-500/10 p-3 text-xs font-bold text-amber-500 border border-amber-500/20">
-          ⚠️ {notice}
-        </p>
-      )}
       {error && (
-        <p className="rounded-xl bg-rose-500/10 p-3 text-xs font-bold text-rose-500 border border-rose-500/20 break-words">
-          ❌ {error}
+        <p className="rounded-xl bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20 break-words">
+          {error}
         </p>
       )}
 
@@ -434,7 +535,7 @@ export function Home() {
               ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/25'
               : 'bg-on-surface-variant/10 text-on-surface-variant border border-outline-variant/20'
           }`}>
-            <span className={`h-2 w-2 rounded-full ${vpn ? 'bg-emerald-500 animate-pulse' : 'bg-on-surface-variant/40'}`}></span>
+            <span className={`h-2 w-2 rounded-full ${vpn ? 'bg-emerald-500' : 'bg-on-surface-variant/40'}`}></span>
             {vpn ? t('status_connected') : t('status_disconnected')}
           </span>
         </div>
@@ -475,18 +576,12 @@ export function Home() {
               <span className="text-sm font-extrabold text-primary font-mono">{formatTrafficBytes(vpn.uploadBytes + vpn.downloadBytes)}</span>
             </div>
             <div className="rounded-2xl bg-surface p-3 border border-outline-variant/20 text-center">
-              <span className="block text-[10px] font-bold text-on-surface-variant tracking-wider uppercase mb-0.5">SOCKS Port</span>
-              <span className="text-sm font-extrabold text-emerald-500 font-mono">{vpn.socksAddr.split(':')[1]}</span>
+              <span className="block text-[10px] font-bold text-on-surface-variant tracking-wider uppercase mb-0.5">{nativeAndroidVpn ? 'VPN' : 'SOCKS Port'}</span>
+              <span className="text-sm font-extrabold text-emerald-500 font-mono">{nativeAndroidVpn ? 'Native' : vpn.socksAddr.split(':')[1]}</span>
             </div>
           </div>
         )}
 
-        {/* Proxy system instructions */}
-        <p className="text-[10px] text-on-surface-variant font-semibold">
-          {vpn
-            ? (settings.autoApplyProxy && capabilities?.system_proxy ? t('running_proxy') : t('manual_proxy'))
-            : t('not_connected_desc')}
-        </p>
       </section>
 
       {/* Selected Node Card */}
@@ -509,7 +604,6 @@ export function Home() {
                   {tag}
                 </span>
               ))}
-              <span>· {selectedNode.host}:{selectedNode.port}</span>
             </p>
           </div>
 
@@ -580,22 +674,32 @@ export function Home() {
 
       {/* Select Node Modal Dialog (Replaces long list in index page) */}
       {nodeSelectOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 transition-all animate-fade-in">
-          <div className="bg-surface-low border border-outline-variant/40 rounded-3xl w-full max-w-lg p-5 flex flex-col max-h-[80vh] shadow-2xl relative animate-slide-up">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-surface-low border border-outline-variant/40 rounded-3xl w-full max-w-lg p-5 flex flex-col max-h-[80vh] shadow-2xl relative">
 
             <header className="flex items-center justify-between pb-3.5 border-b border-outline-variant/20 mb-4">
               <div>
                 <h2 className="text-base font-extrabold text-on-background tracking-tight">{t('select_node')}</h2>
                 <p className="text-[10px] text-on-surface-variant font-medium mt-0.5">全部节点 ({nodes.length})</p>
               </div>
-              <button
-                onClick={() => setNodeSelectOpen(false)}
-                className="h-8 w-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant hover:bg-rose-500 hover:text-white transition-all cursor-pointer"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="flex items-center gap-2">
+                {nodes.length > 0 && (
+                  <button
+                    onClick={testAllNodes}
+                    className="rounded-xl bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    ⚡ 测试全部
+                  </button>
+                )}
+                <button
+                  onClick={() => setNodeSelectOpen(false)}
+                  className="h-8 w-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant hover:bg-rose-500 hover:text-white transition-all cursor-pointer"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </header>
 
             {nodes.length === 0 ? (
@@ -637,7 +741,6 @@ export function Home() {
                               {tag}
                             </span>
                           ))}
-                          <span>· {node.host}:{node.port}</span>
                         </p>
                         {!node.connectSupported && (
                           <p className="text-[10px] text-amber-500 font-bold">⚠️ {t('unsupported_protocol')}</p>

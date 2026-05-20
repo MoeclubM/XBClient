@@ -56,6 +56,9 @@ pub enum Error {
     #[cfg(not(target_os = "android"))]
     #[error("OAuth callback bridge is only available on Android")]
     UnsupportedOAuthCallbackPlatform,
+    #[cfg(not(target_os = "android"))]
+    #[error("Android VPN bridge is only available on Android")]
+    UnsupportedAndroidVpnPlatform,
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -115,6 +118,55 @@ impl<R: Runtime> XbClientMobile<R> {
         #[cfg(not(target_os = "android"))]
         {
             Err(Error::UnsupportedOAuthCallbackPlatform)
+        }
+    }
+
+    pub async fn start_vpn(&self, request: serde_json::Value) -> Result<serde_json::Value> {
+        #[cfg(target_os = "android")]
+        {
+            return self
+                .mobile_plugin_handle
+                .run_mobile_plugin_async("startVpn", request)
+                .await
+                .map_err(Into::into);
+        }
+
+        #[cfg(not(target_os = "android"))]
+        {
+            let _ = request;
+            Err(Error::UnsupportedAndroidVpnPlatform)
+        }
+    }
+
+    pub async fn stop_vpn(&self) -> Result<serde_json::Value> {
+        #[cfg(target_os = "android")]
+        {
+            return self
+                .mobile_plugin_handle
+                .run_mobile_plugin_async("stopVpn", EmptyPayload {})
+                .await
+                .map_err(Into::into);
+        }
+
+        #[cfg(not(target_os = "android"))]
+        {
+            Err(Error::UnsupportedAndroidVpnPlatform)
+        }
+    }
+
+    pub async fn get_vpn_state(&self) -> Result<serde_json::Value> {
+        #[cfg(target_os = "android")]
+        {
+            return self
+                .mobile_plugin_handle
+                .run_mobile_plugin_async("getVpnState", EmptyPayload {})
+                .await
+                .map_err(Into::into);
+        }
+
+        #[cfg(not(target_os = "android"))]
+        {
+            Err(Error::UnsupportedAndroidVpnPlatform)
         }
     }
 }

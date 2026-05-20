@@ -113,6 +113,7 @@ export function Profile() {
   const [copied, setCopied] = useState<string | null>(null)
   const mobileControl = capabilities?.admob === true
   const pointsLogs = adRewardLogs.filter((log) => log.scene === 'points')
+  const nativeAndroidVpn = capabilities?.platform === 'android'
 
   useEffect(() => {
     let cancelled = false
@@ -304,7 +305,7 @@ export function Profile() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-5 p-6 pb-24">
+    <main className="mx-auto max-w-3xl space-y-5 px-6 pb-24 pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
       <header className="border-b border-outline-variant/30 pb-3 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-primary">{t('nav_profile')}</h1>
@@ -312,10 +313,10 @@ export function Profile() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate('/services')}
+            onClick={() => navigate('/tickets')}
             className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer border border-primary/20"
           >
-            🧩 {t('nav_services')}
+            💬 {t('nav_services')}
           </button>
           <button
             onClick={() => navigate('/settings')}
@@ -333,7 +334,7 @@ export function Profile() {
       </header>
 
       {error && (
-        <p className="rounded-lg bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20 break-words">
+        <p className="rounded-xl bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20 break-words">
           {error}
         </p>
       )}
@@ -363,31 +364,29 @@ export function Profile() {
 
         {vpn && (
           <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 flex items-center justify-between text-xs text-emerald-500 font-bold">
-            <span>🟢 SOCKS Status</span>
-            <span className="font-mono">socks5://{vpn.socksAddr}</span>
+            <span>🟢 {nativeAndroidVpn ? 'VPN Status' : 'SOCKS Status'}</span>
+            <span className="font-mono">{nativeAndroidVpn ? 'Native' : `socks5://${vpn.socksAddr}`}</span>
           </div>
         )}
       </section>
 
-      {mobileControl && (pointsRewardAdEnabled || pointsLogs.length > 0) && (
+      {mobileControl && pointsRewardAdEnabled && (
         <section className="space-y-3 rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold tracking-tight text-primary">🎁 {t('points_reward_ad_title')}</h2>
               <p className="mt-1 text-xs text-on-surface-variant leading-relaxed">
-                {pointsRewardAdEnabled ? '观看 AdMob 激励广告后提交服务器验证。' : t('reward_ad_cloud_off')}
+                观看 AdMob 激励广告后提交服务器验证。
               </p>
             </div>
-            {pointsRewardAdEnabled && (
-              <button
-                type="button"
-                disabled={rewardLoading}
-                onClick={() => void watchPointsRewardAd()}
-                className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary border border-primary/20 disabled:opacity-60"
-              >
-                {rewardLoading ? '加载中…' : t('reward_watch')}
-              </button>
-            )}
+            <button
+              type="button"
+              disabled={rewardLoading}
+              onClick={() => void watchPointsRewardAd()}
+              className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary border border-primary/20 disabled:opacity-60"
+            >
+              {rewardLoading ? '加载中…' : t('reward_watch')}
+            </button>
           </div>
           {pointsLogs.length > 0 && (
             <div className="space-y-2 border-t border-outline-variant/20 pt-3">
@@ -400,9 +399,6 @@ export function Profile() {
                       {log.createdAt > 0 && <p className="mt-0.5 text-[10px] text-on-surface-variant">{formatUnixDate(log.createdAt)}</p>}
                       {log.status === 'failed' && log.error && <p className="mt-0.5 text-[10px] text-rose-500">{log.error}</p>}
                     </div>
-                    <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 font-bold text-primary">
-                      {rewardStatusText(log.status)}
-                    </span>
                   </li>
                 ))}
               </ul>
