@@ -5,7 +5,8 @@ mod aerion_protocol;
 mod android;
 
 pub use aerion_core::{
-    start_socks_from_json, start_vpn_from_json, stop_socks, stop_vpn, test_node_from_json,
+    set_event_callback, set_log_callback, start_socks_from_json, start_vpn_from_json, stop_socks,
+    stop_vpn, test_node_from_json,
 };
 
 use anyhow::{Context, Result};

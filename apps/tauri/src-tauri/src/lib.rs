@@ -4,6 +4,8 @@ mod system_proxy;
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 mod tray;
 
+use tauri::Emitter;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let _ = rustls::crypto::ring::default_provider().install_default();
