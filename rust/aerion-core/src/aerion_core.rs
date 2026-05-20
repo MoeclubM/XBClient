@@ -258,17 +258,13 @@ pub async fn test_node_from_json(input: &str) -> Result<String> {
         .unwrap_or_else(|| "cp.cloudflare.com".to_string());
     let target_port = request.target_port.unwrap_or(80);
     let target_tls = request.target_tls.unwrap_or(target_port == 443);
-    let timeout_duration = Duration::from_millis(request.timeout_ms.unwrap_or(8000));
+    let timeout_duration = Duration::from_millis(request.timeout_ms.unwrap_or(15000));
     let (socks_addr, mut task) = start_aerion_socks(request.node, None).await?;
     let result = timeout(timeout_duration, async {
-        let first_latency =
-            probe_via_socks(socks_addr, &target_host, target_port, target_tls).await?;
-        let second_latency =
-            probe_via_socks(socks_addr, &target_host, target_port, target_tls).await?;
-        Ok::<_, anyhow::Error>((first_latency, second_latency))
+        probe_via_socks(socks_addr, &target_host, target_port, target_tls).await
     })
     .await;
-    let (first_latency, second_latency) = match result {
+    let latency = match result {
         Ok(Ok(latency)) => latency,
         Ok(Err(error)) => {
             if let Some(listener_error) = finished_listener_error(&mut task).await {
@@ -290,8 +286,8 @@ pub async fn test_node_from_json(input: &str) -> Result<String> {
     task.abort();
     Ok(json!({
         "ok": true,
-        "latency_ms": second_latency,
-        "first_latency_ms": first_latency,
+        "latency_ms": latency,
+        "first_latency_ms": latency,
         "target_host": target_host,
         "target_port": target_port,
         "target_tls": target_tls,

@@ -60,6 +60,7 @@ fn anytls_config(node: &Value, listen: SocketAddr) -> Result<ClientConfig> {
         ca_certificates: tls_ca_certificates(node, tls),
         disable_system_roots: tls_disable_system_roots(node, tls),
         pinned_cert_sha256: tls_pinned_cert_sha256(node, tls),
+        client_fingerprint: client_fingerprint(node)?,
         padding_scheme: node_string_list(node, &["padding_scheme", "padding-scheme"])
             .filter(|lines| !lines.is_empty())
             .unwrap_or_else(PaddingScheme::default_lines),
@@ -1263,6 +1264,7 @@ mod tests {
             "server": "anytls.example.com",
             "server_port": 443,
             "password": "secret",
+            "client-fingerprint": "chrome",
             "tls": {
                 "enabled": true,
                 "certificate_path": "anytls-ca.pem",
@@ -1283,6 +1285,7 @@ mod tests {
             config.pinned_cert_sha256,
             vec!["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
         );
+        assert_eq!(config.client_fingerprint, Some(UtlsFingerprint::Chrome));
 
         let vless = serde_json::json!({
             "type": "vless",
