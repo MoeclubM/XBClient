@@ -20,6 +20,15 @@ pub fn run() {
             None,
         ))
         .setup(|app| {
+            let handle = app.handle().clone();
+            aerion_core::set_log_callback(move |level, message| {
+                let _ = handle.emit("aerion-log", (level, message));
+            });
+            let handle = app.handle().clone();
+            aerion_core::set_event_callback(move |_, json| {
+                let _ = handle.emit("aerion-event", json);
+            });
+            
             tray::install(app.handle())?;
             Ok(())
         })

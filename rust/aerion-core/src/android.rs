@@ -39,3 +39,48 @@ fn protect_android_socket(fd: i32) -> Result<()> {
     ensure!(protected, "Android VPN socket protection returned false");
     Ok(())
 }
+
+pub fn on_log(level: &str, message: &str) -> Result<()> {
+    JavaVM::singleton()
+        .context("get Java VM for log callback")?
+        .attach_current_thread(|env| -> Result<()> {
+            let service_class = PASS_VPN_SERVICE_CLASS
+                .lock()
+                .expect("XbClientVpnService class lock poisoned");
+            let class = service_class
+                .as_ref()
+                .context("XbClientVpnService class has not been initialized")?;
+            env.call_static_method(
+                class,
+                jni_str!("onLog"),
+                jni_sig!("(Ljava/lang/String;Ljava/lang/String;)V"),
+                &[
+                    JValue::Object(&jni_str!(level).into()),
+                    JValue::Object(&jni_str!(message).into()),
+                ],
+            )?;
+            Ok(())
+        })
+        .map_err(|error| anyhow::anyhow!("callback Android log: {error}"))
+}
+
+pub fn on_event(event_json: &str) -> Result<()> {
+    JavaVM::singleton()
+        .context("get Java VM for event callback")?
+        .attach_current_thread(|env| -> Result<()> {
+            let service_class = PASS_VPN_SERVICE_CLASS
+                .lock()
+                .expect("XbClientVpnService class lock poisoned");
+            let class = service_class
+                .as_ref()
+                .context("XbClientVpnService class has not been initialized")?;
+            env.call_static_method(
+                class,
+                jni_str!("onEvent"),
+                jni_sig!("(Ljava/lang/String;)V"),
+                &[JValue::Object(&jni_str!(event_json).into())],
+            )?;
+            Ok(())
+        })
+        .map_err(|error| anyhow::anyhow!("callback Android event: {error}"))
+}

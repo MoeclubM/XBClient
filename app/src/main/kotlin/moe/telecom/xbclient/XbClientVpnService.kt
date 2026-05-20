@@ -343,5 +343,17 @@ class XbClientVpnService : VpnService() {
 
         @JvmStatic
         fun protectSocketFd(fd: Int): Boolean = activeService?.protect(fd) ?: true
+
+        @JvmStatic
+        fun onLog(level: String, message: String) {
+            Log.d("AerionLog", "[$level] $message")
+            // Future: Broadcast logs to UI
+        }
+
+        @JvmStatic
+        fun onEvent(eventJson: String) {
+            Log.d("AerionEvent", eventJson)
+            // Future: Update traffic stats in UI
+        }
     }
 }
