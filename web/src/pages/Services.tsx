@@ -12,6 +12,7 @@ export function Services() {
   const t = useTranslation()
   const baseUrl = useAppStore((s) => s.baseUrl)
   const authData = useAppStore((s) => s.authData)
+  const appName = useAppStore((s) => s.buildConfig?.app_name ?? 'XBClient')
   const oauthProviders = useAppStore((s) => s.oauthProviders)
   const setAuthConfig = useAppStore((s) => s.setAuthConfig)
 
@@ -73,7 +74,7 @@ export function Services() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 pb-24 md:pb-6">
       <section className="rounded-3xl bg-gradient-to-br from-primary to-primary/70 p-6 text-white shadow-lg">
-        <p className="text-xs font-bold uppercase tracking-[0.28em] opacity-80">SecOVPN</p>
+        <p className="text-xs font-bold uppercase tracking-[0.28em] opacity-80">{appName}</p>
         <h1 className="mt-2 text-2xl font-black tracking-tight">{t('nav_services')}</h1>
         <p className="mt-2 max-w-3xl text-sm text-white/85">
           已补齐账号安全、OAuth 绑定、礼品卡、工单、流量日志、Telegram 和知识库等 Xboard 常用能力。Tauri 远程页面使用应用内 WebView 新窗口打开，不走静默外部浏览器降级。

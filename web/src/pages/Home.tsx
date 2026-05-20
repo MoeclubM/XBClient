@@ -96,6 +96,7 @@ export function Home() {
     nodes,
     vpn,
     settings,
+    buildConfig,
     capabilities,
     setSubscribe,
     setNodeResult,
@@ -241,7 +242,8 @@ export function Home() {
 
   async function resolveAerionNode(node: AppNode): Promise<unknown> {
     const host = rawNodeHost(node)
-    const resolvedHost = await resolveNodeHost(settings.nodeDns, host, settings.apiUserAgent)
+    if (!buildConfig?.user_agent) throw new Error('XBCLIENT_USER_AGENT is required in build config')
+    const resolvedHost = await resolveNodeHost(settings.nodeDns, host, buildConfig.user_agent)
     return aerionNodeWithResolvedHost(node, resolvedHost)
   }
 
@@ -375,7 +377,7 @@ export function Home() {
       {/* Top Header Row */}
       <header className="flex items-center justify-between border-b border-outline-variant/30 pb-3.5">
         <div className="flex items-center gap-3">
-          <img className="h-9 w-9 shrink-0 filter drop-shadow-[0_4px_8px_rgba(11,87,208,0.2)]" src="./logo.svg" alt="Logo" />
+          <img className="h-9 w-9 shrink-0 filter drop-shadow-[0_4px_8px_rgba(11,87,208,0.2)]" src="./logo.png" alt="Logo" />
           <div className="min-w-0">
             <h1 className="text-base font-bold tracking-tight text-primary break-all">XBClient · {email.split('@')[0]}</h1>
             <p className="text-[10px] text-on-surface-variant font-medium break-all">{baseUrl}</p>

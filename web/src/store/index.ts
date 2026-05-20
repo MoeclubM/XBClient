@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { RuntimeCapabilities } from '../api/system'
+import type { RuntimeCapabilities, RuntimeConfig } from '../api/system'
 import { DEFAULT_NODE_DNS, DEFAULT_NODE_TEST_TARGET } from '../nodes'
 
 export interface AppNode {
@@ -28,7 +28,6 @@ export interface AppSettings {
   autostart: boolean
   nodeDns: string
   nodeTestTarget: string
-  apiUserAgent: string
   themeMode: 'system' | 'light' | 'dark'
   appLanguage: 'system' | 'zh-CN' | 'en' | 'ja' | 'ru' | 'fa'
 }
@@ -93,6 +92,7 @@ interface AppState {
   vpn: VpnSession | null
   settings: AppSettings
   capabilities: RuntimeCapabilities | null
+  buildConfig: RuntimeConfig | null
   balance: number
   commissionBalance: number
   currencySymbol: string
@@ -128,6 +128,7 @@ interface AppState {
   updateVpnTraffic(sessionId: number, uploadBytes: number, downloadBytes: number): void
   setSettings(patch: Partial<AppSettings>): void
   setCapabilities(capabilities: RuntimeCapabilities): void
+  setBuildConfig(config: RuntimeConfig): void
   setProfile(patch: Partial<Pick<AppState,
     | 'balance'
     | 'commissionBalance'
@@ -187,11 +188,11 @@ export const useAppStore = create<AppState>((set) => ({
     autostart: false,
     nodeDns: DEFAULT_NODE_DNS,
     nodeTestTarget: DEFAULT_NODE_TEST_TARGET,
-    apiUserAgent: '',
     themeMode: 'system',
     appLanguage: 'system',
   },
   capabilities: null,
+  buildConfig: null,
   balance: 0,
   commissionBalance: 0,
   currencySymbol: '',
@@ -237,6 +238,7 @@ export const useAppStore = create<AppState>((set) => ({
     ),
   setSettings: (patch) => set((state) => ({ settings: { ...state.settings, ...patch } })),
   setCapabilities: (capabilities) => set({ capabilities }),
+  setBuildConfig: (config) => set({ buildConfig: config, baseUrl: config.default_api_url }),
   setProfile: (patch) => set((state) => ({ ...state, ...patch })),
   setAdmobConfig: (patch) => set((state) => ({ ...state, ...patch })),
   setAuthConfig: (patch) => set((state) => ({ ...state, ...patch })),

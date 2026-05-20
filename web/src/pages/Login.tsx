@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { openInAppBrowser } from '../api/system'
+import { openInAppBrowser, takeOAuthCallback } from '../api/system'
 import { normalizeBaseUrl, xboardRequest } from '../api/xboard'
 import { useAppStore, type AppSettings, type OAuthProvider } from '../store'
 import { saveSession, saveSettings } from '../store/persist'
@@ -19,6 +19,11 @@ interface AuthBody {
   message?: string
 }
 
+interface ConfirmOAuthBody {
+  data?: string
+  message?: string
+}
+
 interface GuestConfigBody {
   data?: {
     oauth_providers?: Array<{ driver?: string; label?: string }>
@@ -27,6 +32,12 @@ interface GuestConfigBody {
     is_captcha?: number | boolean | string
   }
   message?: string
+}
+
+interface OAuthConfirmState {
+  token: string
+  provider: string
+  email: string
 }
 
 function parseOAuthProviders(value: unknown): OAuthProvider[] {
@@ -39,7 +50,7 @@ function parseOAuthProviders(value: unknown): OAuthProvider[] {
     .filter((item) => item.driver.trim())
 }
 
-function verifyToken(value: string): string {
+function verifyFromCallback(value: string): string {
   const text = value.trim()
   const matched = /[?&](?:verify|token)=([^&]+)/.exec(text)
   if (matched) return decodeURIComponent(matched[1])
@@ -51,22 +62,25 @@ export function Login() {
   const t = useTranslation()
   const setSession = useAppStore((s) => s.setSession)
   const settings = useAppStore((s) => s.settings)
+  const buildConfig = useAppStore((s) => s.buildConfig)
+  const capabilities = useAppStore((s) => s.capabilities)
   const setSettings = useAppStore((s) => s.setSettings)
   const oauthProviders = useAppStore((s) => s.oauthProviders)
   const inviteForce = useAppStore((s) => s.inviteForce)
   const registerEmailVerifyEnabled = useAppStore((s) => s.registerEmailVerifyEnabled)
   const registerCaptchaEnabled = useAppStore((s) => s.registerCaptchaEnabled)
   const setAuthConfig = useAppStore((s) => s.setAuthConfig)
+  const baseUrl = buildConfig?.default_api_url ?? ''
+  const appName = buildConfig?.app_name ?? 'XBClient'
+  const oauthCallbackSupported = capabilities?.platform === 'android'
 
   const [mode, setMode] = useState<AuthMode>('login')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [apiUserAgent, setApiUserAgent] = useState(settings.apiUserAgent)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [emailCode, setEmailCode] = useState('')
   const [captcha, setCaptcha] = useState('')
-  const [oauthVerify, setOauthVerify] = useState('')
+  const [oauthConfirm, setOauthConfirm] = useState<OAuthConfirmState | null>(null)
   const [configLoaded, setConfigLoaded] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -75,31 +89,48 @@ export function Login() {
   const [verifySending, setVerifySending] = useState(false)
   const [tokenLoading, setTokenLoading] = useState(false)
 
+  useEffect(() => {
+    if (baseUrl) void loadGuestConfig(false)
+  }, [baseUrl])
+
+  useEffect(() => {
+    if (capabilities?.platform !== 'android') return
+    let active = true
+
+    async function checkCallback() {
+      const callbackUrl = await takeOAuthCallback()
+      if (active && callbackUrl) await handleOAuthCallback(callbackUrl)
+    }
+
+    void checkCallback().catch((err) => setError(err instanceof Error ? err.message : String(err)))
+    const onFocus = () => void checkCallback().catch((err) => setError(err instanceof Error ? err.message : String(err)))
+    const onVisible = () => {
+      if (!document.hidden) onFocus()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      active = false
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [capabilities?.platform, baseUrl])
+
   async function persistSettings(patch: Partial<AppSettings>) {
     const next = { ...settings, ...patch }
     setSettings(patch)
     await saveSettings(next).catch((err) => console.error('Save settings failed', err))
   }
 
-  async function saveApiUserAgent() {
-    const value = apiUserAgent.trim()
-    if (value === settings.apiUserAgent) return
-    await persistSettings({ apiUserAgent: value })
-  }
-
   async function loadGuestConfig(showSuccess: boolean) {
     setError('')
-    if (!baseUrl.trim()) {
-      setError('请先填写站点地址。')
+    if (!baseUrl) {
+      setError('构建配置缺少默认服务地址。')
       return
     }
     setConfigLoading(true)
     try {
-      await saveApiUserAgent()
-      const response = await xboardRequest<GuestConfigBody>('guest_config', {
-        baseUrl,
-        userAgent: apiUserAgent.trim(),
-      })
+      const response = await xboardRequest<GuestConfigBody>('guest_config', { baseUrl })
       if (!response.ok) {
         setError(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
         return
@@ -112,7 +143,7 @@ export function Login() {
         registerCaptchaEnabled: enabled(data.is_captcha),
       })
       setConfigLoaded(true)
-      if (showSuccess) setMessage(t('site_config_loaded'))
+      if (showSuccess) setMessage('服务配置已加载。')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -126,7 +157,6 @@ export function Login() {
     setMessage('')
     setLoading(true)
     try {
-      await saveApiUserAgent()
       const params: Record<string, string> = { email: email.trim(), password }
       if (mode === 'register') {
         if (inviteCode.trim()) params.invite_code = inviteCode.trim()
@@ -138,11 +168,7 @@ export function Login() {
           params.cf_turnstile_response = token
         }
       }
-      const response = await xboardRequest<AuthBody>(mode, {
-        baseUrl,
-        params,
-        userAgent: apiUserAgent.trim(),
-      })
+      const response = await xboardRequest<AuthBody>(mode, { baseUrl, params })
       if (!response.ok) {
         setError(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
         return
@@ -157,10 +183,7 @@ export function Login() {
         setError('登录响应缺少 auth_data')
         return
       }
-      const session = { baseUrl: baseUrl.trim(), authData, email: email.trim() }
-      setSession(session)
-      await saveSession(session)
-      navigate('/home')
+      await finishLogin(authData, email.trim())
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -173,7 +196,6 @@ export function Login() {
     setMessage('')
     setVerifySending(true)
     try {
-      await saveApiUserAgent()
       const token = captcha.trim()
       const params: Record<string, string> = { email: email.trim() }
       if (token) {
@@ -181,11 +203,7 @@ export function Login() {
         params.recaptcha_v3_token = token
         params.cf_turnstile_response = token
       }
-      const response = await xboardRequest<{ message?: string }>('send_email_verify', {
-        baseUrl,
-        params,
-        userAgent: apiUserAgent.trim(),
-      })
+      const response = await xboardRequest<{ message?: string }>('send_email_verify', { baseUrl, params })
       if (!response.ok) {
         setError(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
         return
@@ -202,7 +220,7 @@ export function Login() {
     setError('')
     setMessage('')
     try {
-      await saveApiUserAgent()
+      if (!buildConfig) throw new Error('构建配置尚未加载。')
       const url = new URL(
         `/api/v1/passport/auth/oauth/${encodeURIComponent(provider.driver)}/redirect`,
         `${normalizeBaseUrl(baseUrl)}/`,
@@ -210,25 +228,78 @@ export function Login() {
       url.searchParams.set('scene', scene)
       url.searchParams.set('redirect', 'dashboard')
       url.searchParams.set('client', 'app')
-      url.searchParams.set('app_scheme', 'secone')
+      url.searchParams.set('app_scheme', buildConfig.oauth_callback_scheme)
       if (scene === 'register' && inviteCode.trim()) url.searchParams.set('invite_code', inviteCode.trim())
       await openInAppBrowser(url.toString(), `${provider.label || provider.driver} OAuth`)
-      setMessage(t('oauth_external_notice'))
+      setMessage('已打开 OAuth 页面，等待应用链接自动回调。')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
   }
 
-  async function loginWithVerify() {
+  async function handleOAuthCallback(callbackUrl: string) {
+    setError('')
+    setMessage('')
+    const uri = new URL(callbackUrl)
+    const oauthError = uri.searchParams.get('oauth_error') ?? ''
+    if (oauthError) {
+      setError(`OAuth 失败：${oauthError}`)
+      return
+    }
+    const success = uri.searchParams.get('oauth_success') ?? ''
+    if (success) {
+      setMessage(success)
+      return
+    }
+    const confirmToken = uri.searchParams.get('oauth_confirm_token') ?? ''
+    if (confirmToken) {
+      setMode('register')
+      setOauthConfirm({
+        token: confirmToken,
+        provider: uri.searchParams.get('oauth_provider') ?? '',
+        email: uri.searchParams.get('oauth_email') ?? '',
+      })
+      setMessage('请确认 OAuth 注册。')
+      return
+    }
+    const verify = uri.searchParams.get('verify') || uri.searchParams.get('token') || ''
+    if (verify) await loginWithVerify(verify)
+  }
+
+  async function confirmOAuthRegister() {
+    if (!oauthConfirm) return
     setError('')
     setMessage('')
     setTokenLoading(true)
     try {
-      await saveApiUserAgent()
+      const response = await xboardRequest<ConfirmOAuthBody>('confirm_oauth_register', {
+        baseUrl,
+        params: { token: oauthConfirm.token },
+      })
+      if (!response.ok) {
+        setError(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
+        return
+      }
+      const verify = verifyFromCallback(response.body?.data ?? '')
+      if (!verify) {
+        setError('OAuth 注册确认响应缺少 verify。')
+        return
+      }
+      setOauthConfirm(null)
+      await loginWithVerify(verify)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setTokenLoading(false)
+    }
+  }
+
+  async function loginWithVerify(verify: string) {
+    setTokenLoading(true)
+    try {
       const response = await xboardRequest<AuthBody>('token_login', {
         baseUrl,
-        params: { verify: verifyToken(oauthVerify) },
-        userAgent: apiUserAgent.trim(),
+        params: { verify: verifyFromCallback(verify) },
       })
       if (!response.ok) {
         setError(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
@@ -236,18 +307,20 @@ export function Login() {
       }
       const authData = response.body?.data?.auth_data
       if (!authData) {
-        setError('Token 登录响应缺少 auth_data')
+        setError('OAuth 登录响应缺少 auth_data')
         return
       }
-      const session = { baseUrl: baseUrl.trim(), authData, email: response.body?.data?.email ?? email.trim() }
-      setSession(session)
-      await saveSession(session)
-      navigate('/home')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      await finishLogin(authData, response.body?.data?.email ?? email.trim())
     } finally {
       setTokenLoading(false)
     }
+  }
+
+  async function finishLogin(authData: string, accountEmail: string) {
+    const session = { baseUrl, authData, email: accountEmail }
+    setSession(session)
+    await saveSession({ authData, email: accountEmail })
+    navigate('/home')
   }
 
   return (
@@ -258,10 +331,10 @@ export function Login() {
       >
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/30 pb-4">
           <div className="flex items-center gap-3">
-            <img className="h-10 w-10 shrink-0 filter drop-shadow-[0_4px_10px_rgba(11,87,208,0.25)]" src="./logo.svg" alt="XBClient" />
+            <img className="h-10 w-10 shrink-0 filter drop-shadow-[0_4px_10px_rgba(11,87,208,0.25)]" src="./logo.png" alt="XBClient" />
             <div className="min-w-0">
               <h1 className="text-lg font-bold tracking-tight text-primary">
-                SecOVPN {mode === 'login' ? t('login') : t('register')}
+                {appName} {mode === 'login' ? t('login') : t('register')}
               </h1>
               <p className="text-[10px] text-on-surface-variant font-medium">Xboard Client</p>
             </div>
@@ -292,11 +365,9 @@ export function Login() {
             <button
               type="button"
               onClick={() => {
-                const nextMode = mode === 'login' ? 'register' : 'login'
-                setMode(nextMode)
+                setMode(mode === 'login' ? 'register' : 'login')
                 setError('')
                 setMessage('')
-                if (nextMode === 'register' && baseUrl.trim()) void loadGuestConfig(false)
               }}
               className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 active:scale-95 transition-all duration-150"
             >
@@ -305,46 +376,11 @@ export function Login() {
           </div>
         </div>
 
+        <section className="rounded-2xl bg-primary/10 p-3 text-xs font-semibold text-primary border border-primary/20">
+          {configLoading ? '服务配置加载中…' : configLoaded ? '服务配置已同步。' : '服务配置等待同步。'}
+        </section>
+
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="block md:col-span-2">
-            <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('site_url')}</span>
-            <div className="flex gap-2">
-              <input
-                className="min-w-0 flex-1 rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-150"
-                placeholder={t('site_placeholder')}
-                value={baseUrl}
-                onChange={(e) => {
-                  setBaseUrl(e.target.value)
-                  setConfigLoaded(false)
-                }}
-                onBlur={() => {
-                  if (baseUrl.trim() && !configLoaded) void loadGuestConfig(false)
-                }}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => void loadGuestConfig(true)}
-                disabled={configLoading}
-                className="shrink-0 rounded-xl bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/20 disabled:opacity-50 border border-primary/20"
-              >
-                {configLoading ? t('refreshing') : t('load_site_config')}
-              </button>
-            </div>
-          </label>
-
-          <label className="block md:col-span-2">
-            <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('api_user_agent')}</span>
-            <input
-              className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-150"
-              placeholder={t('api_user_agent_placeholder')}
-              value={apiUserAgent}
-              onChange={(e) => setApiUserAgent(e.target.value)}
-              onBlur={() => void saveApiUserAgent()}
-            />
-            <span className="mt-1 block text-[10px] text-on-surface-variant">{t('api_user_agent_desc')}</span>
-          </label>
-
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('email')}</span>
             <input
@@ -424,11 +460,18 @@ export function Login() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">{t('auth_options')}</h2>
             {!configLoaded && (
-              <span className="text-[10px] font-semibold text-on-surface-variant">{t('load_site_config')}</span>
+              <button
+                type="button"
+                onClick={() => void loadGuestConfig(true)}
+                disabled={configLoading}
+                className="text-[10px] font-semibold text-primary disabled:opacity-50"
+              >
+                {configLoading ? t('refreshing') : '重新同步'}
+              </button>
             )}
           </div>
 
-          {oauthProviders.length > 0 ? (
+          {oauthCallbackSupported && oauthProviders.length > 0 ? (
             <div className="grid gap-2 sm:grid-cols-2">
               {oauthProviders.map((provider) => (
                 <button
@@ -441,26 +484,36 @@ export function Login() {
                 </button>
               ))}
             </div>
+          ) : oauthCallbackSupported ? (
+            <p className="text-xs text-on-surface-variant">服务配置同步后会显示可用 OAuth 登录方式。</p>
           ) : (
-            <p className="text-xs text-on-surface-variant">站点配置加载后会显示可用 OAuth 登录方式。</p>
+            <p className="text-xs text-on-surface-variant">当前平台未接入应用链接回调，OAuth 入口已关闭。</p>
           )}
 
-          <div className="flex gap-2">
-            <input
-              className="min-w-0 flex-1 rounded-xl bg-surface-low px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-150"
-              placeholder={t('oauth_verify')}
-              value={oauthVerify}
-              onChange={(e) => setOauthVerify(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={() => void loginWithVerify()}
-              disabled={tokenLoading}
-              className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-primary/95 disabled:opacity-50"
-            >
-              {tokenLoading ? t('action_connecting') : t('token_login')}
-            </button>
-          </div>
+          {oauthConfirm && (
+            <div className="rounded-2xl bg-primary/10 p-3 text-xs text-primary border border-primary/20 space-y-3">
+              <p className="font-semibold">
+                确认使用 {oauthConfirm.provider || 'OAuth'} 注册{oauthConfirm.email ? `：${oauthConfirm.email}` : ''}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void confirmOAuthRegister()}
+                  disabled={tokenLoading}
+                  className="rounded-xl bg-primary px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                >
+                  {tokenLoading ? t('action_connecting') : '确认注册'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOauthConfirm(null)}
+                  className="rounded-xl bg-surface px-3 py-2 text-xs font-bold text-on-surface-variant border border-outline-variant/30"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
         {message && (

@@ -6,14 +6,14 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
 
-pub fn install<R: Runtime + 'static>(app: &AppHandle<R>) -> tauri::Result<()> {
+pub fn install<R: Runtime + 'static>(app: &AppHandle<R>, app_name: &str) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "tray:show", "显示窗口", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "tray:quit", "退出", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &separator, &quit])?;
 
     TrayIconBuilder::with_id("main")
-        .tooltip("SecOVPN")
+        .tooltip(app_name)
         .icon(
             app.default_window_icon()
                 .cloned()

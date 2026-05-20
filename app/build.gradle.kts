@@ -63,8 +63,9 @@ val oauthCallbackSchemeRaw = providers.gradleProperty("xbclient.oauthCallbackSch
     ?: providers.environmentVariable("XBCLIENT_OAUTH_CALLBACK_SCHEME").orNull
     ?: rootLocalProperties.getProperty("xbclient.oauthCallbackScheme")
     ?: rootLocalProperties.getProperty("XBCLIENT_OAUTH_CALLBACK_SCHEME")
-    ?: "secone"
-val oauthCallbackScheme = oauthCallbackSchemeRaw.trim().ifEmpty { "secone" }
+    ?: error("XBCLIENT_OAUTH_CALLBACK_SCHEME, -Pxbclient.oauthCallbackScheme or local.properties xbclient.oauthCallbackScheme is required")
+val oauthCallbackScheme = oauthCallbackSchemeRaw.trim().takeIf { it.isNotEmpty() }
+    ?: error("OAuth callback scheme is empty")
 val websiteUrl = providers.gradleProperty("xbclient.websiteUrl")
     .orNull
     ?: providers.environmentVariable("XBCLIENT_WEBSITE_URL").orNull

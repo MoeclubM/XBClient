@@ -4,7 +4,7 @@ mod system_proxy;
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 mod tray;
 
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -30,10 +30,18 @@ pub fn run() {
         aerion_core::set_event_callback(move |_, json| {
             let _ = handle.emit("aerion-event", json);
         });
+        let app_name = app
+            .config()
+            .product_name
+            .clone()
+            .expect("Tauri productName is required");
+        if let Some(window) = app.get_webview_window("main") {
+            window.set_title(&app_name)?;
+        }
 
         #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
         {
-            tray::install(app.handle())?;
+            tray::install(app.handle(), &app_name)?;
         }
         Ok(())
     });
@@ -49,6 +57,8 @@ pub fn run() {
     builder
         .invoke_handler(tauri::generate_handler![
             commands::runtime_capabilities,
+            commands::runtime_config,
+            commands::oauth_take_callback,
             commands::resolve_node_host,
             commands::xboard_request,
             commands::subscription_fetch,

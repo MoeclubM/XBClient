@@ -36,6 +36,15 @@ pub struct AppOpenAdResult {
     pub shown: bool,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OAuthCallbackResult {
+    pub url: String,
+}
+
+#[derive(Debug, Serialize)]
+struct EmptyPayload {}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[cfg(mobile)]
@@ -44,6 +53,9 @@ pub enum Error {
     #[cfg(desktop)]
     #[error("AdMob is only available on Android and iOS")]
     UnsupportedPlatform,
+    #[cfg(not(target_os = "android"))]
+    #[error("OAuth callback bridge is only available on Android")]
+    UnsupportedOAuthCallbackPlatform,
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -87,6 +99,22 @@ impl<R: Runtime> XbClientMobile<R> {
         {
             let _ = request;
             Err(Error::UnsupportedPlatform)
+        }
+    }
+
+    pub async fn take_oauth_callback(&self) -> Result<OAuthCallbackResult> {
+        #[cfg(target_os = "android")]
+        {
+            return self
+                .mobile_plugin_handle
+                .run_mobile_plugin_async("takeOAuthCallback", EmptyPayload {})
+                .await
+                .map_err(Into::into);
+        }
+
+        #[cfg(not(target_os = "android"))]
+        {
+            Err(Error::UnsupportedOAuthCallbackPlatform)
         }
     }
 }

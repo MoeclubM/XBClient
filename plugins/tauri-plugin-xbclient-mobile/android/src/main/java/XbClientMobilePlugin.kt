@@ -22,6 +22,7 @@ import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAd
 import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAdEventCallback
 import com.google.android.libraries.ads.mobile.sdk.rewarded.ServerSideVerificationOptions
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 @InvokeArg
 class RewardedAdArgs {
@@ -37,7 +38,23 @@ class AppOpenAdArgs {
 
 @TauriPlugin
 class XbClientMobilePlugin(private val activity: Activity) : Plugin(activity) {
+    companion object {
+        private val oauthCallbackUrl = AtomicReference("")
+
+        fun captureOAuthCallback(url: String?) {
+            if (!url.isNullOrBlank()) {
+                oauthCallbackUrl.set(url)
+            }
+        }
+    }
+
     private var initialized = false
+
+    @Command
+    fun takeOAuthCallback(invoke: Invoke) {
+        val url = oauthCallbackUrl.getAndSet("")
+        invoke.resolve(JSObject().put("url", url))
+    }
 
     @Command
     fun showRewardedAd(invoke: Invoke) {

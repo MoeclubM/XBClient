@@ -72,7 +72,7 @@ jobs:
       - name: Validate app build secrets
         shell: bash
         run: |
-          for name in XBCLIENT_DEFAULT_API_URL XBCLIENT_ADMOB_APP_ID XBCLIENT_USER_AGENT; do
+          for name in XBCLIENT_DEFAULT_API_URL XBCLIENT_ADMOB_APP_ID XBCLIENT_USER_AGENT XBCLIENT_OAUTH_CALLBACK_SCHEME; do
             if [ -z "${!name}" ]; then
               echo "::error::$name is empty or not available to this workflow"
               exit 1
@@ -155,7 +155,7 @@ jobs:
       - name: Build signed Tauri release APKs and AAB
         shell: bash
         run: |
-          pnpm --filter secovpn android:build --apk --aab --split-per-abi --target aarch64 x86_64 --ci
+          pnpm --filter xbclient-tauri android:build --apk --aab --split-per-abi --target aarch64 x86_64 --ci
 
       - name: Collect Tauri release Android artifacts
         shell: bash
@@ -169,14 +169,14 @@ jobs:
       - name: Upload release Tauri Android APKs
         uses: actions/upload-artifact@v6
         with:
-          name: secovpn-release-android-apks-${{ github.ref_name }}
+          name: xbclient-tauri-release-android-apks-${{ github.ref_name }}
           path: artifacts/tauri-android/apk/*.apk
           if-no-files-found: error
 
       - name: Upload release Tauri Android AABs
         uses: actions/upload-artifact@v6
         with:
-          name: secovpn-release-android-aabs-${{ github.ref_name }}
+          name: xbclient-tauri-release-android-aabs-${{ github.ref_name }}
           path: artifacts/tauri-android/aab/*.aab
           if-no-files-found: error
 

@@ -71,7 +71,7 @@ jobs:
       - name: Validate app build secrets
         shell: bash
         run: |
-          for name in XBCLIENT_DEFAULT_API_URL XBCLIENT_ADMOB_APP_ID XBCLIENT_USER_AGENT; do
+          for name in XBCLIENT_DEFAULT_API_URL XBCLIENT_ADMOB_APP_ID XBCLIENT_USER_AGENT XBCLIENT_OAUTH_CALLBACK_SCHEME; do
             if [ -z "${!name}" ]; then
               echo "::error::$name is empty or not available to this workflow"
               exit 1
@@ -154,7 +154,7 @@ jobs:
       - name: Build signed Tauri beta APKs and AAB
         shell: bash
         run: |
-          pnpm --filter secovpn android:build --apk --aab --split-per-abi --target aarch64 x86_64 --ci
+          pnpm --filter xbclient-tauri android:build --apk --aab --split-per-abi --target aarch64 x86_64 --ci
 
       - name: Collect Tauri beta Android artifacts
         shell: bash
@@ -168,14 +168,14 @@ jobs:
       - name: Upload beta Tauri Android APKs
         uses: actions/upload-artifact@v6
         with:
-          name: secovpn-beta-android-apks-${{ github.run_number }}
+          name: xbclient-tauri-beta-android-apks-${{ github.run_number }}
           path: artifacts/tauri-android/apk/*.apk
           if-no-files-found: error
 
       - name: Upload beta Tauri Android AABs
         uses: actions/upload-artifact@v6
         with:
-          name: secovpn-beta-android-aabs-${{ github.run_number }}
+          name: xbclient-tauri-beta-android-aabs-${{ github.run_number }}
           path: artifacts/tauri-android/aab/*.aab
           if-no-files-found: error
 
@@ -184,6 +184,10 @@ jobs:
     runs-on: windows-latest
     env:
       CARGO_TERM_COLOR: always
+      XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
+      XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
+      XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
+      XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
 
     steps:
       - name: Checkout
@@ -222,11 +226,11 @@ jobs:
       - name: Build Tauri Windows
         shell: bash
         run: |
-          pnpm --filter secovpn build
+          pnpm --filter xbclient-tauri build
 
       - name: Upload beta Windows exe
         uses: actions/upload-artifact@v6
         with:
-          name: secovpn-beta-windows-${{ github.run_number }}
-          path: apps/tauri/src-tauri/target/release/secovpn.exe
+          name: xbclient-tauri-beta-windows-${{ github.run_number }}
+          path: apps/tauri/src-tauri/target/release/xbclient-tauri.exe
           if-no-files-found: error

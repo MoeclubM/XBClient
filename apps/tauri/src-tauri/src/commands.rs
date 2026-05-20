@@ -5,7 +5,8 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 use std::time::Duration;
 use tauri_plugin_xbclient_mobile::{
-    AppOpenAdRequest, AppOpenAdResult, RewardedAdRequest, RewardedAdResult, XbClientMobileExt,
+    AppOpenAdRequest, AppOpenAdResult, OAuthCallbackResult, RewardedAdRequest, RewardedAdResult,
+    XbClientMobileExt,
 };
 
 static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
@@ -45,6 +46,14 @@ pub struct RuntimeCapabilities {
     pub admob: bool,
 }
 
+#[derive(Serialize)]
+pub struct RuntimeConfig {
+    pub app_name: String,
+    pub default_api_url: String,
+    pub user_agent: String,
+    pub oauth_callback_scheme: String,
+}
+
 #[derive(Deserialize)]
 struct DohResponse {
     #[serde(rename = "Answer")]
@@ -76,6 +85,40 @@ pub fn runtime_capabilities() -> RuntimeCapabilities {
         payment: cfg!(any(target_os = "android", target_os = "ios")),
         admob: cfg!(any(target_os = "android", target_os = "ios")),
     }
+}
+
+#[tauri::command]
+pub fn runtime_config() -> Result<RuntimeConfig, String> {
+    let app_name = option_env!("XBCLIENT_APP_NAME")
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("XBClient")
+        .to_string();
+    Ok(RuntimeConfig {
+        app_name,
+        default_api_url: required_build_config(
+            "XBCLIENT_DEFAULT_API_URL",
+            option_env!("XBCLIENT_DEFAULT_API_URL"),
+        )?,
+        user_agent: required_build_config(
+            "XBCLIENT_USER_AGENT",
+            option_env!("XBCLIENT_USER_AGENT"),
+        )?,
+        oauth_callback_scheme: required_build_config(
+            "XBCLIENT_OAUTH_CALLBACK_SCHEME",
+            option_env!("XBCLIENT_OAUTH_CALLBACK_SCHEME"),
+        )?,
+    })
+}
+
+#[tauri::command]
+pub async fn oauth_take_callback(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let OAuthCallbackResult { url } = app
+        .xbclient_mobile()
+        .take_oauth_callback()
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok((!url.trim().is_empty()).then_some(url))
 }
 
 #[tauri::command]
@@ -248,4 +291,12 @@ fn platform_name() -> &'static str {
     } else {
         "unknown"
     }
+}
+
+fn required_build_config(name: &str, value: Option<&str>) -> Result<String, String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| format!("{name} is required in build config"))
 }

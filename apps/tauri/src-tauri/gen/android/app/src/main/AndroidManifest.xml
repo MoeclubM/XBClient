@@ -6,9 +6,9 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
     <application
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/Theme.secovpn"
+        android:theme="@style/Theme.XbClientTauri"
         android:usesCleartextTraffic="${usesCleartextTraffic}">
         <meta-data
             android:name="moe.telecom.xbclient.ADMOB_APP_ID"
@@ -24,6 +24,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
                 <!-- AndroidTV support -->
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${oauthCallbackScheme}" android:host="oauth" />
             </intent-filter>
         </activity>
 

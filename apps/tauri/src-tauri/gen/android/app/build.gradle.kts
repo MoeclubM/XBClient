@@ -27,6 +27,13 @@ val applicationIdRaw = providers.gradleProperty("xbclient.applicationId").orNull
     ?: repoLocalProperties.getProperty("XBCLIENT_APPLICATION_ID")?.takeIf { it.isNotBlank() }
     ?: "moe.telecom.xbclient"
 val xbclientApplicationId = applicationIdRaw.trim()
+val appNameRaw = providers.gradleProperty("xbclient.appName")
+    .orNull
+    ?: providers.environmentVariable("XBCLIENT_APP_NAME").orNull
+    ?: repoLocalProperties.getProperty("xbclient.appName")
+    ?: repoLocalProperties.getProperty("XBCLIENT_APP_NAME")
+    ?: "XBClient"
+val appName = appNameRaw.trim().ifEmpty { "XBClient" }
 val admobAppIdRaw = providers.gradleProperty("xbclient.admobAppId")
     .orNull
     ?: providers.environmentVariable("XBCLIENT_ADMOB_APP_ID").orNull
@@ -37,6 +44,16 @@ val admobAppId = admobAppIdRaw
     .trim()
     .takeIf { it.isNotEmpty() }
     ?: error("AdMob App ID is empty")
+val oauthCallbackSchemeRaw = providers.gradleProperty("xbclient.oauthCallbackScheme")
+    .orNull
+    ?: providers.environmentVariable("XBCLIENT_OAUTH_CALLBACK_SCHEME").orNull
+    ?: repoLocalProperties.getProperty("xbclient.oauthCallbackScheme")
+    ?: repoLocalProperties.getProperty("XBCLIENT_OAUTH_CALLBACK_SCHEME")
+    ?: error("XBCLIENT_OAUTH_CALLBACK_SCHEME, -Pxbclient.oauthCallbackScheme or local.properties xbclient.oauthCallbackScheme is required")
+val oauthCallbackScheme = oauthCallbackSchemeRaw
+    .trim()
+    .takeIf { it.isNotEmpty() }
+    ?: error("OAuth callback scheme is empty")
 fun signingValue(gradleProperty: String, environmentVariable: String): String? =
     providers.gradleProperty(gradleProperty).orNull
         ?: providers.environmentVariable(environmentVariable).orNull
@@ -85,12 +102,16 @@ android {
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         manifestPlaceholders["admobAppId"] = admobAppId
+        manifestPlaceholders["oauthCallbackScheme"] = oauthCallbackScheme
         applicationId = xbclientApplicationId
         minSdk = minAndroidApi
         targetSdk = latestAndroidApi
         versionCode = appVersionCode
         versionName = appVersionName
+        resValue("string", "app_name", appName)
+        resValue("string", "main_activity_title", appName)
         buildConfigField("String", "ADMOB_APP_ID", "\"${admobAppId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"${oauthCallbackScheme.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
     signingConfigs {
         create("release") {
@@ -129,6 +150,7 @@ android {
     }
     buildFeatures {
         buildConfig = true
+        resValues = true
     }
 }
 

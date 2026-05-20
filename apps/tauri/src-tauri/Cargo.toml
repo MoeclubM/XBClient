@@ -1,11 +1,11 @@
 [package]
-name = "secovpn"
+name = "xbclient-tauri"
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
 
 [lib]
-name = "secovpn_lib"
+name = "xbclient_tauri_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

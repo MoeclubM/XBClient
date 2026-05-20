@@ -14,6 +14,13 @@ export interface RuntimeCapabilities {
   admob: boolean
 }
 
+export interface RuntimeConfig {
+  app_name: string
+  default_api_url: string
+  user_agent: string
+  oauth_callback_scheme: string
+}
+
 export interface RewardedAdRequest {
   adUnitId: string
   userId: string
@@ -28,6 +35,14 @@ export interface RewardedAdResult {
 
 export async function runtimeCapabilities(): Promise<RuntimeCapabilities> {
   return invoke('runtime_capabilities')
+}
+
+export async function runtimeConfig(): Promise<RuntimeConfig> {
+  return invoke('runtime_config')
+}
+
+export async function takeOAuthCallback(): Promise<string | null> {
+  return invoke<string | null>('oauth_take_callback')
 }
 
 export async function resolveNodeHost(dnsUrl: string, host: string, userAgent = ''): Promise<string> {
@@ -55,7 +70,7 @@ export async function openExternal(url: string): Promise<void> {
   await openUrl(url)
 }
 
-export async function openInAppBrowser(url: string, title = 'SecOVPN'): Promise<void> {
+export async function openInAppBrowser(url: string, title = 'XBClient'): Promise<void> {
   const capabilities = await runtimeCapabilities()
   if (capabilities.platform === 'android' || capabilities.platform === 'ios') {
     await openUrl(url, 'inAppBrowser')
