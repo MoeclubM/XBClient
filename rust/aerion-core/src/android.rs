@@ -50,13 +50,17 @@ pub fn on_log(level: &str, message: &str) -> Result<()> {
             let class = service_class
                 .as_ref()
                 .context("XbClientVpnService class has not been initialized")?;
+            let level = env.new_string(level).context("create Android log level")?;
+            let message = env
+                .new_string(message)
+                .context("create Android log message")?;
             env.call_static_method(
                 class,
                 jni_str!("onLog"),
                 jni_sig!("(Ljava/lang/String;Ljava/lang/String;)V"),
                 &[
-                    JValue::Object(&jni_str!(level).into()),
-                    JValue::Object(&jni_str!(message).into()),
+                    JValue::Object(level.as_ref()),
+                    JValue::Object(message.as_ref()),
                 ],
             )?;
             Ok(())
@@ -74,11 +78,14 @@ pub fn on_event(event_json: &str) -> Result<()> {
             let class = service_class
                 .as_ref()
                 .context("XbClientVpnService class has not been initialized")?;
+            let event_json = env
+                .new_string(event_json)
+                .context("create Android event JSON")?;
             env.call_static_method(
                 class,
                 jni_str!("onEvent"),
                 jni_sig!("(Ljava/lang/String;)V"),
-                &[JValue::Object(&jni_str!(event_json).into())],
+                &[JValue::Object(event_json.as_ref())],
             )?;
             Ok(())
         })

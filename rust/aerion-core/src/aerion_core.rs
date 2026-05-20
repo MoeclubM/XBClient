@@ -156,7 +156,6 @@ struct SocksSession {
     _log_task: Option<JoinHandle<()>>,
     _event_task: Option<JoinHandle<()>>,
     _core: Option<aerion::ProxyCore>,
-    _stop_token: Option<aerion::ListenerStopToken>,
 }
 
 static NEXT_SOCKS_SESSION_ID: AtomicU64 = AtomicU64::new(1);
@@ -183,7 +182,6 @@ pub async fn start_socks_from_json(input: &str) -> Result<String> {
 
     let core = aerion::ProxyCore::empty();
     let log_bridge = aerion::LogBridge::new();
-    let stop_token = aerion::ListenerStopToken::new();
     let session_id = NEXT_SOCKS_SESSION_ID.fetch_add(1, Ordering::SeqCst);
 
     let (socks_addr, task) = start_aerion_socks(request.node, Some(core.clone())).await?;
@@ -221,7 +219,6 @@ pub async fn start_socks_from_json(input: &str) -> Result<String> {
                 _log_task: Some(log_task),
                 _event_task: Some(event_task),
                 _core: Some(core),
-                _stop_token: Some(stop_token),
             },
         );
 
@@ -239,10 +236,10 @@ pub async fn stop_socks(session_id: u64) -> Result<String> {
         .expect("SOCKS session map lock poisoned")
         .remove(&session_id)
         .with_context(|| format!("SOCKS session not found: {session_id}"))?;
-    session._task.abort();
-    if let Some(token) = session._stop_token {
-        token.stop();
+    if let Some(core) = session._core {
+        core.cancel_all_sessions();
     }
+    session._task.abort();
     if let Some(task) = session._log_task {
         task.abort();
     }
@@ -440,7 +437,6 @@ mod platform {
         shutdown: TunCancellationToken,
         proxy_task: JoinHandle<()>,
         _core: aerion::ProxyCore,
-        _stop_token: aerion::StopToken,
     }
 
     pub async fn start(input: &str) -> Result<String> {
@@ -490,7 +486,6 @@ mod platform {
 
         let log_bridge = aerion::LogBridge::new();
         let mut event_rx = core.subscribe_events();
-        let stop_token = aerion::StopToken::new();
 
         let runtime = spawn_tun(tun_config).context("spawn Aerion TUN runtime")?;
         let shutdown = runtime.shutdown_token();
@@ -504,7 +499,6 @@ mod platform {
                     shutdown: shutdown.clone(),
                     proxy_task,
                     _core: core.clone(),
-                    _stop_token: stop_token.clone(),
                 },
             );
 
@@ -534,10 +528,10 @@ mod platform {
                 .expect("VPN session map lock poisoned")
                 .remove(&session_id)
             {
+                session._core.cancel_all_sessions();
                 session.proxy_task.abort();
                 log_task_inner.abort();
                 event_task_inner.abort();
-                session._stop_token.stop();
             }
         });
 
@@ -559,8 +553,8 @@ mod platform {
             .remove(&session_id)
             .with_context(|| format!("VPN session not found: {session_id}"))?;
         session.shutdown.cancel();
+        session._core.cancel_all_sessions();
         session.proxy_task.abort();
-        session._stop_token.stop();
         Ok(json!({"ok": true, "session_id": session_id}).to_string())
     }
 }
