@@ -28,7 +28,7 @@ pub fn run() {
             aerion_core::set_event_callback(move |_, json| {
                 let _ = handle.emit("aerion-event", json);
             });
-            
+
             tray::install(app.handle())?;
             Ok(())
         })

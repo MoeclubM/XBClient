@@ -388,10 +388,10 @@ mod platform {
             other => bail!("unsupported VPN DNS strategy: {other}"),
         };
         let dns_addr: IpAddr = request.dns_addr.parse().context("parse VPN DNS address")?;
-        
+
         let core = aerion::ProxyCore::empty();
         let (socks_addr, proxy_task) = start_aerion_socks(request.node, Some(core.clone())).await?;
-        
+
         let mut tun_config = TunConfig::new(socks_proxy_url(socks_addr));
         tun_config.tun_fd = Some(request.tun_fd);
         tun_config.close_fd_on_drop = false;

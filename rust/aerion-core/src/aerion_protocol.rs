@@ -44,7 +44,9 @@ async fn run_aerion_listener(
         AerionProxyConfig::Hysteria2(config) => {
             run_hysteria2_client_listener(listener, config).await
         }
-        AerionProxyConfig::Trojan(config) => run_trojan_client_listener(listener, config, core).await,
+        AerionProxyConfig::Trojan(config) => {
+            run_trojan_client_listener(listener, config, core).await
+        }
         AerionProxyConfig::Vless(config) => run_vless_client_listener(listener, config, core).await,
         AerionProxyConfig::Vmess(config) => run_vmess_client_listener(listener, config).await,
         AerionProxyConfig::Mieru(config) => run_mieru_client_listener(listener, config).await,
