@@ -9,8 +9,8 @@
     <string name="common_clear_selection">選択をクリア</string>
     <string name="common_back_settings">設定に戻る</string>
 
-    <string name="nav_home">ホーム</string>
-    <string name="nav_nodes">ノード</string>
+    <string name="nav_home">接続</string>
+    <string name="nav_nodes">接続</string>
     <string name="nav_plans">プラン</string>
     <string name="nav_profile">マイページ</string>
 

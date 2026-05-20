@@ -7,6 +7,7 @@ import { clearSession } from '../store/persist'
 import { formatMoney, formatUnixDate, numericValue } from '../format'
 import { enabled, parseRewardLogs, rewardStatusText } from '../reward'
 import { useTranslation } from '../i18n'
+import { Tickets } from './Tickets'
 
 interface UserInfoBody {
   data?: {
@@ -111,6 +112,7 @@ export function Profile() {
   const [rewardLoading, setRewardLoading] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
+  const [section, setSection] = useState<'overview' | 'tickets'>('overview')
   const mobileControl = capabilities?.admob === true
   const pointsLogs = adRewardLogs.filter((log) => log.scene === 'points')
   const nativeAndroidVpn = capabilities?.platform === 'android'
@@ -304,31 +306,46 @@ export function Profile() {
     navigate('/login')
   }
 
+  if (section === 'tickets') {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4 px-4 pb-24 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
+        <button
+          type="button"
+          onClick={() => setSection('overview')}
+          className="rounded-lg border border-outline-variant/60 px-3 py-2 text-xs font-semibold text-on-background"
+        >
+          ← 返回个人中心
+        </button>
+        <Tickets compact />
+      </div>
+    )
+  }
+
   return (
-    <main className="mx-auto max-w-3xl space-y-5 px-6 pb-24 pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
-      <header className="border-b border-outline-variant/30 pb-3 flex items-center justify-between gap-3">
+    <main className="mx-auto max-w-3xl space-y-4 px-4 pb-24 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
+      <header className="flex items-center justify-between gap-3 border-b border-outline-variant/40 pb-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-primary">{t('nav_profile')}</h1>
-          <p className="mt-1 text-xs text-on-surface-variant font-medium break-all">{email || '未登录'}</p>
+          <h1 className="text-lg font-semibold text-on-background">{t('nav_profile')}</h1>
+          <p className="mt-1 break-all text-xs text-on-surface-variant">{email || '未登录'}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate('/tickets')}
-            className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer border border-primary/20"
+            onClick={() => setSection('tickets')}
+            className="rounded-lg border border-outline-variant/60 px-3 py-2 text-xs font-semibold text-primary"
           >
-            💬 {t('nav_services')}
+            {t('nav_services')}
           </button>
           <button
             onClick={() => navigate('/settings')}
-            className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer border border-primary/20"
+            className="rounded-lg border border-outline-variant/60 px-3 py-2 text-xs font-semibold text-primary"
           >
-            ⚙️ {t('settings_button')}
+            {t('settings_button')}
           </button>
           <button
             onClick={() => void logout()}
-            className="rounded-xl bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-500/20 active:scale-95 transition-all cursor-pointer border border-rose-500/20"
+            className="rounded-lg border border-rose-500/30 px-3 py-2 text-xs font-semibold text-rose-500"
           >
-            👋 {t('logout')}
+            {t('logout')}
           </button>
         </div>
       </header>

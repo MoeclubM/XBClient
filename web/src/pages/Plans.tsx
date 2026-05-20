@@ -398,14 +398,12 @@ export function Plans() {
                         {formatMoney(price.amount, currencySymbol, currencyUnit)}
                       </span>
                     </div>
-                    {(!mobileControl || !paymentEnabled) && (
-                      <button
-                        onClick={() => void buyWithBalance(plan, price)}
-                        className="mt-3 w-full rounded-lg bg-primary/10 py-1.5 text-[11px] font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer border border-primary/20"
-                      >
-                        💳 {t('purchase_balance')}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => void buyWithBalance(plan, price)}
+                      className="mt-3 w-full rounded-lg border border-outline-variant/60 py-1.5 text-[11px] font-semibold text-primary"
+                    >
+                      {t('purchase_balance')}
+                    </button>
                   </li>
                 ))}
               </ul>

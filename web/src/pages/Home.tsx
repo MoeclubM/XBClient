@@ -330,13 +330,15 @@ export function Home() {
   }
 
   async function testAllNodes() {
-    await Promise.all(nodes.map((_, index) => testNode(index)))
+    for (const index of nodes.keys()) {
+      await testNode(index)
+    }
   }
 
   async function applySystemProxy(socksAddr: string) {
     if (!settings.autoApplyProxy) return
     if (!capabilities?.system_proxy) {
-      throw new Error('当前平台不支持系统代理接管，请手动配置 SOCKS。')
+      throw new Error('当前平台不支持自动系统代理。')
     }
     const { host, port } = parseSocksAddr(socksAddr)
     await systemProxySet(host, port)
@@ -392,7 +394,7 @@ export function Home() {
     }
 
     if (settings.autoApplyProxy && !capabilities?.system_proxy) {
-      setError('当前平台不支持系统代理接管，请关闭自动接管后手动配置 SOCKS。')
+      setError('当前平台不支持自动系统代理。')
       setConnectingIndex(null)
       return
     }
@@ -475,7 +477,6 @@ export function Home() {
   const selectedNode = nodes[selectedNodeIndex] || nodes[0]
   const isCurrentlyConnecting = connectingIndex !== null
   const nativeAndroidVpn = capabilities?.platform === 'android'
-  const appName = buildConfig?.app_name ?? ''
 
   // Progress calculations
   const trafficUsed = subscription.trafficUsedBytes
@@ -483,231 +484,159 @@ export function Home() {
   const progressPercent = trafficTotal > 0 ? Math.min(100, (trafficUsed / trafficTotal) * 100) : 0
 
   return (
-    <main className="mx-auto max-w-2xl px-6 pb-24 space-y-5 pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
-      {/* Top Header Row */}
-      <header className="flex items-center justify-between gap-3 border-b border-outline-variant/30 pb-3.5">
-        <div className="flex min-w-0 items-center gap-3">
-          <img className="h-9 w-9 shrink-0 filter drop-shadow-[0_4px_8px_rgba(11,87,208,0.2)]" src="./logo.png" alt="Logo" />
+    <main className="mx-auto max-w-2xl space-y-4 px-4 pb-24 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
+      <header className="space-y-2 border-b border-outline-variant/40 pb-3">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-base font-bold tracking-tight text-primary break-all">{appName ? `${appName} · ` : ''}{email.split('@')[0]}</h1>
-            <p className="text-[10px] text-on-surface-variant font-medium break-all">{baseUrl}</p>
+            <h1 className="text-lg font-semibold text-on-background">{t('nav_nodes')}</h1>
+            <p className="mt-1 break-all text-xs text-on-surface-variant">{email || '未登录'}</p>
           </div>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={loading}
+            className="rounded-lg border border-outline-variant/60 px-3 py-2 text-xs font-semibold text-primary disabled:opacity-50"
+          >
+            {loading ? t('refreshing') : t('refresh_sub')}
+          </button>
         </div>
-        <button
-          onClick={() => void refresh()}
-          disabled={loading}
-          className="shrink-0 rounded-xl bg-primary/10 px-3 py-2 text-xs font-bold text-primary border border-primary/20 disabled:opacity-50"
-        >
-          {loading ? t('refreshing') : t('refresh_sub')}
-        </button>
+        <p className="break-all text-[11px] text-on-surface-variant">{baseUrl}</p>
       </header>
 
       {error && (
-        <p className="rounded-xl bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20 break-words">
+        <p className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 break-words">
           {error}
         </p>
       )}
 
-      {/* Subscription Warnings block */}
       {subscription.blockReason && (
-        <section className="rounded-2xl bg-rose-500/10 border border-rose-500/20 p-5 shadow-sm space-y-3">
-          <p className="text-sm font-bold text-rose-500">
-            {subscription.blockReason === 'expired' && '⚠️ 套餐已过期 / Subscription Expired'}
-            {subscription.blockReason === 'traffic_exceeded' && '⚠️ 流量已用尽 / Traffic Exceeded'}
-            {subscription.blockReason === 'no_plan' && '⚠️ 暂无可用套餐 / No Active Subscription'}
+        <section className="space-y-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4">
+          <p className="text-sm font-semibold text-rose-500">
+            {subscription.blockReason === 'expired'
+              ? '套餐已过期'
+              : subscription.blockReason === 'traffic_exceeded'
+                ? '流量已用尽'
+                : '暂无可用套餐'}
           </p>
           <button
+            type="button"
             onClick={() => navigate('/plans')}
-            className="rounded-xl bg-rose-500 px-4 py-2 text-xs font-bold text-white shadow hover:bg-rose-600 active:scale-95 transition-all cursor-pointer"
+            className="rounded-lg bg-rose-500 px-3 py-2 text-xs font-semibold text-white"
           >
-            🛒 前往获取套餐 / Purchase Plan
+            前往套餐
           </button>
         </section>
       )}
 
-      {/* Dynamic Connection Control Card */}
-      <section className="rounded-3xl bg-surface-low p-6 shadow-md border border-outline-variant/40 flex flex-col items-center justify-center text-center space-y-6 relative overflow-hidden">
-        <div className={`absolute -right-10 -top-10 h-36 w-36 rounded-full filter blur-2xl transition-all duration-500 ${vpn ? 'bg-emerald-500/10' : 'bg-primary/5'}`}></div>
-
-        <div className="space-y-1">
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-extrabold shadow-sm ${
-            vpn
-              ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/25'
-              : 'bg-on-surface-variant/10 text-on-surface-variant border border-outline-variant/20'
-          }`}>
-            <span className={`h-2 w-2 rounded-full ${vpn ? 'bg-emerald-500' : 'bg-on-surface-variant/40'}`}></span>
-            {vpn ? t('status_connected') : t('status_disconnected')}
-          </span>
+      <section className="space-y-4 rounded-xl border border-outline-variant/50 bg-surface-low p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs text-on-surface-variant">连接状态</p>
+            <p className={vpn ? 'text-base font-semibold text-emerald-500' : 'text-base font-semibold text-on-background'}>
+              {vpn ? t('status_connected') : t('status_disconnected')}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void toggleConnection()}
+            disabled={isCurrentlyConnecting}
+            className={vpn
+              ? 'rounded-lg bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50'
+              : 'rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50'}
+          >
+            {isCurrentlyConnecting ? t('action_connecting') : vpn ? t('action_disconnect') : t('action_connect')}
+          </button>
         </div>
 
-        {/* Big Premium Action Toggle Button */}
-        <button
-          onClick={toggleConnection}
-          disabled={isCurrentlyConnecting}
-          className={`h-28 w-28 rounded-full flex flex-col items-center justify-center shadow-lg border-4 transition-all duration-300 transform active:scale-90 cursor-pointer ${
-            vpn
-              ? 'bg-emerald-500 border-emerald-400 text-white drop-shadow-[0_8px_16px_rgba(16,185,129,0.3)] hover:bg-emerald-400'
-              : 'bg-primary border-primary/20 text-white drop-shadow-[0_8px_16px_rgba(11,87,208,0.25)] hover:bg-primary/95'
-          } disabled:opacity-40`}
-        >
-          {isCurrentlyConnecting ? (
-            <div className="h-8 w-8 animate-spin rounded-full border-3 border-white border-t-transparent"></div>
-          ) : (
-            <>
-              <svg className="h-8 w-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span className="text-xs font-extrabold tracking-wide">
-                {vpn ? t('action_disconnect') : t('action_connect')}
-              </span>
-            </>
-          )}
-        </button>
-
-        {/* Running stats drawer */}
         {vpn && (
-          <div className="grid grid-cols-3 gap-4 w-full pt-4 border-t border-outline-variant/20 max-w-md">
-            <div className="rounded-2xl bg-surface p-3 border border-outline-variant/20 text-center">
-              <span className="block text-[10px] font-bold text-on-surface-variant tracking-wider uppercase mb-0.5">{t('session_duration')}</span>
-              <span className="text-sm font-extrabold text-primary font-mono">{formatDuration(duration)}</span>
+          <dl className="grid grid-cols-3 gap-2 border-t border-outline-variant/30 pt-3 text-center text-xs">
+            <div className="rounded-lg bg-surface p-2">
+              <dt className="text-on-surface-variant">{t('session_duration')}</dt>
+              <dd className="mt-1 font-mono font-semibold text-primary">{formatDuration(duration)}</dd>
             </div>
-            <div className="rounded-2xl bg-surface p-3 border border-outline-variant/20 text-center">
-              <span className="block text-[10px] font-bold text-on-surface-variant tracking-wider uppercase mb-0.5">{t('session_traffic')}</span>
-              <span className="text-sm font-extrabold text-primary font-mono">{formatTrafficBytes(vpn.uploadBytes + vpn.downloadBytes)}</span>
+            <div className="rounded-lg bg-surface p-2">
+              <dt className="text-on-surface-variant">{t('session_traffic')}</dt>
+              <dd className="mt-1 font-mono font-semibold text-primary">{formatTrafficBytes(vpn.uploadBytes + vpn.downloadBytes)}</dd>
             </div>
-            <div className="rounded-2xl bg-surface p-3 border border-outline-variant/20 text-center">
-              <span className="block text-[10px] font-bold text-on-surface-variant tracking-wider uppercase mb-0.5">{nativeAndroidVpn ? 'VPN' : 'SOCKS Port'}</span>
-              <span className="text-sm font-extrabold text-emerald-500 font-mono">{nativeAndroidVpn ? 'Native' : vpn.socksAddr.split(':')[1]}</span>
+            <div className="rounded-lg bg-surface p-2">
+              <dt className="text-on-surface-variant">{nativeAndroidVpn ? 'VPN' : 'SOCKS'}</dt>
+              <dd className="mt-1 truncate font-mono font-semibold text-primary">{nativeAndroidVpn ? 'Native' : vpn.socksAddr}</dd>
             </div>
-          </div>
+          </dl>
         )}
-
       </section>
 
-      {/* Selected Node Card */}
-      {selectedNode ? (
-        <section
-          onClick={() => setNodeSelectOpen(true)}
-          className="rounded-2xl bg-surface-low p-4 shadow-sm border border-outline-variant/40 hover:border-primary/30 transition-all duration-200 cursor-pointer flex items-center justify-between gap-4 group"
-        >
-          <div className="min-w-0 space-y-1">
-            <span className="text-[10px] font-extrabold text-primary tracking-wider uppercase">{t('select_node')}</span>
-            <p className="font-extrabold text-base tracking-tight truncate group-hover:text-primary transition-colors">
-              {displayNodeName(selectedNode, selectedNodeIndex)}
-            </p>
-            <p className="flex flex-wrap items-center gap-1.5 text-xs text-on-surface-variant font-semibold">
-              <span className="px-1.5 py-0.5 bg-surface rounded-md border border-outline-variant/20 text-[10px] uppercase font-bold text-primary">
-                {selectedNode.protocolLabel}
-              </span>
-              {selectedNode.tags.slice(0, 2).map((tag) => (
-                <span key={tag} className="px-1.5 py-0.5 bg-surface rounded-md border border-outline-variant/20 text-[10px] font-bold">
-                  {tag}
-                </span>
-              ))}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {selectedNode.latencyMs !== undefined && (
-              <span className="text-xs font-bold text-emerald-500 font-mono bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
-                {selectedNode.latencyMs} ms
-              </span>
-            )}
-            <div className="h-8 w-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant group-hover:bg-primary group-hover:text-white transition-all">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <section
-          onClick={() => setNodeSelectOpen(true)}
-          className="rounded-2xl bg-surface-low p-4 shadow-sm border border-outline-variant/40 hover:border-primary/30 transition-all duration-200 cursor-pointer flex items-center justify-between text-on-surface-variant"
-        >
-          <span className="text-xs font-bold">{t('no_nodes')}</span>
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </section>
-      )}
-
-      {/* Subscriber/Traffic Status Card */}
-      {trafficTotal > 0 && (
-        <section className="rounded-2xl bg-surface-low p-5 shadow-sm border border-outline-variant/40 space-y-3.5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-bold text-on-surface-variant tracking-wider uppercase">{t('traffic_used')}</p>
-              <p className="text-base font-extrabold text-on-background mt-0.5">
-                {formatTrafficBytes(trafficUsed)} / <span className="text-on-surface-variant font-bold text-sm">{formatTrafficBytes(trafficTotal)}</span>
+      <button
+        type="button"
+        onClick={() => setNodeSelectOpen(true)}
+        className="flex w-full items-center justify-between gap-3 rounded-xl border border-outline-variant/50 bg-surface-low p-4 text-left"
+      >
+        <div className="min-w-0">
+          <p className="text-xs text-on-surface-variant">{t('select_node')}</p>
+          {selectedNode ? (
+            <>
+              <p className="mt-1 truncate text-base font-semibold text-on-background">{displayNodeName(selectedNode, selectedNodeIndex)}</p>
+              <p className="mt-1 truncate text-xs text-on-surface-variant">
+                {selectedNode.protocolLabel}{selectedNode.latencyMs !== undefined ? ` · ${selectedNode.latencyMs} ms` : ''}
               </p>
-            </div>
-            {subscription.planName && (
-              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary border border-primary/20">
-                🏷️ {subscription.planName}
-              </span>
-            )}
-          </div>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-on-surface-variant">{t('no_nodes')}</p>
+          )}
+        </div>
+        <span className="text-xl text-on-surface-variant">›</span>
+      </button>
 
-          {/* Premium Material Design 3 progress bar */}
-          <div className="w-full h-3 rounded-full bg-surface-variant overflow-hidden border border-outline-variant/30 relative">
-            <div
-              style={{ width: `${progressPercent}%` }}
-              className={`h-full rounded-full transition-all duration-500 ${
-                progressPercent > 90
-                  ? 'bg-rose-500'
-                  : progressPercent > 70
-                    ? 'bg-amber-500'
-                    : 'bg-primary'
-              }`}
-            ></div>
+      {trafficTotal > 0 && (
+        <section className="space-y-3 rounded-xl border border-outline-variant/50 bg-surface-low p-4">
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="text-on-surface-variant">{t('traffic_used')}</span>
+            <span className="font-semibold text-on-background">
+              {formatTrafficBytes(trafficUsed)} / {formatTrafficBytes(trafficTotal)}
+            </span>
           </div>
-
-          <div className="flex items-center justify-between text-[10px] font-bold text-on-surface-variant">
-            <span>{progressPercent.toFixed(1)}% Used</span>
-            {subscription.expiredAt > 0 && (
-              <span>📅 {t('expires_at')}: {formatUnixDate(subscription.expiredAt)}</span>
-            )}
+          <div className="h-2 overflow-hidden rounded-full bg-surface-variant">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${progressPercent}%` }} />
+          </div>
+          <div className="flex items-center justify-between gap-3 text-[11px] text-on-surface-variant">
+            <span>{progressPercent.toFixed(1)}%</span>
+            {subscription.expiredAt > 0 && <span>{t('expires_at')}: {formatUnixDate(subscription.expiredAt)}</span>}
           </div>
         </section>
       )}
 
-      {/* Select Node Modal Dialog (Replaces long list in index page) */}
       {nodeSelectOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-surface-low border border-outline-variant/40 rounded-3xl w-full max-w-lg p-5 flex flex-col max-h-[80vh] shadow-2xl relative">
-
-            <header className="flex items-center justify-between pb-3.5 border-b border-outline-variant/20 mb-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
+          <section className="max-h-[82vh] w-full max-w-lg overflow-hidden rounded-2xl border border-outline-variant/50 bg-surface-low">
+            <header className="flex items-center justify-between gap-3 border-b border-outline-variant/30 p-4">
               <div>
-                <h2 className="text-base font-extrabold text-on-background tracking-tight">{t('select_node')}</h2>
-                <p className="text-[10px] text-on-surface-variant font-medium mt-0.5">全部节点 ({nodes.length})</p>
+                <h2 className="text-base font-semibold text-on-background">{t('select_node')}</h2>
+                <p className="mt-1 text-xs text-on-surface-variant">共 {nodes.length} 个</p>
               </div>
               <div className="flex items-center gap-2">
                 {nodes.length > 0 && (
                   <button
-                    onClick={testAllNodes}
-                    className="rounded-xl bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition-all flex items-center gap-1 cursor-pointer"
+                    type="button"
+                    onClick={() => void testAllNodes()}
+                    className="rounded-lg border border-outline-variant/60 px-3 py-1.5 text-xs font-semibold text-primary"
                   >
-                    ⚡ 测试全部
+                    测试全部
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => setNodeSelectOpen(false)}
-                  className="h-8 w-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant hover:bg-rose-500 hover:text-white transition-all cursor-pointer"
+                  className="rounded-lg border border-outline-variant/60 px-3 py-1.5 text-xs font-semibold text-on-background"
                 >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  关闭
                 </button>
               </div>
             </header>
 
             {nodes.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-center p-8">
-                <p className="text-xs text-on-surface-variant font-medium">{t('no_nodes')}</p>
-              </div>
+              <p className="p-6 text-center text-xs text-on-surface-variant">{t('no_nodes')}</p>
             ) : (
-              <ul className="flex-1 overflow-y-auto space-y-2.5 pr-1.5 min-h-[300px]">
+              <ul className="max-h-[60vh] space-y-2 overflow-y-auto p-3">
                 {nodes.map((node, index) => {
                   const isSelected = selectedNodeIndex === index
                   const isConnected = vpn?.nodeIndex === index
@@ -716,59 +645,38 @@ export function Home() {
                   return (
                     <li
                       key={index}
-                      className={`flex items-center justify-between gap-3 rounded-2xl p-3.5 border transition-all duration-150 ${
-                        isConnected
-                          ? 'bg-emerald-500/10 border-emerald-500/35 hover:border-emerald-500/50'
-                          : isSelected
-                            ? 'bg-primary/15 border-primary/35 hover:border-primary/50'
-                            : 'bg-surface border-outline-variant/35 hover:border-primary/25'
-                      }`}
+                      className={isConnected
+                        ? 'flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3'
+                        : isSelected
+                          ? 'flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/10 p-3'
+                          : 'flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface p-3'}
                     >
-                      {/* Node Details click triggers selection */}
-                      <div
-                        onClick={() => chooseNode(index)}
-                        className="min-w-0 flex-1 cursor-pointer space-y-1"
+                      <button
+                        type="button"
+                        onClick={() => void chooseNode(index)}
+                        className="min-w-0 flex-1 text-left"
                       >
-                        <p className={`font-bold text-sm truncate tracking-tight ${isConnected ? 'text-emerald-500' : isSelected ? 'text-primary' : 'text-on-background'}`}>
-                          {displayNodeName(node, index)}
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-on-background">{displayNodeName(node, index)}</p>
+                          {isConnected && <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-500">已连接</span>}
+                          {!isConnected && isSelected && <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">已选择</span>}
+                        </div>
+                        <p className="mt-1 truncate text-xs text-on-surface-variant">
+                          {node.protocolLabel}{node.tags.length > 0 ? ` · ${node.tags.join(' · ')}` : ''}
                         </p>
-                        <p className="flex flex-wrap items-center gap-1.5 text-[10px] text-on-surface-variant font-semibold">
-                          <span className="px-1.5 py-0.5 bg-surface-low rounded border border-outline-variant/20 uppercase font-bold text-primary">
-                            {node.protocolLabel}
-                          </span>
-                          {node.tags.map((tag) => (
-                            <span key={tag} className="px-1.5 py-0.5 bg-surface-low rounded border border-outline-variant/20 font-bold">
-                              {tag}
-                            </span>
-                          ))}
-                        </p>
-                        {!node.connectSupported && (
-                          <p className="text-[10px] text-amber-500 font-bold">⚠️ {t('unsupported_protocol')}</p>
-                        )}
-                        {node.testError && <p className="text-[10px] text-rose-500 font-medium break-all">{node.testError}</p>}
-                      </div>
+                        {!node.connectSupported && <p className="mt-1 text-[11px] text-amber-500">{t('unsupported_protocol')}</p>}
+                        {node.testError && <p className="mt-1 break-all text-[11px] text-rose-500">{node.testError}</p>}
+                      </button>
 
-                      {/* Right-aligned actions: Speedtest and select checkmark */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {node.latencyMs !== undefined && (
-                          <span className="text-[11px] font-extrabold text-emerald-500 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                            {node.latencyMs} ms
-                          </span>
-                        )}
+                      <div className="flex shrink-0 items-center gap-2">
+                        {node.latencyMs !== undefined && <span className="font-mono text-xs font-semibold text-emerald-500">{node.latencyMs} ms</span>}
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            testNode(index)
-                          }}
+                          type="button"
+                          onClick={() => void testNode(index)}
                           disabled={isTesting}
-                          className="rounded-xl bg-primary/10 px-3 py-1.5 text-[10px] font-bold text-primary hover:bg-primary/20 active:scale-95 transition-all cursor-pointer border border-primary/20 flex items-center justify-center gap-1"
+                          className="rounded-lg border border-outline-variant/60 px-2.5 py-1.5 text-xs font-semibold text-primary disabled:opacity-50"
                         >
-                          {isTesting ? (
-                            <div className="h-3 w-3 animate-spin rounded-full border border-primary border-t-transparent"></div>
-                          ) : (
-                            '⚡'
-                          )}
-                          {t('node_test')}
+                          {isTesting ? '...' : t('node_test')}
                         </button>
                       </div>
                     </li>
@@ -776,7 +684,7 @@ export function Home() {
                 })}
               </ul>
             )}
-          </div>
+          </section>
         </div>
       )}
     </main>

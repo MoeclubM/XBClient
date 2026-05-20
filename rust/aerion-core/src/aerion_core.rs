@@ -152,7 +152,7 @@ struct StartSocksRequest {
 }
 
 struct SocksSession {
-    _task: JoinHandle<()>,
+    _task: JoinHandle<Result<()>>,
     _log_task: Option<JoinHandle<()>>,
     _event_task: Option<JoinHandle<()>>,
     _core: Option<aerion::ProxyCore>,
@@ -165,7 +165,7 @@ static SOCKS_SESSIONS: Lazy<StdMutex<HashMap<u64, SocksSession>>> =
 async fn start_aerion_socks(
     node: Value,
     core: Option<aerion::ProxyCore>,
-) -> Result<(SocketAddr, JoinHandle<()>)> {
+) -> Result<(SocketAddr, JoinHandle<Result<()>>)> {
     let listen = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
     let listener = TcpListener::bind(listen)
         .await
@@ -259,7 +259,7 @@ pub async fn test_node_from_json(input: &str) -> Result<String> {
     let target_port = request.target_port.unwrap_or(80);
     let target_tls = request.target_tls.unwrap_or(target_port == 443);
     let timeout_duration = Duration::from_millis(request.timeout_ms.unwrap_or(8000));
-    let (socks_addr, task) = start_aerion_socks(request.node, None).await?;
+    let (socks_addr, mut task) = start_aerion_socks(request.node, None).await?;
     let result = timeout(timeout_duration, async {
         let first_latency =
             probe_via_socks(socks_addr, &target_host, target_port, target_tls).await?;
@@ -268,8 +268,26 @@ pub async fn test_node_from_json(input: &str) -> Result<String> {
         Ok::<_, anyhow::Error>((first_latency, second_latency))
     })
     .await;
+    let (first_latency, second_latency) = match result {
+        Ok(Ok(latency)) => latency,
+        Ok(Err(error)) => {
+            if let Some(listener_error) = finished_listener_error(&mut task).await {
+                return Err(listener_error)
+                    .context("Aerion SOCKS listener exited during node test");
+            }
+            task.abort();
+            return Err(error);
+        }
+        Err(error) => {
+            if let Some(listener_error) = finished_listener_error(&mut task).await {
+                return Err(listener_error)
+                    .context("Aerion SOCKS listener exited during node test");
+            }
+            task.abort();
+            return Err(anyhow::anyhow!(error.to_string())).context("Aerion node test timed out");
+        }
+    };
     task.abort();
-    let (first_latency, second_latency) = result.context("Aerion node test timed out")??;
     Ok(json!({
         "ok": true,
         "latency_ms": second_latency,
@@ -279,6 +297,20 @@ pub async fn test_node_from_json(input: &str) -> Result<String> {
         "target_tls": target_tls,
     })
     .to_string())
+}
+
+async fn finished_listener_error(task: &mut JoinHandle<Result<()>>) -> Option<anyhow::Error> {
+    if !task.is_finished() {
+        return None;
+    }
+    match task.await {
+        Ok(Ok(())) => Some(anyhow::anyhow!("Aerion SOCKS listener exited")),
+        Ok(Err(error)) => Some(error),
+        Err(error) if error.is_cancelled() => None,
+        Err(error) => Some(anyhow::anyhow!(
+            "Aerion SOCKS listener join failed: {error}"
+        )),
+    }
 }
 
 async fn probe_via_socks(
@@ -390,9 +422,7 @@ async fn send_http_probe<S>(stream: &mut S, host_header: &str) -> Result<u64>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let request = format!(
-        "HEAD / HTTP/1.1\r\nHost: {host_header}\r\nUser-Agent: XBClient\r\nConnection: close\r\n\r\n"
-    );
+    let request = format!("HEAD / HTTP/1.1\r\nHost: {host_header}\r\nConnection: close\r\n\r\n");
     let started = Instant::now();
     stream
         .write_all(request.as_bytes())
@@ -435,7 +465,7 @@ mod platform {
 
     struct VpnSession {
         shutdown: TunCancellationToken,
-        proxy_task: JoinHandle<()>,
+        proxy_task: JoinHandle<Result<()>>,
         _core: aerion::ProxyCore,
     }
 

@@ -405,6 +405,13 @@ fun readableNodeTestError(error: String): String {
         return "失败：Hysteria2 连接失败（$error）"
     }
     if (
+        normalized.contains("read socks greeting response") ||
+        normalized.contains("os error 10054") ||
+        error.contains("远程主机强迫关闭")
+    ) {
+        return "失败：节点代理握手中断，请检查节点协议参数或服务器状态"
+    }
+    if (
         normalized.contains("timed out") ||
         normalized.contains("timeout") ||
         normalized.contains("socks connect failed: general failure") ||

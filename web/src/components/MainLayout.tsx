@@ -40,15 +40,6 @@ export function MainLayout() {
       )
     },
     {
-      to: '/tickets',
-      label: t('nav_services'),
-      icon: (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-      )
-    },
-    {
       to: '/settings',
       label: t('nav_settings'),
       icon: (
@@ -66,8 +57,8 @@ export function MainLayout() {
         <Outlet />
       </div>
       {!hideNav && (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-outline-variant/30 bg-[var(--nav-bg)] backdrop-blur-lg shadow-lg pb-[env(safe-area-inset-bottom,0px)]">
-          <ul className="mx-auto flex max-w-3xl items-center justify-around h-16 px-4">
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-outline-variant/40 bg-[var(--nav-bg)] pb-[env(safe-area-inset-bottom,0px)]">
+          <ul className="mx-auto flex h-14 max-w-3xl items-center justify-around px-3">
             {TABS.map((tab) => (
               <li key={tab.to} className="flex-1 flex justify-center">
                 <NavLink
@@ -75,23 +66,11 @@ export function MainLayout() {
                   className="w-full"
                 >
                   {({ isActive }) => (
-                    <div className="flex flex-col items-center justify-center gap-1 group cursor-pointer">
-                      <div
-                        className={`flex h-8 w-16 items-center justify-center rounded-full transition-all duration-200 ${
-                          isActive
-                            ? 'bg-[var(--outline-variant)] text-primary shadow-sm scale-105'
-                            : 'text-[var(--on-surface-variant)] hover:text-primary hover:bg-[var(--outline-variant)]/30'
-                        }`}
-                      >
+                    <div className={isActive ? 'flex flex-col items-center justify-center gap-1 text-primary' : 'flex flex-col items-center justify-center gap-1 text-[var(--on-surface-variant)]'}>
+                      <div className="flex h-6 items-center justify-center">
                         {tab.icon}
                       </div>
-                      <span
-                        className={`text-[10px] tracking-wide transition-all duration-200 ${
-                          isActive
-                            ? 'text-primary font-semibold'
-                            : 'text-[var(--on-surface-variant)]'
-                        }`}
-                      >
+                      <span className="text-[10px] font-medium">
                         {tab.label}
                       </span>
                     </div>

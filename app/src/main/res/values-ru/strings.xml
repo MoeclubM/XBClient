@@ -9,8 +9,8 @@
     <string name="common_clear_selection">Очистить выбор</string>
     <string name="common_back_settings">Назад к настройкам</string>
 
-    <string name="nav_home">Главная</string>
-    <string name="nav_nodes">Узлы</string>
+    <string name="nav_home">Подключение</string>
+    <string name="nav_nodes">Подключение</string>
     <string name="nav_plans">Тарифы</string>
     <string name="nav_profile">Профиль</string>
 

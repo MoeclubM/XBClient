@@ -3,10 +3,9 @@ import { xboardRequest } from '../api/xboard'
 import { useAppStore } from '../store'
 import { dataRows, failureText, field, rowId, timeText, type Row, type XboardBody } from './services/helpers'
 
-export function Tickets() {
+export function Tickets({ compact = false }: { compact?: boolean } = {}) {
   const baseUrl = useAppStore((s) => s.baseUrl)
   const authData = useAppStore((s) => s.authData)
-  const appName = useAppStore((s) => s.buildConfig?.app_name ?? '')
 
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -165,17 +164,16 @@ export function Tickets() {
   const isClosed = selectedTicket ? String(selectedTicket.status) === '1' : false
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-24 md:pb-8 pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
+    <main className={compact ? 'flex w-full flex-col gap-4' : 'mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-24 pt-[calc(1rem+env(safe-area-inset-top,0px))] md:pb-8'}>
       {/* Banner */}
-      <section className="rounded-3xl bg-surface-low p-6 shadow-md border border-outline-variant/40 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <section className="flex flex-col items-start justify-between gap-4 rounded-xl border border-outline-variant/50 bg-surface-low p-4 md:flex-row md:items-center">
         <div className="space-y-1">
-          <p className="text-[10px] font-extrabold uppercase tracking-widest text-primary">{appName}</p>
-          <h1 className="text-xl font-extrabold tracking-tight text-on-background">工单中心 / Support Tickets</h1>
-          <p className="text-xs text-on-surface-variant font-medium">有任何使用问题都可以随时创建工单，我们的客服将尽快答复您的提问。</p>
+          <h1 className="text-lg font-semibold text-on-background">工单中心</h1>
+          <p className="text-xs text-on-surface-variant">有任何使用问题都可以随时创建工单。</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-primary/95 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />

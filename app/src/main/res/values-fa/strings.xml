@@ -9,8 +9,8 @@
     <string name="common_clear_selection">پاک کردن انتخاب</string>
     <string name="common_back_settings">بازگشت به تنظیمات</string>
 
-    <string name="nav_home">خانه</string>
-    <string name="nav_nodes">گره‌ها</string>
+    <string name="nav_home">اتصال</string>
+    <string name="nav_nodes">اتصال</string>
     <string name="nav_plans">پلن‌ها</string>
     <string name="nav_profile">نمایه</string>
 

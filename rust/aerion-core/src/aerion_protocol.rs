@@ -26,11 +26,13 @@ pub fn spawn_aerion_listener(
     listener: TcpListener,
     config: AerionProxyConfig,
     core: Option<ProxyCore>,
-) -> JoinHandle<()> {
+) -> JoinHandle<Result<()>> {
     tokio::spawn(async move {
-        if let Err(error) = run_aerion_listener(listener, config, core).await {
+        let result = run_aerion_listener(listener, config, core).await;
+        if let Err(error) = &result {
             log::error!("Aerion SOCKS listener exited with error: {error:?}");
         }
+        result
     })
 }
 

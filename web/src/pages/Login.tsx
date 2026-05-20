@@ -336,7 +336,6 @@ export function Login() {
               <h1 className="text-lg font-bold tracking-tight text-primary">
                 {appName} {mode === 'login' ? t('login') : t('register')}
               </h1>
-              <p className="text-[10px] text-on-surface-variant font-medium">Xboard Client</p>
             </div>
           </div>
 

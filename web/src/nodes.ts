@@ -154,6 +154,13 @@ export function readableNodeTestError(error: string): string {
     return `失败：Hysteria2 连接失败（${error}）`
   }
   if (
+    normalized.includes('read socks greeting response') ||
+    normalized.includes('os error 10054') ||
+    error.includes('远程主机强迫关闭')
+  ) {
+    return '失败：节点代理握手中断，请检查节点协议参数或服务器状态'
+  }
+  if (
     normalized.includes('timed out') ||
     normalized.includes('timeout') ||
     normalized.includes('socks connect failed: general failure') ||

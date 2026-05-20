@@ -9,8 +9,8 @@
     <string name="common_clear_selection">清空选择</string>
     <string name="common_back_settings">返回设置</string>
 
-    <string name="nav_home">首页</string>
-    <string name="nav_nodes">节点</string>
+    <string name="nav_home">连接</string>
+    <string name="nav_nodes">连接</string>
     <string name="nav_plans">套餐</string>
     <string name="nav_profile">我的</string>
 

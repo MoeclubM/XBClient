@@ -6,7 +6,6 @@ import { Login } from './pages/Login'
 import { Home } from './pages/Home'
 import { Plans } from './pages/Plans'
 import { Profile } from './pages/Profile'
-import { Tickets } from './pages/Tickets'
 import { SettingsPage } from './pages/Settings'
 import { Licenses } from './pages/Licenses'
 import { MainLayout } from './components/MainLayout'
@@ -135,7 +134,6 @@ function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/plans" element={<Plans />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/tickets" element={<Tickets />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/licenses" element={<Licenses />} />
           </Route>
