@@ -19,6 +19,8 @@ export interface VpnSession {
   sessionId: number
   socksAddr: string
   nodeIndex: number
+  uploadBytes: number
+  downloadBytes: number
 }
 
 export interface AppSettings {
@@ -123,6 +125,7 @@ interface AppState {
   setSubscribe(s: { subscribeUrl: string; nodes: AppNode[] }): void
   setNodeResult(index: number, result: { latencyMs?: number; testError?: string }): void
   setVpn(session: VpnSession | null): void
+  updateVpnTraffic(sessionId: number, uploadBytes: number, downloadBytes: number): void
   setSettings(patch: Partial<AppSettings>): void
   setCapabilities(capabilities: RuntimeCapabilities): void
   setProfile(patch: Partial<Pick<AppState,
@@ -226,6 +229,12 @@ export const useAppStore = create<AppState>((set) => ({
       return { nodes }
     }),
   setVpn: (session) => set({ vpn: session }),
+  updateVpnTraffic: (sessionId, uploadBytes, downloadBytes) =>
+    set((state) =>
+      state.vpn && state.vpn.sessionId === sessionId
+        ? { vpn: { ...state.vpn, uploadBytes, downloadBytes } }
+        : {},
+    ),
   setSettings: (patch) => set((state) => ({ settings: { ...state.settings, ...patch } })),
   setCapabilities: (capabilities) => set({ capabilities }),
   setProfile: (patch) => set((state) => ({ ...state, ...patch })),

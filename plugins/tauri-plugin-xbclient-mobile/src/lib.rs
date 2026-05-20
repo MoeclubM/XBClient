@@ -103,11 +103,11 @@ impl<R: Runtime, T: Manager<R>> XbClientMobileExt<R> for T {
 
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     tauri::plugin::Builder::<R>::new("xbclient-mobile")
-        .setup(|app, api| {
+        .setup(|app, _api| {
             #[cfg(target_os = "android")]
-            let handle = api.register_android_plugin(PLUGIN_IDENTIFIER, "XbClientMobilePlugin")?;
+            let handle = _api.register_android_plugin(PLUGIN_IDENTIFIER, "XbClientMobilePlugin")?;
             #[cfg(target_os = "ios")]
-            let handle = api.register_ios_plugin(init_plugin_xbclient_mobile)?;
+            let handle = _api.register_ios_plugin(init_plugin_xbclient_mobile)?;
 
             app.manage(XbClientMobile {
                 #[cfg(not(mobile))]

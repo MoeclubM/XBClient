@@ -14,30 +14,35 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init());
 
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-    let builder = builder
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
-        ))
-        .setup(|app| {
-            let handle = app.handle().clone();
-            aerion_core::set_log_callback(move |level, message| {
-                let _ = handle.emit("aerion-log", (level, message));
-            });
-            let handle = app.handle().clone();
-            aerion_core::set_event_callback(move |_, json| {
-                let _ = handle.emit("aerion-event", json);
-            });
+    let builder = builder.plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        None,
+    ));
 
-            tray::install(app.handle())?;
-            Ok(())
-        })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
-                api.prevent_close();
-            }
+    let builder = builder.setup(|app| {
+        let handle = app.handle().clone();
+        aerion_core::set_log_callback(move |level, message| {
+            let _ = handle.emit("aerion-log", (level, message));
         });
+        let handle = app.handle().clone();
+        aerion_core::set_event_callback(move |_, json| {
+            let _ = handle.emit("aerion-event", json);
+        });
+
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+        {
+            tray::install(app.handle())?;
+        }
+        Ok(())
+    });
+
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    let builder = builder.on_window_event(|window, event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            let _ = window.hide();
+            api.prevent_close();
+        }
+    });
 
     builder
         .invoke_handler(tauri::generate_handler![

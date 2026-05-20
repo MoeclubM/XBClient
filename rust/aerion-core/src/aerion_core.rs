@@ -54,6 +54,72 @@ pub(crate) fn on_event(event_json: &str) {
     }
 }
 
+fn core_event_json(event: &aerion::CoreEvent, wrapper_session_id: Option<u64>) -> String {
+    let mut value = match event {
+        aerion::CoreEvent::UsersReplaced { user_ids } => json!({
+            "type": "users_replaced",
+            "user_ids": user_ids,
+        }),
+        aerion::CoreEvent::SessionOpened {
+            user_id,
+            session_id,
+            source_ip,
+        } => json!({
+            "type": "session_opened",
+            "user_id": user_id,
+            "session_id": session_id,
+            "source_ip": source_ip,
+        }),
+        aerion::CoreEvent::SessionClosed {
+            user_id,
+            session_id,
+            source_ip,
+        } => json!({
+            "type": "session_closed",
+            "user_id": user_id,
+            "session_id": session_id,
+            "source_ip": source_ip,
+        }),
+        aerion::CoreEvent::SessionCancelled {
+            user_id,
+            session_id,
+            source_ip,
+        } => json!({
+            "type": "session_cancelled",
+            "user_id": user_id,
+            "session_id": session_id,
+            "source_ip": source_ip,
+        }),
+        aerion::CoreEvent::TrafficRecorded {
+            user_id,
+            session_id,
+            direction,
+            bytes,
+            upload_bytes,
+            download_bytes,
+        } => json!({
+            "type": "traffic_recorded",
+            "user_id": user_id,
+            "session_id": session_id,
+            "direction": traffic_direction_name(*direction),
+            "bytes": bytes,
+            "upload_bytes": upload_bytes,
+            "download_bytes": download_bytes,
+        }),
+    };
+    if let (Some(id), Value::Object(object)) = (wrapper_session_id, &mut value) {
+        object.insert("wrapper_session_id".to_string(), json!(id));
+    }
+    value.to_string()
+}
+
+fn traffic_direction_name(direction: aerion::TrafficDirection) -> &'static str {
+    match direction {
+        aerion::TrafficDirection::Upload => "upload",
+        aerion::TrafficDirection::Download => "download",
+    }
+}
+
 #[derive(Deserialize)]
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
 struct StartVpnRequest {
@@ -118,13 +184,14 @@ pub async fn start_socks_from_json(input: &str) -> Result<String> {
     let core = aerion::ProxyCore::empty();
     let log_bridge = aerion::LogBridge::new();
     let stop_token = aerion::ListenerStopToken::new();
+    let session_id = NEXT_SOCKS_SESSION_ID.fetch_add(1, Ordering::SeqCst);
 
     let (socks_addr, task) = start_aerion_socks(request.node, Some(core.clone())).await?;
 
     let log_task = {
         let mut rx = log_bridge.subscribe();
         tokio::spawn(async move {
-            while let Ok(entry) = rx.recv().await {
+            while let Some(entry) = rx.recv().await {
                 on_log(&entry.level.to_string(), &entry.message);
                 #[cfg(not(target_os = "android"))]
                 log::info!("[Aerion] [{}] {}", entry.level, entry.message);
@@ -136,7 +203,7 @@ pub async fn start_socks_from_json(input: &str) -> Result<String> {
         let mut rx = core.subscribe_events();
         tokio::spawn(async move {
             while let Some(event) = rx.recv().await {
-                let json = serde_json::to_string(&event).unwrap_or_default();
+                let json = core_event_json(&event, Some(session_id));
                 on_event(&json);
                 #[cfg(not(target_os = "android"))]
                 log::debug!("[Aerion Event] {}", json);
@@ -144,7 +211,6 @@ pub async fn start_socks_from_json(input: &str) -> Result<String> {
         })
     };
 
-    let session_id = NEXT_SOCKS_SESSION_ID.fetch_add(1, Ordering::SeqCst);
     SOCKS_SESSIONS
         .lock()
         .expect("SOCKS session map lock poisoned")
@@ -445,7 +511,7 @@ mod platform {
         let log_task_inner = {
             let mut rx = log_bridge.subscribe();
             tokio::spawn(async move {
-                while let Ok(entry) = rx.recv().await {
+                while let Some(entry) = rx.recv().await {
                     on_log(&entry.level.to_string(), &entry.message);
                 }
             })
@@ -454,7 +520,7 @@ mod platform {
         let event_task_inner = {
             tokio::spawn(async move {
                 while let Some(event) = event_rx.recv().await {
-                    on_event(&serde_json::to_string(&event).unwrap_or_default());
+                    on_event(&core_event_json(&event, Some(session_id)));
                 }
             })
         };

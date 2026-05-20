@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { listen } from '@tauri-apps/api/event'
 import {
   aerionStartSocks,
   aerionStop,
@@ -99,6 +100,7 @@ export function Home() {
     setSubscribe,
     setNodeResult,
     setVpn,
+    updateVpnTraffic,
     setSubscriptionState,
     subscription,
   } = useAppStore()
@@ -118,6 +120,31 @@ export function Home() {
   useEffect(() => {
     if (!authData) navigate('/login', { replace: true })
   }, [authData, navigate])
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    void listen<string>('aerion-event', (event) => {
+      const payload = JSON.parse(event.payload) as {
+        type?: string
+        wrapper_session_id?: number
+        session_id?: number
+        upload_bytes?: number
+        download_bytes?: number
+      }
+      if (payload.type === 'traffic_recorded') {
+        updateVpnTraffic(
+          Number(payload.wrapper_session_id),
+          Number(payload.upload_bytes),
+          Number(payload.download_bytes),
+        )
+      }
+    }).then((value) => {
+      unlisten = value
+    })
+    return () => {
+      unlisten?.()
+    }
+  }, [updateVpnTraffic])
 
   // Track active VPN index
   useEffect(() => {
@@ -266,6 +293,10 @@ export function Home() {
       setError(t('unsupported_protocol'))
       return
     }
+    if (settings.autoApplyProxy && !capabilities?.system_proxy) {
+      setError('当前平台不支持系统代理接管，请关闭自动接管后手动配置 SOCKS。')
+      return
+    }
     setError('')
     setConnectingIndex(index)
     try {
@@ -273,8 +304,19 @@ export function Home() {
         await aerionStop(vpn.sessionId)
       }
       const handle = await aerionStartSocks(await resolveAerionNode(node))
-      setVpn({ sessionId: handle.session_id, socksAddr: handle.socks_addr, nodeIndex: index })
-      await applySystemProxy(handle.socks_addr)
+      try {
+        await applySystemProxy(handle.socks_addr)
+      } catch (err) {
+        await aerionStop(handle.session_id)
+        throw err
+      }
+      setVpn({
+        sessionId: handle.session_id,
+        socksAddr: handle.socks_addr,
+        nodeIndex: index,
+        uploadBytes: 0,
+        downloadBytes: 0,
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -421,10 +463,14 @@ export function Home() {
 
         {/* Running stats drawer */}
         {vpn && (
-          <div className="grid grid-cols-2 gap-4 w-full pt-4 border-t border-outline-variant/20 max-w-md">
+          <div className="grid grid-cols-3 gap-4 w-full pt-4 border-t border-outline-variant/20 max-w-md">
             <div className="rounded-2xl bg-surface p-3 border border-outline-variant/20 text-center">
               <span className="block text-[10px] font-bold text-on-surface-variant tracking-wider uppercase mb-0.5">{t('session_duration')}</span>
               <span className="text-sm font-extrabold text-primary font-mono">{formatDuration(duration)}</span>
+            </div>
+            <div className="rounded-2xl bg-surface p-3 border border-outline-variant/20 text-center">
+              <span className="block text-[10px] font-bold text-on-surface-variant tracking-wider uppercase mb-0.5">{t('session_traffic')}</span>
+              <span className="text-sm font-extrabold text-primary font-mono">{formatTrafficBytes(vpn.uploadBytes + vpn.downloadBytes)}</span>
             </div>
             <div className="rounded-2xl bg-surface p-3 border border-outline-variant/20 text-center">
               <span className="block text-[10px] font-bold text-on-surface-variant tracking-wider uppercase mb-0.5">SOCKS Port</span>
