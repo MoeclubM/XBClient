@@ -1,5 +1,5 @@
 use crate::aerion_config_compat::node_to_proxy_config;
-use crate::aerion_protocol::spawn_aerion_listener;
+use crate::aerion_protocol::{AerionProxyConfig, spawn_aerion_listener};
 use anyhow::{Context, Result, bail, ensure};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
@@ -164,27 +164,46 @@ static SOCKS_SESSIONS: Lazy<StdMutex<HashMap<u64, SocksSession>>> =
 
 async fn start_aerion_socks(
     node: Value,
-    core: Option<aerion::ProxyCore>,
-) -> Result<(SocketAddr, JoinHandle<Result<()>>)> {
+    track_traffic: bool,
+) -> Result<(
+    SocketAddr,
+    JoinHandle<Result<()>>,
+    Option<aerion::ProxyCore>,
+)> {
     let listen = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
     let listener = TcpListener::bind(listen)
         .await
         .context("bind Aerion local SOCKS listener")?;
     let local_addr = listener.local_addr().context("read Aerion SOCKS address")?;
     let config = node_to_proxy_config(&node, local_addr)?;
-    let task = spawn_aerion_listener(listener, config, core);
-    Ok((local_addr, task))
+    let core = if track_traffic {
+        match &config {
+            AerionProxyConfig::AnyTls(config) => {
+                Some(aerion::ProxyCore::from_credentials(&config.password, &[]))
+            }
+            AerionProxyConfig::Trojan(config) => {
+                Some(aerion::ProxyCore::from_credentials(&config.password, &[]))
+            }
+            AerionProxyConfig::Vless(config) => {
+                Some(aerion::ProxyCore::from_credentials(&config.user_id, &[]))
+            }
+            _ => None,
+        }
+    } else {
+        None
+    };
+    let task = spawn_aerion_listener(listener, config, core.clone());
+    Ok((local_addr, task, core))
 }
 
 pub async fn start_socks_from_json(input: &str) -> Result<String> {
     let request: StartSocksRequest =
         serde_json::from_str(input).context("parse start SOCKS request")?;
 
-    let core = aerion::ProxyCore::empty();
     let log_bridge = aerion::LogBridge::new();
     let session_id = NEXT_SOCKS_SESSION_ID.fetch_add(1, Ordering::SeqCst);
 
-    let (socks_addr, task) = start_aerion_socks(request.node, Some(core.clone())).await?;
+    let (socks_addr, task, core) = start_aerion_socks(request.node, true).await?;
 
     let log_task = {
         let mut rx = log_bridge.subscribe();
@@ -197,7 +216,7 @@ pub async fn start_socks_from_json(input: &str) -> Result<String> {
         })
     };
 
-    let event_task = {
+    let event_task = core.as_ref().map(|core| {
         let mut rx = core.subscribe_events();
         tokio::spawn(async move {
             while let Some(event) = rx.recv().await {
@@ -207,7 +226,7 @@ pub async fn start_socks_from_json(input: &str) -> Result<String> {
                 log::debug!("[Aerion Event] {}", json);
             }
         })
-    };
+    });
 
     SOCKS_SESSIONS
         .lock()
@@ -217,8 +236,8 @@ pub async fn start_socks_from_json(input: &str) -> Result<String> {
             SocksSession {
                 _task: task,
                 _log_task: Some(log_task),
-                _event_task: Some(event_task),
-                _core: Some(core),
+                _event_task: event_task,
+                _core: core,
             },
         );
 
@@ -259,7 +278,7 @@ pub async fn test_node_from_json(input: &str) -> Result<String> {
     let target_port = request.target_port.unwrap_or(80);
     let target_tls = request.target_tls.unwrap_or(target_port == 443);
     let timeout_duration = Duration::from_millis(request.timeout_ms.unwrap_or(15000));
-    let (socks_addr, mut task) = start_aerion_socks(request.node, None).await?;
+    let (socks_addr, mut task, _) = start_aerion_socks(request.node, false).await?;
     let result = timeout(timeout_duration, async {
         probe_via_socks(socks_addr, &target_host, target_port, target_tls).await
     })
@@ -462,7 +481,7 @@ mod platform {
     struct VpnSession {
         shutdown: TunCancellationToken,
         proxy_task: JoinHandle<Result<()>>,
-        _core: aerion::ProxyCore,
+        _core: Option<aerion::ProxyCore>,
     }
 
     pub async fn start(input: &str) -> Result<String> {
@@ -477,8 +496,7 @@ mod platform {
         };
         let dns_addr: IpAddr = request.dns_addr.parse().context("parse VPN DNS address")?;
 
-        let core = aerion::ProxyCore::empty();
-        let (socks_addr, proxy_task) = start_aerion_socks(request.node, Some(core.clone())).await?;
+        let (socks_addr, proxy_task, core) = start_aerion_socks(request.node, true).await?;
 
         let mut tun_config = TunConfig::new(socks_proxy_url(socks_addr));
         tun_config.tun_fd = Some(request.tun_fd);
@@ -511,7 +529,6 @@ mod platform {
         tun_config.verbosity = TunVerbosity::Info;
 
         let log_bridge = aerion::LogBridge::new();
-        let mut event_rx = core.subscribe_events();
 
         let runtime = spawn_tun(tun_config).context("spawn Aerion TUN runtime")?;
         let shutdown = runtime.shutdown_token();
@@ -537,13 +554,14 @@ mod platform {
             })
         };
 
-        let event_task_inner = {
+        let event_task_inner = core.as_ref().map(|core| {
+            let mut event_rx = core.subscribe_events();
             tokio::spawn(async move {
                 while let Some(event) = event_rx.recv().await {
                     on_event(&core_event_json(&event, Some(session_id)));
                 }
             })
-        };
+        });
 
         tokio::spawn(async move {
             if let Err(error) = runtime.wait().await {
@@ -554,10 +572,14 @@ mod platform {
                 .expect("VPN session map lock poisoned")
                 .remove(&session_id)
             {
-                session._core.cancel_all_sessions();
+                if let Some(core) = session._core {
+                    core.cancel_all_sessions();
+                }
                 session.proxy_task.abort();
                 log_task_inner.abort();
-                event_task_inner.abort();
+                if let Some(task) = event_task_inner {
+                    task.abort();
+                }
             }
         });
 
@@ -579,7 +601,9 @@ mod platform {
             .remove(&session_id)
             .with_context(|| format!("VPN session not found: {session_id}"))?;
         session.shutdown.cancel();
-        session._core.cancel_all_sessions();
+        if let Some(core) = session._core {
+            core.cancel_all_sessions();
+        }
         session.proxy_task.abort();
         Ok(json!({"ok": true, "session_id": session_id}).to_string())
     }
