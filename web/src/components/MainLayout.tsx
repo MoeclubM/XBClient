@@ -1,10 +1,16 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useRef, useState } from 'react'
+import type { CSSProperties, PointerEvent } from 'react'
 import { useTranslation } from '../i18n'
 
 export function MainLayout() {
   const t = useTranslation()
   const location = useLocation()
+  const navigate = useNavigate()
   const hideNav = location.pathname.startsWith('/settings/licenses')
+  const navRef = useRef<HTMLUListElement>(null)
+  const dragRef = useRef({ active: false, offset: 0, lastX: 0, lastAt: 0 })
+  const [drag, setDrag] = useState({ active: false, offset: 0, velocity: 0 })
 
   const TABS = [
     {
@@ -50,27 +56,88 @@ export function MainLayout() {
       )
     },
   ]
+  const selectedIndex = Math.max(0, TABS.findIndex((tab) => location.pathname.startsWith(tab.to)))
+  const stretch = drag.active ? Math.min(Math.abs(drag.velocity) / 2600, 0.32) : 0
+  const dropletAlpha = drag.active && Math.abs(drag.offset) > 2 ? Math.min(0.18 + stretch * 0.65, 0.38) : 0
+  const dropMain = drag.velocity >= 0 ? '8px' : 'calc(100% / 4 - 40px)'
+  const dropSmall = drag.velocity >= 0 ? '4px' : 'calc(100% / 4 - 24px)'
+
+  function startNavDrag(event: PointerEvent<HTMLUListElement>) {
+    const nav = navRef.current
+    if (!nav) return
+    const rect = nav.getBoundingClientRect()
+    const itemWidth = rect.width / TABS.length
+    const startX = event.clientX - rect.left
+    const selectedStart = selectedIndex * itemWidth
+    const active = startX >= selectedStart && startX <= selectedStart + itemWidth
+    dragRef.current = { active, offset: 0, lastX: event.clientX, lastAt: Date.now() }
+    if (active) {
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setDrag({ active: true, offset: 0, velocity: 0 })
+    }
+  }
+
+  function moveNavDrag(event: PointerEvent<HTMLUListElement>) {
+    if (!dragRef.current.active || !navRef.current) return
+    const rect = navRef.current.getBoundingClientRect()
+    const itemWidth = rect.width / TABS.length
+    const now = Date.now()
+    const elapsed = Math.max(1, now - dragRef.current.lastAt)
+    const delta = event.clientX - dragRef.current.lastX
+    dragRef.current.lastX = event.clientX
+    dragRef.current.lastAt = now
+    dragRef.current.offset = Math.max(-selectedIndex * itemWidth, Math.min(dragRef.current.offset + delta, (TABS.length - 1 - selectedIndex) * itemWidth))
+    setDrag({ active: true, offset: dragRef.current.offset, velocity: delta / elapsed * 1000 })
+  }
+
+  function endNavDrag(event: PointerEvent<HTMLUListElement>) {
+    if (!dragRef.current.active || !navRef.current) return
+    const itemWidth = navRef.current.getBoundingClientRect().width / TABS.length
+    const targetIndex = Math.max(0, Math.min(TABS.length - 1, selectedIndex + Math.round(dragRef.current.offset / itemWidth)))
+    dragRef.current = { active: false, offset: 0, lastX: 0, lastAt: 0 }
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    setDrag({ active: false, offset: 0, velocity: 0 })
+    if (targetIndex !== selectedIndex) navigate(TABS[targetIndex].to)
+  }
 
   return (
     <div className="flex min-h-full flex-col bg-background-app text-on-background">
-      <div className={`flex-1 overflow-y-auto ${hideNav ? '' : 'pb-[calc(5rem+env(safe-area-inset-bottom,0px))]'}`}>
+      <div className={`flex-1 overflow-y-auto ${hideNav ? '' : 'pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))]'}`}>
         <Outlet />
       </div>
       {!hideNav && (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-outline-variant/40 bg-[var(--nav-bg)] pb-[env(safe-area-inset-bottom,0px)]">
-          <ul className="mx-auto flex h-14 max-w-3xl items-center justify-around px-3">
+        <nav className="liquid-nav-shell fixed inset-x-0 bottom-0 z-40 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
+          <ul
+            ref={navRef}
+            className="liquid-nav mx-auto grid max-w-3xl touch-pan-y select-none grid-cols-4"
+            style={{
+              '--nav-index': selectedIndex,
+              '--nav-offset': `${drag.active ? drag.offset : 0}px`,
+              '--nav-stretch': stretch,
+              '--nav-droplet-alpha': dropletAlpha,
+              '--nav-drop-main': dropMain,
+              '--nav-drop-small': dropSmall,
+            } as CSSProperties}
+            onPointerDown={startNavDrag}
+            onPointerMove={moveNavDrag}
+            onPointerUp={endNavDrag}
+            onPointerCancel={endNavDrag}
+          >
+            <span className="liquid-nav__drop liquid-nav__drop--main" />
+            <span className="liquid-nav__drop liquid-nav__drop--small" />
+            <span className="liquid-nav__pill" />
             {TABS.map((tab) => (
-              <li key={tab.to} className="flex-1 flex justify-center">
+              <li key={tab.to} className="relative z-10 flex justify-center">
                 <NavLink
                   to={tab.to}
-                  className="w-full"
+                  className="liquid-nav__item"
                 >
                   {({ isActive }) => (
                     <div className={isActive ? 'flex flex-col items-center justify-center gap-1 text-primary' : 'flex flex-col items-center justify-center gap-1 text-[var(--on-surface-variant)]'}>
-                      <div className="flex h-6 items-center justify-center">
+                      <div className={isActive ? 'liquid-nav__icon liquid-nav__icon--active' : 'liquid-nav__icon'}>
                         {tab.icon}
                       </div>
-                      <span className="text-[10px] font-medium">
+                      <span className={isActive ? 'text-[11px] font-bold' : 'text-[11px] font-semibold'}>
                         {tab.label}
                       </span>
                     </div>
