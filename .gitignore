@@ -25,6 +25,7 @@ web/dist/
 
 # IDE
 .idea/
+.antigravitycli/
 *.iml
 
 # OS
