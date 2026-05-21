@@ -297,7 +297,7 @@ export function Plans() {
       })
     }
     if (planList.ok) setPlans(planRows(planList.body?.data).map(parsePlan))
-    setMessage('账户金额支付成功，请回到节点页刷新订阅。')
+    setMessage('账户金额支付成功，请回到连接页自动同步。')
   }
 
   const isErrorMsg = message.includes('失败') || message.includes('错误') || message.includes('fail') || message.includes('error') || message.includes('HTTP')

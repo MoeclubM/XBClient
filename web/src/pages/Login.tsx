@@ -125,7 +125,7 @@ export function Login() {
   async function loadGuestConfig(showSuccess: boolean) {
     setError('')
     if (!baseUrl) {
-      setError('构建配置缺少默认服务地址。')
+      setError('应用构建配置不完整。')
       return
     }
     setConfigLoading(true)

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import type { CSSProperties, PointerEvent } from 'react'
 import { useTranslation } from '../i18n'
 
@@ -9,8 +9,7 @@ export function MainLayout() {
   const navigate = useNavigate()
   const hideNav = location.pathname.startsWith('/settings/licenses')
   const navRef = useRef<HTMLUListElement>(null)
-  const dragRef = useRef({ active: false, offset: 0, lastX: 0, lastAt: 0 })
-  const [drag, setDrag] = useState({ active: false, offset: 0, velocity: 0 })
+  const dragRef = useRef({ active: false, offset: 0, lastX: 0, lastAt: 0, itemWidth: 0 })
 
   const TABS = [
     {
@@ -57,10 +56,18 @@ export function MainLayout() {
     },
   ]
   const selectedIndex = Math.max(0, TABS.findIndex((tab) => location.pathname.startsWith(tab.to)))
-  const stretch = drag.active ? Math.min(Math.abs(drag.velocity) / 2600, 0.32) : 0
-  const dropletAlpha = drag.active && Math.abs(drag.offset) > 2 ? Math.min(0.18 + stretch * 0.65, 0.38) : 0
-  const dropMain = drag.velocity >= 0 ? '8px' : 'calc(100% / 4 - 40px)'
-  const dropSmall = drag.velocity >= 0 ? '4px' : 'calc(100% / 4 - 24px)'
+
+  useEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+    nav.dataset.dragging = 'false'
+    nav.style.setProperty('--nav-index', String(selectedIndex))
+    nav.style.setProperty('--nav-offset', '0px')
+    nav.style.setProperty('--nav-stretch', '0')
+    nav.style.setProperty('--nav-droplet-alpha', '0')
+    nav.style.setProperty('--nav-drop-main', '8px')
+    nav.style.setProperty('--nav-drop-small', '4px')
+  }, [selectedIndex])
 
   function startNavDrag(event: PointerEvent<HTMLUListElement>) {
     const nav = navRef.current
@@ -70,33 +77,44 @@ export function MainLayout() {
     const startX = event.clientX - rect.left
     const selectedStart = selectedIndex * itemWidth
     const active = startX >= selectedStart && startX <= selectedStart + itemWidth
-    dragRef.current = { active, offset: 0, lastX: event.clientX, lastAt: Date.now() }
+    dragRef.current = { active, offset: 0, lastX: event.clientX, lastAt: performance.now(), itemWidth }
     if (active) {
       event.currentTarget.setPointerCapture(event.pointerId)
-      setDrag({ active: true, offset: 0, velocity: 0 })
+      nav.dataset.dragging = 'true'
+      nav.style.setProperty('--nav-offset', '0px')
+      nav.style.setProperty('--nav-stretch', '0')
+      nav.style.setProperty('--nav-droplet-alpha', '0')
     }
   }
 
   function moveNavDrag(event: PointerEvent<HTMLUListElement>) {
     if (!dragRef.current.active || !navRef.current) return
-    const rect = navRef.current.getBoundingClientRect()
-    const itemWidth = rect.width / TABS.length
-    const now = Date.now()
+    const itemWidth = dragRef.current.itemWidth
+    const now = performance.now()
     const elapsed = Math.max(1, now - dragRef.current.lastAt)
     const delta = event.clientX - dragRef.current.lastX
+    const velocity = delta / elapsed * 1000
+    const stretch = Math.min(Math.abs(velocity) / 2600, 0.32)
     dragRef.current.lastX = event.clientX
     dragRef.current.lastAt = now
     dragRef.current.offset = Math.max(-selectedIndex * itemWidth, Math.min(dragRef.current.offset + delta, (TABS.length - 1 - selectedIndex) * itemWidth))
-    setDrag({ active: true, offset: dragRef.current.offset, velocity: delta / elapsed * 1000 })
+    navRef.current.style.setProperty('--nav-offset', `${dragRef.current.offset}px`)
+    navRef.current.style.setProperty('--nav-stretch', String(stretch))
+    navRef.current.style.setProperty('--nav-droplet-alpha', Math.abs(dragRef.current.offset) > 2 ? String(Math.min(0.18 + stretch * 0.65, 0.38)) : '0')
+    navRef.current.style.setProperty('--nav-drop-main', velocity >= 0 ? '8px' : 'calc(100% / 4 - 40px)')
+    navRef.current.style.setProperty('--nav-drop-small', velocity >= 0 ? '4px' : 'calc(100% / 4 - 24px)')
   }
 
   function endNavDrag(event: PointerEvent<HTMLUListElement>) {
     if (!dragRef.current.active || !navRef.current) return
-    const itemWidth = navRef.current.getBoundingClientRect().width / TABS.length
+    const itemWidth = dragRef.current.itemWidth
     const targetIndex = Math.max(0, Math.min(TABS.length - 1, selectedIndex + Math.round(dragRef.current.offset / itemWidth)))
-    dragRef.current = { active: false, offset: 0, lastX: 0, lastAt: 0 }
+    navRef.current.dataset.dragging = 'false'
+    navRef.current.style.setProperty('--nav-offset', `${(targetIndex - selectedIndex) * itemWidth}px`)
+    navRef.current.style.setProperty('--nav-stretch', '0')
+    navRef.current.style.setProperty('--nav-droplet-alpha', '0')
+    dragRef.current = { active: false, offset: 0, lastX: 0, lastAt: 0, itemWidth: 0 }
     event.currentTarget.releasePointerCapture(event.pointerId)
-    setDrag({ active: false, offset: 0, velocity: 0 })
     if (targetIndex !== selectedIndex) navigate(TABS[targetIndex].to)
   }
 
@@ -112,11 +130,11 @@ export function MainLayout() {
             className="liquid-nav mx-auto grid max-w-3xl touch-pan-y select-none grid-cols-4"
             style={{
               '--nav-index': selectedIndex,
-              '--nav-offset': `${drag.active ? drag.offset : 0}px`,
-              '--nav-stretch': stretch,
-              '--nav-droplet-alpha': dropletAlpha,
-              '--nav-drop-main': dropMain,
-              '--nav-drop-small': dropSmall,
+              '--nav-offset': '0px',
+              '--nav-stretch': 0,
+              '--nav-droplet-alpha': 0,
+              '--nav-drop-main': '8px',
+              '--nav-drop-small': '4px',
             } as CSSProperties}
             onPointerDown={startNavDrag}
             onPointerMove={moveNavDrag}

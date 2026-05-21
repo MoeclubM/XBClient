@@ -124,10 +124,10 @@ export function Home() {
     if (!authData) navigate('/login', { replace: true })
   }, [authData, navigate])
 
-  // Auto-load subscription & nodes on mount
+  // Auto-load subscription & nodes when entering connection page
   useEffect(() => {
-    if (authData && nodes.length === 0) void refresh()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (authData && baseUrl) void refresh()
+  }, [authData, baseUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let unlisten: (() => void) | undefined
@@ -297,7 +297,7 @@ export function Home() {
 
   async function resolveAerionNode(node: AppNode): Promise<unknown> {
     const host = rawNodeHost(node)
-    if (!buildConfig?.user_agent) throw new Error('XBCLIENT_USER_AGENT is required in build config')
+    if (!buildConfig?.user_agent) throw new Error('构建配置缺少必要网络标识。')
     const resolvedHost = await resolveNodeHost(settings.nodeDns, host, buildConfig.user_agent)
     return aerionNodeWithResolvedHost(node, resolvedHost)
   }
@@ -476,7 +476,6 @@ export function Home() {
 
   const selectedNode = nodes[selectedNodeIndex] || nodes[0]
   const isCurrentlyConnecting = connectingIndex !== null
-  const nativeAndroidVpn = capabilities?.platform === 'android'
 
   // Progress calculations
   const trafficUsed = subscription.trafficUsedBytes
@@ -485,22 +484,9 @@ export function Home() {
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 px-4 pb-24 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
-      <header className="space-y-2 border-b border-outline-variant/40 pb-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-lg font-semibold text-on-background">{t('nav_nodes')}</h1>
-            <p className="mt-1 break-all text-xs text-on-surface-variant">{email || '未登录'}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            disabled={loading}
-            className="rounded-lg border border-outline-variant/60 px-3 py-2 text-xs font-semibold text-primary disabled:opacity-50"
-          >
-            {loading ? t('refreshing') : t('refresh_sub')}
-          </button>
-        </div>
-        <p className="break-all text-[11px] text-on-surface-variant">{baseUrl}</p>
+      <header className="border-b border-outline-variant/40 pb-3">
+        <h1 className="text-lg font-semibold text-on-background">{t('nav_nodes')}</h1>
+        <p className="mt-1 text-xs text-on-surface-variant">{loading ? t('refreshing') : (email || '未登录')}</p>
       </header>
 
       {error && (
@@ -528,28 +514,33 @@ export function Home() {
         </section>
       )}
 
-      <section className="space-y-4 rounded-xl border border-outline-variant/50 bg-surface-low p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs text-on-surface-variant">连接状态</p>
-            <p className={vpn ? 'text-base font-semibold text-emerald-500' : 'text-base font-semibold text-on-background'}>
-              {vpn ? t('status_connected') : t('status_disconnected')}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void toggleConnection()}
-            disabled={isCurrentlyConnecting}
-            className={vpn
-              ? 'rounded-lg bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50'
-              : 'rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50'}
-          >
-            {isCurrentlyConnecting ? t('action_connecting') : vpn ? t('action_disconnect') : t('action_connect')}
-          </button>
+      <section className="space-y-5 rounded-2xl border border-outline-variant/50 bg-surface-low p-5 text-center">
+        <div>
+          <p className="text-xs text-on-surface-variant">连接状态</p>
+          <p className={vpn ? 'mt-1 text-lg font-semibold text-emerald-500' : 'mt-1 text-lg font-semibold text-on-background'}>
+            {vpn ? t('status_connected') : t('status_disconnected')}
+          </p>
         </div>
 
+        <button
+          type="button"
+          onClick={() => void toggleConnection()}
+          disabled={isCurrentlyConnecting}
+          className={vpn ? 'connection-orb connection-orb--connected mx-auto disabled:opacity-50' : 'connection-orb mx-auto disabled:opacity-50'}
+        >
+          <span className="relative z-10 text-base font-black">
+            {isCurrentlyConnecting ? t('action_connecting') : vpn ? t('action_disconnect') : t('action_connect')}
+          </span>
+        </button>
+
+        {selectedNode && (
+          <p className="mx-auto max-w-full truncate text-xs font-semibold text-on-surface-variant">
+            {displayNodeName(selectedNode, selectedNodeIndex)}
+          </p>
+        )}
+
         {vpn && (
-          <dl className="grid grid-cols-3 gap-2 border-t border-outline-variant/30 pt-3 text-center text-xs">
+          <dl className="grid grid-cols-2 gap-2 border-t border-outline-variant/30 pt-3 text-center text-xs">
             <div className="rounded-lg bg-surface p-2">
               <dt className="text-on-surface-variant">{t('session_duration')}</dt>
               <dd className="mt-1 font-mono font-semibold text-primary">{formatDuration(duration)}</dd>
@@ -557,10 +548,6 @@ export function Home() {
             <div className="rounded-lg bg-surface p-2">
               <dt className="text-on-surface-variant">{t('session_traffic')}</dt>
               <dd className="mt-1 font-mono font-semibold text-primary">{formatTrafficBytes(vpn.uploadBytes + vpn.downloadBytes)}</dd>
-            </div>
-            <div className="rounded-lg bg-surface p-2">
-              <dt className="text-on-surface-variant">{nativeAndroidVpn ? 'VPN' : 'SOCKS'}</dt>
-              <dd className="mt-1 truncate font-mono font-semibold text-primary">{nativeAndroidVpn ? 'Native' : vpn.socksAddr}</dd>
             </div>
           </dl>
         )}
