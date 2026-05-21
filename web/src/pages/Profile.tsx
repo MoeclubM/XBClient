@@ -115,7 +115,6 @@ export function Profile() {
   const [section, setSection] = useState<'overview' | 'tickets'>('overview')
   const mobileControl = capabilities?.admob === true
   const pointsLogs = adRewardLogs.filter((log) => log.scene === 'points')
-  const nativeAndroidVpn = capabilities?.platform === 'android'
 
   useEffect(() => {
     let cancelled = false
@@ -380,8 +379,8 @@ export function Profile() {
 
         {vpn && (
           <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 flex items-center justify-between text-xs text-emerald-500 font-bold">
-            <span>🟢 {nativeAndroidVpn ? 'VPN Status' : 'SOCKS Status'}</span>
-            <span className="font-mono">{nativeAndroidVpn ? 'Native' : `socks5://${vpn.socksAddr}`}</span>
+            <span>🟢 连接状态</span>
+            <span>{t('status_connected')}</span>
           </div>
         )}
       </section>

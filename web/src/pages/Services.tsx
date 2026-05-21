@@ -77,7 +77,7 @@ export function Services() {
         <p className="text-xs font-bold uppercase tracking-[0.28em] opacity-80">{appName}</p>
         <h1 className="mt-2 text-2xl font-black tracking-tight">{t('nav_services')}</h1>
         <p className="mt-2 max-w-3xl text-sm text-on-surface-variant">
-          已补齐账号安全、OAuth 绑定、礼品卡、工单、流量日志、Telegram 和知识库等 Xboard 常用能力。Tauri 远程页面使用应用内 WebView 新窗口打开，不走静默外部浏览器降级。
+          账号安全、OAuth 绑定、礼品卡、工单、流量日志、Telegram 和知识库集中管理。
         </p>
       </section>
 

@@ -78,7 +78,6 @@ export function AccountSecurity({ baseUrl, authData, loading, sessions, setSessi
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-1">
                   <p className="font-bold text-on-background">{field(session, ['ip', 'last_ip', 'remote_addr']) || 'Session'}</p>
-                  <p className="truncate text-on-surface-variant">{field(session, ['user_agent', 'device', 'browser'])}</p>
                   <p className="text-[10px] text-on-surface-variant">{timeText(session)}</p>
                 </div>
                 <button className="shrink-0 rounded-lg bg-rose-500/10 px-3 py-1.5 font-bold text-rose-500" onClick={() => void removeSession(session)}>移除</button>
