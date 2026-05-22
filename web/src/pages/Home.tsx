@@ -124,7 +124,6 @@ export function Home() {
     if (!authData) navigate('/login', { replace: true })
   }, [authData, navigate])
 
-  // Auto-load subscription & nodes when entering connection page
   useEffect(() => {
     if (authData && baseUrl) void refresh()
   }, [authData, baseUrl]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -231,7 +230,7 @@ export function Home() {
     return `${h}:${m}:${s}`
   }
 
-  async function refresh() { // auto-load on mount
+  async function refresh() {
     setError('')
     setLoading(true)
     try {
@@ -452,7 +451,6 @@ export function Home() {
     }
   }
 
-  // Toggle connection to the *selected* node
   async function toggleConnection() {
     if (vpn) {
       await disconnect()
@@ -465,7 +463,6 @@ export function Home() {
     }
   }
 
-  // Choose a node from the Selector Dialog
   async function chooseNode(index: number) {
     setSelectedNodeIndex(index)
     setNodeSelectOpen(false)
@@ -483,10 +480,13 @@ export function Home() {
   const progressPercent = trafficTotal > 0 ? Math.min(100, (trafficUsed / trafficTotal) * 100) : 0
 
   return (
-    <main className="mx-auto max-w-2xl space-y-4 px-4 pb-24 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
-      <header className="border-b border-outline-variant/40 pb-3">
-        <h1 className="text-lg font-semibold text-on-background">{t('nav_nodes')}</h1>
-        <p className="mt-1 text-xs text-on-surface-variant">{loading ? t('refreshing') : (email || '未登录')}</p>
+    <main className="mx-auto max-w-2xl space-y-5 px-4 pb-24 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
+      <header className="md3-page-header">
+        <span className="md3-page-rail" />
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('nav_nodes')}</h1>
+          <p className="mt-1 truncate text-sm text-on-surface-variant">{loading ? t('refreshing') : (email || '未登录')}</p>
+        </div>
       </header>
 
       {error && (
@@ -514,80 +514,79 @@ export function Home() {
         </section>
       )}
 
-      <section className="space-y-5 rounded-2xl border border-outline-variant/50 bg-surface-low p-5 text-center">
-        <div>
-          <p className="text-xs text-on-surface-variant">连接状态</p>
-          <p className={vpn ? 'mt-1 text-lg font-semibold text-emerald-500' : 'mt-1 text-lg font-semibold text-on-background'}>
+      <section className="space-y-2">
+        <h2 className="md3-section-title">连接状态</h2>
+        <div className="md3-panel space-y-5 text-center">
+          <p className={vpn ? 'text-3xl font-semibold text-primary' : 'text-3xl font-semibold text-on-background'}>
             {vpn ? t('status_connected') : t('status_disconnected')}
           </p>
-        </div>
 
-        <button
-          type="button"
-          onClick={() => void toggleConnection()}
-          disabled={isCurrentlyConnecting}
-          className={vpn ? 'connection-orb connection-orb--connected mx-auto disabled:opacity-50' : 'connection-orb mx-auto disabled:opacity-50'}
-        >
-          <span className="relative z-10 text-base font-black">
-            {isCurrentlyConnecting ? t('action_connecting') : vpn ? t('action_disconnect') : t('action_connect')}
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => void toggleConnection()}
+            disabled={isCurrentlyConnecting}
+            className={vpn ? 'connection-orb connection-orb--connected mx-auto' : 'connection-orb mx-auto'}
+          >
+            <span className="relative z-10">
+              {isCurrentlyConnecting ? t('action_connecting') : vpn ? t('action_disconnect') : t('action_connect')}
+            </span>
+          </button>
 
-        {selectedNode && (
-          <p className="mx-auto max-w-full truncate text-xs font-semibold text-on-surface-variant">
-            {displayNodeName(selectedNode, selectedNodeIndex)}
-          </p>
-        )}
-
-        {vpn && (
-          <dl className="grid grid-cols-2 gap-2 border-t border-outline-variant/30 pt-3 text-center text-xs">
-            <div className="rounded-lg bg-surface p-2">
-              <dt className="text-on-surface-variant">{t('session_duration')}</dt>
-              <dd className="mt-1 font-mono font-semibold text-primary">{formatDuration(duration)}</dd>
-            </div>
-            <div className="rounded-lg bg-surface p-2">
-              <dt className="text-on-surface-variant">{t('session_traffic')}</dt>
-              <dd className="mt-1 font-mono font-semibold text-primary">{formatTrafficBytes(vpn.uploadBytes + vpn.downloadBytes)}</dd>
-            </div>
-          </dl>
-        )}
-      </section>
-
-      <button
-        type="button"
-        onClick={() => setNodeSelectOpen(true)}
-        className="flex w-full items-center justify-between gap-3 rounded-xl border border-outline-variant/50 bg-surface-low p-4 text-left"
-      >
-        <div className="min-w-0">
-          <p className="text-xs text-on-surface-variant">{t('select_node')}</p>
-          {selectedNode ? (
-            <>
-              <p className="mt-1 truncate text-base font-semibold text-on-background">{displayNodeName(selectedNode, selectedNodeIndex)}</p>
-              <p className="mt-1 truncate text-xs text-on-surface-variant">
-                {selectedNode.protocolLabel}{selectedNode.latencyMs !== undefined ? ` · ${selectedNode.latencyMs} ms` : ''}
-              </p>
-            </>
-          ) : (
-            <p className="mt-1 text-sm text-on-surface-variant">{t('no_nodes')}</p>
+          {vpn && (
+            <dl className="grid grid-cols-2 gap-2 border-t border-outline-variant/30 pt-3 text-center text-xs">
+              <div className="md3-info-cell">
+                <dt className="text-on-surface-variant">{t('session_duration')}</dt>
+                <dd className="mt-1 font-mono font-semibold text-primary">{formatDuration(duration)}</dd>
+              </div>
+              <div className="md3-info-cell">
+                <dt className="text-on-surface-variant">{t('session_traffic')}</dt>
+                <dd className="mt-1 font-mono font-semibold text-primary">{formatTrafficBytes(vpn.uploadBytes + vpn.downloadBytes)}</dd>
+              </div>
+            </dl>
           )}
         </div>
-        <span className="text-xl text-on-surface-variant">›</span>
-      </button>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="md3-section-title">{t('select_node')}</h2>
+        <button
+          type="button"
+          onClick={() => setNodeSelectOpen(true)}
+          className="md3-panel flex min-h-[78px] w-full items-center justify-between gap-3 text-left"
+        >
+          <div className="min-w-0">
+            {selectedNode ? (
+              <>
+                <p className="truncate text-xl font-semibold text-on-background">{displayNodeName(selectedNode, selectedNodeIndex)}</p>
+                <p className="mt-1 truncate text-sm text-on-surface-variant">
+                  {selectedNode.protocolLabel}{selectedNode.latencyMs !== undefined ? ` · ${selectedNode.latencyMs} ms` : ''}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-on-surface-variant">{t('no_nodes')}</p>
+            )}
+          </div>
+          <span className="text-2xl text-on-surface-variant">›</span>
+        </button>
+      </section>
 
       {trafficTotal > 0 && (
-        <section className="space-y-3 rounded-xl border border-outline-variant/50 bg-surface-low p-4">
-          <div className="flex items-center justify-between gap-3 text-xs">
-            <span className="text-on-surface-variant">{t('traffic_used')}</span>
-            <span className="font-semibold text-on-background">
-              {formatTrafficBytes(trafficUsed)} / {formatTrafficBytes(trafficTotal)}
-            </span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-surface-variant">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${progressPercent}%` }} />
-          </div>
-          <div className="flex items-center justify-between gap-3 text-[11px] text-on-surface-variant">
-            <span>{progressPercent.toFixed(1)}%</span>
-            {subscription.expiredAt > 0 && <span>{t('expires_at')}: {formatUnixDate(subscription.expiredAt)}</span>}
+        <section className="space-y-2">
+          <h2 className="md3-section-title">{t('traffic_used')}</h2>
+          <div className="md3-panel space-y-3">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-on-surface-variant">{subscription.summary}</span>
+              <span className="font-semibold text-on-background">
+                {formatTrafficBytes(trafficUsed)} / {formatTrafficBytes(trafficTotal)}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-surface-high">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${progressPercent}%` }} />
+            </div>
+            <div className="flex items-center justify-between gap-3 text-xs text-on-surface-variant">
+              <span>{progressPercent.toFixed(1)}%</span>
+              {subscription.expiredAt > 0 && <span>{t('expires_at')}: {formatUnixDate(subscription.expiredAt)}</span>}
+            </div>
           </div>
         </section>
       )}
