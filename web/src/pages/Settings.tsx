@@ -6,6 +6,7 @@ import { useAppStore, type AppSettings } from '../store'
 import { saveSettings } from '../store/persist'
 import { enabled } from '../reward'
 import { useTranslation } from '../i18n'
+import { publicErrorText } from '../format'
 
 interface XboardBody<T = unknown> {
   data?: T
@@ -43,7 +44,7 @@ export function SettingsPage() {
   useEffect(() => {
     void getVersion()
       .then(setAppVersion)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(publicErrorText(err)))
   }, [])
 
   useEffect(() => {
@@ -88,7 +89,7 @@ export function SettingsPage() {
         githubProjectUrl: String(data.github_project_url ?? ''),
       })
     }
-    void loadRewardConfig().catch((err) => setError(err instanceof Error ? err.message : String(err)))
+    void loadRewardConfig().catch((err) => setError(publicErrorText(err)))
     return () => {
       cancelled = true
     }
@@ -97,7 +98,7 @@ export function SettingsPage() {
   async function persist(patch: Partial<AppSettings>) {
     const next = { ...settings, ...patch }
     setSettings(patch)
-    await saveSettings(next).catch((err) => setError(`Save failed: ${err}`))
+    await saveSettings(next).catch((err) => setError(`Save failed: ${publicErrorText(err)}`))
   }
 
   async function toggleSystemProxy(value: boolean) {
@@ -113,7 +114,7 @@ export function SettingsPage() {
         await systemProxyClear()
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     }
   }
 
@@ -124,23 +125,27 @@ export function SettingsPage() {
       await autostartSetEnabled(value)
       await persist({ autostart: value })
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     }
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-5 px-6 pb-24 pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
-      <header className="border-b border-outline-variant/30 pb-3">
-        <h1 className="text-xl font-bold tracking-tight text-primary">{t('nav_settings')}</h1>
+    <main className="md3-screen space-y-5">
+      <header className="md3-page-header">
+        <span className="md3-page-rail" />
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('nav_settings')}</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">{t('app_version')}: {appVersion || '-'}</p>
+        </div>
       </header>
 
       {error && (
-        <p className="rounded-xl bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20 break-words">
+        <p className="md3-alert md3-alert-error break-words">
           {error}
         </p>
       )}
 
-      <section className="space-y-5 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
+      <section className="md3-card-low space-y-5">
         {systemProxySupported && (
           <>
             <label className="flex items-center justify-between gap-4 cursor-pointer">
@@ -193,11 +198,11 @@ export function SettingsPage() {
           <select
             value={settings.themeMode}
             onChange={(e) => void persist({ themeMode: e.target.value as any })}
-            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer font-medium"
+            className="md3-field cursor-pointer"
           >
-            <option value="system">🎨 {t('theme_system')}</option>
-            <option value="light">☀️ {t('theme_light')}</option>
-            <option value="dark">🌙 {t('theme_dark')}</option>
+            <option value="system">{t('theme_system')}</option>
+            <option value="light">{t('theme_light')}</option>
+            <option value="dark">{t('theme_dark')}</option>
           </select>
         </label>
 
@@ -211,9 +216,9 @@ export function SettingsPage() {
           <select
             value={settings.appLanguage}
             onChange={(e) => void persist({ appLanguage: e.target.value as any })}
-            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer font-medium"
+            className="md3-field cursor-pointer"
           >
-            <option value="system">🌐 Language: System</option>
+            <option value="system">Language: System</option>
             <option value="zh-CN">中文</option>
             <option value="en">English</option>
             <option value="ja">日本語</option>
@@ -229,7 +234,7 @@ export function SettingsPage() {
             {t('node_dns')}
           </span>
           <input
-            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary font-mono"
+            className="md3-field font-mono"
             value={settings.nodeDns}
             onChange={(event) => void persist({ nodeDns: event.target.value })}
           />
@@ -242,7 +247,7 @@ export function SettingsPage() {
             {t('node_test_target')}
           </span>
           <input
-            className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/60 focus:border-primary focus:ring-1 focus:ring-primary font-mono"
+            className="md3-field font-mono"
             value={settings.nodeTestTarget}
             onChange={(event) => void persist({ nodeTestTarget: event.target.value })}
           />
@@ -250,28 +255,28 @@ export function SettingsPage() {
 
       </section>
 
-      <section className="space-y-4 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
+      <section className="md3-card-low space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-bold tracking-tight text-primary">{t('about')}</h2>
+            <h2 className="md3-section-title">{t('about')}</h2>
             <p className="mt-1 text-xs text-on-surface-variant">
               {t('app_version')}: <span className="font-mono">{appVersion || '-'}</span>
             </p>
           </div>
           <a
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20 cursor-pointer"
+            className="md3-button md3-button-tonal text-xs"
             href="#/settings/licenses"
           >
-            📜 {t('licenses')}
+            {t('licenses')}
           </a>
         </div>
         {githubProjectUrl && (
           <button
             type="button"
             onClick={() => void openInAppBrowser(githubProjectUrl, t('source_code'))}
-            className="w-full rounded-xl bg-surface px-4 py-2 text-left text-xs font-bold text-primary border border-outline-variant/25 hover:border-primary/30"
+            className="md3-button md3-button-outlined h-auto w-full justify-start py-2 text-left text-xs"
           >
-            🔗 {t('source_code')}: <span className="font-mono break-all">{githubProjectUrl}</span>
+            {t('source_code')}: <span className="font-mono break-all">{githubProjectUrl}</span>
           </button>
         )}
       </section>

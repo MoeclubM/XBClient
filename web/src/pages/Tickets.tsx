@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { xboardRequest } from '../api/xboard'
 import { useAppStore } from '../store'
+import { publicErrorText } from '../format'
 import { dataRows, failureText, field, rowId, timeText, type Row, type XboardBody } from './services/helpers'
 
 export function Tickets({ compact = false }: { compact?: boolean } = {}) {
@@ -39,7 +40,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
         setTickets(dataRows(response.body?.data))
       }
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : String(err))
+      setMessage(publicErrorText(err))
     } finally {
       if (!silent) setLoading(false)
     }
@@ -64,7 +65,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
       }
       setTicketDetail(response.body?.data ?? response.body)
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : String(err))
+      setMessage(publicErrorText(err))
     } finally {
       setLoadingDetail(false)
     }
@@ -92,7 +93,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
       await loadTickets(true)
       setMessage(response.body?.message ?? '工单已成功创建！')
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : String(err))
+      setMessage(publicErrorText(err))
     } finally {
       setSubmitting(false)
     }
@@ -117,7 +118,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
       setTicketReply('')
       await openTicket(selectedTicketId)
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : String(err))
+      setMessage(publicErrorText(err))
     } finally {
       setReplying(false)
     }
@@ -143,7 +144,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
       await loadTickets(true)
       setMessage(response.body?.message ?? '工单已关闭。')
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : String(err))
+      setMessage(publicErrorText(err))
     } finally {
       setClosing(false)
     }
@@ -165,15 +166,14 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
 
   return (
     <main className={compact ? 'flex w-full flex-col gap-4' : 'mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-24 pt-[calc(1rem+env(safe-area-inset-top,0px))] md:pb-8'}>
-      {/* Banner */}
-      <section className="flex flex-col items-start justify-between gap-4 rounded-xl border border-outline-variant/50 bg-surface-low p-4 md:flex-row md:items-center">
+      <section className="md3-card-low flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div className="space-y-1">
           <h1 className="text-lg font-semibold text-on-background">工单中心</h1>
           <p className="text-xs text-on-surface-variant">有任何使用问题都可以随时创建工单。</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white"
+          className="md3-button md3-button-filled shrink-0 text-xs"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -183,19 +183,17 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
       </section>
 
       {message && (
-        <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs font-bold text-primary flex items-center justify-between">
-          <span>ℹ️ {message}</span>
+        <div className="md3-alert md3-alert-info flex items-center justify-between">
+          <span>{message}</span>
           <button onClick={() => setMessage('')} className="text-on-surface-variant hover:text-primary cursor-pointer">✕</button>
         </div>
       )}
 
-      {/* Main workspace */}
       <section className="grid gap-6 md:grid-cols-5 min-h-[500px]">
-        {/* Left Column: Ticket List */}
-        <section className="md:col-span-2 rounded-2xl bg-surface-low p-4 border border-outline-variant/40 flex flex-col max-h-[600px]">
+        <section className="md3-card-low md:col-span-2 flex max-h-[600px] flex-col">
           <div className="pb-3 border-b border-outline-variant/20 mb-3 flex items-center justify-between">
             <h2 className="text-sm font-extrabold text-on-background">我的工单列表 ({tickets.length})</h2>
-            <button onClick={() => void loadTickets(false)} className="text-xs text-primary font-bold hover:underline cursor-pointer">刷新</button>
+            <button onClick={() => void loadTickets(false)} className="md3-button md3-button-text min-h-0 px-0 py-0 text-xs">刷新</button>
           </div>
 
           {loading ? (
@@ -247,11 +245,9 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
           )}
         </section>
 
-        {/* Right Column: Chat/Messages Detail */}
-        <section className="md:col-span-3 rounded-2xl bg-surface-low p-4 border border-outline-variant/40 flex flex-col max-h-[600px]">
+        <section className="md3-card-low md:col-span-3 flex max-h-[600px] flex-col">
           {selectedTicketId ? (
             <div className="flex flex-col h-full flex-1">
-              {/* Detail Header */}
               <div className="pb-3 border-b border-outline-variant/20 mb-3 flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <h3 className="text-sm font-extrabold text-on-background truncate">
@@ -263,14 +259,13 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
                   <button
                     onClick={closeTicket}
                     disabled={closing}
-                    className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 cursor-pointer shrink-0 disabled:opacity-40"
+                    className="md3-button md3-button-danger shrink-0 px-3 text-xs disabled:opacity-40"
                   >
                     {closing ? '正在关闭...' : '关闭工单'}
                   </button>
                 )}
               </div>
 
-              {/* Chat View */}
               {loadingDetail ? (
                 <div className="flex-1 flex items-center justify-center p-8">
                   <p className="text-xs font-semibold text-on-surface-variant">加载中...</p>
@@ -309,7 +304,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
               {!isClosed ? (
                 <form className="mt-auto space-y-2 border-t border-outline-variant/20 pt-3" onSubmit={replyTicket}>
                   <textarea
-                    className="w-full rounded-xl bg-surface px-3 py-2.5 text-xs outline-none border border-outline-variant/50 focus:border-primary/50"
+                    className="md3-field text-xs"
                     placeholder="请输入回复问题的内容..."
                     rows={3}
                     value={ticketReply}
@@ -319,7 +314,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
                   />
                   <div className="flex justify-end">
                     <button
-                      className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/95 cursor-pointer disabled:opacity-40 flex items-center gap-1"
+                      className="md3-button md3-button-filled text-xs disabled:opacity-40"
                       type="submit"
                       disabled={replying}
                     >
@@ -330,7 +325,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
                 </form>
               ) : (
                 <div className="mt-auto rounded-xl bg-on-surface-variant/5 p-3 text-center text-xs text-on-surface-variant border border-outline-variant/20">
-                  🔒 该工单已被关闭，无法继续回复。
+                  该工单已被关闭，无法继续回复。
                 </div>
               )}
             </div>
@@ -346,10 +341,9 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
         </section>
       </section>
 
-      {/* Create Ticket Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <form className="bg-surface-low border border-outline-variant/40 rounded-3xl w-full max-w-md p-5 flex flex-col relative" onSubmit={createTicket}>
+          <form className="md3-card-low relative flex w-full max-w-md flex-col" onSubmit={createTicket}>
             <header className="flex items-center justify-between pb-3.5 border-b border-outline-variant/20 mb-4">
               <h2 className="text-base font-extrabold text-on-background">新建服务工单</h2>
               <button
@@ -367,7 +361,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
               <div className="space-y-1">
                 <label className="text-[10px] font-extrabold text-primary uppercase">主题 / Subject</label>
                 <input
-                  className="w-full rounded-xl bg-surface px-3 py-2 text-xs outline-none border border-outline-variant/50 focus:border-primary/50"
+                  className="md3-field text-xs"
                   placeholder="如：节点无法连接、套餐状态异常"
                   value={ticketSubject}
                   onChange={(event) => setTicketSubject(event.target.value)}
@@ -379,7 +373,7 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
               <div className="space-y-1">
                 <label className="text-[10px] font-extrabold text-primary uppercase">问题描述 / Message</label>
                 <textarea
-                  className="w-full rounded-xl bg-surface px-3 py-2 text-xs outline-none border border-outline-variant/50 focus:border-primary/50"
+                  className="md3-field text-xs"
                   placeholder="请详细描述您遇到的问题或故障现象，以便客服能快速为您定位问题。"
                   rows={4}
                   value={ticketMessage}
@@ -394,14 +388,14 @@ export function Tickets({ compact = false }: { compact?: boolean } = {}) {
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="rounded-xl border border-outline-variant/60 px-4 py-2 text-xs font-bold text-on-surface hover:bg-on-surface-variant/5 cursor-pointer"
+                className="md3-button md3-button-outlined text-xs"
                 disabled={submitting}
               >
                 取消
               </button>
               <button
                 type="submit"
-                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/95 cursor-pointer flex items-center gap-1 disabled:opacity-40"
+                className="md3-button md3-button-filled text-xs disabled:opacity-40"
                 disabled={submitting}
               >
                 {submitting && <span>提交中...</span>}

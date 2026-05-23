@@ -29,7 +29,7 @@ import {
   type RawNode,
 } from '../nodes'
 import { useAppStore, type AppNode } from '../store'
-import { formatTrafficBytes, formatUnixDate, numericValue } from '../format'
+import { formatTrafficBytes, formatUnixDate, numericValue, publicErrorText } from '../format'
 import { useTranslation } from '../i18n'
 
 interface XboardBody {
@@ -170,7 +170,7 @@ export function Home() {
           })
         }
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(publicErrorText(err)))
 
     // 2. State change subscription
     let unlisten: (() => void) | undefined
@@ -288,7 +288,7 @@ export function Home() {
       }
       setSubscribe({ subscribeUrl: url, nodes: list })
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     } finally {
       setLoading(false)
     }
@@ -321,7 +321,7 @@ export function Home() {
       }
     } catch (err) {
       setNodeResult(index, {
-        testError: readableNodeTestError(err instanceof Error ? err.message : String(err)),
+        testError: readableNodeTestError(publicErrorText(err)),
       })
     } finally {
       setSpeedtesting((prev) => ({ ...prev, [index]: false }))
@@ -385,7 +385,7 @@ export function Home() {
           downloadBytes: 0,
         })
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
+        setError(publicErrorText(err))
       } finally {
         setConnectingIndex(null)
       }
@@ -417,7 +417,7 @@ export function Home() {
         downloadBytes: 0,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     } finally {
       setConnectingIndex(null)
     }
@@ -429,7 +429,7 @@ export function Home() {
         await androidStopVpn()
         setVpn(null)
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
+        setError(publicErrorText(err))
       } finally {
         setConnectingIndex(null)
       }
@@ -440,13 +440,13 @@ export function Home() {
     try {
       await aerionStop(vpn.sessionId)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     } finally {
       setVpn(null)
       try {
         await clearSystemProxy()
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
+        setError(publicErrorText(err))
       }
     }
   }
@@ -480,7 +480,7 @@ export function Home() {
   const progressPercent = trafficTotal > 0 ? Math.min(100, (trafficUsed / trafficTotal) * 100) : 0
 
   return (
-    <main className="mx-auto max-w-2xl space-y-5 px-4 pb-24 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
+    <main className="md3-screen space-y-5">
       <header className="md3-page-header">
         <span className="md3-page-rail" />
         <div className="min-w-0">

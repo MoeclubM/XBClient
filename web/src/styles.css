@@ -3,6 +3,8 @@
 @theme {
   --color-primary: var(--primary);
   --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
   --color-background-app: var(--background);
   --color-on-background: var(--on-background);
   --color-surface: var(--surface);
@@ -105,6 +107,7 @@ html,
 body,
 #root {
   height: 100%;
+  overscroll-behavior: none;
 }
 
 body {
@@ -113,6 +116,127 @@ body {
   color: var(--on-background);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.md3-screen {
+  width: min(100%, 48rem);
+  margin-inline: auto;
+  padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem calc(7.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+.md3-auth-screen {
+  min-height: 100%;
+  padding: calc(1.25rem + env(safe-area-inset-top, 0px)) 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.md3-card {
+  border: 1px solid var(--outline-variant);
+  border-radius: 18px;
+  background: var(--surface-container);
+  padding: 18px;
+}
+
+.md3-card-low {
+  border: 1px solid var(--outline-variant);
+  border-radius: 18px;
+  background: var(--surface-container-low);
+  padding: 18px;
+}
+
+.md3-field {
+  width: 100%;
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--on-background);
+  padding: 12px 14px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.md3-field:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.md3-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0 24px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+
+.md3-button-filled {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.md3-button-tonal {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.md3-button-outlined {
+  border-color: var(--outline);
+  background: transparent;
+  color: var(--primary);
+}
+
+.md3-button-text {
+  background: transparent;
+  color: var(--primary);
+  padding-inline: 12px;
+}
+
+.md3-button-danger {
+  border-color: color-mix(in srgb, #ef4444 30%, transparent);
+  color: #ef4444;
+}
+
+.md3-button:disabled {
+  opacity: 0.56;
+}
+
+.md3-alert {
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.md3-alert-error {
+  border: 1px solid color-mix(in srgb, #ef4444 22%, transparent);
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+  color: #ef4444;
+}
+
+.md3-alert-info {
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, transparent);
+  background: color-mix(in srgb, var(--primary-container) 56%, transparent);
+  color: var(--primary);
 }
 
 .md3-page-header {

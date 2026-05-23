@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { useAppStore } from '../store'
+import { publicErrorText } from '../format'
 
 export interface XboardResponse<T = unknown> {
   ok: boolean
@@ -105,14 +106,18 @@ export async function xboardRequest<T = unknown>(
     if (!options.authData) throw new Error(`action ${action} requires auth`)
     headers.Authorization = options.authData
   }
-  return invoke<XboardResponse<T>>('xboard_request', {
-    request: {
-      method: def.method,
-      url,
-      headers,
-      body: def.method === 'GET' ? undefined : params,
-    },
-  })
+  try {
+    return await invoke<XboardResponse<T>>('xboard_request', {
+      request: {
+        method: def.method,
+        url,
+        headers,
+        body: def.method === 'GET' ? undefined : params,
+      },
+    })
+  } catch (error) {
+    throw new Error(publicErrorText(error, '请求失败'))
+  }
 }
 
 export interface SubscriptionResult {

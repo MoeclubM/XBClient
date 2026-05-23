@@ -4,7 +4,7 @@ import { xboardRequest } from '../api/xboard'
 import { showRewardedAd } from '../api/system'
 import { useAppStore, type InviteItem, type NoticeItem } from '../store'
 import { clearSession } from '../store/persist'
-import { formatMoney, formatUnixDate, numericValue } from '../format'
+import { formatMoney, formatUnixDate, numericValue, publicErrorText } from '../format'
 import { enabled, parseRewardLogs, rewardStatusText } from '../reward'
 import { useTranslation } from '../i18n'
 import { Tickets } from './Tickets'
@@ -216,7 +216,7 @@ export function Profile() {
         if (cancelled) return
         if (noticeResponse.ok) setNotices(parseNotices(noticeResponse.body))
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+        if (!cancelled) setError(publicErrorText(err))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -237,7 +237,7 @@ export function Profile() {
       const inviteList = await xboardRequest<InviteFetchBody>('invite_fetch', { baseUrl, authData })
       if (inviteList.ok) setInvites(parseInvites(inviteList.body))
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     }
   }
 
@@ -247,7 +247,7 @@ export function Profile() {
       setCopied(code)
       window.setTimeout(() => setCopied((current) => (current === code ? null : current)), 1500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     }
   }
 
@@ -289,7 +289,7 @@ export function Profile() {
       }
       setRewardLogs(parseRewardLogs(rewardHistory.body?.data))
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     } finally {
       setRewardLoading(false)
     }
@@ -307,11 +307,11 @@ export function Profile() {
 
   if (section === 'tickets') {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 px-4 pb-24 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
+      <div className="md3-screen space-y-4">
         <button
           type="button"
           onClick={() => setSection('overview')}
-          className="rounded-lg border border-outline-variant/60 px-3 py-2 text-xs font-semibold text-on-background"
+          className="md3-button md3-button-outlined text-xs"
         >
           ← 返回个人中心
         </button>
@@ -321,28 +321,29 @@ export function Profile() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4 px-4 pb-24 pt-[calc(1rem+env(safe-area-inset-top,0px))]">
-      <header className="flex items-center justify-between gap-3 border-b border-outline-variant/40 pb-3">
-        <div>
-          <h1 className="text-lg font-semibold text-on-background">{t('nav_profile')}</h1>
+    <main className="md3-screen space-y-4">
+      <header className="md3-page-header">
+        <span className="md3-page-rail" />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('nav_profile')}</h1>
           <p className="mt-1 break-all text-xs text-on-surface-variant">{email || '未登录'}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={() => setSection('tickets')}
-            className="rounded-lg border border-outline-variant/60 px-3 py-2 text-xs font-semibold text-primary"
+            className="md3-button md3-button-outlined px-3 text-xs"
           >
             {t('nav_services')}
           </button>
           <button
             onClick={() => navigate('/settings')}
-            className="rounded-lg border border-outline-variant/60 px-3 py-2 text-xs font-semibold text-primary"
+            className="md3-button md3-button-outlined px-3 text-xs"
           >
             {t('settings_button')}
           </button>
           <button
             onClick={() => void logout()}
-            className="rounded-lg border border-rose-500/30 px-3 py-2 text-xs font-semibold text-rose-500"
+            className="md3-button md3-button-danger px-3 text-xs"
           >
             {t('logout')}
           </button>
@@ -350,15 +351,15 @@ export function Profile() {
       </header>
 
       {error && (
-        <p className="rounded-xl bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20 break-words">
+        <p className="md3-alert md3-alert-error break-words">
           {error}
         </p>
       )}
 
-      <section className="space-y-4 rounded-2xl bg-surface-low p-6 border border-outline-variant/40">
+      <section className="md3-card-low space-y-4">
         <div>
           <p className="text-xs font-bold text-on-surface-variant tracking-wider uppercase">{t('balance')}</p>
-          <p className="text-3xl font-extrabold text-primary mt-1.5">{formatMoney(balance, currencySymbol, currencyUnit)}</p>
+          <p className="text-3xl font-semibold text-primary mt-1.5">{formatMoney(balance, currencySymbol, currencyUnit)}</p>
         </div>
 
         <div className="flex items-center gap-1.5 text-xs text-on-surface-variant font-semibold">
@@ -371,7 +372,7 @@ export function Profile() {
             <p className="text-sm font-semibold text-on-background leading-relaxed">{subscription.summary}</p>
             {subscription.expiredAt > 0 && (
               <p className="text-xs text-on-surface-variant font-medium">
-                📅 {t('expires_at')}: {formatUnixDate(subscription.expiredAt)}
+                {t('expires_at')}: {formatUnixDate(subscription.expiredAt)}
               </p>
             )}
           </div>
@@ -379,17 +380,17 @@ export function Profile() {
 
         {vpn && (
           <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 flex items-center justify-between text-xs text-emerald-500 font-bold">
-            <span>🟢 连接状态</span>
+            <span>连接状态</span>
             <span>{t('status_connected')}</span>
           </div>
         )}
       </section>
 
       {mobileControl && pointsRewardAdEnabled && (
-        <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
+        <section className="md3-card-low space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold tracking-tight text-primary">🎁 {t('points_reward_ad_title')}</h2>
+              <h2 className="md3-section-title">{t('points_reward_ad_title')}</h2>
               <p className="mt-1 text-xs text-on-surface-variant leading-relaxed">
                 观看 AdMob 激励广告后提交服务器验证。
               </p>
@@ -398,7 +399,7 @@ export function Profile() {
               type="button"
               disabled={rewardLoading}
               onClick={() => void watchPointsRewardAd()}
-              className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary border border-primary/20 disabled:opacity-60"
+              className="md3-button md3-button-tonal text-xs"
             >
               {rewardLoading ? '加载中…' : t('reward_watch')}
             </button>
@@ -423,19 +424,19 @@ export function Profile() {
       )}
 
       {(inviteForce || inviteCommissionRate > 0) && (
-        <section className="space-y-4 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
+        <section className="md3-card-low space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold tracking-tight">{t('invites_title')}</h2>
+            <h2 className="md3-section-title">{t('invites_title')}</h2>
             <button
               onClick={() => void generateInvite()}
-              className="rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-white hover:bg-primary/95 cursor-pointer"
+              className="md3-button md3-button-filled px-4 text-xs"
             >
-              ➕ {t('invite_generate')}
+              {t('invite_generate')}
             </button>
           </div>
 
           <p className="text-xs text-on-surface-variant font-medium">
-            💸 {t('commission')}: <span className="font-bold text-primary">{inviteCommissionRate}%</span> · {t('commission_balance')}: <span className="font-bold text-emerald-500">{formatMoney(inviteCommissionBalance, currencySymbol, currencyUnit)}</span>
+            {t('commission')}: <span className="font-bold text-primary">{inviteCommissionRate}%</span> · {t('commission_balance')}: <span className="font-bold text-emerald-500">{formatMoney(inviteCommissionBalance, currencySymbol, currencyUnit)}</span>
           </p>
 
           {invites.length === 0 ? (
@@ -457,9 +458,9 @@ export function Profile() {
                   </div>
                   <button
                     onClick={() => void copyCode(invite.code)}
-                    className="rounded-lg bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 cursor-pointer"
+                    className="md3-button md3-button-tonal px-3 text-xs"
                   >
-                    {copied === invite.code ? `✓ ${t('copied')}` : `📋 ${t('copy')}`}
+                    {copied === invite.code ? t('copied') : t('copy')}
                   </button>
                 </li>
               ))}
@@ -469,8 +470,8 @@ export function Profile() {
       )}
 
       {notices.length > 0 && (
-        <section className="space-y-4 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
-          <h2 className="text-sm font-bold tracking-tight text-primary">📣 {t('announcement')}</h2>
+        <section className="md3-card-low space-y-4">
+          <h2 className="md3-section-title">{t('announcement')}</h2>
           <ul className="space-y-4">
             {notices.map((notice) => (
               <li
@@ -483,7 +484,7 @@ export function Profile() {
                 </p>
                 {notice.createdAt > 0 && (
                   <p className="text-[10px] font-bold text-on-surface-variant">
-                    📅 {formatUnixDate(notice.createdAt)}
+                    {formatUnixDate(notice.createdAt)}
                   </p>
                 )}
               </li>

@@ -44,6 +44,15 @@ export function formatDuration(durationMs: number): string {
   return `${pad(m)}:${pad(s)}`
 }
 
+export function publicErrorText(value: unknown, fallback = '操作失败'): string {
+  const raw = value instanceof Error ? value.message : String(value ?? '')
+  const text = raw
+    .replace(/not allowed to open url .*/i, '无法打开链接')
+    .replace(/https?:\/\/[^\s"'<>，。)]+/gi, '服务地址')
+    .trim()
+  return text || fallback
+}
+
 function pad(value: number): string {
   return value.toString().padStart(2, '0')
 }

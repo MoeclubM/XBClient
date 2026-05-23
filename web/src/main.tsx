@@ -93,6 +93,26 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const preventGesture = (event: Event) => event.preventDefault()
+    const preventWheelZoom = (event: WheelEvent) => {
+      if (event.ctrlKey) event.preventDefault()
+    }
+    const preventKeyZoom = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && ['+', '-', '=', '0'].includes(event.key)) event.preventDefault()
+    }
+    document.addEventListener('gesturestart', preventGesture)
+    document.addEventListener('gesturechange', preventGesture)
+    window.addEventListener('wheel', preventWheelZoom, { passive: false })
+    window.addEventListener('keydown', preventKeyZoom)
+    return () => {
+      document.removeEventListener('gesturestart', preventGesture)
+      document.removeEventListener('gesturechange', preventGesture)
+      window.removeEventListener('wheel', preventWheelZoom)
+      window.removeEventListener('keydown', preventKeyZoom)
+    }
+  }, [])
+
+  useEffect(() => {
     const el = document.documentElement
     if (themeMode === 'light' || themeMode === 'dark') {
       el.setAttribute('data-theme', themeMode)

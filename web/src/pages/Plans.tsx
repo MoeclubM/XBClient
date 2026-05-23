@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { xboardRequest } from '../api/xboard'
 import { openInAppBrowser, showRewardedAd } from '../api/system'
 import { useAppStore, type PlanItem, type PlanPrice } from '../store'
-import { formatMoney, formatTrafficGb, numericValue } from '../format'
+import { formatMoney, formatTrafficGb, numericValue, publicErrorText } from '../format'
 import { enabled, parseRewardLogs, rewardStatusText } from '../reward'
 import { useTranslation } from '../i18n'
 
@@ -174,7 +174,7 @@ export function Plans() {
           setRewardLogs([])
         }
       } catch (err) {
-        if (!cancelled) setMessage(err instanceof Error ? err.message : String(err))
+        if (!cancelled) setMessage(publicErrorText(err))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -251,7 +251,7 @@ export function Plans() {
       setRewardLogs(parseRewardLogs(rewardHistory.body?.data))
       setMessage(pending.body?.message ?? '广告奖励验证已提交。')
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : String(err))
+      setMessage(publicErrorText(err))
     } finally {
       setRewardLoading(false)
     }
@@ -303,16 +303,20 @@ export function Plans() {
   const isErrorMsg = message.includes('失败') || message.includes('错误') || message.includes('fail') || message.includes('error') || message.includes('HTTP')
 
   return (
-    <main className="mx-auto max-w-3xl space-y-5 px-6 pb-24 pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
-      <header className="border-b border-outline-variant/30 pb-3">
-        <h1 className="text-xl font-bold tracking-tight text-primary">{t('nav_plans')}</h1>
+    <main className="md3-screen space-y-5">
+      <header className="md3-page-header">
+        <span className="md3-page-rail" />
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('nav_plans')}</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">{formatMoney(balance, currencySymbol, currencyUnit)}</p>
+        </div>
       </header>
 
       {mobileControl && planRewardAdEnabled && (
-        <section className="space-y-3 rounded-2xl bg-surface-low p-5 border border-outline-variant/40">
+        <section className="md3-card-low space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold tracking-tight text-primary">🎁 {t('plan_reward_ad_title')}</h2>
+              <h2 className="md3-section-title">{t('plan_reward_ad_title')}</h2>
               <p className="mt-1 text-xs text-on-surface-variant leading-relaxed">
                 观看 AdMob 激励广告后提交服务器验证。
               </p>
@@ -321,7 +325,7 @@ export function Plans() {
               type="button"
               disabled={rewardLoading}
               onClick={() => void watchPlanRewardAd()}
-              className="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary border border-primary/20 disabled:opacity-60"
+              className="md3-button md3-button-tonal text-xs"
             >
               {rewardLoading ? '加载中…' : t('reward_watch')}
             </button>
@@ -341,12 +345,12 @@ export function Plans() {
       )}
 
       {message && !isErrorMsg && (
-        <p className="rounded-lg bg-primary/10 p-3 text-xs font-semibold text-primary border border-primary/20">
+        <p className="md3-alert md3-alert-info">
           {message}
         </p>
       )}
       {message && isErrorMsg && (
-        <p className="rounded-lg bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 border border-rose-500/20 break-words">
+        <p className="md3-alert md3-alert-error break-words">
           {message}
         </p>
       )}
@@ -361,19 +365,19 @@ export function Plans() {
         {plans.map((plan) => (
           <li
             key={plan.id}
-            className="rounded-2xl bg-surface-low p-5 border border-outline-variant/40 hover:border-primary/25"
+            className="md3-card-low"
           >
             <div className="flex items-start justify-between gap-3 pb-3 border-b border-outline-variant/20">
               <div className="min-w-0">
-                <p className="text-base font-extrabold text-on-background tracking-tight">{plan.name}</p>
+                <p className="text-base font-semibold text-on-background tracking-tight">{plan.name}</p>
                 {plan.transferEnable > 0 && (
                   <p className="mt-0.5 text-xs text-on-surface-variant font-semibold">
-                    💾 流量 {formatTrafficGb(plan.transferEnable)}
+                    流量 {formatTrafficGb(plan.transferEnable)}
                   </p>
                 )}
               </div>
               {plan.prices.length > 0 && (
-                <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-extrabold text-primary border border-primary/20">
+                <span className="shrink-0 rounded-full bg-primary-container px-3 py-1 text-xs font-semibold text-on-primary-container">
                   {formatMoney(plan.prices[0].amount, currencySymbol, currencyUnit)} 起
                 </span>
               )}
@@ -390,7 +394,7 @@ export function Plans() {
                 {plan.prices.map((price) => (
                   <li
                     key={price.field}
-                    className="rounded-xl bg-surface p-3 border border-outline-variant/25 flex flex-col justify-between"
+                    className="flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface p-3"
                   >
                     <div className="flex items-center justify-between gap-2 text-xs font-bold text-on-surface-variant">
                       <span>{price.label}</span>
@@ -400,7 +404,7 @@ export function Plans() {
                     </div>
                     <button
                       onClick={() => void buyWithBalance(plan, price)}
-                      className="mt-3 w-full rounded-lg border border-outline-variant/60 py-1.5 text-[11px] font-semibold text-primary"
+                      className="md3-button md3-button-outlined mt-3 w-full text-xs"
                     >
                       {t('purchase_balance')}
                     </button>
@@ -413,9 +417,9 @@ export function Plans() {
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={() => void openPlanPage(plan.id)}
-                  className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/95 cursor-pointer"
+                  className="md3-button md3-button-filled text-xs"
                 >
-                  🛒 {t('purchase_web')}
+                  {t('purchase_web')}
                 </button>
               </div>
             )}

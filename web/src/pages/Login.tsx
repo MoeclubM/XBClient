@@ -6,6 +6,7 @@ import { useAppStore, type AppSettings, type OAuthProvider } from '../store'
 import { saveSession, saveSettings } from '../store/persist'
 import { enabled } from '../reward'
 import { useTranslation } from '../i18n'
+import { publicErrorText } from '../format'
 
 type AuthMode = 'login' | 'register'
 
@@ -88,6 +89,7 @@ export function Login() {
   const [configLoading, setConfigLoading] = useState(false)
   const [verifySending, setVerifySending] = useState(false)
   const [tokenLoading, setTokenLoading] = useState(false)
+  const [forgotLoading, setForgotLoading] = useState(false)
 
   useEffect(() => {
     if (baseUrl) void loadGuestConfig(false)
@@ -102,8 +104,8 @@ export function Login() {
       if (active && callbackUrl) await handleOAuthCallback(callbackUrl)
     }
 
-    void checkCallback().catch((err) => setError(err instanceof Error ? err.message : String(err)))
-    const onFocus = () => void checkCallback().catch((err) => setError(err instanceof Error ? err.message : String(err)))
+    void checkCallback().catch((err) => setError(publicErrorText(err)))
+    const onFocus = () => void checkCallback().catch((err) => setError(publicErrorText(err)))
     const onVisible = () => {
       if (!document.hidden) onFocus()
     }
@@ -145,7 +147,7 @@ export function Login() {
       setConfigLoaded(true)
       if (showSuccess) setMessage('服务配置已加载。')
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     } finally {
       setConfigLoading(false)
     }
@@ -185,7 +187,7 @@ export function Login() {
       }
       await finishLogin(authData, email.trim())
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     } finally {
       setLoading(false)
     }
@@ -210,9 +212,35 @@ export function Login() {
       }
       setMessage(response.body?.message ?? t('email_verify_sent'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     } finally {
       setVerifySending(false)
+    }
+  }
+
+  async function forgotPassword() {
+    setError('')
+    setMessage('')
+    const accountEmail = email.trim()
+    if (!accountEmail) {
+      setError(t('email_required'))
+      return
+    }
+    setForgotLoading(true)
+    try {
+      const response = await xboardRequest<{ message?: string }>('forget_password', {
+        baseUrl,
+        params: { email: accountEmail },
+      })
+      if (!response.ok) {
+        setError(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
+        return
+      }
+      setMessage(response.body?.message ?? t('forgot_password_sent'))
+    } catch (err) {
+      setError(publicErrorText(err, '找回密码失败'))
+    } finally {
+      setForgotLoading(false)
     }
   }
 
@@ -233,7 +261,7 @@ export function Login() {
       await openInAppBrowser(url.toString(), `${provider.label || provider.driver} OAuth`)
       setMessage('已打开 OAuth 页面，等待应用链接自动回调。')
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err, 'OAuth 打开失败'))
     }
   }
 
@@ -288,7 +316,7 @@ export function Login() {
       setOauthConfirm(null)
       await loginWithVerify(verify)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(publicErrorText(err))
     } finally {
       setTokenLoading(false)
     }
@@ -324,63 +352,49 @@ export function Login() {
   }
 
   return (
-    <main className="flex min-h-full items-center justify-center bg-background-app p-6 pb-20 text-on-background">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-2xl space-y-5 rounded-2xl bg-surface-low p-6 border border-outline-variant/40"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/30 pb-4">
-          <div className="flex items-center gap-3">
-            <img className="h-10 w-10 shrink-0" src="./logo.png" alt={appName || 'Logo'} />
+    <main className="md3-auth-screen flex items-center justify-center bg-background-app text-on-background">
+      <form onSubmit={submit} className="w-full max-w-md space-y-5">
+        <header className="md3-page-header">
+          <span className="md3-page-rail" />
+          <div className="flex min-w-0 items-center gap-3">
+            <img className="h-11 w-11 shrink-0" src="./logo.png" alt={appName || 'Logo'} />
             <div className="min-w-0">
-              <h1 className="text-lg font-bold tracking-tight text-primary">
-                {appName} {mode === 'login' ? t('login') : t('register')}
-              </h1>
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-on-background">{appName || 'App'}</h1>
+              <p className="mt-1 text-sm text-on-surface-variant">{mode === 'login' ? t('login') : t('register')}</p>
             </div>
           </div>
+        </header>
 
-          <div className="flex items-center gap-2">
-            <select
-              value={settings.appLanguage}
-              onChange={(e) => void persistSettings({ appLanguage: e.target.value as AppSettings['appLanguage'] })}
-              className="rounded-lg bg-surface px-2 py-1.5 text-[11px] font-semibold outline-none border border-outline-variant/50"
-            >
-              <option value="system">🌐 System</option>
-              <option value="zh-CN">中文</option>
-              <option value="en">English</option>
-              <option value="ja">日本語</option>
-              <option value="ru">Русский</option>
-              <option value="fa">فارسی</option>
-            </select>
-            <select
-              value={settings.themeMode}
-              onChange={(e) => void persistSettings({ themeMode: e.target.value as AppSettings['themeMode'] })}
-              className="rounded-lg bg-surface px-2 py-1.5 text-[11px] font-semibold outline-none border border-outline-variant/50"
-            >
-              <option value="system">🎨 {t('theme_system')}</option>
-              <option value="light">☀️ {t('theme_light')}</option>
-              <option value="dark">🌙 {t('theme_dark')}</option>
-            </select>
+        <section className="md3-card space-y-4">
+          <div className="grid grid-cols-2 rounded-full bg-surface-high p-1">
             <button
               type="button"
               onClick={() => {
-                setMode(mode === 'login' ? 'register' : 'login')
+                setMode('login')
                 setError('')
                 setMessage('')
               }}
-              className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
+              className={mode === 'login' ? 'md3-button md3-button-tonal' : 'md3-button md3-button-text text-on-surface-variant'}
             >
-              {mode === 'login' ? t('register_account') : t('back_to_login')}
+              {t('login')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('register')
+                setError('')
+                setMessage('')
+              }}
+              className={mode === 'register' ? 'md3-button md3-button-tonal' : 'md3-button md3-button-text text-on-surface-variant'}
+            >
+              {t('register')}
             </button>
           </div>
-        </div>
 
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('email')}</span>
+          <label className="block space-y-1.5">
+            <span className="block text-xs font-semibold text-on-surface-variant">{t('email')}</span>
             <input
-              className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary"
+              className="md3-field"
               type="email"
               placeholder="name@example.com"
               value={email}
@@ -389,10 +403,22 @@ export function Login() {
             />
           </label>
 
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('password')}</span>
+          <label className="block space-y-1.5">
+            <span className="flex items-center justify-between gap-3">
+              <span className="block text-xs font-semibold text-on-surface-variant">{t('password')}</span>
+              {mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => void forgotPassword()}
+                  disabled={forgotLoading}
+                  className="md3-button md3-button-text min-h-0 px-0 py-0 text-xs disabled:opacity-50"
+                >
+                  {forgotLoading ? t('refreshing') : t('forgot_password')}
+                </button>
+              )}
+            </span>
             <input
-              className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary"
+              className="md3-field"
               type="password"
               placeholder="••••••••"
               value={password}
@@ -403,12 +429,12 @@ export function Login() {
 
           {mode === 'register' && (
             <>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-on-surface-variant">
+              <label className="block space-y-1.5">
+                <span className="block text-xs font-semibold text-on-surface-variant">
                   {t('invite_code')}{inviteForce ? ' *' : ''}
                 </span>
                 <input
-                  className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="md3-field"
                   placeholder="Code"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
@@ -417,22 +443,18 @@ export function Login() {
               </label>
 
               {registerCaptchaEnabled && (
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('captcha_token')}</span>
-                  <input
-                    className="w-full rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary"
-                    value={captcha}
-                    onChange={(e) => setCaptcha(e.target.value)}
-                  />
+                <label className="block space-y-1.5">
+                  <span className="block text-xs font-semibold text-on-surface-variant">{t('captcha_token')}</span>
+                  <input className="md3-field" value={captcha} onChange={(e) => setCaptcha(e.target.value)} />
                 </label>
               )}
 
               {registerEmailVerifyEnabled && (
-                <label className="block md:col-span-2">
-                  <span className="mb-1 block text-xs font-semibold text-on-surface-variant">{t('email_code')}</span>
+                <label className="block space-y-1.5">
+                  <span className="block text-xs font-semibold text-on-surface-variant">{t('email_code')}</span>
                   <div className="flex gap-2">
                     <input
-                      className="min-w-0 flex-1 rounded-xl bg-surface px-3 py-2 text-sm outline-none border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary"
+                      className="md3-field min-w-0 flex-1"
                       value={emailCode}
                       onChange={(e) => setEmailCode(e.target.value)}
                       required
@@ -441,7 +463,7 @@ export function Login() {
                       type="button"
                       onClick={() => void sendEmailVerify()}
                       disabled={verifySending}
-                      className="shrink-0 rounded-xl bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/20 disabled:opacity-50 border border-primary/20"
+                      className="md3-button md3-button-tonal shrink-0 px-4 text-xs"
                     >
                       {verifySending ? t('refreshing') : t('send_email_verify')}
                     </button>
@@ -450,18 +472,22 @@ export function Login() {
               )}
             </>
           )}
-        </div>
+
+          <button type="submit" disabled={loading} className="md3-button md3-button-filled w-full">
+            {loading ? t('action_connecting') : mode === 'login' ? t('login') : t('register')}
+          </button>
+        </section>
 
         {(oauthCallbackSupported || oauthConfirm) && (
-          <section className="space-y-3 rounded-2xl bg-surface p-4 border border-outline-variant/30">
+          <section className="md3-card-low space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">{t('auth_options')}</h2>
+              <h2 className="md3-section-title">{t('auth_options')}</h2>
               {!configLoaded && (
                 <button
                   type="button"
                   onClick={() => void loadGuestConfig(true)}
                   disabled={configLoading}
-                  className="text-[10px] font-semibold text-primary disabled:opacity-50"
+                  className="md3-button md3-button-text min-h-0 px-0 py-0 text-xs"
                 >
                   {configLoading ? t('refreshing') : '重新同步'}
                 </button>
@@ -469,13 +495,13 @@ export function Login() {
             </div>
 
             {oauthCallbackSupported && oauthProviders.length > 0 ? (
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2">
                 {oauthProviders.map((provider) => (
                   <button
                     key={provider.driver}
                     type="button"
                     onClick={() => void openOAuth(provider, mode)}
-                    className="rounded-xl bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/20 border border-primary/20"
+                    className="md3-button md3-button-outlined w-full"
                   >
                     {mode === 'login' ? t('oauth_login') : t('oauth_register')} · {provider.label || provider.driver}
                   </button>
@@ -483,12 +509,10 @@ export function Login() {
               </div>
             ) : oauthCallbackSupported ? (
               <p className="text-xs text-on-surface-variant">服务配置同步后会显示可用 OAuth 登录方式。</p>
-            ) : (
-              <p className="text-xs text-on-surface-variant">当前平台未接入应用链接回调，OAuth 入口已关闭。</p>
-            )}
+            ) : null}
 
             {oauthConfirm && (
-              <div className="rounded-2xl bg-primary/10 p-3 text-xs text-primary border border-primary/20 space-y-3">
+              <div className="space-y-3 rounded-2xl border border-primary/20 bg-primary/10 p-3 text-xs text-primary">
                 <p className="font-semibold">
                   确认使用 {oauthConfirm.provider || 'OAuth'} 注册{oauthConfirm.email ? `：${oauthConfirm.email}` : ''}
                 </p>
@@ -497,15 +521,11 @@ export function Login() {
                     type="button"
                     onClick={() => void confirmOAuthRegister()}
                     disabled={tokenLoading}
-                    className="rounded-xl bg-primary px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                    className="md3-button md3-button-filled"
                   >
                     {tokenLoading ? t('action_connecting') : '确认注册'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setOauthConfirm(null)}
-                    className="rounded-xl bg-surface px-3 py-2 text-xs font-bold text-on-surface-variant border border-outline-variant/30"
-                  >
+                  <button type="button" onClick={() => setOauthConfirm(null)} className="md3-button md3-button-outlined">
                     取消
                   </button>
                 </div>
@@ -514,24 +534,32 @@ export function Login() {
           </section>
         )}
 
-        {message && (
-          <p className="rounded-lg bg-emerald-500/10 p-2.5 text-xs font-medium text-emerald-500 border border-emerald-500/20">
-            {message}
-          </p>
-        )}
-        {error && (
-          <p className="rounded-lg bg-rose-500/10 p-2.5 text-xs font-medium text-rose-500 border border-rose-500/20 break-words">
-            {error}
-          </p>
-        )}
+        {message && <p className="md3-alert md3-alert-info">{message}</p>}
+        {error && <p className="md3-alert md3-alert-error break-words">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-white hover:bg-primary/95 disabled:opacity-50 cursor-pointer"
-        >
-          {loading ? t('action_connecting') : mode === 'login' ? t('login') : t('register')}
-        </button>
+        <section className="grid grid-cols-2 gap-2">
+          <select
+            value={settings.appLanguage}
+            onChange={(e) => void persistSettings({ appLanguage: e.target.value as AppSettings['appLanguage'] })}
+            className="md3-field py-2 text-xs"
+          >
+            <option value="system">System</option>
+            <option value="zh-CN">中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="ru">Русский</option>
+            <option value="fa">فارسی</option>
+          </select>
+          <select
+            value={settings.themeMode}
+            onChange={(e) => void persistSettings({ themeMode: e.target.value as AppSettings['themeMode'] })}
+            className="md3-field py-2 text-xs"
+          >
+            <option value="system">{t('theme_system')}</option>
+            <option value="light">{t('theme_light')}</option>
+            <option value="dark">{t('theme_dark')}</option>
+          </select>
+        </section>
       </form>
     </main>
   )

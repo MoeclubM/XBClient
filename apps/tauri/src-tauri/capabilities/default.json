@@ -7,6 +7,13 @@
     "core:default",
     "core:webview:allow-create-webview-window",
     "store:default",
-    "opener:default"
+    "opener:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "http://*", "app": "inAppBrowser" },
+        { "url": "https://*", "app": "inAppBrowser" }
+      ]
+    }
   ]
 }

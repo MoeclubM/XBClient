@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { publicErrorText } from '../format'
 
 export interface RuntimeCapabilities {
   platform: string
@@ -67,13 +68,21 @@ export async function autostartSetEnabled(value: boolean): Promise<void> {
 }
 
 export async function openExternal(url: string): Promise<void> {
-  await openUrl(url)
+  try {
+    await openUrl(url)
+  } catch (error) {
+    throw new Error(publicErrorText(error, '无法打开链接'))
+  }
 }
 
 export async function openInAppBrowser(url: string, title = 'Browser'): Promise<void> {
   const capabilities = await runtimeCapabilities()
   if (capabilities.platform === 'android' || capabilities.platform === 'ios') {
-    await openUrl(url, 'inAppBrowser')
+    try {
+      await openUrl(url, 'inAppBrowser')
+    } catch (error) {
+      throw new Error(publicErrorText(error, '无法打开链接'))
+    }
     return
   }
   await new Promise<void>((resolve, reject) => {
@@ -88,7 +97,7 @@ export async function openInAppBrowser(url: string, title = 'Browser'): Promise<
       focus: true,
     })
     void webview.once('tauri://created', () => resolve())
-    void webview.once('tauri://error', (event) => reject(new Error(String(event.payload))))
+    void webview.once('tauri://error', (event) => reject(new Error(publicErrorText(event.payload, '无法打开链接'))))
   })
 }
 

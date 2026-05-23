@@ -98,6 +98,9 @@ class XbClientMobilePlugin(private val activity: Activity) : Plugin(activity) {
 
     override fun load(webView: WebView) {
         super.load(webView)
+        webView.settings.setSupportZoom(false)
+        webView.settings.builtInZoomControls = false
+        webView.settings.displayZoomControls = false
         val filter = IntentFilter(XbClientVpnService.ACTION_STATE)
         if (Build.VERSION.SDK_INT >= 33) {
             activity.registerReceiver(vpnStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
