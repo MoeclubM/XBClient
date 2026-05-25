@@ -2,10 +2,10 @@ use crate::aerion_protocol::AerionProxyConfig;
 use aerion::padding::PaddingScheme;
 use aerion::vless_transport::VlessTransportConfig;
 use aerion::{
-    ClientConfig, Hysteria2ClientConfig, MieruClientConfig, MieruTrafficPattern, MieruTransport,
-    NaiveClientConfig, RealityClientConfig, ShadowsocksClientConfig, TrojanClientConfig,
-    TuicClientConfig, UtlsFingerprint, VlessClientConfig, VmessClientConfig,
-    ensure_vmess_packet_encoding,
+    ClientConfig, HttpProxyClientConfig, Hysteria2ClientConfig, MieruClientConfig,
+    MieruTrafficPattern, MieruTransport, NaiveClientConfig, RealityClientConfig,
+    ShadowsocksClientConfig, SocksProxyClientConfig, TrojanClientConfig, TuicClientConfig,
+    UtlsFingerprint, VlessClientConfig, VmessClientConfig, ensure_vmess_packet_encoding,
 };
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Map, Value};
@@ -17,6 +17,9 @@ pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionPr
     let protocol = node_protocol(node)?;
     match protocol.as_str() {
         "anytls" => anytls_config(node, listen).map(AerionProxyConfig::AnyTls),
+        "http" | "https" | "http-proxy" | "https-proxy" | "http+tls" => {
+            http_proxy_config(node, listen).map(AerionProxyConfig::HttpProxy)
+        }
         "hysteria2" => hysteria2_config(node, listen).map(AerionProxyConfig::Hysteria2),
         "trojan" => trojan_config(node, listen).map(AerionProxyConfig::Trojan),
         "vless" => vless_config(node, listen).map(AerionProxyConfig::Vless),
@@ -25,6 +28,9 @@ pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionPr
         "naive" => naive_config(node, listen).map(AerionProxyConfig::Naive),
         "tuic" => tuic_config(node, listen).map(AerionProxyConfig::Tuic),
         "ss" => shadowsocks_config(node, listen).map(AerionProxyConfig::Shadowsocks),
+        "socks" | "socks5" | "socks5h" => {
+            socks_proxy_config(node, listen).map(AerionProxyConfig::SocksProxy)
+        }
         other => bail!("unsupported Aerion node protocol: {other}"),
     }
 }
@@ -535,6 +541,126 @@ fn shadowsocks_config(node: &Value, listen: SocketAddr) -> Result<ShadowsocksCli
         password: node_string(node, &["password", "passwd"])?,
         udp: node_bool(node, &["udp"], true) || udp_over_tcp,
         udp_over_tcp,
+    })
+}
+
+fn http_proxy_config(node: &Value, listen: SocketAddr) -> Result<HttpProxyClientConfig> {
+    let server_host = node_string(node, &["server", "host", "address"])?;
+    let tls = object_field(node, &["tls"]);
+    let protocol = node_optional_string(node, &["type", "protocol"]).unwrap_or_default();
+    let tls_enabled = tls
+        .map(|opts| map_bool(opts, &["enabled"], true))
+        .unwrap_or_else(|| {
+            node_bool(
+                node,
+                &["tls"],
+                protocol.eq_ignore_ascii_case("https")
+                    || protocol.eq_ignore_ascii_case("https-proxy")
+                    || protocol.eq_ignore_ascii_case("http+tls"),
+            )
+        });
+    let client_fingerprint = client_fingerprint(node)?;
+    let ca_cert_paths = tls_ca_cert_paths(node, tls);
+    let ca_certificates = tls_ca_certificates(node, tls);
+    let disable_system_roots = tls_disable_system_roots(node, tls);
+    let pinned_cert_sha256 = tls_pinned_cert_sha256(node, tls);
+    ensure!(
+        tls_enabled
+            || (!node_bool(
+                node,
+                &["insecure", "skip-cert-verify", "allowInsecure"],
+                false
+            ) && ca_cert_paths.is_empty()
+                && ca_certificates.is_empty()
+                && !disable_system_roots
+                && pinned_cert_sha256.is_empty()
+                && client_fingerprint.is_none()
+                && node_alpn_list(node, tls).unwrap_or_default().is_empty()),
+        "Aerion HTTP proxy node sets TLS-only options while TLS is disabled"
+    );
+    Ok(HttpProxyClientConfig {
+        listen,
+        server_host: server_host.clone(),
+        server_port: node_port(node, &["port", "server_port", "server-port"])?,
+        username: node_optional_string(node, &["username", "user"]).unwrap_or_default(),
+        password: node_optional_string(node, &["password", "passwd", "pass"]).unwrap_or_default(),
+        tls: tls_enabled,
+        sni: tls
+            .and_then(|opts| map_string(opts, &["server_name", "server-name", "serverName"]))
+            .or_else(|| node_optional_string(node, &["sni", "servername", "server-name", "peer"]))
+            .unwrap_or(server_host),
+        insecure: if tls_enabled {
+            tls.map(|opts| {
+                map_bool(
+                    opts,
+                    &["insecure", "skip-cert-verify", "skip_cert_verify"],
+                    false,
+                )
+            })
+            .unwrap_or_else(|| {
+                node_bool(
+                    node,
+                    &["insecure", "skip-cert-verify", "allowInsecure"],
+                    false,
+                )
+            })
+        } else {
+            false
+        },
+        ca_cert_paths: if tls_enabled {
+            ca_cert_paths
+        } else {
+            Vec::new()
+        },
+        ca_certificates: if tls_enabled {
+            ca_certificates
+        } else {
+            Vec::new()
+        },
+        disable_system_roots: tls_enabled && disable_system_roots,
+        pinned_cert_sha256: if tls_enabled {
+            pinned_cert_sha256
+        } else {
+            Vec::new()
+        },
+        client_fingerprint: if tls_enabled {
+            client_fingerprint
+        } else {
+            None
+        },
+        extra_headers: naive_extra_headers(node)?,
+    })
+}
+
+fn socks_proxy_config(node: &Value, listen: SocketAddr) -> Result<SocksProxyClientConfig> {
+    let tls = object_field(node, &["tls"]);
+    ensure!(
+        !node_bool(node, &["tls"], false)
+            && tls.is_none_or(|opts| !map_bool(opts, &["enabled"], false))
+            && !node_bool(
+                node,
+                &["insecure", "skip-cert-verify", "allowInsecure"],
+                false
+            )
+            && tls_ca_cert_paths(node, tls).is_empty()
+            && tls_ca_certificates(node, tls).is_empty()
+            && !tls_disable_system_roots(node, tls)
+            && tls_pinned_cert_sha256(node, tls).is_empty()
+            && client_fingerprint(node)?.is_none()
+            && node_alpn_list(node, tls).unwrap_or_default().is_empty(),
+        "Aerion SOCKS proxy node sets TLS-only options"
+    );
+    ensure!(
+        field(node, &["extra_headers", "extra-headers", "headers"]).is_none(),
+        "Aerion SOCKS proxy node sets HTTP headers; SOCKS does not use headers"
+    );
+    Ok(SocksProxyClientConfig {
+        listen,
+        server_host: node_string(node, &["server", "host", "address"])?,
+        server_port: node_port(node, &["port", "server_port", "server-port"])?,
+        username: node_optional_string(node, &["username", "user"]).unwrap_or_default(),
+        password: node_optional_string(node, &["password", "passwd", "pass"]).unwrap_or_default(),
+        udp: node_bool(node, &["udp"], true),
     })
 }
 
@@ -1140,6 +1266,58 @@ mod tests {
         };
         assert!(config.udp);
         assert!(config.udp_over_tcp);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_http_proxy() -> Result<()> {
+        let node = serde_json::json!({
+            "type": "http",
+            "server": "proxy.example.com",
+            "server_port": 8080,
+            "username": "user",
+            "password": "secret",
+            "headers": {
+                "X-Aerion": "example"
+            }
+        });
+        let AerionProxyConfig::HttpProxy(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected HTTP proxy config")
+        };
+        assert_eq!(config.server_host, "proxy.example.com");
+        assert_eq!(config.server_port, 8080);
+        assert_eq!(config.username, "user");
+        assert_eq!(config.password, "secret");
+        assert!(!config.tls);
+        assert_eq!(
+            config.extra_headers,
+            vec![("X-Aerion".to_string(), "example".to_string())]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parses_socks_proxy() -> Result<()> {
+        let node = serde_json::json!({
+            "type": "socks5",
+            "server": "proxy.example.com",
+            "server_port": 1080,
+            "username": "user",
+            "password": "secret",
+            "udp": true
+        });
+        let AerionProxyConfig::SocksProxy(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected SOCKS proxy config")
+        };
+        assert_eq!(config.server_host, "proxy.example.com");
+        assert_eq!(config.server_port, 1080);
+        assert_eq!(config.username, "user");
+        assert_eq!(config.password, "secret");
+        assert!(config.udp);
         Ok(())
     }
 

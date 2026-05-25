@@ -29,6 +29,8 @@ const CONNECT_SUPPORTED = new Set([
   'naive',
   'tuic',
   'ss',
+  'http',
+  'socks5',
 ])
 
 export function toAppNode(raw: RawNode): AppNode {
@@ -118,9 +120,10 @@ export function aerionNodeWithResolvedHost(node: AppNode, resolvedHost: string):
     raw.sni = originalHost
   }
   raw.host = resolvedHost
-  if (raw.type === 'hysteria2' || raw.type === 'hy2' || raw.type === 'mieru') {
+  if (raw.server !== undefined) {
     raw.server = resolvedHost
   }
+  if (raw.address !== undefined) raw.address = resolvedHost
   return raw
 }
 
@@ -183,6 +186,9 @@ function canonicalProtocol(rawProtocol: string): string {
       return 'naive'
     case 'shadowsocks':
       return 'ss'
+    case 'socks':
+    case 'socks5h':
+      return 'socks5'
     default:
       return rawProtocol || 'unknown'
   }

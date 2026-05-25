@@ -1343,9 +1343,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 testNode.put("sni", originalHost)
             }
             testNode.put("host", resolvedHost)
-            val protocol = testNode.optString("type")
-            if (protocol == "hysteria2" || protocol == "hy2" || protocol == "mieru") {
+            if (testNode.has("server")) {
                 testNode.put("server", resolvedHost)
+            }
+            if (testNode.has("address")) {
+                testNode.put("address", resolvedHost)
             }
             val (targetHost, targetPort, targetTls) = targetHostPort(_uiState.value.nodeTestTarget.trim().ifEmpty { DEFAULT_NODE_TEST_TARGET })
             val result = JSONObject(
