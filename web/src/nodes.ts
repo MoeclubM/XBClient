@@ -34,6 +34,8 @@ const CONNECT_SUPPORTED = new Set([
   'ss',
   'http',
   'socks5',
+  'direct',
+  'block',
 ])
 
 export function toAppNode(raw: RawNode): AppNode {
@@ -192,6 +194,11 @@ function canonicalProtocol(rawProtocol: string): string {
     case 'socks':
     case 'socks5h':
       return 'socks5'
+    case 'freedom':
+      return 'direct'
+    case 'reject':
+    case 'blackhole':
+      return 'block'
     default:
       return rawProtocol || 'unknown'
   }
@@ -224,6 +231,10 @@ function protocolLabel(protocol: string): string {
       return 'HTTP'
     case 'mieru':
       return 'Mieru'
+    case 'direct':
+      return 'Direct'
+    case 'block':
+      return 'Block'
     default:
       return protocol.toUpperCase()
   }

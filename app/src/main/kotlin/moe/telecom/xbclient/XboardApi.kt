@@ -20,7 +20,7 @@ import java.util.Locale
 
 object XboardApi {
     private const val SUBSCRIPTION_USER_AGENT = "mihomo"
-    private const val SUBSCRIPTION_NODE_TYPES = "anytls,hysteria,trojan,vless,vmess,mieru,naive,shadowsocks,tuic,http,socks5"
+    private const val SUBSCRIPTION_NODE_TYPES = "anytls,hysteria,trojan,vless,vmess,mieru,naive,shadowsocks,tuic,http,socks5,direct,block"
     private val userAgent: String
         get() = BuildConfig.USER_AGENT
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -46,7 +46,12 @@ object XboardApi {
         "shadowsocks",
         "socks",
         "socks5",
-        "socks5h"
+        "socks5h",
+        "direct",
+        "freedom",
+        "reject",
+        "block",
+        "blackhole"
     )
 
     fun request(action: String, baseUrl: String, authData: String, params: JSONObject): JSONObject {
@@ -306,6 +311,8 @@ object XboardApi {
             "naive+https", "naive+quic" -> "naive"
             "shadowsocks" -> "ss"
             "socks", "socks5h" -> "socks5"
+            "freedom" -> "direct"
+            "reject", "blackhole" -> "block"
             else -> type
         }
         node.put("type", protocol)
@@ -326,6 +333,8 @@ object XboardApi {
             "hy2" -> "hysteria2"
             "shadowsocks" -> "ss"
             "socks", "socks5h" -> "socks5"
+            "freedom" -> "direct"
+            "reject", "blackhole" -> "block"
             else -> type
         }
         if (node.optString("name").isEmpty() && node.optString("tag").isNotEmpty()) {

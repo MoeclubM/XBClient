@@ -1337,17 +1337,19 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private fun testNodeBlocking(node: AnyTlsNode): String {
         return try {
             val testNode = JSONObject(node.rawJson)
-            val originalHost = testNode.getString("host")
-            val resolvedHost = XboardApi.resolveNodeHost(_uiState.value.nodeDns, originalHost)
-            if (resolvedHost != originalHost && testNode.optString("sni").isEmpty()) {
-                testNode.put("sni", originalHost)
-            }
-            testNode.put("host", resolvedHost)
-            if (testNode.has("server")) {
-                testNode.put("server", resolvedHost)
-            }
-            if (testNode.has("address")) {
-                testNode.put("address", resolvedHost)
+            if (node.protocol != "direct" && node.protocol != "block") {
+                val originalHost = testNode.getString("host")
+                val resolvedHost = XboardApi.resolveNodeHost(_uiState.value.nodeDns, originalHost)
+                if (resolvedHost != originalHost && testNode.optString("sni").isEmpty()) {
+                    testNode.put("sni", originalHost)
+                }
+                testNode.put("host", resolvedHost)
+                if (testNode.has("server")) {
+                    testNode.put("server", resolvedHost)
+                }
+                if (testNode.has("address")) {
+                    testNode.put("address", resolvedHost)
+                }
             }
             val (targetHost, targetPort, targetTls) = targetHostPort(_uiState.value.nodeTestTarget.trim().ifEmpty { DEFAULT_NODE_TEST_TARGET })
             val result = JSONObject(

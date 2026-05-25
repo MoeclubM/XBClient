@@ -3,9 +3,10 @@ use aerion::padding::PaddingScheme;
 use aerion::vless_transport::VlessTransportConfig;
 use aerion::{
     ClientConfig, HttpProxyClientConfig, Hysteria2ClientConfig, MieruClientConfig,
-    MieruTrafficPattern, MieruTransport, NaiveClientConfig, RealityClientConfig,
-    ShadowsocksClientConfig, SocksProxyClientConfig, TrojanClientConfig, TuicClientConfig,
-    UtlsFingerprint, VlessClientConfig, VmessClientConfig, ensure_vmess_packet_encoding,
+    MieruTrafficPattern, MieruTransport, NaiveClientConfig, RealityClientConfig, RouteClientConfig,
+    RouteDecision, ShadowsocksClientConfig, SocksProxyClientConfig, TrojanClientConfig,
+    TuicClientConfig, UtlsFingerprint, VlessClientConfig, VmessClientConfig,
+    ensure_vmess_packet_encoding,
 };
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Map, Value};
@@ -17,6 +18,14 @@ pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionPr
     let protocol = node_protocol(node)?;
     match protocol.as_str() {
         "anytls" => anytls_config(node, listen).map(AerionProxyConfig::AnyTls),
+        "direct" => Ok(AerionProxyConfig::Route(RouteClientConfig {
+            listen,
+            default: RouteDecision::Direct,
+        })),
+        "block" => Ok(AerionProxyConfig::Route(RouteClientConfig {
+            listen,
+            default: RouteDecision::Block,
+        })),
         "http" | "https" | "http-proxy" | "https-proxy" | "http+tls" => {
             http_proxy_config(node, listen).map(AerionProxyConfig::HttpProxy)
         }
@@ -673,6 +682,8 @@ fn node_protocol(node: &Value) -> Result<String> {
         "mierus" => "mieru".to_string(),
         "naive+https" | "naive+quic" => "naive".to_string(),
         "shadowsocks" => "ss".to_string(),
+        "freedom" => "direct".to_string(),
+        "reject" | "blackhole" => "block".to_string(),
         _ => protocol,
     })
 }
@@ -1573,6 +1584,26 @@ mod tests {
             vec![PathBuf::from("ca.pem"), PathBuf::from("backup-ca.pem")]
         );
         assert_eq!(config.ca_certificates, vec!["naive-inline-ca"]);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_builtin_route_nodes() -> Result<()> {
+        let direct = serde_json::json!({ "type": "freedom", "name": "direct-out" });
+        let AerionProxyConfig::Route(config) =
+            node_to_proxy_config(&direct, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected route config")
+        };
+        assert_eq!(config.default, RouteDecision::Direct);
+
+        let block = serde_json::json!({ "type": "blackhole", "name": "block-out" });
+        let AerionProxyConfig::Route(config) =
+            node_to_proxy_config(&block, "127.0.0.1:1081".parse()?)?
+        else {
+            bail!("expected route config")
+        };
+        assert_eq!(config.default, RouteDecision::Block);
         Ok(())
     }
 

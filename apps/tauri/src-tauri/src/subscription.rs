@@ -3,7 +3,7 @@ use serde_json::{Map, Value, json};
 
 const SUBSCRIPTION_USER_AGENT: &str = "mihomo";
 const SUBSCRIPTION_NODE_TYPES: &str =
-    "anytls,hysteria,trojan,vless,vmess,mieru,naive,shadowsocks,tuic,http,socks5";
+    "anytls,hysteria,trojan,vless,vmess,mieru,naive,shadowsocks,tuic,http,socks5,direct,block";
 
 const SUPPORTED_TYPES: &[&str] = &[
     "anytls",
@@ -22,6 +22,11 @@ const SUPPORTED_TYPES: &[&str] = &[
     "socks",
     "socks5",
     "socks5h",
+    "direct",
+    "freedom",
+    "reject",
+    "block",
+    "blackhole",
     "ss",
     "shadowsocks",
 ];
@@ -191,6 +196,8 @@ fn canonical_protocol(raw_type: &str) -> &'static str {
         "naive+https" | "naive+quic" => "naive",
         "shadowsocks" => "ss",
         "socks" | "socks5" | "socks5h" => "socks5",
+        "freedom" => "direct",
+        "reject" | "blackhole" => "block",
         "anytls" => "anytls",
         "hysteria2" => "hysteria2",
         "trojan" => "trojan",
@@ -200,6 +207,8 @@ fn canonical_protocol(raw_type: &str) -> &'static str {
         "naive" => "naive",
         "tuic" => "tuic",
         "http" => "http",
+        "direct" => "direct",
+        "block" => "block",
         "ss" => "ss",
         _ => "unknown",
     }

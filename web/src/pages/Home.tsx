@@ -295,6 +295,9 @@ export function Home() {
   }
 
   async function resolveAerionNode(node: AppNode): Promise<unknown> {
+    if (node.protocol === 'direct' || node.protocol === 'block') {
+      return JSON.parse(node.rawJson)
+    }
     const host = rawNodeHost(node)
     if (!buildConfig?.user_agent) throw new Error('构建配置缺少必要网络标识。')
     const resolvedHost = await resolveNodeHost(settings.nodeDns, host, buildConfig.user_agent)

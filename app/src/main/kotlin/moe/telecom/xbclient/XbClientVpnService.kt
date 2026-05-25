@@ -18,6 +18,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
 import java.util.concurrent.Executors
 
 class XbClientVpnService : VpnService() {
@@ -195,17 +196,20 @@ class XbClientVpnService : VpnService() {
         }
 
         val node = JSONObject(nodeJson ?: throw IllegalStateException("node_json is required"))
-        val originalHost = node.getString("host")
-        val resolvedHost = XboardApi.resolveNodeHost(nodeDns, originalHost)
-        if (resolvedHost != originalHost && node.optString("sni").isEmpty()) {
-            node.put("sni", originalHost)
-        }
-        node.put("host", resolvedHost)
-        if (node.has("server")) {
-            node.put("server", resolvedHost)
-        }
-        if (node.has("address")) {
-            node.put("address", resolvedHost)
+        val protocol = node.optString("type", node.optString("protocol")).lowercase(Locale.US)
+        if (protocol != "direct" && protocol != "block") {
+            val originalHost = node.getString("host")
+            val resolvedHost = XboardApi.resolveNodeHost(nodeDns, originalHost)
+            if (resolvedHost != originalHost && node.optString("sni").isEmpty()) {
+                node.put("sni", originalHost)
+            }
+            node.put("host", resolvedHost)
+            if (node.has("server")) {
+                node.put("server", resolvedHost)
+            }
+            if (node.has("address")) {
+                node.put("address", resolvedHost)
+            }
         }
         currentNodeJson = node.toString()
         val tun: ParcelFileDescriptor = builder.establish() ?: throw IllegalStateException(getString(R.string.vpn_permission_denied))

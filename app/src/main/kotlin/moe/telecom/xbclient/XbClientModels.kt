@@ -68,6 +68,8 @@ data class AnyTlsNode(
             "naive", "naive+https", "naive+quic" -> "Naive"
             "http" -> "HTTP"
             "mieru", "mierus" -> "Mieru"
+            "direct" -> "Direct"
+            "block" -> "Block"
             else -> protocol.uppercase(Locale.US)
         }
 
@@ -89,7 +91,9 @@ data class AnyTlsNode(
             "tuic",
             "http",
             "socks",
-            "socks5" -> true
+            "socks5",
+            "direct",
+            "block" -> true
             else -> false
         }
 }
@@ -149,6 +153,8 @@ fun JSONObject.toAnyTlsNode(): AnyTlsNode =
             "naive+https", "naive+quic" -> "naive"
             "shadowsocks" -> "ss"
             "socks", "socks5h" -> "socks5"
+            "freedom" -> "direct"
+            "reject", "blackhole" -> "block"
             else -> rawProtocol
         }
         AnyTlsNode(
@@ -185,7 +191,7 @@ fun nodeTags(node: JSONObject): List<String> {
 
 private fun JSONObject.normalizedNodeJson(protocol: String, rawProtocol: String): String {
     val node = JSONObject(toString())
-    if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive", "tuic", "ss", "http", "socks5")) {
+    if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
         if (node.optString("host").isEmpty() && node.optString("server").isNotEmpty()) {
             node.put("host", node.optString("server"))
         }
