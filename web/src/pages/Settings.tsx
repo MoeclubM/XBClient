@@ -36,6 +36,7 @@ export function SettingsPage() {
   } = useAppStore()
   const systemProxySupported = capabilities?.system_proxy === true
   const autostartSupported = capabilities?.autostart === true
+  const vpnSupported = capabilities?.vpn === true
   const mobileControl = capabilities?.admob === true
   const [error, setError] = useState('')
   const [appVersion, setAppVersion] = useState('')
@@ -241,6 +242,78 @@ export function SettingsPage() {
         </label>
 
         <hr className="border-t border-outline-variant/20" />
+
+        {vpnSupported && (
+          <>
+            <label className="block space-y-1.5">
+              <span className="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">
+                {t('dns_overseas_label')}
+              </span>
+              <input
+                className="md3-field font-mono"
+                value={settings.overseasDns}
+                onChange={(event) => void persist({ overseasDns: event.target.value })}
+              />
+            </label>
+
+            <hr className="border-t border-outline-variant/20" />
+
+            <label className="block space-y-1.5">
+              <span className="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">
+                {t('dns_direct_label')}
+              </span>
+              <input
+                className="md3-field font-mono"
+                value={settings.directDns}
+                onChange={(event) => void persist({ directDns: event.target.value })}
+              />
+            </label>
+
+            <hr className="border-t border-outline-variant/20" />
+
+            <label className="block space-y-1.5">
+              <span className="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">
+                {t('dns_mode')}
+              </span>
+              <select
+                value={settings.vpnDnsMode}
+                onChange={(event) => void persist({ vpnDnsMode: event.target.value as AppSettings['vpnDnsMode'] })}
+                className="md3-field cursor-pointer"
+              >
+                <option value="virtual">{t('dns_mode_virtual')}</option>
+                <option value="over_tcp">{t('dns_mode_over_tcp')}</option>
+                <option value="direct">{t('dns_mode_direct')}</option>
+              </select>
+            </label>
+
+            <hr className="border-t border-outline-variant/20" />
+
+            <label className="block space-y-1.5">
+              <span className="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">
+                {t('dns_virtual_pool')}
+              </span>
+              <input
+                className="md3-field font-mono"
+                value={settings.virtualDnsPool}
+                onChange={(event) => void persist({ virtualDnsPool: event.target.value })}
+              />
+            </label>
+
+            <hr className="border-t border-outline-variant/20" />
+
+            <label className="flex items-center justify-between gap-4 cursor-pointer">
+              <span className="block text-sm font-semibold text-on-background">{t('enable_ipv6')}</span>
+              <input
+                type="checkbox"
+                className="size-4 shrink-0 accent-primary cursor-pointer"
+                checked={settings.vpnIpv6Enabled}
+                onChange={(event) => void persist({ vpnIpv6Enabled: event.target.checked })}
+              />
+            </label>
+
+            <hr className="border-t border-outline-variant/20" />
+          </>
+        )}
 
         <label className="block space-y-1.5">
           <span className="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">

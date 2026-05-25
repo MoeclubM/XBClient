@@ -370,11 +370,11 @@ export function Home() {
           excludedApps: '',
           allowedApps: '',
           nodeDns: settings.nodeDns,
-          overseasDns: 'https://cloudflare-dns.com/dns-query',
-          directDns: '223.5.5.5',
-          dnsMode: 'over_tcp',
-          virtualDnsPool: '198.18.0.0/15',
-          ipv6Enabled: true,
+          overseasDns: settings.overseasDns,
+          directDns: settings.directDns,
+          dnsMode: settings.vpnDnsMode,
+          virtualDnsPool: settings.virtualDnsPool,
+          ipv6Enabled: settings.vpnIpv6Enabled,
         }
         await androidStartVpn(payload)
         setVpn({

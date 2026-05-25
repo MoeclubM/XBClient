@@ -2,6 +2,9 @@ import type { AppNode } from './store'
 
 export const DEFAULT_NODE_DNS = 'https://dns.alidns.com/resolve'
 export const DEFAULT_NODE_TEST_TARGET = 'https://cp.cloudflare.com'
+export const DEFAULT_OVERSEAS_DNS = 'https://cloudflare-dns.com/dns-query'
+export const DEFAULT_DIRECT_DNS = '223.5.5.5'
+export const DEFAULT_VIRTUAL_DNS_POOL = '198.18.0.0/15'
 
 export interface RawNode {
   type?: unknown

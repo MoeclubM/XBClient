@@ -1,6 +1,12 @@
 import { create } from 'zustand'
 import type { RuntimeCapabilities, RuntimeConfig } from '../api/system'
-import { DEFAULT_NODE_DNS, DEFAULT_NODE_TEST_TARGET } from '../nodes'
+import {
+  DEFAULT_DIRECT_DNS,
+  DEFAULT_NODE_DNS,
+  DEFAULT_NODE_TEST_TARGET,
+  DEFAULT_OVERSEAS_DNS,
+  DEFAULT_VIRTUAL_DNS_POOL,
+} from '../nodes'
 
 export interface AppNode {
   protocol: string
@@ -27,7 +33,12 @@ export interface AppSettings {
   autoApplyProxy: boolean
   autostart: boolean
   nodeDns: string
+  overseasDns: string
+  directDns: string
   nodeTestTarget: string
+  vpnDnsMode: 'virtual' | 'over_tcp' | 'direct'
+  virtualDnsPool: string
+  vpnIpv6Enabled: boolean
   themeMode: 'system' | 'light' | 'dark'
   appLanguage: 'system' | 'zh-CN' | 'en' | 'ja' | 'ru' | 'fa'
 }
@@ -187,7 +198,12 @@ export const useAppStore = create<AppState>((set) => ({
     autoApplyProxy: true,
     autostart: false,
     nodeDns: DEFAULT_NODE_DNS,
+    overseasDns: DEFAULT_OVERSEAS_DNS,
+    directDns: DEFAULT_DIRECT_DNS,
     nodeTestTarget: DEFAULT_NODE_TEST_TARGET,
+    vpnDnsMode: 'over_tcp',
+    virtualDnsPool: DEFAULT_VIRTUAL_DNS_POOL,
+    vpnIpv6Enabled: true,
     themeMode: 'system',
     appLanguage: 'system',
   },
