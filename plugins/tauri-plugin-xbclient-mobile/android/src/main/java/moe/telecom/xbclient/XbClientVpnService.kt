@@ -263,9 +263,11 @@ class XbClientVpnService : VpnService() {
             node.put("sni", originalHost)
         }
         node.put("host", resolvedHost)
-        val protocol = node.optString("type")
-        if (protocol == "hysteria2" || protocol == "hy2" || protocol == "mieru") {
+        if (node.has("server")) {
             node.put("server", resolvedHost)
+        }
+        if (node.has("address")) {
+            node.put("address", resolvedHost)
         }
         currentNodeJson = node.toString()
         val tun: ParcelFileDescriptor = builder.establish() ?: throw IllegalStateException(getString(R.string.vpn_permission_denied))
