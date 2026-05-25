@@ -54,6 +54,9 @@ export async function loadSettings(): Promise<Partial<AppSettings>> {
   const vpnDnsMode = await store.get<string>('vpnDnsMode')
   const virtualDnsPool = await store.get<string>('virtualDnsPool')
   const vpnIpv6Enabled = await store.get<boolean>('vpnIpv6Enabled')
+  const appRuleMode = await store.get<string>('appRuleMode')
+  const excludedApps = await store.get<string>('excludedApps')
+  const allowedApps = await store.get<string>('allowedApps')
   const themeMode = await store.get<string>('themeMode')
   const appLanguage = await store.get<string>('appLanguage')
   const result: Partial<AppSettings> = {}
@@ -66,6 +69,9 @@ export async function loadSettings(): Promise<Partial<AppSettings>> {
   if (vpnDnsMode === 'virtual' || vpnDnsMode === 'over_tcp' || vpnDnsMode === 'direct') result.vpnDnsMode = vpnDnsMode
   if (typeof virtualDnsPool === 'string' && virtualDnsPool.trim()) result.virtualDnsPool = virtualDnsPool
   if (typeof vpnIpv6Enabled === 'boolean') result.vpnIpv6Enabled = vpnIpv6Enabled
+  if (appRuleMode === 'exclude' || appRuleMode === 'allow') result.appRuleMode = appRuleMode
+  if (typeof excludedApps === 'string') result.excludedApps = excludedApps
+  if (typeof allowedApps === 'string') result.allowedApps = allowedApps
   if (themeMode === 'system' || themeMode === 'light' || themeMode === 'dark') result.themeMode = themeMode
   if (appLanguage === 'system' || appLanguage === 'zh-CN' || appLanguage === 'en' || appLanguage === 'ja' || appLanguage === 'ru' || appLanguage === 'fa') {
     result.appLanguage = appLanguage
@@ -84,6 +90,9 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
   await store.set('vpnDnsMode', settings.vpnDnsMode)
   await store.set('virtualDnsPool', settings.virtualDnsPool)
   await store.set('vpnIpv6Enabled', settings.vpnIpv6Enabled)
+  await store.set('appRuleMode', settings.appRuleMode)
+  await store.set('excludedApps', settings.excludedApps)
+  await store.set('allowedApps', settings.allowedApps)
   await store.set('themeMode', settings.themeMode)
   await store.set('appLanguage', settings.appLanguage)
   await store.save()

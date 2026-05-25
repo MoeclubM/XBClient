@@ -31,6 +31,7 @@ import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardItem
 import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAd
 import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAdEventCallback
 import com.google.android.libraries.ads.mobile.sdk.rewarded.ServerSideVerificationOptions
+import org.json.JSONArray
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import moe.telecom.xbclient.XbClientVpnService
@@ -160,6 +161,21 @@ class XbClientMobilePlugin(private val activity: Activity) : Plugin(activity) {
         val running = prefs.getBoolean("vpn_running", false)
         val nodeIndex = prefs.getInt("vpn_node_index", -1)
         invoke.resolve(JSObject().put("running", running).put("nodeIndex", nodeIndex))
+    }
+
+    @Command
+    fun listInstalledApps(invoke: Invoke) {
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val items = JSONArray()
+        activity.packageManager.queryIntentActivities(intent, 0)
+            .map { info -> info.loadLabel(activity.packageManager).toString() to info.activityInfo.packageName }
+            .filter { (_, packageName) -> packageName != activity.packageName }
+            .distinctBy { (_, packageName) -> packageName }
+            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { (label, _) -> label })
+            .forEach { (label, packageName) ->
+                items.put(JSObject().put("label", label).put("packageName", packageName))
+            }
+        invoke.resolve(JSObject().put("apps", items))
     }
 
     @ActivityCallback

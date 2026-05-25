@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getVersion } from '@tauri-apps/api/app'
+import { Link } from 'react-router-dom'
 import { autostartSetEnabled, openInAppBrowser, systemProxyClear, systemProxySet } from '../api/system'
 import { xboardRequest } from '../api/xboard'
 import { useAppStore, type AppSettings } from '../store'
@@ -40,6 +41,10 @@ export function SettingsPage() {
   const mobileControl = capabilities?.admob === true
   const [error, setError] = useState('')
   const [appVersion, setAppVersion] = useState('')
+  const selectedAppCount = (settings.appRuleMode === 'allow' ? settings.allowedApps : settings.excludedApps)
+    .split(/[,;\s]+/)
+    .filter(Boolean)
+    .length
 
 
   useEffect(() => {
@@ -245,6 +250,32 @@ export function SettingsPage() {
 
         {vpnSupported && (
           <>
+            <section className="space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold text-on-background">{t('section_app_rules')}</h2>
+                <p className="mt-1 text-xs text-on-surface-variant">
+                  {settings.appRuleMode === 'allow' ? t('app_rules_allow_desc') : t('app_rules_exclude_desc')}
+                </p>
+                <p className="mt-2 text-sm text-on-surface-variant">
+                  {selectedAppCount === 0 ? t('app_rules_none_selected') : t('app_rules_selected_count').replace('{count}', String(selectedAppCount))}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Link to="/settings/app-rules" className="md3-button md3-button-filled text-center">
+                  {t('action_select_apps')}
+                </Link>
+                <button
+                  type="button"
+                  className="md3-button md3-button-tonal"
+                  onClick={() => void persist(settings.appRuleMode === 'allow' ? { allowedApps: '' } : { excludedApps: '' })}
+                >
+                  {t('common_clear_selection')}
+                </button>
+              </div>
+            </section>
+
+            <hr className="border-t border-outline-variant/20" />
+
             <label className="block space-y-1.5">
               <span className="block text-xs font-bold text-on-surface-variant tracking-wider uppercase">
                 {t('dns_overseas_label')}

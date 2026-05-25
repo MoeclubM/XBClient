@@ -39,6 +39,9 @@ export interface AppSettings {
   vpnDnsMode: 'virtual' | 'over_tcp' | 'direct'
   virtualDnsPool: string
   vpnIpv6Enabled: boolean
+  appRuleMode: 'exclude' | 'allow'
+  excludedApps: string
+  allowedApps: string
   themeMode: 'system' | 'light' | 'dark'
   appLanguage: 'system' | 'zh-CN' | 'en' | 'ja' | 'ru' | 'fa'
 }
@@ -204,6 +207,9 @@ export const useAppStore = create<AppState>((set) => ({
     vpnDnsMode: 'over_tcp',
     virtualDnsPool: DEFAULT_VIRTUAL_DNS_POOL,
     vpnIpv6Enabled: true,
+    appRuleMode: 'exclude',
+    excludedApps: '',
+    allowedApps: '',
     themeMode: 'system',
     appLanguage: 'system',
   },

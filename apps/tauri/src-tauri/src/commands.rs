@@ -290,6 +290,16 @@ pub async fn android_get_vpn_state(app: tauri::AppHandle) -> Result<serde_json::
 }
 
 #[tauri::command]
+pub async fn android_list_installed_apps(
+    app: tauri::AppHandle,
+) -> Result<serde_json::Value, String> {
+    app.xbclient_mobile()
+        .list_installed_apps()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn system_proxy_set(host: String, port: u16) -> Result<(), String> {
     super::system_proxy::set_socks(&host, port).map_err(|error| format!("{error:#}"))
 }

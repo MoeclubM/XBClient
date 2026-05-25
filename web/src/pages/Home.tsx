@@ -359,6 +359,11 @@ export function Home() {
     setConnectingIndex(index)
 
     if (capabilities?.platform === 'android') {
+      if (settings.appRuleMode === 'allow' && !settings.allowedApps.trim()) {
+        setError(t('app_rules_allow_empty'))
+        setConnectingIndex(null)
+        return
+      }
       try {
         if (vpn) {
           await androidStopVpn()
@@ -367,8 +372,8 @@ export function Home() {
           nodeJson: node.rawJson,
           nodesJson: JSON.stringify(nodes.map((item) => JSON.parse(item.rawJson))),
           nodeIndex: index,
-          excludedApps: '',
-          allowedApps: '',
+          excludedApps: settings.appRuleMode === 'exclude' ? settings.excludedApps : '',
+          allowedApps: settings.appRuleMode === 'allow' ? settings.allowedApps : '',
           nodeDns: settings.nodeDns,
           overseasDns: settings.overseasDns,
           directDns: settings.directDns,

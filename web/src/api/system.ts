@@ -34,6 +34,11 @@ export interface RewardedAdResult {
   rewardAmount: number
 }
 
+export interface InstalledAppItem {
+  label: string
+  packageName: string
+}
+
 export async function runtimeCapabilities(): Promise<RuntimeCapabilities> {
   return invoke('runtime_capabilities')
 }
@@ -133,4 +138,8 @@ export async function androidStopVpn(): Promise<unknown> {
 
 export async function androidGetVpnState(): Promise<{ running: boolean; nodeIndex: number }> {
   return invoke('android_get_vpn_state')
+}
+
+export async function androidListInstalledApps(): Promise<{ apps: InstalledAppItem[] }> {
+  return invoke('android_list_installed_apps')
 }

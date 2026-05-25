@@ -7,6 +7,7 @@ import { Home } from './pages/Home'
 import { Plans } from './pages/Plans'
 import { Profile } from './pages/Profile'
 import { SettingsPage } from './pages/Settings'
+import { AppRules } from './pages/AppRules'
 import { Licenses } from './pages/Licenses'
 import { MainLayout } from './components/MainLayout'
 import { useAppStore } from './store'
@@ -155,6 +156,7 @@ function App() {
             <Route path="/plans" element={<Plans />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/app-rules" element={<AppRules />} />
             <Route path="/settings/licenses" element={<Licenses />} />
           </Route>
         </Routes>

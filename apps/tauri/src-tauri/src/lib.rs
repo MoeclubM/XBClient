@@ -70,6 +70,7 @@ pub fn run() {
             commands::android_start_vpn,
             commands::android_stop_vpn,
             commands::android_get_vpn_state,
+            commands::android_list_installed_apps,
             commands::system_proxy_set,
             commands::system_proxy_clear,
         ])

@@ -59,6 +59,9 @@ pub enum Error {
     #[cfg(not(target_os = "android"))]
     #[error("Android VPN bridge is only available on Android")]
     UnsupportedAndroidVpnPlatform,
+    #[cfg(not(target_os = "android"))]
+    #[error("Android installed app list is only available on Android")]
+    UnsupportedAndroidAppListPlatform,
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -167,6 +170,22 @@ impl<R: Runtime> XbClientMobile<R> {
         #[cfg(not(target_os = "android"))]
         {
             Err(Error::UnsupportedAndroidVpnPlatform)
+        }
+    }
+
+    pub async fn list_installed_apps(&self) -> Result<serde_json::Value> {
+        #[cfg(target_os = "android")]
+        {
+            return self
+                .mobile_plugin_handle
+                .run_mobile_plugin_async("listInstalledApps", EmptyPayload {})
+                .await
+                .map_err(Into::into);
+        }
+
+        #[cfg(not(target_os = "android"))]
+        {
+            Err(Error::UnsupportedAndroidAppListPlatform)
         }
     }
 }
