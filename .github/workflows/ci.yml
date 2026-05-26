@@ -45,11 +45,12 @@ jobs:
           git fetch --tags origin "${GITHUB_REF}"
           git checkout --detach "${GITHUB_SHA}"
 
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
+      - name: Use Java 17
+        shell: bash
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+          java -version
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
