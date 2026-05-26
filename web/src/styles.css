@@ -490,3 +490,30 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.verify-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.verify-button {
+  min-height: 48px !important;
+}
+
+.row-chip > span:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.row-chip small {
+  color: var(--on-surface-variant);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 560px) {
+  .verify-row {
+    grid-template-columns: 1fr;
+  }
+}

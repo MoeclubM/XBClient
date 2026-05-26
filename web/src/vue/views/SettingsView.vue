@@ -144,7 +144,50 @@ async function setIpv6(value: boolean | null) {
         persistent-hint
         @update:model-value="toggleAutostart($event === true)"
       />
+      <v-text-field
+        class="mt-3"
+        :model-value="appState.settings.nodeTestTarget"
+        :label="t('node_test_target')"
+        @update:model-value="persistSettings({ nodeTestTarget: String($event) })"
+      />
+      <v-text-field
+        class="mt-3"
+        :model-value="appState.settings.nodeDns"
+        :label="t('node_dns')"
+        @update:model-value="persistSettings({ nodeDns: String($event) })"
+      />
+      <v-text-field
+        class="mt-3"
+        :model-value="appState.settings.overseasDns"
+        :label="t('dns_overseas_label')"
+        @update:model-value="persistSettings({ overseasDns: String($event) })"
+      />
+      <v-text-field
+        class="mt-3"
+        :model-value="appState.settings.directDns"
+        :label="t('dns_direct_label')"
+        @update:model-value="persistSettings({ directDns: String($event) })"
+      />
+      <v-select
+        class="mt-3"
+        :model-value="appState.settings.vpnDnsMode"
+        :label="t('dns_mode')"
+        :items="[
+          { title: t('dns_mode_virtual'), value: 'virtual' },
+          { title: t('dns_mode_over_tcp'), value: 'over_tcp' },
+          { title: t('dns_mode_direct'), value: 'direct' },
+        ]"
+        @update:model-value="persistSettings({ vpnDnsMode: $event })"
+      />
+      <v-text-field
+        v-if="appState.settings.vpnDnsMode === 'virtual'"
+        class="mt-3"
+        :model-value="appState.settings.virtualDnsPool"
+        :label="t('dns_virtual_pool')"
+        @update:model-value="persistSettings({ virtualDnsPool: String($event) })"
+      />
       <v-switch
+        class="mt-3"
         color="primary"
         :model-value="appState.settings.vpnIpv6Enabled"
         :label="t('enable_ipv6')"

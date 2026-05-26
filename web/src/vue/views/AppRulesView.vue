@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { androidListInstalledApps } from '../../api/system'
 import { publicErrorText } from '../../format'
 import { appState, persistSettings, t } from '../state'
@@ -47,7 +47,9 @@ async function togglePackage(packageName: string) {
   else await persistSettings({ excludedApps: text })
 }
 
-void loadApps()
+onMounted(() => {
+  if (appState.capabilities?.vpn) void loadApps()
+})
 </script>
 
 <template>
@@ -60,9 +62,12 @@ void loadApps()
       </div>
     </header>
 
+    <v-alert v-if="!appState.capabilities?.vpn" color="primary" variant="tonal" class="mb-4">
+      {{ t('vpn_app_rules_android_only') }}
+    </v-alert>
     <v-alert v-if="error" color="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
 
-    <v-card class="glass-card pa-4">
+    <v-card v-if="appState.capabilities?.vpn" class="glass-card pa-4">
       <v-btn-toggle :model-value="appState.settings.appRuleMode" class="liquid-toggle mb-4" mandatory rounded="pill">
         <v-btn value="exclude" @click="switchMode('exclude')">{{ t('mode_exclude') }}</v-btn>
         <v-btn value="allow" @click="switchMode('allow')">{{ t('mode_allow') }}</v-btn>
@@ -73,7 +78,7 @@ void loadApps()
       </p>
     </v-card>
 
-    <v-card class="glass-card pa-2 mt-4">
+    <v-card v-if="appState.capabilities?.vpn" class="glass-card pa-2 mt-4">
       <button
         v-for="app in filteredApps"
         :key="app.packageName"

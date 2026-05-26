@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { openInAppBrowser, takeOAuthCallback } from '../../api/system'
 import { normalizeBaseUrl, xboardRequest } from '../../api/xboard'
@@ -44,6 +44,7 @@ const error = ref('')
 const loading = ref(false)
 const configLoading = ref(false)
 const forgotLoading = ref(false)
+const verifySending = ref(false)
 const tokenLoading = ref(false)
 const oauthConfirm = ref<{ token: string; provider: string; email: string } | null>(null)
 
@@ -56,6 +57,8 @@ onMounted(() => {
   if (oauthCallbackSupported.value) void checkOAuthCallback()
   window.addEventListener('focus', checkOAuthCallback)
 })
+
+onUnmounted(() => window.removeEventListener('focus', checkOAuthCallback))
 
 async function loadGuestConfig(showSuccess = false) {
   error.value = ''
@@ -147,6 +150,31 @@ async function forgotPassword() {
   }
 }
 
+async function sendEmailVerify() {
+  verifySending.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    const token = captcha.value.trim()
+    const params: Record<string, string> = { email: email.value.trim() }
+    if (token) {
+      params.recaptcha_data = token
+      params.recaptcha_v3_token = token
+      params.cf_turnstile_response = token
+    }
+    const response = await xboardRequest<{ message?: string }>('send_email_verify', { baseUrl: baseUrl.value, params })
+    if (!response.ok) {
+      error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+      return
+    }
+    message.value = response.body?.message ?? t('email_verify_sent')
+  } catch (err) {
+    error.value = publicErrorText(err)
+  } finally {
+    verifySending.value = false
+  }
+}
+
 async function openOAuth(provider: OAuthProvider) {
   if (!appState.buildConfig) throw new Error('构建配置尚未加载。')
   const url = new URL(
@@ -160,6 +188,16 @@ async function openOAuth(provider: OAuthProvider) {
   if (mode.value === 'register' && inviteCode.value.trim()) url.searchParams.set('invite_code', inviteCode.value.trim())
   await openInAppBrowser(url.toString(), `${provider.label || provider.driver} OAuth`)
   message.value = '已打开 OAuth 页面，等待应用链接自动回调。'
+}
+
+async function startOAuth(provider: OAuthProvider) {
+  error.value = ''
+  message.value = ''
+  try {
+    await openOAuth(provider)
+  } catch (err) {
+    error.value = publicErrorText(err, 'OAuth 打开失败')
+  }
 }
 
 async function checkOAuthCallback() {
@@ -271,7 +309,12 @@ async function finishLogin(authData: string, accountEmail: string) {
         <template v-if="mode === 'register'">
           <v-text-field v-model="inviteCode" :label="`${t('invite_code')}${appState.inviteForce ? ' *' : ''}`" />
           <v-text-field v-if="appState.registerCaptchaEnabled" v-model="captcha" :label="t('captcha_token')" />
-          <v-text-field v-if="appState.registerEmailVerifyEnabled" v-model="emailCode" :label="t('email_code')" />
+          <div v-if="appState.registerEmailVerifyEnabled" class="verify-row">
+            <v-text-field v-model="emailCode" :label="t('email_code')" />
+            <v-btn class="verify-button" color="secondary" :loading="verifySending" @click="sendEmailVerify">
+              {{ t('send_email_verify') }}
+            </v-btn>
+          </div>
         </template>
 
         <v-btn class="mt-2" block color="primary" size="large" type="submit" :loading="loading">
@@ -289,7 +332,7 @@ async function finishLogin(authData: string, accountEmail: string) {
             v-for="provider in appState.oauthProviders"
             :key="provider.driver"
             variant="outlined"
-            @click="openOAuth(provider)"
+            @click="startOAuth(provider)"
           >
             {{ mode === 'login' ? t('oauth_login') : t('oauth_register') }} · {{ provider.label || provider.driver }}
           </v-btn>
