@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getVersion } from '@tauri-apps/api/app'
 import { Link } from 'react-router-dom'
-import { autostartSetEnabled, openInAppBrowser, systemProxyClear, systemProxySet } from '../api/system'
+import { autostartSetEnabled, openInAppBrowser, parseSocksAddr, systemProxyClear, systemProxySet } from '../api/system'
 import { xboardRequest } from '../api/xboard'
 import { useAppStore, type AppSettings } from '../store'
 import { saveSettings } from '../store/persist'
@@ -12,14 +12,6 @@ import { publicErrorText } from '../format'
 interface XboardBody<T = unknown> {
   data?: T
   message?: string
-}
-
-function parseSocksAddr(addr: string): { host: string; port: number } {
-  const idx = addr.lastIndexOf(':')
-  if (idx <= 0) throw new Error(`SOCKS 地址无效：${addr}`)
-  const port = Number(addr.slice(idx + 1))
-  if (!Number.isFinite(port) || port <= 0) throw new Error(`SOCKS 端口无效：${addr}`)
-  return { host: addr.slice(0, idx), port }
 }
 
 export function SettingsPage() {

@@ -7,6 +7,7 @@ import { saveSession, saveSettings } from '../store/persist'
 import { enabled } from '../reward'
 import { useTranslation } from '../i18n'
 import { publicErrorText } from '../format'
+import { parseOAuthProviders } from './services/helpers'
 
 type AuthMode = 'login' | 'register'
 
@@ -39,16 +40,6 @@ interface OAuthConfirmState {
   token: string
   provider: string
   email: string
-}
-
-function parseOAuthProviders(value: unknown): OAuthProvider[] {
-  if (!Array.isArray(value)) return []
-  return value
-    .map((item) => ({
-      driver: String((item as { driver?: unknown }).driver ?? ''),
-      label: String((item as { label?: unknown }).label ?? (item as { driver?: unknown }).driver ?? ''),
-    }))
-    .filter((item) => item.driver.trim())
 }
 
 function verifyFromCallback(value: string): string {
