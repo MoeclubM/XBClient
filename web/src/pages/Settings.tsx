@@ -137,13 +137,10 @@ export function SettingsPage() {
 
   return (
     <main className="md3-screen space-y-5">
-      <header className="md3-page-header">
-        <span className="md3-page-rail" />
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('nav_settings')}</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">{t('app_version')}: {appVersion || '-'}</p>
-        </div>
-      </header>
+      <div className="min-w-0">
+        <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('nav_settings')}</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">{t('app_version')}: {appVersion || '-'}</p>
+      </div>
 
       {error && (
         <p className="md3-alert md3-alert-error break-words">

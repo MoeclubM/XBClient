@@ -352,20 +352,47 @@ export function Login() {
   }
 
   return (
-    <main className="md3-auth-screen flex items-center justify-center bg-background-app text-on-background">
-      <form onSubmit={submit} className="w-full max-w-md space-y-5">
-        <header className="md3-page-header">
-          <span className="md3-page-rail" />
-          <div className="flex min-w-0 items-center gap-3">
-            <img className="h-11 w-11 shrink-0" src="./logo.png" alt={appName || 'Logo'} />
-            <div className="min-w-0">
-              <h1 className="truncate text-2xl font-semibold tracking-tight text-on-background">{appName || 'App'}</h1>
-              <p className="mt-1 text-sm text-on-surface-variant">{mode === 'login' ? t('login') : t('register')}</p>
-            </div>
-          </div>
+    <main className="md3-auth-screen bg-background-app text-on-background">
+      <form onSubmit={submit} className="md3-auth-form w-full max-w-md space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <select
+            value={settings.appLanguage}
+            onChange={(e) => void persistSettings({ appLanguage: e.target.value as AppSettings['appLanguage'] })}
+            className="md3-compact-select"
+            aria-label="Language"
+          >
+            <option value="system">System</option>
+            <option value="zh-CN">中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="ru">Русский</option>
+            <option value="fa">فارسی</option>
+          </select>
+          <select
+            value={settings.themeMode}
+            onChange={(e) => void persistSettings({ themeMode: e.target.value as AppSettings['themeMode'] })}
+            className="md3-compact-select"
+            aria-label="Theme"
+          >
+            <option value="system">{t('theme_system')}</option>
+            <option value="light">{t('theme_light')}</option>
+            <option value="dark">{t('theme_dark')}</option>
+          </select>
+        </div>
+
+        <header className="md3-auth-brand">
+          <img className="md3-auth-logo" src="./logo.png" alt={appName || 'Logo'} />
+          <h1 className="truncate text-2xl font-semibold tracking-tight text-on-background">{appName || 'App'}</h1>
         </header>
 
-        <section className="md3-card space-y-4">
+        <header className="md3-page-header">
+          <span className="md3-page-rail" />
+          <h2 className="text-xl font-semibold tracking-tight text-on-background">
+            {mode === 'login' ? t('login') : t('register')}
+          </h2>
+        </header>
+
+        <section className="md3-card md3-auth-panel space-y-4">
           <div className="grid grid-cols-2 rounded-full bg-surface-high p-1">
             <button
               type="button"
@@ -391,89 +418,91 @@ export function Login() {
             </button>
           </div>
 
-          <label className="block space-y-1.5">
-            <span className="block text-xs font-semibold text-on-surface-variant">{t('email')}</span>
-            <input
-              className="md3-field"
-              type="email"
-              placeholder="name@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </label>
+          <div key={mode} className="md3-auth-mode-body space-y-4">
+            <label className="block space-y-1.5">
+              <span className="block text-xs font-semibold text-on-surface-variant">{t('email')}</span>
+              <input
+                className="md3-field"
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </label>
 
-          <label className="block space-y-1.5">
-            <span className="flex items-center justify-between gap-3">
-              <span className="block text-xs font-semibold text-on-surface-variant">{t('password')}</span>
-              {mode === 'login' && (
-                <button
-                  type="button"
-                  onClick={() => void forgotPassword()}
-                  disabled={forgotLoading}
-                  className="md3-button md3-button-text min-h-0 px-0 py-0 text-xs disabled:opacity-50"
-                >
-                  {forgotLoading ? t('refreshing') : t('forgot_password')}
-                </button>
-              )}
-            </span>
-            <input
-              className="md3-field"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </label>
+            <label className="block space-y-1.5">
+              <span className="flex items-center justify-between gap-3">
+                <span className="block text-xs font-semibold text-on-surface-variant">{t('password')}</span>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => void forgotPassword()}
+                    disabled={forgotLoading}
+                    className="md3-button md3-button-text min-h-0 px-0 py-0 text-xs disabled:opacity-50"
+                  >
+                    {forgotLoading ? t('refreshing') : t('forgot_password')}
+                  </button>
+                )}
+              </span>
+              <input
+                className="md3-field"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </label>
 
-          {mode === 'register' && (
-            <>
-              <label className="block space-y-1.5">
-                <span className="block text-xs font-semibold text-on-surface-variant">
-                  {t('invite_code')}{inviteForce ? ' *' : ''}
-                </span>
-                <input
-                  className="md3-field"
-                  placeholder="Code"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  required={inviteForce}
-                />
-              </label>
-
-              {registerCaptchaEnabled && (
+            {mode === 'register' && (
+              <>
                 <label className="block space-y-1.5">
-                  <span className="block text-xs font-semibold text-on-surface-variant">{t('captcha_token')}</span>
-                  <input className="md3-field" value={captcha} onChange={(e) => setCaptcha(e.target.value)} />
+                  <span className="block text-xs font-semibold text-on-surface-variant">
+                    {t('invite_code')}{inviteForce ? ' *' : ''}
+                  </span>
+                  <input
+                    className="md3-field"
+                    placeholder="Code"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    required={inviteForce}
+                  />
                 </label>
-              )}
 
-              {registerEmailVerifyEnabled && (
-                <label className="block space-y-1.5">
-                  <span className="block text-xs font-semibold text-on-surface-variant">{t('email_code')}</span>
-                  <div className="flex gap-2">
-                    <input
-                      className="md3-field min-w-0 flex-1"
-                      value={emailCode}
-                      onChange={(e) => setEmailCode(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void sendEmailVerify()}
-                      disabled={verifySending}
-                      className="md3-button md3-button-tonal shrink-0 px-4 text-xs"
-                    >
-                      {verifySending ? t('refreshing') : t('send_email_verify')}
-                    </button>
-                  </div>
-                </label>
-              )}
-            </>
-          )}
+                {registerCaptchaEnabled && (
+                  <label className="block space-y-1.5">
+                    <span className="block text-xs font-semibold text-on-surface-variant">{t('captcha_token')}</span>
+                    <input className="md3-field" value={captcha} onChange={(e) => setCaptcha(e.target.value)} />
+                  </label>
+                )}
 
-          <button type="submit" disabled={loading} className="md3-button md3-button-filled w-full">
+                {registerEmailVerifyEnabled && (
+                  <label className="block space-y-1.5">
+                    <span className="block text-xs font-semibold text-on-surface-variant">{t('email_code')}</span>
+                    <div className="flex gap-2">
+                      <input
+                        className="md3-field min-w-0 flex-1"
+                        value={emailCode}
+                        onChange={(e) => setEmailCode(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void sendEmailVerify()}
+                        disabled={verifySending}
+                        className="md3-button md3-button-tonal shrink-0 px-4 text-xs"
+                      >
+                        {verifySending ? t('refreshing') : t('send_email_verify')}
+                      </button>
+                    </div>
+                  </label>
+                )}
+              </>
+            )}
+          </div>
+
+          <button type="submit" disabled={loading} className="md3-button md3-button-filled md3-auth-submit w-full">
             {loading ? t('action_connecting') : mode === 'login' ? t('login') : t('register')}
           </button>
         </section>
@@ -537,29 +566,6 @@ export function Login() {
         {message && <p className="md3-alert md3-alert-info">{message}</p>}
         {error && <p className="md3-alert md3-alert-error break-words">{error}</p>}
 
-        <section className="grid grid-cols-2 gap-2">
-          <select
-            value={settings.appLanguage}
-            onChange={(e) => void persistSettings({ appLanguage: e.target.value as AppSettings['appLanguage'] })}
-            className="md3-field py-2 text-xs"
-          >
-            <option value="system">System</option>
-            <option value="zh-CN">中文</option>
-            <option value="en">English</option>
-            <option value="ja">日本語</option>
-            <option value="ru">Русский</option>
-            <option value="fa">فارسی</option>
-          </select>
-          <select
-            value={settings.themeMode}
-            onChange={(e) => void persistSettings({ themeMode: e.target.value as AppSettings['themeMode'] })}
-            className="md3-field py-2 text-xs"
-          >
-            <option value="system">{t('theme_system')}</option>
-            <option value="light">{t('theme_light')}</option>
-            <option value="dark">{t('theme_dark')}</option>
-          </select>
-        </section>
       </form>
     </main>
   )

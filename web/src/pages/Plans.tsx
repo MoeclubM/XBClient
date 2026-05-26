@@ -297,20 +297,17 @@ export function Plans() {
       })
     }
     if (planList.ok) setPlans(planRows(planList.body?.data).map(parsePlan))
-    setMessage('账户金额支付成功，请回到连接页自动同步。')
+    setMessage('账户金额支付成功，请回到主页自动同步。')
   }
 
   const isErrorMsg = message.includes('失败') || message.includes('错误') || message.includes('fail') || message.includes('error') || message.includes('HTTP')
 
   return (
     <main className="md3-screen space-y-5">
-      <header className="md3-page-header">
-        <span className="md3-page-rail" />
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('nav_plans')}</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">{formatMoney(balance, currencySymbol, currencyUnit)}</p>
-        </div>
-      </header>
+      <div className="min-w-0">
+        <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('nav_plans')}</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">{formatMoney(balance, currencySymbol, currencyUnit)}</p>
+      </div>
 
       {mobileControl && planRewardAdEnabled && (
         <section className="md3-card-low space-y-3">

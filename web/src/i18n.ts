@@ -2,7 +2,10 @@ import { useAppStore } from './store'
 
 const TRANSLATIONS = {
   'zh-CN': {
-    nav_nodes: '连接',
+    nav_nodes: '主页',
+    section_connection: '连接',
+    section_current_node: '当前线路',
+    section_traffic: '流量',
     nav_plans: '套餐',
     nav_profile: '个人中心',
     nav_services: '工单',
@@ -97,7 +100,10 @@ const TRANSLATIONS = {
     source_code: '项目源码',
   },
   en: {
-    nav_nodes: 'Connect',
+    nav_nodes: 'Home',
+    section_connection: 'Connection',
+    section_current_node: 'Current Route',
+    section_traffic: 'Traffic',
     nav_plans: 'Plans',
     nav_profile: 'Profile',
     nav_services: 'Tickets',
@@ -177,7 +183,10 @@ const TRANSLATIONS = {
     unsupported_protocol: 'Current core does not support this protocol.',
   },
   ja: {
-    nav_nodes: '接続',
+    nav_nodes: 'ホーム',
+    section_connection: '接続',
+    section_current_node: '現在のノード',
+    section_traffic: '流量',
     nav_plans: 'プラン',
     nav_profile: 'マイページ',
     nav_services: 'チケット',
@@ -254,7 +263,10 @@ const TRANSLATIONS = {
     unsupported_protocol: 'このプロトコルは現在のコアでサポートされていません。',
   },
   ru: {
-    nav_nodes: 'Подключение',
+    nav_nodes: 'Главная',
+    section_connection: 'Подключение',
+    section_current_node: 'Текущий узел',
+    section_traffic: 'Трафик',
     nav_plans: 'Тарифы',
     nav_profile: 'Профиль',
     nav_services: 'Тикеты',
@@ -331,7 +343,10 @@ const TRANSLATIONS = {
     unsupported_protocol: 'Протокол не поддерживается текущим ядром.',
   },
   fa: {
-    nav_nodes: 'اتصال',
+    nav_nodes: 'خانه',
+    section_connection: 'اتصال',
+    section_current_node: 'مسیر فعلی',
+    section_traffic: 'ترافیک',
     nav_plans: 'طرح‌ها',
     nav_profile: 'پروفایل',
     nav_services: 'تیکت‌ها',

@@ -73,13 +73,10 @@ export function AppRules() {
   if (!capabilities?.vpn) {
     return (
       <main className="md3-screen space-y-5">
-        <header className="md3-page-header">
-          <span className="md3-page-rail" />
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('page_app_rules_title')}</h1>
-            <p className="mt-1 text-sm text-on-surface-variant">{t('vpn_app_rules_android_only')}</p>
-          </div>
-        </header>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('page_app_rules_title')}</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">{t('vpn_app_rules_android_only')}</p>
+        </div>
         <Link to="/settings" className="md3-button md3-button-outlined w-full">
           {t('common_back_settings')}
         </Link>
@@ -89,13 +86,10 @@ export function AppRules() {
 
   return (
     <main className="md3-screen space-y-5">
-      <header className="md3-page-header">
-        <span className="md3-page-rail" />
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('page_app_rules_title')}</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">{t('page_app_rules_subtitle')}</p>
-        </div>
-      </header>
+      <div className="min-w-0">
+        <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('page_app_rules_title')}</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">{t('page_app_rules_subtitle')}</p>
+      </div>
 
       {error && (
         <p className="md3-alert md3-alert-error break-words">

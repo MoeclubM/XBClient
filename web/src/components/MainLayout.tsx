@@ -17,10 +17,8 @@ export function MainLayout() {
       label: t('nav_nodes'),
       icon: (
         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
-          <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
-          <line x1="6" y1="6" x2="6.01" y2="6"></line>
-          <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          <path d="M3 10.5 12 3l9 7.5"></path>
+          <path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"></path>
         </svg>
       )
     },
@@ -56,17 +54,51 @@ export function MainLayout() {
     },
   ]
   const selectedIndex = Math.max(0, TABS.findIndex((tab) => location.pathname.startsWith(tab.to)))
+  const prevIndexRef = useRef(selectedIndex)
 
   useEffect(() => {
     const nav = navRef.current
     if (!nav) return
-    nav.dataset.dragging = 'false'
-    nav.style.setProperty('--nav-index', String(selectedIndex))
-    nav.style.setProperty('--nav-offset', '0px')
-    nav.style.setProperty('--nav-stretch', '0')
-    nav.style.setProperty('--nav-droplet-alpha', '0')
-    nav.style.setProperty('--nav-drop-main', '8px')
-    nav.style.setProperty('--nav-drop-small', '4px')
+
+    const resetLiquid = () => {
+      nav.style.setProperty('--nav-stretch', '0')
+      nav.style.setProperty('--nav-droplet-alpha', '0')
+      nav.style.setProperty('--nav-drop-main', '8px')
+      nav.style.setProperty('--nav-drop-small', '4px')
+    }
+
+    const prev = prevIndexRef.current
+    const next = selectedIndex
+
+    if (nav.dataset.dragging === 'true') {
+      nav.dataset.dragging = 'false'
+      nav.style.setProperty('--nav-index', String(next))
+      nav.style.setProperty('--nav-offset', '0px')
+      resetLiquid()
+      prevIndexRef.current = next
+      return
+    }
+
+    if (prev === next) {
+      nav.style.setProperty('--nav-index', String(next))
+      nav.style.setProperty('--nav-offset', '0px')
+      resetLiquid()
+      return
+    }
+
+    const itemWidth = nav.getBoundingClientRect().width / TABS.length
+    const deltaPx = (next - prev) * itemWidth
+    nav.style.setProperty('--nav-index', String(prev))
+    nav.style.setProperty('--nav-offset', `${deltaPx}px`)
+    resetLiquid()
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        nav.style.setProperty('--nav-index', String(next))
+        nav.style.setProperty('--nav-offset', '0px')
+        prevIndexRef.current = next
+      })
+    })
   }, [selectedIndex])
 
   function startNavDrag(event: PointerEvent<HTMLUListElement>) {
@@ -129,8 +161,6 @@ export function MainLayout() {
             ref={navRef}
             className="liquid-nav mx-auto grid max-w-3xl touch-pan-y select-none grid-cols-4"
             style={{
-              '--nav-index': selectedIndex,
-              '--nav-offset': '0px',
               '--nav-stretch': 0,
               '--nav-droplet-alpha': 0,
               '--nav-drop-main': '8px',

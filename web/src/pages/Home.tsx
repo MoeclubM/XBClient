@@ -28,13 +28,37 @@ import {
   toAppNode,
   type RawNode,
 } from '../nodes'
-import { useAppStore, type AppNode } from '../store'
+import { useAppStore, type AppNode, type NoticeItem } from '../store'
 import { formatTrafficBytes, formatUnixDate, numericValue, publicErrorText } from '../format'
 import { useTranslation } from '../i18n'
 
 interface XboardBody {
   data?: unknown
   message?: string
+}
+
+interface NoticeFetchBody {
+  data?: Array<{
+    id?: number
+    title?: string
+    subject?: string
+    content?: string
+    message?: string
+    created_at?: number
+  }>
+  message?: string
+}
+
+function parseNotices(body: NoticeFetchBody | undefined): NoticeItem[] {
+  const data = body?.data ?? []
+  return data
+    .map((row) => ({
+      id: Number(row.id ?? 0),
+      title: row.title ?? row.subject ?? '',
+      content: row.content ?? row.message ?? '',
+      createdAt: Number(row.created_at ?? 0),
+    }))
+    .filter((item) => item.title.trim() || item.content.trim())
 }
 
 function extractRows(value: unknown): RawNode[] {
@@ -107,6 +131,8 @@ export function Home() {
     updateVpnTraffic,
     setSubscriptionState,
     subscription,
+    notices,
+    setNotices,
   } = useAppStore()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -287,6 +313,8 @@ export function Home() {
         list = mergeXboardNodeTags(list, extractRows(tagRows.body?.data))
       }
       setSubscribe({ subscribeUrl: url, nodes: list })
+      const noticeResponse = await xboardRequest<NoticeFetchBody>('notices', { baseUrl, authData })
+      if (noticeResponse.ok) setNotices(parseNotices(noticeResponse.body))
     } catch (err) {
       setError(publicErrorText(err))
     } finally {
@@ -488,23 +516,16 @@ export function Home() {
   const progressPercent = trafficTotal > 0 ? Math.min(100, (trafficUsed / trafficTotal) * 100) : 0
 
   return (
-    <main className="md3-screen space-y-5">
-      <header className="md3-page-header">
-        <span className="md3-page-rail" />
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('nav_nodes')}</h1>
-          <p className="mt-1 truncate text-sm text-on-surface-variant">{loading ? t('refreshing') : (email || '未登录')}</p>
-        </div>
-      </header>
+    <main className="md3-screen space-y-4">
+      <div className="min-w-0">
+        <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('nav_nodes')}</h1>
+        <p className="mt-1 truncate text-sm text-on-surface-variant">{loading ? t('refreshing') : (email || '未登录')}</p>
+      </div>
 
-      {error && (
-        <p className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs font-semibold text-rose-500 break-words">
-          {error}
-        </p>
-      )}
+      {error && <p className="md3-alert md3-alert-error break-words">{error}</p>}
 
       {subscription.blockReason && (
-        <section className="space-y-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4">
+        <section className="md3-card-low space-y-3">
           <p className="text-sm font-semibold text-rose-500">
             {subscription.blockReason === 'expired'
               ? '套餐已过期'
@@ -512,43 +533,58 @@ export function Home() {
                 ? '流量已用尽'
                 : '暂无可用套餐'}
           </p>
-          <button
-            type="button"
-            onClick={() => navigate('/plans')}
-            className="rounded-lg bg-rose-500 px-3 py-2 text-xs font-semibold text-white"
-          >
+          <button type="button" onClick={() => navigate('/plans')} className="md3-button md3-button-filled text-xs">
             前往套餐
           </button>
         </section>
       )}
 
+      {notices.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="md3-section-title">{t('announcement')}</h2>
+          <ul className="space-y-3">
+            {notices.map((notice) => (
+              <li key={notice.id} className="md3-card-low space-y-2">
+                {notice.title && <p className="text-sm font-semibold text-on-background">{notice.title}</p>}
+                {notice.content && (
+                  <p className="whitespace-pre-wrap text-xs leading-relaxed text-on-surface-variant">
+                    {notice.content.replace(/<[^>]+>/g, '')}
+                  </p>
+                )}
+                {notice.createdAt > 0 && (
+                  <p className="text-[10px] font-semibold text-on-surface-variant">{formatUnixDate(notice.createdAt)}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="space-y-2">
-        <h2 className="md3-section-title">连接状态</h2>
-        <div className="md3-panel space-y-5 text-center">
-          <p className={vpn ? 'text-3xl font-semibold text-primary' : 'text-3xl font-semibold text-on-background'}>
+        <h2 className="md3-section-title">{t('section_connection')}</h2>
+        <div className="md3-panel space-y-4">
+          <p className="text-2xl font-semibold text-on-background">
             {vpn ? t('status_connected') : t('status_disconnected')}
           </p>
-
-          <button
-            type="button"
-            onClick={() => void toggleConnection()}
-            disabled={isCurrentlyConnecting}
-            className={vpn ? 'connection-orb connection-orb--connected mx-auto' : 'connection-orb mx-auto'}
-          >
-            <span className="relative z-10">
+          <div className="flex justify-center py-2">
+            <button
+              type="button"
+              onClick={() => void toggleConnection()}
+              disabled={isCurrentlyConnecting}
+              className={`connection-orb${vpn ? ' connection-orb--connected' : ''}`}
+            >
               {isCurrentlyConnecting ? t('action_connecting') : vpn ? t('action_disconnect') : t('action_connect')}
-            </span>
-          </button>
-
+            </button>
+          </div>
           {vpn && (
-            <dl className="grid grid-cols-2 gap-2 border-t border-outline-variant/30 pt-3 text-center text-xs">
+            <dl className="grid grid-cols-2 gap-2 text-xs">
               <div className="md3-info-cell">
                 <dt className="text-on-surface-variant">{t('session_duration')}</dt>
-                <dd className="mt-1 font-mono font-semibold text-primary">{formatDuration(duration)}</dd>
+                <dd className="mt-1 font-mono font-semibold text-on-background">{formatDuration(duration)}</dd>
               </div>
               <div className="md3-info-cell">
                 <dt className="text-on-surface-variant">{t('session_traffic')}</dt>
-                <dd className="mt-1 font-mono font-semibold text-primary">{formatTrafficBytes(vpn.uploadBytes + vpn.downloadBytes)}</dd>
+                <dd className="mt-1 font-mono font-semibold text-on-background">{formatTrafficBytes(vpn.uploadBytes + vpn.downloadBytes)}</dd>
               </div>
             </dl>
           )}
@@ -556,7 +592,7 @@ export function Home() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="md3-section-title">{t('select_node')}</h2>
+        <h2 className="md3-section-title">{t('section_current_node')}</h2>
         <button
           type="button"
           onClick={() => setNodeSelectOpen(true)}
@@ -580,7 +616,7 @@ export function Home() {
 
       {trafficTotal > 0 && (
         <section className="space-y-2">
-          <h2 className="md3-section-title">{t('traffic_used')}</h2>
+          <h2 className="md3-section-title">{t('section_traffic')}</h2>
           <div className="md3-panel space-y-3">
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="text-on-surface-variant">{subscription.summary}</span>

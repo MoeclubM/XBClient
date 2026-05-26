@@ -173,7 +173,8 @@ class XbClientVpnService : VpnService() {
             builder.addAddress(PRIVATE_IPV6_CLIENT, 126)
                 .addRoute("::", 0)
         }
-        builder.addDnsServer(PRIVATE_IPV4_DNS)
+        val systemDns = if (dnsMode == DNS_MODE_DIRECT) dnsAddress else PRIVATE_IPV4_DNS
+        builder.addDnsServer(systemDns)
 
         if (!allowedApps.isNullOrBlank()) {
             if (!excludedApps.isNullOrBlank()) {
@@ -348,7 +349,10 @@ class XbClientVpnService : VpnService() {
         private var activeService: XbClientVpnService? = null
 
         @JvmStatic
-        fun protectSocketFd(fd: Int): Boolean = activeService?.protect(fd) ?: true
+        fun protectSocketFd(fd: Int): Boolean {
+            val service = activeService ?: return false
+            return service.protect(fd)
+        }
 
         @JvmStatic
         fun onLog(level: String, message: String) {

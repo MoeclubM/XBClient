@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { xboardRequest } from '../api/xboard'
 import { showRewardedAd } from '../api/system'
-import { useAppStore, type InviteItem, type NoticeItem } from '../store'
+import { useAppStore, type InviteItem } from '../store'
 import { clearSession } from '../store/persist'
 import { formatMoney, formatUnixDate, numericValue, publicErrorText } from '../format'
 import { enabled, parseRewardLogs, rewardStatusText } from '../reward'
@@ -40,18 +40,6 @@ interface InviteFetchBody {
   message?: string
 }
 
-interface NoticeFetchBody {
-  data?: Array<{
-    id?: number
-    title?: string
-    subject?: string
-    content?: string
-    message?: string
-    created_at?: number
-  }>
-  message?: string
-}
-
 interface XboardBody<T = unknown> {
   data?: T
   message?: string
@@ -63,18 +51,6 @@ function parseInvites(body: InviteFetchBody | undefined): InviteItem[] {
   if (!data) return []
   const list = data.codes ?? data.codes_list ?? []
   return list.map((row) => ({ code: row.code ?? '', status: Number(row.status ?? 0) }))
-}
-
-function parseNotices(body: NoticeFetchBody | undefined): NoticeItem[] {
-  const data = body?.data ?? []
-  return data
-    .map((row) => ({
-      id: Number(row.id ?? 0),
-      title: row.title ?? row.subject ?? '',
-      content: row.content ?? row.message ?? '',
-      createdAt: Number(row.created_at ?? 0),
-    }))
-    .filter((item) => item.title.trim() || item.content.trim())
 }
 
 export function Profile() {
@@ -98,14 +74,12 @@ export function Profile() {
     inviteCommissionRate,
     inviteCommissionBalance,
     invites,
-    notices,
     adRewardLogs,
     subscription,
     setProfile,
     setAdmobConfig,
     setRewardLogs,
     setInvites,
-    setNotices,
     reset,
   } = useAppStore()
   const [loading, setLoading] = useState(false)
@@ -212,9 +186,6 @@ export function Profile() {
           setRewardLogs([])
         }
         if (inviteList.ok) setInvites(parseInvites(inviteList.body))
-        const noticeResponse = await xboardRequest<NoticeFetchBody>('notices', { baseUrl, authData })
-        if (cancelled) return
-        if (noticeResponse.ok) setNotices(parseNotices(noticeResponse.body))
       } catch (err) {
         if (!cancelled) setError(publicErrorText(err))
       } finally {
@@ -225,7 +196,7 @@ export function Profile() {
     return () => {
       cancelled = true
     }
-  }, [authData, baseUrl, mobileControl, setAdmobConfig, setProfile, setRewardLogs, setInvites, setNotices])
+  }, [authData, baseUrl, mobileControl, setAdmobConfig, setProfile, setRewardLogs, setInvites])
 
   async function generateInvite() {
     try {
@@ -322,8 +293,7 @@ export function Profile() {
 
   return (
     <main className="md3-screen space-y-4">
-      <header className="md3-page-header">
-        <span className="md3-page-rail" />
+      <header className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold tracking-tight text-on-background">{t('nav_profile')}</h1>
           <p className="mt-1 break-all text-xs text-on-surface-variant">{email || '未登录'}</p>
@@ -469,29 +439,6 @@ export function Profile() {
         </section>
       )}
 
-      {notices.length > 0 && (
-        <section className="md3-card-low space-y-4">
-          <h2 className="md3-section-title">{t('announcement')}</h2>
-          <ul className="space-y-4">
-            {notices.map((notice) => (
-              <li
-                key={notice.id}
-                className="space-y-2 border-l-3 border-primary/50 pl-3.5 py-0.5"
-              >
-                <p className="text-sm font-bold text-on-background">{notice.title}</p>
-                <p className="whitespace-pre-wrap text-xs text-on-surface-variant leading-relaxed">
-                  {notice.content.replace(/<[^>]+>/g, '')}
-                </p>
-                {notice.createdAt > 0 && (
-                  <p className="text-[10px] font-bold text-on-surface-variant">
-                    {formatUnixDate(notice.createdAt)}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </main>
   )
 }
