@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { openExternal } from '../../api/system'
+import { t } from '../state'
 
-const text = ref('')
-
-onMounted(async () => {
-  text.value = await fetch('/open_source_licenses.txt').then((response) => response.text()).catch(() => '无法加载开源许可。')
-})
+const items = [
+  ['XBClient', 'https://github.com/MoeclubM/XBClient'],
+  ['Aerion', 'https://github.com/MoeclubM/Aerion'],
+  ['NodeRS', 'https://github.com/MoeclubM/NodeRS'],
+  ['Tauri', 'https://tauri.app'],
+  ['Vue', 'https://vuejs.org'],
+  ['Vuetify', 'https://vuetifyjs.com'],
+]
 </script>
 
 <template>
@@ -13,11 +17,18 @@ onMounted(async () => {
     <header class="liquid-header">
       <div>
         <p class="eyebrow">Open Source</p>
-        <h1>开源许可</h1>
+        <h1>{{ t('licenses') }}</h1>
+        <p class="muted">Tauri 多平台版依赖的主要项目 / Core open source project dependencies.</p>
       </div>
     </header>
-    <v-card class="glass-card pa-4">
-      <pre class="license-text">{{ text }}</pre>
-    </v-card>
+
+    <div class="stack">
+      <v-card v-for="[name, url] in items" :key="name" class="glass-card pa-4">
+        <div class="section-row">
+          <strong>{{ name }}</strong>
+          <v-btn variant="outlined" @click="openExternal(url)">Open</v-btn>
+        </div>
+      </v-card>
+    </div>
   </section>
 </template>

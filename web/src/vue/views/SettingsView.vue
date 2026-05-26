@@ -3,9 +3,17 @@ import { onMounted, ref } from 'vue'
 import { getVersion } from '@tauri-apps/api/app'
 import { useRouter } from 'vue-router'
 import { autostartSetEnabled, openInAppBrowser, parseSocksAddr, systemProxyClear, systemProxySet } from '../../api/system'
+import { xboardRequest } from '../../api/xboard'
 import { publicErrorText } from '../../format'
+import { enabled } from '../../reward'
 import { appState, persistSettings, t } from '../state'
+import { store } from '../state'
 import type { AppSettings } from '../../store'
+
+interface XboardBody {
+  data?: unknown
+  message?: string
+}
 
 const router = useRouter()
 const error = ref('')
@@ -16,7 +24,48 @@ onMounted(async () => {
     error.value = publicErrorText(err)
     return ''
   })
+  await loadRewardConfig()
 })
+
+async function loadRewardConfig() {
+  if (!appState.authData || !appState.capabilities?.admob) return
+  const response = await xboardRequest<XboardBody>('admob_reward_config', { baseUrl: appState.baseUrl, authData: appState.authData })
+  if (!response.ok || !response.body?.data || typeof response.body.data !== 'object') {
+    store().setProfile({ paymentEnabled: false })
+    store().setAdmobConfig({
+      admobCloudEnabled: false,
+      planRewardAdEnabled: false,
+      pointsRewardAdEnabled: false,
+      appOpenAdEnabled: false,
+      planRewardedAdUnitId: '',
+      planRewardSsvUserId: '',
+      planRewardSsvCustomData: '',
+      pointsRewardedAdUnitId: '',
+      pointsRewardSsvUserId: '',
+      pointsRewardSsvCustomData: '',
+      appOpenAdUnitId: '',
+    })
+    error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+    return
+  }
+  const data = response.body.data as Record<string, unknown>
+  const adEnabled = enabled(data.ad_enabled)
+  store().setProfile({ paymentEnabled: enabled(data.payment_enabled) })
+  store().setAdmobConfig({
+    admobCloudEnabled: adEnabled,
+    planRewardAdEnabled: adEnabled && enabled(data.plan_reward_ad_enabled),
+    pointsRewardAdEnabled: adEnabled && enabled(data.points_reward_ad_enabled),
+    appOpenAdEnabled: enabled(data.app_open_ad_enabled),
+    planRewardedAdUnitId: String(data.plan_rewarded_ad_unit_id ?? ''),
+    planRewardSsvUserId: String(data.plan_ssv_user_id ?? ''),
+    planRewardSsvCustomData: String(data.plan_ssv_custom_data ?? ''),
+    pointsRewardedAdUnitId: String(data.points_rewarded_ad_unit_id ?? ''),
+    pointsRewardSsvUserId: String(data.points_ssv_user_id ?? ''),
+    pointsRewardSsvCustomData: String(data.points_ssv_custom_data ?? ''),
+    appOpenAdUnitId: String(data.app_open_ad_unit_id ?? ''),
+    githubProjectUrl: String(data.github_project_url ?? ''),
+  })
+}
 
 async function setTheme(value: AppSettings['themeMode']) {
   await persistSettings({ themeMode: value })
