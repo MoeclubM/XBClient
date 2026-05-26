@@ -1,11 +1,4 @@
-import type { OAuthProvider } from '../../store'
-import { formatUnixDate, numericValue } from '../../format'
-
-export interface XboardBody<T = unknown> {
-  data?: T
-  message?: string
-  status?: string
-}
+import type { OAuthProvider } from '../store'
 
 export type Row = Record<string, unknown>
 
@@ -38,7 +31,7 @@ export function rowId(row: Row): string {
   return field(row, ['id', 'session_id', 'trade_no', 'ticket_id', 'uuid'])
 }
 
-export function failureText(response: { ok: boolean; status: number; body?: XboardBody; error?: string }): string {
+export function failureText(response: { ok: boolean; status: number; body?: { message?: string; status?: string }; error?: string }): string {
   if (!response.ok) return response.body?.message ?? response.error ?? `HTTP ${response.status}`
   if (response.body?.status === 'fail') return response.body.message ?? '请求失败'
   return ''
@@ -51,24 +44,4 @@ export function parseOAuthProviders(value: unknown): OAuthProvider[] {
       label: field(item, ['label', 'name', 'driver', 'type']),
     }))
     .filter((item) => item.driver)
-}
-
-export function textData(value: unknown): string {
-  if (typeof value === 'string') return value
-  if (value && typeof value === 'object') {
-    const object = value as Row
-    return field(object, ['url', 'link', 'telegram_url', 'bot_url', 'subscribe_url', 'quick_login_url'])
-  }
-  return ''
-}
-
-export function shortJson(value: unknown): string {
-  if (value === undefined || value === null || value === '') return ''
-  if (typeof value === 'string') return value
-  return JSON.stringify(value, null, 2)
-}
-
-export function timeText(row: Row): string {
-  const raw = numericValue(row.created_at ?? row.updated_at ?? row.last_active_at ?? row.last_login_at ?? row.record_at)
-  return raw > 0 ? formatUnixDate(raw) : ''
 }

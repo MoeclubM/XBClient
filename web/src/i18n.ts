@@ -1,6 +1,4 @@
-import { useAppStore } from './store'
-
-const TRANSLATIONS = {
+export const TRANSLATIONS = {
   'zh-CN': {
     nav_nodes: '主页',
     section_connection: '连接',
@@ -409,17 +407,12 @@ const TRANSLATIONS = {
   }
 }
 
-export function useTranslation() {
-  const appLanguage = useAppStore((s) => s.settings.appLanguage)
+export type TranslationKey = keyof typeof TRANSLATIONS['zh-CN']
 
+export function translate(key: TranslationKey, appLanguage: string): string {
   const lang = appLanguage === 'system'
     ? (navigator.language.startsWith('zh') ? 'zh-CN' : 'en')
     : (appLanguage || 'zh-CN')
-
-  type TranslationKey = keyof typeof TRANSLATIONS['zh-CN']
   const dict = (TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS['zh-CN']) as Partial<Record<TranslationKey, string>>
-
-  return (key: TranslationKey) => {
-    return dict[key] || TRANSLATIONS['zh-CN'][key] || String(key)
-  }
+  return dict[key] || TRANSLATIONS['zh-CN'][key] || String(key)
 }

@@ -1,4 +1,3 @@
-import { create } from 'zustand'
 import type { RuntimeCapabilities, RuntimeConfig } from '../api/system'
 import {
   DEFAULT_DIRECT_DNS,
@@ -190,7 +189,18 @@ const EMPTY_SUBSCRIPTION: SubscriptionState = {
   expiredAt: 0,
 }
 
-export const useAppStore = create<AppState>((set) => ({
+type StatePatch = Partial<AppState> | ((state: AppState) => Partial<AppState>)
+
+let state: AppState
+const listeners = new Set<(state: AppState) => void>()
+
+function set(patch: StatePatch): void {
+  const next = typeof patch === 'function' ? patch(state) : patch
+  state = { ...state, ...next }
+  listeners.forEach((listener) => listener(state))
+}
+
+const initialState: AppState = {
   baseUrl: '',
   authData: '',
   email: '',
@@ -306,4 +316,14 @@ export const useAppStore = create<AppState>((set) => ({
       notices: [],
       subscription: EMPTY_SUBSCRIPTION,
     }),
-}))
+}
+
+state = initialState
+
+export const useAppStore = {
+  getState: () => state,
+  subscribe: (listener: (state: AppState) => void) => {
+    listeners.add(listener)
+    return () => listeners.delete(listener)
+  },
+}
