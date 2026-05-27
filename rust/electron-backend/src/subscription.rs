@@ -172,16 +172,14 @@ fn normalize_outbound_node(raw: &Value, raw_type: &str) -> Value {
     if object
         .get("name")
         .and_then(Value::as_str)
-        .map_or(true, str::is_empty)
-    {
-        if let Some(tag) = object
+        .is_none_or(str::is_empty)
+        && let Some(tag) = object
             .get("tag")
             .and_then(Value::as_str)
             .map(str::to_string)
             .filter(|value| !value.is_empty())
-        {
-            object.insert("name".to_string(), Value::String(tag));
-        }
+    {
+        object.insert("name".to_string(), Value::String(tag));
     }
     ensure_host_from_server(object);
     object.insert("type".to_string(), Value::String(protocol.to_string()));
@@ -218,7 +216,7 @@ fn ensure_host_from_server(object: &mut Map<String, Value>) {
     let needs_host = object
         .get("host")
         .and_then(Value::as_str)
-        .map_or(true, str::is_empty);
+        .is_none_or(str::is_empty);
     if !needs_host {
         return;
     }

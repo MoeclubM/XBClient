@@ -901,7 +901,7 @@ fn node_optional_bandwidth_u64(node: &Value, keys: &[&str]) -> Result<Option<u64
             );
             let suffix = text[digits.len()..]
                 .trim()
-                .trim_start_matches(|ch: char| ch == '/' || ch == '_')
+                .trim_start_matches(['/', '_'])
                 .trim()
                 .to_ascii_lowercase();
             ensure!(

@@ -91,9 +91,11 @@ struct XboardRequest {
 
 #[derive(Deserialize)]
 struct ResolveNodeHostRequest {
-    dnsUrl: String,
+    #[serde(rename = "dnsUrl")]
+    dns_url: String,
     host: String,
-    userAgent: Option<String>,
+    #[serde(rename = "userAgent")]
+    user_agent: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -156,7 +158,7 @@ async fn resolve_node_host(params: ResolveNodeHostRequest) -> Result<String> {
     if host.parse::<IpAddr>().is_ok() {
         return Ok(host.to_string());
     }
-    let resolver = params.dnsUrl.trim();
+    let resolver = params.dns_url.trim();
     if !resolver.starts_with("http://") && !resolver.starts_with("https://") {
         return Err(anyhow!("节点 DNS 必须是 DoH 地址。"));
     }
@@ -173,7 +175,7 @@ async fn resolve_node_host(params: ResolveNodeHostRequest) -> Result<String> {
             .header("Accept", "application/dns-json, application/json");
 
         if let Some(value) = params
-            .userAgent
+            .user_agent
             .as_deref()
             .map(|v| v.trim())
             .filter(|v| !v.is_empty())
