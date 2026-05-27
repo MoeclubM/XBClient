@@ -166,7 +166,7 @@ onMounted(loadProfile)
   <section class="liquid-page">
     <header class="liquid-header">
       <div>
-        <p class="eyebrow">{{ appState.email || '未登录' }}</p>
+        <p class="eyebrow">{{ appState.email || t('logged_out') }}</p>
         <h1>{{ t('nav_profile') }}</h1>
       </div>
       <div class="header-actions">
@@ -189,7 +189,7 @@ onMounted(loadProfile)
       <div class="section-row">
         <div>
           <p class="eyebrow">{{ t('points_reward_ad_title') }}</p>
-          <p class="muted">观看 AdMob 激励广告后提交服务器验证。</p>
+          <p class="muted">{{ t('reward_ad_verify_desc') }}</p>
         </div>
         <v-btn color="primary" :loading="rewardLoading" @click="watchPointsRewardAd">{{ t('reward_watch') }}</v-btn>
       </div>

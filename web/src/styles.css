@@ -292,9 +292,7 @@ button {
   height: 184px;
   border: 1px solid color-mix(in srgb, var(--on-primary-container) 8%, transparent);
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.72), transparent 34%),
-    var(--primary-container);
+  background: var(--primary-container);
   color: var(--on-primary-container);
   box-shadow:
     0 20px 46px color-mix(in srgb, var(--primary) 18%, transparent),
@@ -317,9 +315,7 @@ button {
 
 .liquid-orb.connected {
   border-color: transparent;
-  background:
-    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.36), transparent 34%),
-    var(--primary);
+  background: var(--primary);
   color: var(--on-primary);
 }
 

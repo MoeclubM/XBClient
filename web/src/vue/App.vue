@@ -44,13 +44,13 @@ onUnmounted(() => cleanupZoom?.())
     <main v-if="!ready" class="startup-view">
       <div class="startup-card">
         <img src="/logo.png" alt="Logo">
-        <p>正在启动…</p>
+        <p>{{ t('startup_loading') }}</p>
       </div>
     </main>
 
     <main v-else-if="bootstrapError" class="startup-view">
       <v-card class="glass-card pa-5" max-width="560">
-        <p class="text-error font-weight-bold mb-0">构建配置缺失：{{ bootstrapError }}</p>
+        <p class="text-error font-weight-bold mb-0">{{ t('bootstrap_config_missing') }}：{{ bootstrapError }}</p>
       </v-card>
     </main>
 

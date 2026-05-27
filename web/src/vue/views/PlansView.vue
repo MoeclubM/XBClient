@@ -43,14 +43,14 @@ function rows(value: unknown): RawPlan[] {
 
 function parsePlan(raw: RawPlan): PlanItem {
   const priceFields: Array<[keyof RawPlan, string]> = [
-    ['month_price', '月付'],
-    ['quarter_price', '季付'],
-    ['half_year_price', '半年'],
-    ['year_price', '年付'],
-    ['two_year_price', '两年'],
-    ['three_year_price', '三年'],
-    ['onetime_price', '一次性'],
-    ['reset_price', '重置流量'],
+    ['month_price', t('price_month')],
+    ['quarter_price', t('price_quarter')],
+    ['half_year_price', t('price_half_year')],
+    ['year_price', t('price_year')],
+    ['two_year_price', t('price_two_year')],
+    ['three_year_price', t('price_three_year')],
+    ['onetime_price', t('price_onetime')],
+    ['reset_price', t('price_reset')],
   ]
   const prices: PlanPrice[] = priceFields
     .map(([field, label]) => ({ field: String(field), label, amount: numericValue(raw[field]) }))
@@ -200,7 +200,7 @@ onMounted(loadPlans)
       <div class="section-row">
         <div>
           <p class="eyebrow">{{ t('plan_reward_ad_title') }}</p>
-          <p class="muted">观看 AdMob 激励广告后提交服务器验证。</p>
+          <p class="muted">{{ t('reward_ad_verify_desc') }}</p>
         </div>
         <v-btn color="primary" :loading="rewardLoading" @click="watchPlanRewardAd">{{ t('reward_watch') }}</v-btn>
       </div>

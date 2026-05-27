@@ -95,7 +95,7 @@ onMounted(loadTickets)
   <section class="liquid-page">
     <header class="liquid-header">
       <div>
-        <p class="eyebrow">{{ appState.email || 'Support' }}</p>
+        <p class="eyebrow">{{ appState.email || t('nav_services') }}</p>
         <h1>{{ t('nav_services') }}</h1>
       </div>
       <v-btn class="glass-button" :loading="loading" @click="loadTickets">{{ loading ? t('refreshing') : t('refresh') }}</v-btn>
@@ -131,7 +131,7 @@ onMounted(loadTickets)
         <p class="eyebrow">{{ selectedTicket ? field(selectedTicket, ['subject', 'title']) : t('ticket_detail') }}</p>
         <div class="stack">
           <div v-for="(row, index) in detailRows" :key="`${rowId(row)}-${index}`" class="glass-chip">
-            <strong>{{ field(row, ['user_name', 'email', 'role']) || '消息' }}</strong>
+            <strong>{{ field(row, ['user_name', 'email', 'role']) || t('message_sender') }}</strong>
             <span class="preline">{{ field(row, ['message', 'content', 'reply']) }}</span>
           </div>
         </div>

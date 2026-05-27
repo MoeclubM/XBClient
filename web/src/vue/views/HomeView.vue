@@ -114,8 +114,8 @@ function subscriptionState(data: Record<string, unknown>) {
   return {
     summary: [
       planName,
-      total > 0 ? `已用 ${formatTrafficBytes(used)} / ${formatTrafficBytes(total)}` : '',
-      expiredAt > 0 ? `到期 ${formatUnixDate(expiredAt)}` : '',
+      total > 0 ? `${t('used_traffic')} ${formatTrafficBytes(used)} / ${formatTrafficBytes(total)}` : '',
+      expiredAt > 0 ? `${t('expires_prefix')} ${formatUnixDate(expiredAt)}` : '',
     ].filter(Boolean).join(' · '),
     blockReason: (planId <= 0 && !plan
       ? 'no_plan'
@@ -238,7 +238,7 @@ async function toggleConnection(index = selectedNodeIndex.value) {
   <section class="liquid-page">
     <header class="liquid-header">
       <div>
-        <p class="eyebrow">{{ loading ? t('refreshing') : (appState.email || '未登录') }}</p>
+        <p class="eyebrow">{{ loading ? t('refreshing') : (appState.email || t('logged_out')) }}</p>
         <h1>{{ t('nav_nodes') }}</h1>
       </div>
       <v-btn class="glass-button" :loading="loading" @click="refresh">{{ loading ? t('refreshing') : t('refresh') }}</v-btn>
@@ -248,9 +248,9 @@ async function toggleConnection(index = selectedNodeIndex.value) {
 
     <v-card v-if="appState.subscription.blockReason" class="glass-card pa-4 mb-4">
       <p class="font-weight-bold text-error mb-3">
-        {{ appState.subscription.blockReason === 'expired' ? '套餐已过期' : appState.subscription.blockReason === 'traffic_exceeded' ? '流量已用尽' : '暂无可用套餐' }}
+        {{ appState.subscription.blockReason === 'expired' ? t('subscription_expired') : appState.subscription.blockReason === 'traffic_exceeded' ? t('subscription_traffic_exceeded') : t('subscription_no_plan') }}
       </p>
-      <v-btn color="primary" @click="router.push('/plans')">前往套餐</v-btn>
+      <v-btn color="primary" @click="router.push('/plans')">{{ t('go_to_plans') }}</v-btn>
     </v-card>
 
     <v-card class="glass-card connection-card pa-5">

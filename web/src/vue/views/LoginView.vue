@@ -76,7 +76,7 @@ async function loadGuestConfig(showSuccess = false) {
       registerEmailVerifyEnabled: enabled(data.is_email_verify),
       registerCaptchaEnabled: enabled(data.is_captcha),
     })
-    if (showSuccess) message.value = '服务配置已同步。'
+    if (showSuccess) message.value = t('service_config_synced')
   } catch (err) {
     error.value = publicErrorText(err)
   } finally {
@@ -110,10 +110,10 @@ async function submit() {
     if (!authData) {
       if (mode.value === 'register') {
         switchMode('login')
-        message.value = response.body?.message ?? '注册完成，请登录。'
+        message.value = response.body?.message ?? t('register_done_login')
         return
       }
-      error.value = '登录响应缺少 auth_data'
+      error.value = t('login_auth_missing')
       return
     }
     await finishLogin(authData, email.value.trim())
@@ -144,7 +144,7 @@ async function forgotPassword() {
     }
     message.value = response.body?.message ?? t('forgot_password_sent')
   } catch (err) {
-    error.value = publicErrorText(err, '找回密码失败')
+    error.value = publicErrorText(err, t('forgot_password_failed'))
   } finally {
     forgotLoading.value = false
   }
@@ -176,7 +176,7 @@ async function sendEmailVerify() {
 }
 
 async function openOAuth(provider: OAuthProvider) {
-  if (!appState.buildConfig) throw new Error('构建配置尚未加载。')
+  if (!appState.buildConfig) throw new Error(t('config_not_loaded'))
   const url = new URL(
     `/api/v1/passport/auth/oauth/${encodeURIComponent(provider.driver)}/redirect`,
     `${normalizeBaseUrl(baseUrl.value)}/`,
@@ -187,7 +187,7 @@ async function openOAuth(provider: OAuthProvider) {
   url.searchParams.set('app_scheme', appState.buildConfig.oauth_callback_scheme)
   if (mode.value === 'register' && inviteCode.value.trim()) url.searchParams.set('invite_code', inviteCode.value.trim())
   await openInAppBrowser(url.toString(), `${provider.label || provider.driver} OAuth`)
-  message.value = '已打开 OAuth 页面，等待应用链接自动回调。'
+  message.value = t('oauth_opened_waiting_callback')
 }
 
 async function startOAuth(provider: OAuthProvider) {
@@ -196,7 +196,7 @@ async function startOAuth(provider: OAuthProvider) {
   try {
     await openOAuth(provider)
   } catch (err) {
-    error.value = publicErrorText(err, 'OAuth 打开失败')
+    error.value = publicErrorText(err, t('oauth_open_failed'))
   }
 }
 
@@ -255,7 +255,7 @@ async function loginWithVerify(verify: string) {
   }
   const authData = response.body?.data?.auth_data
   if (!authData) {
-    error.value = 'OAuth 登录响应缺少 auth_data'
+    error.value = t('oauth_login_missing')
     return
   }
   await finishLogin(authData, response.body?.data?.email ?? email.value.trim())
@@ -338,8 +338,8 @@ async function finishLogin(authData: string, accountEmail: string) {
           </v-btn>
         </div>
         <v-alert v-if="oauthConfirm" color="primary" variant="tonal" density="compact">
-          确认使用 {{ oauthConfirm.provider || 'OAuth' }} 注册{{ oauthConfirm.email ? `：${oauthConfirm.email}` : '' }}
-          <v-btn class="ml-2" size="small" :loading="tokenLoading" @click="confirmOAuthRegister">确认</v-btn>
+          {{ t('oauth_confirm_register') }} · {{ oauthConfirm.provider || 'OAuth' }}{{ oauthConfirm.email ? `：${oauthConfirm.email}` : '' }}
+          <v-btn class="ml-2" size="small" :loading="tokenLoading" @click="confirmOAuthRegister">{{ t('confirm') }}</v-btn>
         </v-alert>
       </v-card>
 
