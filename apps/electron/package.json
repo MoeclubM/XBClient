@@ -14,9 +14,9 @@
     "build:backend": "cargo build --release --manifest-path ../../rust/electron-backend/Cargo.toml",
     "build:web": "pnpm --filter xbclient-web build",
     "build": "pnpm run icons && pnpm run build:web && pnpm run build:backend",
-    "dist": "pnpm run prepare-dist && pnpm run build && electron-builder --config build/electron-builder.generated.yml",
-    "dist:win": "pnpm run prepare-dist && pnpm run build && electron-builder --win --config build/electron-builder.generated.yml",
-    "dist:linux": "pnpm run prepare-dist && pnpm run build && electron-builder --linux --config build/electron-builder.generated.yml"
+    "dist": "pnpm run prepare-dist && pnpm run build && electron-builder -p never --config build/electron-builder.generated.yml",
+    "dist:win": "pnpm run prepare-dist && pnpm run build && electron-builder --win -p never --config build/electron-builder.generated.yml",
+    "dist:linux": "pnpm run prepare-dist && pnpm run build && electron-builder --linux -p never --config build/electron-builder.generated.yml"
   },
   "dependencies": {
     "auto-launch": "5.0.6",
