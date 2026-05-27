@@ -298,23 +298,24 @@ async function toggleConnection(index = selectedNodeIndex.value) {
         <span class="muted">{{ appState.nodes.length }}</span>
       </div>
       <div class="node-list">
-        <button
+        <div
           v-for="(node, index) in appState.nodes"
           :key="`${node.name}-${index}`"
-          class="node-row"
+          class="node-row node-row-action"
           :class="{ active: index === selectedNodeIndex }"
-          :disabled="!node.connectSupported"
-          @click="toggleConnection(index)"
         >
-          <span>
-            <strong>{{ displayNodeName(node, index) }}</strong>
-            <small>{{ node.protocolLabel }} · {{ node.host }}{{ node.connectSupported ? '' : ` · ${t('unsupported_protocol')}` }}</small>
-          </span>
+          <button class="node-pick" :disabled="!node.connectSupported" @click="toggleConnection(index)">
+            <span>
+              <strong>{{ displayNodeName(node, index) }}</strong>
+              <small>{{ node.protocolLabel }} · {{ node.host }}{{ node.connectSupported ? '' : ` · ${t('unsupported_protocol')}` }}</small>
+            </span>
+          </button>
           <span class="node-actions">
             <small v-if="node.latencyMs">{{ node.latencyMs }}ms</small>
             <v-btn size="small" variant="text" @click.stop="testNode(node, index)">{{ t('node_test') }}</v-btn>
           </span>
-        </button>
+        </div>
+        <p v-if="!loading && !appState.nodes.length" class="muted pa-3">{{ t('no_nodes') }}</p>
       </div>
     </v-card>
   </section>

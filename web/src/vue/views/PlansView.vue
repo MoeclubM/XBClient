@@ -230,6 +230,9 @@ onMounted(loadPlans)
           </button>
         </div>
       </v-card>
+      <v-card v-if="!loading && !appState.plans.length" class="glass-card pa-4">
+        <p class="muted">{{ t('plans_empty') }}</p>
+      </v-card>
     </div>
   </section>
 </template>

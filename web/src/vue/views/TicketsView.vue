@@ -125,6 +125,7 @@ onMounted(loadTickets)
             <small>{{ field(ticket, ['status']) || 'open' }}</small>
           </span>
         </button>
+        <p v-if="!loading && !tickets.length" class="muted pa-3">{{ t('tickets_empty') }}</p>
       </v-card>
 
       <v-card class="glass-card pa-4">

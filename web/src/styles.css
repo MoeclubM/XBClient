@@ -74,6 +74,11 @@ body,
   overscroll-behavior: none;
 }
 
+.v-application,
+.v-application__wrap {
+  min-height: 100% !important;
+}
+
 * {
   box-sizing: border-box;
   scrollbar-width: none;
@@ -114,6 +119,7 @@ button {
 
 .liquid-main {
   height: 100%;
+  min-height: 0;
   overflow-y: auto;
   padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
 }
@@ -371,7 +377,8 @@ button {
 }
 
 .price-tile,
-.node-row {
+.node-row,
+.node-pick {
   width: 100%;
   padding: 12px;
   color: var(--on-background);
@@ -400,9 +407,26 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  overflow: hidden;
 }
 
-.node-row span:first-child {
+.node-row-action {
+  padding: 0;
+}
+
+.node-pick {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+}
+
+.node-pick:disabled {
+  cursor: not-allowed;
+}
+
+.node-row span:first-child,
+.node-pick span:first-child {
   min-width: 0;
   display: grid;
   gap: 2px;
@@ -430,6 +454,7 @@ button {
   flex: 0 0 auto;
   align-items: center;
   gap: 6px;
+  padding-right: 8px;
 }
 
 .liquid-bottom-nav {
