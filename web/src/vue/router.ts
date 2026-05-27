@@ -7,6 +7,7 @@ import PlansView from './views/PlansView.vue'
 import ProfileView from './views/ProfileView.vue'
 import SettingsView from './views/SettingsView.vue'
 import AppRulesView from './views/AppRulesView.vue'
+import TrafficRulesView from './views/TrafficRulesView.vue'
 import LicensesView from './views/LicensesView.vue'
 import TicketsView from './views/TicketsView.vue'
 
@@ -23,6 +24,7 @@ export const router = createRouter({
     { path: '/tickets', component: TicketsView, meta: { auth: true } },
     { path: '/settings', component: SettingsView, meta: { auth: true } },
     { path: '/settings/app-rules', component: AppRulesView, meta: { auth: true, hideNav: true } },
+    { path: '/settings/traffic-rules', component: TrafficRulesView, meta: { auth: true, hideNav: true } },
     { path: '/settings/licenses', component: LicensesView, meta: { auth: true, hideNav: true } },
   ],
 })

@@ -27,6 +27,16 @@ export interface VpnSession {
   nodeIndex: number
   uploadBytes: number
   downloadBytes: number
+  routeMode?: boolean
+}
+
+export interface RouteRoutingState {
+  hasRules: boolean
+  ruleCount: number
+  proxyGroupCount: number
+  ruleProviderCount: number
+  rulesPreview: string[]
+  routeConfigYaml: string | null
 }
 
 export type RoutingMode = 'rule' | 'global' | 'direct'
@@ -45,6 +55,7 @@ export interface AppSettings {
   vpnDnsMode: 'virtual' | 'over_tcp' | 'direct'
   virtualDnsPool: string
   vpnIpv6Enabled: boolean
+  geoipDir: string
   appRuleMode: 'exclude' | 'allow'
   excludedApps: string
   allowedApps: string
@@ -143,8 +154,10 @@ interface AppState {
   invites: InviteItem[]
   notices: NoticeItem[]
   subscription: SubscriptionState
+  routing: RouteRoutingState
   setSession(s: { baseUrl: string; authData: string; email: string }): void
   setSubscribe(s: { subscribeUrl: string; nodes: AppNode[] }): void
+  setRouting(s: RouteRoutingState): void
   setNodeResult(index: number, result: { latencyMs?: number; testError?: string }): void
   setNodeLoading(index: number): void
   setVpn(session: VpnSession | null): void
@@ -192,6 +205,15 @@ interface AppState {
   reset(): void
 }
 
+const EMPTY_ROUTING: RouteRoutingState = {
+  hasRules: false,
+  ruleCount: 0,
+  proxyGroupCount: 0,
+  ruleProviderCount: 0,
+  rulesPreview: [],
+  routeConfigYaml: null,
+}
+
 const EMPTY_SUBSCRIPTION: SubscriptionState = {
   summary: '',
   blockReason: '',
@@ -235,6 +257,7 @@ const initialState: AppState = {
     vpnDnsMode: 'over_tcp',
     virtualDnsPool: DEFAULT_VIRTUAL_DNS_POOL,
     vpnIpv6Enabled: true,
+    geoipDir: '',
     appRuleMode: 'exclude',
     excludedApps: '',
     allowedApps: '',
@@ -271,8 +294,10 @@ const initialState: AppState = {
   invites: [],
   notices: [],
   subscription: EMPTY_SUBSCRIPTION,
+  routing: EMPTY_ROUTING,
   setSession: (s) => set({ baseUrl: s.baseUrl, authData: s.authData, email: s.email }),
   setSubscribe: (s) => set({ subscribeUrl: s.subscribeUrl, nodes: s.nodes }),
+  setRouting: (routing) => set({ routing }),
   setNodeResult: (index, result) =>
     set((state) => {
       const nodes = state.nodes.slice()
@@ -343,6 +368,7 @@ const initialState: AppState = {
       invites: [],
       notices: [],
       subscription: EMPTY_SUBSCRIPTION,
+      routing: EMPTY_ROUTING,
     }),
 }
 

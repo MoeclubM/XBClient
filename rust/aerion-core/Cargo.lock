@@ -15,7 +15,7 @@ dependencies = [
 [[package]]
 name = "aerion"
 version = "0.1.0"
-source = "git+https://github.com/MoeclubM/Aerion.git?branch=main#171caa9a41435c0b9f8d9fc29a58495d3bf269f6"
+source = "git+https://github.com/MoeclubM/Aerion.git?branch=main#acd0ad86a6fc631369a53647d8d4f7a00cd01915"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -71,6 +71,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
+ "serde_yaml",
  "tokio",
  "tokio-rustls",
  "webpki-roots",

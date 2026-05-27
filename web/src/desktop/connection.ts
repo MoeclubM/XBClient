@@ -1,7 +1,9 @@
 import {
+  aerionStartRoute,
   aerionStartSocks,
   aerionStartVpn,
   aerionStop,
+  aerionStopRoute,
   aerionStopVpn,
 } from '../api/xboard'
 import {
@@ -34,8 +36,9 @@ async function disconnectSession(): Promise<void> {
   const state = useAppStore.getState()
   const session = state.vpn
   if (!session) return
-  const useTun = state.settings.tunEnabled
-  if (useTun) await aerionStopVpn(session.sessionId)
+  const useTun = state.settings.tunEnabled && !session.routeMode && !session.socksAddr
+  if (session.routeMode) await aerionStopRoute(session.sessionId)
+  else if (useTun) await aerionStopVpn(session.sessionId)
   else await aerionStop(session.sessionId)
   if (state.systemProxyActive) {
     await systemProxyClear()
@@ -69,6 +72,7 @@ async function startTun(index: number): Promise<void> {
     nodeIndex: index,
     uploadBytes: 0,
     downloadBytes: 0,
+    routeMode: false,
   })
   await reportVpnSession(handle.session_id)
   if (state.systemProxyActive) {
@@ -91,8 +95,37 @@ async function startSocks(index: number): Promise<void> {
     nodeIndex: index,
     uploadBytes: 0,
     downloadBytes: 0,
+    routeMode: false,
   })
   if (state.settings.systemProxyEnabled) {
+    await systemProxySet(parsed.host, parsed.port)
+    state.setSystemProxyActive(true)
+  }
+}
+
+async function startRoute(index: number): Promise<void> {
+  const state = useAppStore.getState()
+  const node = state.nodes[index]
+  if (!node?.connectSupported) throw new Error('unsupported_protocol')
+  const configYaml = state.routing.routeConfigYaml
+  if (!configYaml?.trim()) throw new Error('routing_rules_missing')
+  const request = {
+    config_yaml: configYaml,
+    geoip_dir: state.settings.geoipDir.trim() || undefined,
+    global_proxy: state.settings.routingMode === 'global' ? node.name : undefined,
+  }
+  const handle = await aerionStartRoute(request)
+  const parsed = parseSocksAddr(handle.socks_addr)
+  state.setPreferredNodeIndex(index)
+  state.setVpn({
+    sessionId: handle.session_id,
+    socksAddr: handle.socks_addr,
+    nodeIndex: index,
+    uploadBytes: 0,
+    downloadBytes: 0,
+    routeMode: true,
+  })
+  if (state.settings.systemProxyEnabled || state.settings.routingMode === 'rule') {
     await systemProxySet(parsed.host, parsed.port)
     state.setSystemProxyActive(true)
   }
@@ -114,23 +147,40 @@ export async function applyDesktopConnection(): Promise<string | null> {
       return null
     }
 
-    const wantTun = state.settings.tunEnabled
+    const useRuleRouting = state.settings.routingMode === 'rule' && state.routing.hasRules
+    const wantTun = state.settings.tunEnabled && !useRuleRouting
     const session = state.vpn
-    const tunSession = session && !session.socksAddr
-    const socksSession = session && Boolean(session.socksAddr)
+    const tunSession = session && !session.socksAddr && !session.routeMode
+    const routeSession = session?.routeMode === true
+    const socksSession = session && Boolean(session.socksAddr) && !session.routeMode
+
+    if (useRuleRouting) {
+      if (tunSession || socksSession) await disconnectSession()
+      if (!session || session.nodeIndex !== nodeIndex || !session.routeMode) {
+        if (session) await disconnectSession()
+        await startRoute(nodeIndex)
+      } else if (!state.systemProxyActive && session.socksAddr) {
+        const parsed = parseSocksAddr(session.socksAddr)
+        await systemProxySet(parsed.host, parsed.port)
+        state.setSystemProxyActive(true)
+      }
+      return null
+    }
+
+    if (routeSession) await disconnectSession()
 
     if (wantTun) {
-      if (socksSession) await disconnectSession()
-      if (!session || session.nodeIndex !== nodeIndex) {
+      if (socksSession || routeSession) await disconnectSession()
+      if (!session || session.nodeIndex !== nodeIndex || session.routeMode) {
         if (session) await disconnectSession()
         await startTun(nodeIndex)
       }
       return null
     }
 
-    if (tunSession) await disconnectSession()
+    if (tunSession || routeSession) await disconnectSession()
     if (state.settings.systemProxyEnabled) {
-      if (!session || session.nodeIndex !== nodeIndex) {
+      if (!session || session.nodeIndex !== nodeIndex || session.routeMode) {
         if (session) await disconnectSession()
         await startSocks(nodeIndex)
       } else if (!state.systemProxyActive && session.socksAddr) {

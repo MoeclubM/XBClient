@@ -74,8 +74,26 @@ export async function syncSubscription(): Promise<string | null> {
   } else if (url) {
     const subscription = await subscriptionFetch(url, 'meta')
     list = (subscription.nodes ?? []).map((node) => toAppNode(node as RawNode))
+    const routing = subscription.routing
+    state.setRouting({
+      hasRules: Boolean(routing?.has_rules),
+      ruleCount: Number(routing?.rule_count ?? 0),
+      proxyGroupCount: Number(routing?.proxy_group_count ?? 0),
+      ruleProviderCount: Number(routing?.rule_provider_count ?? 0),
+      rulesPreview: Array.isArray(routing?.rules_preview) ? routing.rules_preview.filter((item): item is string => typeof item === 'string') : [],
+      routeConfigYaml: typeof routing?.route_config_yaml === 'string' ? routing.route_config_yaml : null,
+    })
     const tagRows = await xboardRequest<XboardBody>('nodes', { baseUrl: state.baseUrl, authData: state.authData })
     if (tagRows.ok) list = mergeXboardNodeTags(list, rawNodeRows(tagRows.body?.data))
+  } else {
+    state.setRouting({
+      hasRules: false,
+      ruleCount: 0,
+      proxyGroupCount: 0,
+      ruleProviderCount: 0,
+      rulesPreview: [],
+      routeConfigYaml: null,
+    })
   }
 
   state.setSubscribe({ subscribeUrl: url, nodes: mergeNodeLists(state.nodes, list) })

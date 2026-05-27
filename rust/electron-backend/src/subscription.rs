@@ -73,6 +73,18 @@ pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str) -> Result<Va
     } else {
         parse_clash_meta(&text)?
     };
+    let routing = if sing_box {
+        json!({
+            "has_rules": false,
+            "rule_count": 0,
+            "proxy_group_count": 0,
+            "rule_provider_count": 0,
+            "rules_preview": [],
+            "route_config_yaml": null,
+        })
+    } else {
+        clash_routing_meta(&text)?
+    };
     Ok(json!({
         "ok": true,
         "status": status,
@@ -80,6 +92,7 @@ pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str) -> Result<Va
         "flag": flag,
         "subscription_userinfo": subscription_userinfo,
         "nodes": nodes,
+        "routing": routing,
     }))
 }
 
@@ -96,6 +109,10 @@ fn parse_clash_meta(text: &str) -> Result<Vec<Value>> {
     let root: Value = serde_yaml::from_str::<serde_yaml::Value>(text)
         .context("parse clash-meta YAML")
         .and_then(yaml_to_json)?;
+    parse_clash_proxies(&root)
+}
+
+fn parse_clash_proxies(root: &Value) -> Result<Vec<Value>> {
     let proxies = root
         .get("proxies")
         .and_then(Value::as_array)
@@ -125,6 +142,43 @@ fn parse_clash_meta(text: &str) -> Result<Vec<Value>> {
         nodes.push(normalize_proxy_node(proxy, &raw_type));
     }
     Ok(nodes)
+}
+
+fn clash_routing_meta(text: &str) -> Result<Value> {
+    let root: Value = serde_yaml::from_str::<serde_yaml::Value>(text)
+        .context("parse clash-meta routing YAML")
+        .and_then(yaml_to_json)?;
+    let rules = root
+        .get("rules")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let rule_strings: Vec<String> = rules
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::to_string)
+        .collect();
+    let proxy_group_count = root
+        .get("proxy-groups")
+        .or_else(|| root.get("proxy_groups"))
+        .and_then(Value::as_array)
+        .map(|items| items.len())
+        .unwrap_or(0);
+    let rule_provider_count = root
+        .get("rule-providers")
+        .or_else(|| root.get("rule_providers"))
+        .and_then(Value::as_object)
+        .map(|items| items.len())
+        .unwrap_or(0);
+    let preview: Vec<&str> = rule_strings.iter().take(20).map(String::as_str).collect();
+    Ok(json!({
+        "has_rules": !rule_strings.is_empty(),
+        "rule_count": rule_strings.len(),
+        "proxy_group_count": proxy_group_count,
+        "rule_provider_count": rule_provider_count,
+        "rules_preview": preview,
+        "route_config_yaml": if rule_strings.is_empty() { Value::Null } else { Value::String(text.to_string()) },
+    }))
 }
 
 fn parse_singbox(text: &str) -> Result<Vec<Value>> {

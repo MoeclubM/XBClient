@@ -22,7 +22,16 @@ const routingModes = [
 
 const connected = computed(() => Boolean(appState.vpn))
 const busy = computed(() => desktopConnectionBusy())
-const proxyToggleDisabled = computed(() => appState.settings.tunEnabled || appState.settings.routingMode === 'direct')
+const proxyToggleDisabled = computed(() =>
+  appState.settings.tunEnabled
+  || appState.settings.routingMode === 'direct'
+  || (appState.settings.routingMode === 'rule' && appState.routing.hasRules),
+)
+const tunToggleDisabled = computed(() =>
+  busy.value
+  || appState.settings.routingMode === 'direct'
+  || (appState.settings.routingMode === 'rule' && appState.routing.hasRules),
+)
 const tunNeedsElevation = computed(
   () => appState.settings.tunEnabled && appState.capabilities?.vpn && appState.capabilities.tun_elevated === false,
 )
@@ -117,7 +126,7 @@ async function onProxyToggle(value: boolean | null) {
           :model-value="appState.settings.tunEnabled"
           :label="t('tun_mode')"
           :hint="t('tun_mode_desc')"
-          :disabled="busy || appState.settings.routingMode === 'direct'"
+          :disabled="tunToggleDisabled"
           persistent-hint
           @update:model-value="onTunToggle"
         />

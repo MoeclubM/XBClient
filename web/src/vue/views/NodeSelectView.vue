@@ -18,17 +18,27 @@ const error = ref('')
 
 const selectedNodeIndex = computed(() => appState.vpn?.nodeIndex ?? appState.preferredNodeIndex)
 
+const testingBusy = ref(false)
+
 async function testOne(node: AppNode, index: number) {
+  if (testingBusy.value) return
+  testingBusy.value = true
   store().setNodeLoading(index)
-  const target = targetHostPort(appState.settings.nodeTestTarget)
-  const result = await aerionTestNode({
-    node: await resolveAppNode(node, appState.settings.nodeDns, appState.buildConfig?.user_agent ?? ''),
-    target_host: target.host,
-    target_port: target.port,
-    target_tls: target.tls,
-    timeout_ms: 8000,
-  })
-  store().setNodeResult(index, result.ok ? { latencyMs: result.latency_ms ?? result.first_latency_ms } : { testError: readableNodeTestError(result.error ?? '', appState.settings.appLanguage) })
+  try {
+    const target = targetHostPort(appState.settings.nodeTestTarget)
+    const result = await aerionTestNode({
+      node: await resolveAppNode(node, appState.settings.nodeDns, appState.buildConfig?.user_agent ?? ''),
+      target_host: target.host,
+      target_port: target.port,
+      target_tls: target.tls,
+      timeout_ms: 8000,
+    })
+    store().setNodeResult(index, result.ok ? { latencyMs: result.latency_ms ?? result.first_latency_ms } : { testError: readableNodeTestError(result.error ?? '', appState.settings.appLanguage) })
+  } catch (err) {
+    store().setNodeResult(index, { testError: readableNodeTestError(publicErrorText(err), appState.settings.appLanguage) })
+  } finally {
+    testingBusy.value = false
+  }
 }
 
 async function testAll() {
@@ -78,7 +88,7 @@ async function selectNode(index: number) {
         v-if="!appState.subscription.blockReason && appState.nodes.length > 0"
         variant="tonal"
         :loading="testingAll"
-        :disabled="testingAll"
+        :disabled="testingAll || testingBusy"
         @click="testAll"
       >
         {{ testingAll ? t('node_test') + '…' : t('test_all_nodes') }}
@@ -124,7 +134,7 @@ async function selectNode(index: number) {
             size="small"
             variant="tonal"
             :loading="node._testing"
-            :disabled="node._testing"
+            :disabled="testingBusy || node._testing"
             @click.stop="testOne(node, index)"
           >
             {{ t('node_test') }}

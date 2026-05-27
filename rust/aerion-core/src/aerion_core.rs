@@ -161,6 +161,13 @@ struct SocksSession {
 static NEXT_SOCKS_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 static SOCKS_SESSIONS: Lazy<StdMutex<HashMap<u64, SocksSession>>> =
     Lazy::new(|| StdMutex::new(HashMap::new()));
+static TEST_NODE_GUARD: Lazy<tokio::sync::Mutex<()>> =
+    Lazy::new(|| tokio::sync::Mutex::new(()));
+
+async fn stop_listener(task: JoinHandle<Result<()>>) {
+    task.abort();
+    let _ = task.await;
+}
 
 async fn start_aerion_socks(
     node: Value,
@@ -269,6 +276,7 @@ pub async fn stop_socks(session_id: u64) -> Result<String> {
 }
 
 pub async fn test_node_from_json(input: &str) -> Result<String> {
+    let _guard = TEST_NODE_GUARD.lock().await;
     let request: TestNodeRequest =
         serde_json::from_str(input).context("parse node test request")?;
     let target_host = request
@@ -287,22 +295,38 @@ pub async fn test_node_from_json(input: &str) -> Result<String> {
         Ok(Ok(latency)) => latency,
         Ok(Err(error)) => {
             if let Some(listener_error) = finished_listener_error(&mut task).await {
-                return Err(listener_error)
-                    .context("Aerion SOCKS listener exited during node test");
+                stop_listener(task).await;
+                return Ok(json!({
+                    "ok": false,
+                    "error": format!("{listener_error}: Aerion SOCKS listener exited during node test"),
+                })
+                .to_string());
             }
-            task.abort();
-            return Err(error);
+            stop_listener(task).await;
+            return Ok(json!({
+                "ok": false,
+                "error": error.to_string(),
+            })
+            .to_string());
         }
         Err(error) => {
             if let Some(listener_error) = finished_listener_error(&mut task).await {
-                return Err(listener_error)
-                    .context("Aerion SOCKS listener exited during node test");
+                stop_listener(task).await;
+                return Ok(json!({
+                    "ok": false,
+                    "error": format!("{listener_error}: Aerion SOCKS listener exited during node test"),
+                })
+                .to_string());
             }
-            task.abort();
-            return Err(anyhow::anyhow!(error.to_string())).context("Aerion node test timed out");
+            stop_listener(task).await;
+            return Ok(json!({
+                "ok": false,
+                "error": format!("Aerion node test timed out: {error}"),
+            })
+            .to_string());
         }
     };
-    task.abort();
+    stop_listener(task).await;
     Ok(json!({
         "ok": true,
         "latency_ms": latency,

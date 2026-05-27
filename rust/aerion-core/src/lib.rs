@@ -1,6 +1,8 @@
 mod aerion_config_compat;
 mod aerion_core;
+mod aerion_mihomo_sanitize;
 mod aerion_protocol;
+mod aerion_route;
 #[cfg(target_os = "android")]
 mod android;
 
@@ -8,6 +10,7 @@ pub use aerion_core::{
     set_event_callback, set_log_callback, start_socks_from_json, start_vpn_from_json, stop_socks,
     stop_vpn, test_node_from_json,
 };
+pub use aerion_route::{inspect_route_config_yaml, start_route_from_json, stop_route};
 
 use anyhow::{Context, Result};
 use jni::errors::{Result as JniResult, ThrowRuntimeExAndDefault};

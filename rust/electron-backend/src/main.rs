@@ -24,10 +24,13 @@ static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
 static OUTPUT_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 fn emit_line(value: &Value) {
-    let _guard = OUTPUT_LOCK.lock().expect("output lock");
+    let Ok(guard) = OUTPUT_LOCK.lock() else {
+        return;
+    };
     let mut out = std::io::stdout().lock();
     let _ = writeln!(out, "{}", value);
     let _ = out.flush();
+    drop(guard);
 }
 
 #[derive(Deserialize)]
@@ -279,7 +282,16 @@ async fn aerion_test_node(params: &Value) -> Result<Value> {
     let output = aerion_core::test_node_from_json(&json_str)
         .await
         .map_err(|e| anyhow!(e.to_string()))?;
-    Ok(serde_json::from_str(&output).unwrap_or(Value::Null))
+    serde_json::from_str(&output).context("parse aerion_test_node response")
+}
+
+async fn spawn_aerion_value(
+    fut: impl std::future::Future<Output = Result<Value>> + Send + 'static,
+) -> Result<Value> {
+    match tokio::spawn(fut).await {
+        Ok(result) => result,
+        Err(error) => Err(anyhow!("Aerion internal task failed: {error}")),
+    }
 }
 
 async fn aerion_start_socks(params: &Value) -> Result<Value> {
@@ -312,6 +324,26 @@ async fn aerion_stop_vpn(params: &Value) -> Result<Value> {
         .and_then(|v| v.as_u64())
         .ok_or_else(|| anyhow!("aerion_stop_vpn missing sessionId"))?;
     let output = aerion_core::stop_vpn(session_id)
+        .await
+        .map_err(|e| anyhow!(e.to_string()))?;
+    Ok(serde_json::from_str(&output).unwrap_or(Value::Null))
+}
+
+async fn aerion_start_route(params: &Value) -> Result<Value> {
+    let input = serde_json::to_string(params)?;
+    let output = aerion_core::start_route_from_json(&input)
+        .await
+        .map_err(|e| anyhow!(e.to_string()))?;
+    Ok(serde_json::from_str(&output).unwrap_or(Value::Null))
+}
+
+async fn aerion_stop_route(params: &Value) -> Result<Value> {
+    let session_id = params
+        .get("sessionId")
+        .or_else(|| params.get("session_id"))
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| anyhow!("aerion_stop_route missing sessionId"))?;
+    let output = aerion_core::stop_route(session_id)
         .await
         .map_err(|e| anyhow!(e.to_string()))?;
     Ok(serde_json::from_str(&output).unwrap_or(Value::Null))
@@ -362,6 +394,7 @@ fn emit_rpc_response(id: u64, out: Result<RpcResponseOk, anyhow::Error>) {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let mut stdin = BufReader::new(io::stdin());
     let mut lines = String::new();
 
@@ -422,23 +455,38 @@ async fn main() -> Result<()> {
                 Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
             }
             "aerion_test_node" => {
-                let resp = aerion_test_node(&req.params).await?;
+                let params = req.params.clone();
+                let resp = spawn_aerion_value(async move { aerion_test_node(&params).await }).await?;
                 Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
             }
             "aerion_start_socks" => {
-                let resp = aerion_start_socks(&req.params).await?;
+                let params = req.params.clone();
+                let resp = spawn_aerion_value(async move { aerion_start_socks(&params).await }).await?;
+                Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
+            }
+            "aerion_start_route" => {
+                let params = req.params.clone();
+                let resp = spawn_aerion_value(async move { aerion_start_route(&params).await }).await?;
                 Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
             }
             "aerion_start_vpn" => {
-                let resp = aerion_start_vpn(&req.params).await?;
+                let params = req.params.clone();
+                let resp = spawn_aerion_value(async move { aerion_start_vpn(&params).await }).await?;
                 Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
             }
             "aerion_stop_vpn" => {
-                let resp = aerion_stop_vpn(&req.params).await?;
+                let params = req.params.clone();
+                let resp = spawn_aerion_value(async move { aerion_stop_vpn(&params).await }).await?;
                 Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
             }
             "aerion_stop" => {
-                let resp = aerion_stop(&req.params).await?;
+                let params = req.params.clone();
+                let resp = spawn_aerion_value(async move { aerion_stop(&params).await }).await?;
+                Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
+            }
+            "aerion_stop_route" => {
+                let params = req.params.clone();
+                let resp = spawn_aerion_value(async move { aerion_stop_route(&params).await }).await?;
                 Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
             }
             "system_proxy_set" => {

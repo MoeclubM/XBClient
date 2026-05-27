@@ -56,6 +56,7 @@ export async function loadSettings(): Promise<Partial<AppSettings>> {
   if (raw.vpnDnsMode === 'virtual' || raw.vpnDnsMode === 'over_tcp' || raw.vpnDnsMode === 'direct') result.vpnDnsMode = raw.vpnDnsMode
   if (typeof raw.virtualDnsPool === 'string' && raw.virtualDnsPool.trim()) result.virtualDnsPool = raw.virtualDnsPool
   if (typeof raw.vpnIpv6Enabled === 'boolean') result.vpnIpv6Enabled = raw.vpnIpv6Enabled
+  if (typeof raw.geoipDir === 'string') result.geoipDir = raw.geoipDir
   if (raw.appRuleMode === 'exclude' || raw.appRuleMode === 'allow') result.appRuleMode = raw.appRuleMode
   if (typeof raw.excludedApps === 'string') result.excludedApps = raw.excludedApps
   if (typeof raw.allowedApps === 'string') result.allowedApps = raw.allowedApps

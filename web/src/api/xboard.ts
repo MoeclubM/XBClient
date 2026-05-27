@@ -120,6 +120,15 @@ export async function xboardRequest<T = unknown>(
   }
 }
 
+export interface SubscriptionRouting {
+  has_rules?: boolean
+  rule_count?: number
+  proxy_group_count?: number
+  rule_provider_count?: number
+  rules_preview?: string[]
+  route_config_yaml?: string | null
+}
+
 export interface SubscriptionResult {
   ok: boolean
   status: number
@@ -127,6 +136,7 @@ export interface SubscriptionResult {
   flag?: string
   subscription_userinfo?: string | null
   nodes?: unknown[]
+  routing?: SubscriptionRouting
   error?: string
   body?: string
 }
@@ -168,6 +178,20 @@ export interface SocksHandle {
 
 export async function aerionStartSocks(node: unknown): Promise<SocksHandle> {
   return invoke<SocksHandle>('aerion_start_socks', { node })
+}
+
+export interface RouteStartRequest {
+  config_yaml: string
+  geoip_dir?: string
+  global_proxy?: string
+}
+
+export async function aerionStartRoute(request: RouteStartRequest): Promise<SocksHandle & { rule_count?: number; outbound_tags?: string[] }> {
+  return invoke('aerion_start_route', request)
+}
+
+export async function aerionStopRoute(sessionId: number): Promise<{ ok: boolean; session_id: number }> {
+  return invoke('aerion_stop_route', { sessionId })
 }
 
 export async function aerionStop(sessionId: number): Promise<{ ok: boolean; session_id: number }> {
