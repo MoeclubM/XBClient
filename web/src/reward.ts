@@ -1,27 +1,28 @@
 import { formatTrafficBytes, numericValue } from './format'
+import { translate, type TranslationKey } from './i18n'
 import type { AdRewardLogItem } from './store'
 
 export function enabled(value: unknown): boolean {
   return value === true || value === 1 || value === '1' || value === 'true'
 }
 
-export function parseRewardLogs(value: unknown): AdRewardLogItem[] {
+export function parseRewardLogs(value: unknown, appLanguage = 'zh-CN'): AdRewardLogItem[] {
   return rewardRows(value).map((row) => ({
     id: Math.round(numericValue(row.id)),
     scene: String(row.scene ?? ''),
     transactionId: String(row.transaction_id ?? ''),
     status: String(row.status ?? ''),
     error: String(row.error ?? ''),
-    rewardContent: rewardContentText(row),
+    rewardContent: rewardContentText(row, appLanguage),
     usedAt: Math.round(numericValue(row.used_at)),
     createdAt: Math.round(numericValue(row.created_at)),
   }))
 }
 
-export function rewardStatusText(status: string): string {
-  if (status === 'credited') return '已入账'
-  if (status === 'failed') return '失败'
-  return '处理中'
+export function rewardStatusText(status: string, appLanguage = 'zh-CN'): string {
+  if (status === 'credited') return translate('reward_status_credited', appLanguage)
+  if (status === 'failed') return translate('reward_status_failed', appLanguage)
+  return translate('reward_status_pending', appLanguage)
 }
 
 function rewardRows(value: unknown): Array<Record<string, unknown>> {
@@ -41,7 +42,7 @@ function rewardRows(value: unknown): Array<Record<string, unknown>> {
   return []
 }
 
-function rewardContentText(item: Record<string, unknown>): string {
+function rewardContentText(item: Record<string, unknown>, appLanguage: string): string {
   for (const key of ['reward_content', 'reward_text', 'reward_description', 'description']) {
     const text = String(item[key] ?? '').trim()
     if (text) return text
@@ -50,19 +51,23 @@ function rewardContentText(item: Record<string, unknown>): string {
   if (!rewards || typeof rewards !== 'object') return ''
   const parts: string[] = []
   const balance = numericValue(rewards.balance)
-  if (balance > 0) parts.push(`余额 ${trimNumber(balance / 100)}`)
+  if (balance > 0) parts.push(`${label('reward_balance', appLanguage)} ${trimNumber(balance / 100)}`)
   const transfer = numericValue(rewards.transfer_enable)
-  if (transfer > 0) parts.push(`流量 ${formatTrafficBytes(transfer)}`)
+  if (transfer > 0) parts.push(`${label('reward_transfer', appLanguage)} ${formatTrafficBytes(transfer)}`)
   const deviceLimit = Math.round(numericValue(rewards.device_limit))
-  if (deviceLimit > 0) parts.push(`设备数 +${deviceLimit}`)
-  if (enabled(rewards.reset_package) || numericValue(rewards.reset_package) > 0) parts.push('重置流量')
+  if (deviceLimit > 0) parts.push(`${label('reward_device_limit', appLanguage)} +${deviceLimit}`)
+  if (enabled(rewards.reset_package) || numericValue(rewards.reset_package) > 0) parts.push(label('reward_reset_package', appLanguage))
   const planId = Math.round(numericValue(rewards.plan_id))
-  if (planId > 0) parts.push(`套餐 #${planId}`)
+  if (planId > 0) parts.push(`${label('reward_plan', appLanguage)} #${planId}`)
   const planValidityDays = Math.round(numericValue(rewards.plan_validity_days))
-  if (planValidityDays > 0) parts.push(`套餐有效期 ${planValidityDays} 天`)
+  if (planValidityDays > 0) parts.push(`${label('reward_plan_validity', appLanguage)} ${planValidityDays} ${label('days_suffix', appLanguage)}`)
   const expireDays = Math.round(numericValue(rewards.expire_days))
-  if (expireDays > 0) parts.push(`有效期 +${expireDays} 天`)
+  if (expireDays > 0) parts.push(`${label('reward_expire', appLanguage)} +${expireDays} ${label('days_suffix', appLanguage)}`)
   return parts.join(' · ')
+}
+
+function label(key: TranslationKey, appLanguage: string): string {
+  return translate(key, appLanguage)
 }
 
 function trimNumber(value: number): string {

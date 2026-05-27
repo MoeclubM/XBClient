@@ -44,11 +44,11 @@ export function formatDuration(durationMs: number): string {
   return `${pad(m)}:${pad(s)}`
 }
 
-export function publicErrorText(value: unknown, fallback = '操作失败'): string {
+export function publicErrorText(value: unknown, fallback = 'Operation failed'): string {
   const raw = value instanceof Error ? value.message : String(value ?? '')
   const text = raw
-    .replace(/not allowed to open url .*/i, '无法打开链接')
-    .replace(/https?:\/\/[^\s"'<>，。)]+/gi, '服务地址')
+    .replace(/not allowed to open url .*/i, 'Unable to open link')
+    .replace(/https?:\/\/[^\s"'<>，。)]+/gi, 'service address')
     .trim()
   return text || fallback
 }

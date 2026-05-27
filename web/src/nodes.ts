@@ -1,3 +1,4 @@
+import { translate } from './i18n'
 import type { AppNode } from './store'
 
 export const DEFAULT_NODE_DNS = 'https://dns.alidns.com/resolve'
@@ -153,20 +154,20 @@ export function targetHostPort(target: string): { host: string; port: number; tl
   return { host: targetHost, port: targetPort, tls: schemeSpecified ? targetTls : targetPort === 443 }
 }
 
-export function readableNodeTestError(error: string): string {
+export function readableNodeTestError(error: string, appLanguage = 'zh-CN'): string {
   const normalized = error.toLowerCase()
   if (error.includes('read AnyTLS frame header')) {
-    return `失败：AnyTLS 服务器断开连接（${error}）`
+    return `${translate('node_test_failed_prefix', appLanguage)}：${translate('node_test_anytls_closed', appLanguage)}（${error}）`
   }
   if (error.includes('Hysteria2 target test')) {
-    return `失败：Hysteria2 连接失败（${error}）`
+    return `${translate('node_test_failed_prefix', appLanguage)}：${translate('node_test_hy2_failed', appLanguage)}（${error}）`
   }
   if (
     normalized.includes('read socks greeting response') ||
     normalized.includes('os error 10054') ||
-    error.includes('远程主机强迫关闭')
+    error.includes('\u8fdc\u7a0b\u4e3b\u673a\u5f3a\u8feb\u5173\u95ed')
   ) {
-    return '失败：节点代理握手中断，请检查节点协议参数或服务器状态'
+    return `${translate('node_test_failed_prefix', appLanguage)}：${translate('node_test_handshake_interrupted', appLanguage)}`
   }
   if (
     normalized.includes('timed out') ||
@@ -175,9 +176,9 @@ export function readableNodeTestError(error: string): string {
     normalized.includes('read socks connect response') ||
     normalized.includes('early eof')
   ) {
-    return '失败：连接超时'
+    return `${translate('node_test_failed_prefix', appLanguage)}：${translate('node_test_timeout', appLanguage)}`
   }
-  return `失败：${error}`
+  return `${translate('node_test_failed_prefix', appLanguage)}：${error}`
 }
 
 function canonicalProtocol(rawProtocol: string): string {

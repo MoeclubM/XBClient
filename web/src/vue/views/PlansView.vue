@@ -125,7 +125,7 @@ async function loadRewardConfig() {
   } else {
     store().setProfile({ paymentEnabled: false })
   }
-  if (rewardHistory.ok) store().setRewardLogs(parseRewardLogs(rewardHistory.body?.data))
+  if (rewardHistory.ok) store().setRewardLogs(parseRewardLogs(rewardHistory.body?.data, appState.settings.appLanguage))
 }
 
 async function buy(plan: PlanItem, price: PlanPrice) {
@@ -210,8 +210,8 @@ onMounted(loadPlans)
           :key="log.id || log.transactionId"
           class="glass-chip row-chip"
         >
-          <span>{{ log.rewardContent || rewardStatusText(log.status) }}</span>
-          <strong>{{ rewardStatusText(log.status) }}</strong>
+          <span>{{ log.rewardContent || rewardStatusText(log.status, appState.settings.appLanguage) }}</span>
+          <strong>{{ rewardStatusText(log.status, appState.settings.appLanguage) }}</strong>
         </div>
       </div>
     </v-card>

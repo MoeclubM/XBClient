@@ -65,9 +65,9 @@ export async function systemProxyClear(): Promise<void> {
 
 export function parseSocksAddr(addr: string): { host: string; port: number } {
   const idx = addr.lastIndexOf(':')
-  if (idx <= 0) throw new Error(`SOCKS 地址无效：${addr}`)
+  if (idx <= 0) throw new Error(`Invalid SOCKS address: ${addr}`)
   const port = Number(addr.slice(idx + 1))
-  if (!Number.isFinite(port) || port <= 0) throw new Error(`SOCKS 端口无效：${addr}`)
+  if (!Number.isFinite(port) || port <= 0) throw new Error(`Invalid SOCKS port: ${addr}`)
   return { host: addr.slice(0, idx), port }
 }
 
@@ -84,7 +84,7 @@ export async function openExternal(url: string): Promise<void> {
   try {
     await openUrl(url)
   } catch (error) {
-    throw new Error(publicErrorText(error, '无法打开链接'))
+    throw new Error(publicErrorText(error, 'Unable to open link'))
   }
 }
 
@@ -94,7 +94,7 @@ export async function openInAppBrowser(url: string, title = 'Browser'): Promise<
     try {
       await openUrl(url, 'inAppBrowser')
     } catch (error) {
-      throw new Error(publicErrorText(error, '无法打开链接'))
+      throw new Error(publicErrorText(error, 'Unable to open link'))
     }
     return
   }
@@ -110,7 +110,7 @@ export async function openInAppBrowser(url: string, title = 'Browser'): Promise<
       focus: true,
     })
     void webview.once('tauri://created', () => resolve())
-    void webview.once('tauri://error', (event) => reject(new Error(publicErrorText(event.payload, '无法打开链接'))))
+    void webview.once('tauri://error', (event) => reject(new Error(publicErrorText(event.payload, 'Unable to open link'))))
   })
 }
 

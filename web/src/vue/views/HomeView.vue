@@ -178,7 +178,7 @@ async function testNode(node: AppNode, index: number) {
     target_tls: target.tls,
     timeout_ms: 8000,
   })
-  store().setNodeResult(index, result.ok ? { latencyMs: result.latency_ms ?? result.first_latency_ms } : { testError: readableNodeTestError(result.error ?? '') })
+  store().setNodeResult(index, result.ok ? { latencyMs: result.latency_ms ?? result.first_latency_ms } : { testError: readableNodeTestError(result.error ?? '', appState.settings.appLanguage) })
 }
 
 function startDuration() {

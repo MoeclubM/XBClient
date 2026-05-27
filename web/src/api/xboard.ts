@@ -116,7 +116,7 @@ export async function xboardRequest<T = unknown>(
       },
     })
   } catch (error) {
-    throw new Error(publicErrorText(error, '请求失败'))
+    throw new Error(publicErrorText(error, 'Request failed'))
   }
 }
 

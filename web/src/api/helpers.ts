@@ -33,7 +33,7 @@ export function rowId(row: Row): string {
 
 export function failureText(response: { ok: boolean; status: number; body?: { message?: string; status?: string }; error?: string }): string {
   if (!response.ok) return response.body?.message ?? response.error ?? `HTTP ${response.status}`
-  if (response.body?.status === 'fail') return response.body.message ?? '请求失败'
+  if (response.body?.status === 'fail') return response.body.message ?? 'Request failed'
   return ''
 }
 

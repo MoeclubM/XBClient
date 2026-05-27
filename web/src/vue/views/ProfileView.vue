@@ -103,7 +103,7 @@ async function loadRewardConfig() {
   } else {
     store().setProfile({ paymentEnabled: false })
   }
-  if (rewardHistory.ok) store().setRewardLogs(parseRewardLogs(rewardHistory.body?.data))
+  if (rewardHistory.ok) store().setRewardLogs(parseRewardLogs(rewardHistory.body?.data, appState.settings.appLanguage))
 }
 
 async function createInvite() {
@@ -199,7 +199,7 @@ onMounted(loadProfile)
           :key="log.id || log.transactionId"
           class="glass-chip"
         >
-          <strong>{{ log.rewardContent || rewardStatusText(log.status) }}</strong>
+          <strong>{{ log.rewardContent || rewardStatusText(log.status, appState.settings.appLanguage) }}</strong>
           <span v-if="log.createdAt > 0">{{ formatUnixDate(log.createdAt) }}</span>
           <span v-if="log.status === 'failed' && log.error" class="text-error">{{ log.error }}</span>
         </div>
