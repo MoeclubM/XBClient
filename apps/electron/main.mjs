@@ -282,12 +282,31 @@ function webIndexHtml() {
   return path.resolve(repoRoot, 'web/dist/index.html')
 }
 
+function appIconPath() {
+  const packaged = path.join(process.resourcesPath, 'icon.png')
+  if (isPackaged && fs.existsSync(packaged)) return packaged
+  const built = path.join(__dirname, 'build', 'icon.png')
+  if (fs.existsSync(built)) return built
+  const logo = path.join(repoRoot, 'web/public/logo.png')
+  if (fs.existsSync(logo)) return logo
+  return ''
+}
+
+function loadAppIcon() {
+  const file = appIconPath()
+  if (!file) return nativeImage.createEmpty()
+  const image = nativeImage.createFromPath(file)
+  return image.isEmpty() ? nativeImage.createEmpty() : image
+}
+
 function createMainWindow() {
+  const icon = loadAppIcon()
   mainWindow = new BrowserWindow({
     width: 1024,
     height: 720,
     minWidth: 800,
     minHeight: 600,
+    ...(icon.isEmpty() ? {} : { icon }),
     webPreferences: {
       preload: path.resolve(__dirname, 'preload.mjs'),
       contextIsolation: true,
@@ -323,6 +342,11 @@ function setupAutoLaunch(appName) {
 }
 
 function createTrayIcon() {
+  const icon = loadAppIcon()
+  if (!icon.isEmpty()) {
+    return icon.resize({ width: 16, height: 16 })
+  }
+
   const width = 16
   const height = 16
   const r = 0x38

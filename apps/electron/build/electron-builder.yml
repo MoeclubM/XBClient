@@ -10,8 +10,11 @@ directories:
 files:
   - main.mjs
   - preload.mjs
+  - updater.mjs
   - package.json
 extraResources:
+  - from: build/icon.png
+    to: icon.png
   - from: ../../web/dist
     to: web/dist
   - from: ../../rust/electron-backend/target/release
