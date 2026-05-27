@@ -457,15 +457,6 @@ button {
   line-height: 1;
 }
 
-.license-text {
-  max-height: 72vh;
-  overflow: auto;
-  margin: 0;
-  white-space: pre-wrap;
-  color: var(--on-surface-variant);
-  font: 0.78rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-
 @media (max-width: 560px) {
   .liquid-header {
     align-items: stretch;
