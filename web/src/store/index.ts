@@ -18,6 +18,7 @@ export interface AppNode {
   rawJson: string
   latencyMs?: number
   testError?: string
+  _testing?: boolean
 }
 
 export interface VpnSession {
@@ -137,6 +138,7 @@ interface AppState {
   setSession(s: { baseUrl: string; authData: string; email: string }): void
   setSubscribe(s: { subscribeUrl: string; nodes: AppNode[] }): void
   setNodeResult(index: number, result: { latencyMs?: number; testError?: string }): void
+  setNodeLoading(index: number): void
   setVpn(session: VpnSession | null): void
   updateVpnTraffic(sessionId: number, uploadBytes: number, downloadBytes: number): void
   setSettings(patch: Partial<AppSettings>): void
@@ -258,7 +260,13 @@ const initialState: AppState = {
   setNodeResult: (index, result) =>
     set((state) => {
       const nodes = state.nodes.slice()
-      if (nodes[index]) nodes[index] = { ...nodes[index], ...result }
+      if (nodes[index]) nodes[index] = { ...nodes[index], ...result, _testing: false }
+      return { nodes }
+    }),
+  setNodeLoading: (index) =>
+    set((state) => {
+      const nodes = state.nodes.slice()
+      if (nodes[index]) nodes[index] = { ...nodes[index], _testing: true, latencyMs: undefined, testError: undefined }
       return { nodes }
     }),
   setVpn: (session) => set({ vpn: session }),

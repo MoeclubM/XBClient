@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showRewardedAd } from '../../api/system'
 import { xboardRequest } from '../../api/xboard'
-import { formatMoney, formatUnixDate, numericValue, publicErrorText } from '../../format'
+import { formatMoney, numericValue, publicErrorText } from '../../format'
 import { enabled, parseRewardLogs, rewardStatusText } from '../../reward'
 import { clearSession } from '../../store/persist'
 import { appState, store, t } from '../state'
@@ -17,6 +17,7 @@ interface XboardBody {
 
 const router = useRouter()
 const error = ref('')
+const message = ref('')
 const loading = ref(false)
 const rewardLoading = ref(false)
 const copied = ref('')
@@ -112,6 +113,7 @@ async function createInvite() {
     error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
     return
   }
+  message.value = t('invite_generated')
   await loadProfile()
 }
 
@@ -159,73 +161,142 @@ async function logout() {
   await router.replace('/login')
 }
 
+function formatUnixTime(value: number): string {
+  if (value <= 0) return ''
+  return new Date(value * 1000).toLocaleString()
+}
+
 onMounted(loadProfile)
 </script>
 
 <template>
   <section class="liquid-page">
-    <header class="liquid-header">
-      <div>
-        <p class="eyebrow">{{ appState.email || t('logged_out') }}</p>
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="page-header-bar" />
+      <div class="page-header-content">
+        <p class="muted">{{ appState.email || t('logged_out') }}</p>
         <h1>{{ t('nav_profile') }}</h1>
       </div>
-      <div class="header-actions">
-        <v-btn class="glass-button" @click="router.push('/tickets')">{{ t('nav_services') }}</v-btn>
-        <v-btn class="glass-button" @click="router.push('/settings')">{{ t('settings_button') }}</v-btn>
-        <v-btn class="glass-button danger" @click="logout">{{ t('logout') }}</v-btn>
+      <div class="d-flex gap-2">
+        <v-btn variant="outlined" size="small" @click="router.push('/settings')">
+          {{ t('settings_button') }}
+        </v-btn>
+        <v-btn variant="outlined" size="small" class="glass-button danger" @click="logout">
+          {{ t('logout') }}
+        </v-btn>
       </div>
-    </header>
+    </div>
 
     <v-alert v-if="error" color="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="message" color="primary" variant="tonal" class="mb-4">{{ message }}</v-alert>
 
-    <v-card class="glass-card profile-balance pa-5">
-      <p class="eyebrow">{{ t('balance') }}</p>
-      <h2>{{ formatMoney(appState.balance, appState.currencySymbol || '¥', appState.currencyUnit) }}</h2>
-      <p class="muted">{{ t('commission_balance') }}：{{ formatMoney(appState.commissionBalance, appState.currencySymbol || '¥', appState.currencyUnit) }}</p>
-      <p v-if="appState.subscription.summary" class="muted mt-3">{{ appState.subscription.summary }}</p>
-    </v-card>
-
-    <v-card v-if="appState.capabilities?.admob && appState.pointsRewardAdEnabled" class="glass-card pa-4 mt-4">
-      <div class="section-row">
-        <div>
-          <p class="eyebrow">{{ t('points_reward_ad_title') }}</p>
-          <p class="muted">{{ t('reward_ad_verify_desc') }}</p>
-        </div>
-        <v-btn color="primary" :loading="rewardLoading" @click="watchPointsRewardAd">{{ t('reward_watch') }}</v-btn>
-      </div>
-      <div v-if="appState.adRewardLogs.filter((log) => log.scene === 'points').length" class="stack mt-3">
-        <div
-          v-for="log in appState.adRewardLogs.filter((item) => item.scene === 'points').slice(0, 3)"
-          :key="log.id || log.transactionId"
-          class="glass-chip"
-        >
-          <strong>{{ log.rewardContent || rewardStatusText(log.status, appState.settings.appLanguage) }}</strong>
-          <span v-if="log.createdAt > 0">{{ formatUnixDate(log.createdAt) }}</span>
-          <span v-if="log.status === 'failed' && log.error" class="text-error">{{ log.error }}</span>
-        </div>
-      </div>
-    </v-card>
-
-    <v-card v-if="appState.inviteForce || appState.inviteCommissionRate > 0" class="glass-card pa-4 mt-4">
-      <div class="section-row">
-        <div>
-          <p class="eyebrow">{{ t('invites_title') }}</p>
-          <p class="muted">{{ t('commission') }} {{ appState.inviteCommissionRate }}%</p>
-        </div>
-        <v-btn color="primary" :loading="loading" @click="createInvite">{{ t('invite_generate') }}</v-btn>
-      </div>
-      <p v-if="!appState.invites.length" class="muted">{{ t('invites_empty') }}</p>
-      <div v-else class="stack">
-        <div v-for="invite in appState.invites" :key="invite.code" class="glass-chip row-chip">
-          <span>
-            <strong>{{ invite.code }}</strong>
-            <small>{{ invite.status === 0 ? t('unused') : t('used') }}</small>
-          </span>
-          <v-btn size="small" variant="tonal" @click="copyCode(invite.code)">
-            {{ copied === invite.code ? t('copied') : t('copy') }}
+    <!-- Account Section -->
+    <div class="page-section">
+      <p class="section-label">{{ t('section_account') }}</p>
+      <v-card class="panel-card">
+        <v-card-text>
+          <p class="text-h6 font-weight-bold">
+            {{ appState.email || t('status_logged_in') }}
+          </p>
+          <p class="muted mt-1">
+            {{ t('balance') }}：{{ formatMoney(appState.balance, appState.currencySymbol || '¥', appState.currencyUnit) }}
+          </p>
+          <p class="muted">
+            {{ t('commission_balance') }}：{{ formatMoney(appState.commissionBalance, appState.currencySymbol || '¥', appState.currencyUnit) }}
+          </p>
+          <p v-if="appState.subscription.summary" class="muted mt-2">
+            {{ appState.subscription.summary }}
+          </p>
+          <v-btn color="primary" block class="mt-4" @click="router.push('/settings')">
+            {{ t('settings_button') }}
           </v-btn>
-        </div>
-      </div>
-    </v-card>
+          <v-btn variant="outlined" block class="mt-2" @click="logout">
+            {{ t('logout') }}
+          </v-btn>
+        </v-card-text>
+      </v-card>
+    </div>
+
+    <!-- Points Reward Ad Section -->
+    <div v-if="appState.capabilities?.admob && appState.pointsRewardAdEnabled" class="page-section">
+      <v-card class="panel-card">
+        <v-card-text>
+          <div class="d-flex align-center gap-3 mb-4">
+            <div
+              class="d-flex align-center justify-center rounded-circle flex-shrink-0"
+              style="width:50px;height:50px;background:var(--primary-container);color:var(--on-primary-container);"
+            >
+              <span style="font-size:26px;">🎁</span>
+            </div>
+            <div>
+              <p class="text-body-1 font-weight-bold mb-0">{{ t('points_reward_ad_title') }}</p>
+              <p class="text-caption text-medium-emphasis mb-0">{{ t('reward_ad_verify_desc') }}</p>
+            </div>
+          </div>
+          <v-btn variant="tonal" color="primary" block :loading="rewardLoading" @click="watchPointsRewardAd">
+            {{ t('reward_watch') }}
+          </v-btn>
+          <div v-if="appState.adRewardLogs.filter((log) => log.scene === 'points').length" class="mt-4">
+            <p class="text-body-2 font-weight-bold mb-2">{{ t('reward_recent') }}</p>
+            <div
+              v-for="(log, i) in appState.adRewardLogs.filter((item) => item.scene === 'points').slice(0, 3)"
+              :key="log.id || log.transactionId"
+            >
+              <div class="d-flex align-center justify-space-between">
+                <div>
+                  <p class="text-body-2 mb-0">
+                    {{ log.rewardContent || rewardStatusText(log.status, appState.settings.appLanguage) }}
+                  </p>
+                  <p v-if="log.createdAt > 0" class="text-caption text-medium-emphasis mb-0">
+                    {{ formatUnixTime(log.createdAt) }}
+                  </p>
+                </div>
+                <span
+                  class="tag-chip"
+                  :style="{
+                    background: log.status === 'credited' ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : log.status === 'failed' ? 'color-mix(in srgb, var(--error) 12%, transparent)' : 'color-mix(in srgb, var(--tertiary) 12%, transparent)',
+                    color: log.status === 'credited' ? 'var(--primary)' : log.status === 'failed' ? 'var(--error)' : 'var(--tertiary)',
+                  }"
+                >{{ rewardStatusText(log.status, appState.settings.appLanguage) }}</span>
+              </div>
+              <v-divider v-if="i < Math.min(appState.adRewardLogs.filter((l) => l.scene === 'points').length, 3) - 1" class="my-2" />
+            </div>
+          </div>
+        </v-card-text>
+      </v-card>
+    </div>
+
+    <!-- Invite Section -->
+    <div v-if="appState.inviteForce || appState.inviteCommissionRate > 0" class="page-section">
+      <p class="section-label">{{ t('invites_title') }}</p>
+      <v-card class="panel-card">
+        <v-card-text>
+          <p class="muted">
+            {{ t('commission') }} {{ appState.inviteCommissionRate }}%
+            <span v-if="appState.inviteCommissionBalance > 0">
+              · {{ formatMoney(appState.inviteCommissionBalance, appState.currencySymbol || '¥', appState.currencyUnit) }}
+            </span>
+          </p>
+          <div v-if="appState.invites.length" class="mt-3 stack">
+            <div v-for="invite in appState.invites" :key="invite.code" class="d-flex align-center justify-space-between">
+              <div>
+                <p class="text-body-1 font-weight-bold mb-0">{{ invite.code }}</p>
+                <p class="text-caption text-medium-emphasis mb-0">
+                  {{ invite.status === 0 ? t('unused') : t('used') }}
+                </p>
+              </div>
+              <v-btn size="small" variant="tonal" @click="copyCode(invite.code)">
+                {{ copied === invite.code ? t('copied') : t('copy') }}
+              </v-btn>
+            </div>
+          </div>
+          <p v-else class="muted mt-2">{{ t('invites_empty') }}</p>
+          <v-btn color="primary" block class="mt-4" :loading="loading" @click="createInvite">
+            {{ t('invite_generate') }}
+          </v-btn>
+        </v-card-text>
+      </v-card>
+    </div>
   </section>
 </template>

@@ -12,6 +12,7 @@ const bootstrapError = ref('')
 let cleanupZoom: (() => void) | null = null
 
 const showNav = computed(() => Boolean(appState.authData) && !route.meta.hideNav)
+
 const themeName = computed(() => {
   if (appState.settings.themeMode === 'light' || appState.settings.themeMode === 'dark') return appState.settings.themeMode
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -21,6 +22,30 @@ watch(themeName, (value) => {
   theme.change(value)
   applyDocumentTheme()
 }, { immediate: true })
+
+const NAV_ITEMS = [
+  { path: '/home', icon: '⌂', label: () => t('nav_nodes') },
+  { path: '/plans', icon: '◫', label: () => t('nav_plans') },
+  { path: '/profile', icon: '◉', label: () => t('nav_profile') },
+  { path: '/settings', icon: '⚙', label: () => t('nav_settings') },
+]
+
+const activeNavIndex = computed(() => {
+  const idx = NAV_ITEMS.findIndex((item) => {
+    if (item.path === '/settings') return route.path.startsWith('/settings')
+    return route.path === item.path
+  })
+  return idx >= 0 ? idx : 0
+})
+
+const navPillStyle = computed(() => {
+  const count = NAV_ITEMS.length
+  const pct = 100 / count
+  return {
+    left: `calc(${activeNavIndex.value * pct}% + 2px)`,
+    width: `calc(${pct}% - 4px)`,
+  }
+})
 
 onMounted(async () => {
   cleanupZoom = preventDesktopZoom()
@@ -49,7 +74,7 @@ onUnmounted(() => cleanupZoom?.())
     </main>
 
     <main v-else-if="bootstrapError" class="startup-view">
-      <v-card class="glass-card pa-5" max-width="560">
+      <v-card class="glass-panel pa-5" max-width="560">
         <p class="text-error font-weight-bold mb-0">{{ t('bootstrap_config_missing') }}：{{ bootstrapError }}</p>
       </v-card>
     </main>
@@ -59,30 +84,19 @@ onUnmounted(() => cleanupZoom?.())
         <RouterView />
       </v-main>
 
-      <v-bottom-navigation
-        v-if="showNav"
-        class="liquid-bottom-nav"
-        :model-value="route.path"
-        grow
-        mandatory
-      >
-        <v-btn value="/home" @click="router.push('/home')">
-          <span class="nav-symbol">⌂</span>
-          <span>{{ t('nav_nodes') }}</span>
+      <nav v-if="showNav" class="liquid-bottom-nav">
+        <div class="nav-pill" :style="navPillStyle" />
+        <v-btn
+          v-for="(item, index) in NAV_ITEMS"
+          :key="item.path"
+          :value="item.path"
+          :class="{ 'v-btn--active': activeNavIndex === index }"
+          @click="router.push(item.path)"
+        >
+          <span class="nav-symbol">{{ item.icon }}</span>
+          <span>{{ item.label() }}</span>
         </v-btn>
-        <v-btn value="/plans" @click="router.push('/plans')">
-          <span class="nav-symbol">◫</span>
-          <span>{{ t('nav_plans') }}</span>
-        </v-btn>
-        <v-btn value="/profile" @click="router.push('/profile')">
-          <span class="nav-symbol">◉</span>
-          <span>{{ t('nav_profile') }}</span>
-        </v-btn>
-        <v-btn value="/settings" @click="router.push('/settings')">
-          <span class="nav-symbol">⚙</span>
-          <span>{{ t('nav_settings') }}</span>
-        </v-btn>
-      </v-bottom-navigation>
+      </nav>
     </template>
   </v-app>
 </template>

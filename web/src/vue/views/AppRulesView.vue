@@ -54,45 +54,73 @@ onMounted(() => {
 
 <template>
   <section class="liquid-page">
-    <header class="liquid-header">
-      <div>
-        <p class="eyebrow">{{ t('nav_settings') }}</p>
+    <div class="page-header">
+      <div class="page-header-bar subtitle" />
+      <div class="page-header-content">
+        <p class="muted">{{ t('nav_settings') }}</p>
         <h1>{{ t('page_app_rules_title') }}</h1>
-        <p class="muted">{{ t('page_app_rules_subtitle') }}</p>
       </div>
-    </header>
+    </div>
 
     <v-alert v-if="!appState.capabilities?.vpn" color="primary" variant="tonal" class="mb-4">
       {{ t('vpn_app_rules_android_only') }}
     </v-alert>
     <v-alert v-if="error" color="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
 
-    <v-card v-if="appState.capabilities?.vpn" class="glass-card pa-4">
-      <v-btn-toggle :model-value="appState.settings.appRuleMode" class="liquid-toggle mb-4" mandatory rounded="pill">
-        <v-btn value="exclude" @click="switchMode('exclude')">{{ t('mode_exclude') }}</v-btn>
-        <v-btn value="allow" @click="switchMode('allow')">{{ t('mode_allow') }}</v-btn>
-      </v-btn-toggle>
-      <v-text-field v-model="query" :label="t('search_app_label')" />
-      <p class="muted">
-        {{ appState.settings.appRuleMode === 'allow' ? t('app_rules_allow_desc') : t('app_rules_exclude_desc') }}
-      </p>
-    </v-card>
+    <template v-if="appState.capabilities?.vpn">
+      <div class="page-section">
+        <v-card class="panel-card">
+          <v-card-text>
+            <!-- Mode Toggle -->
+            <v-btn-toggle
+              :model-value="appState.settings.appRuleMode"
+              class="liquid-toggle mb-4"
+              mandatory
+              rounded="pill"
+            >
+              <v-btn value="exclude" @click="switchMode('exclude')">{{ t('mode_exclude') }}</v-btn>
+              <v-btn value="allow" @click="switchMode('allow')">{{ t('mode_allow') }}</v-btn>
+            </v-btn-toggle>
 
-    <v-card v-if="appState.capabilities?.vpn" class="glass-card pa-2 mt-4">
-      <button
-        v-for="app in filteredApps"
-        :key="app.packageName"
-        class="node-row"
-        :class="{ active: selectedPackages.has(app.packageName) }"
-        @click="togglePackage(app.packageName)"
-      >
-        <span>
-          <strong>{{ app.label }}</strong>
-          <small>{{ app.packageName }}</small>
-        </span>
-        <span>{{ selectedPackages.has(app.packageName) ? '✓' : '' }}</span>
-      </button>
-      <p v-if="!loading && !filteredApps.length" class="muted pa-3">{{ t('app_rules_none_selected') }}</p>
-    </v-card>
+            <!-- Search -->
+            <v-text-field
+              v-model="query"
+              :label="t('search_app_label')"
+              variant="outlined"
+              density="comfortable"
+            />
+
+            <p class="muted mt-2">
+              {{ appState.settings.appRuleMode === 'allow' ? t('app_rules_allow_desc') : t('app_rules_exclude_desc') }}
+            </p>
+            <p class="text-caption text-medium-emphasis mt-1">
+              {{ selectedPackages.size }} {{ t('app_rules_selected_count_suffix') }}
+            </p>
+          </v-card-text>
+        </v-card>
+      </div>
+
+      <!-- App List -->
+      <div class="page-section">
+        <div
+          v-for="app in filteredApps"
+          :key="app.packageName"
+          class="node-row mb-2"
+          :class="{ active: selectedPackages.has(app.packageName) }"
+          @click="togglePackage(app.packageName)"
+        >
+          <span>
+            <strong>{{ app.label }}</strong>
+            <small>{{ app.packageName }}</small>
+          </span>
+          <span class="text-primary font-weight-bold">
+            {{ selectedPackages.has(app.packageName) ? '✓' : '' }}
+          </span>
+        </div>
+        <p v-if="!loading && !filteredApps.length" class="muted pa-3">
+          {{ t('app_rules_none_selected') }}
+        </p>
+      </div>
+    </template>
   </section>
 </template>

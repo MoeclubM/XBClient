@@ -49,8 +49,23 @@ const tokenLoading = ref(false)
 const oauthConfirm = ref<{ token: string; provider: string; email: string } | null>(null)
 
 const baseUrl = computed(() => appState.buildConfig?.default_api_url ?? appState.baseUrl)
-const appName = computed(() => appState.buildConfig?.app_name || 'App')
+const appName = computed(() => appState.buildConfig?.app_name || 'XBClient')
 const oauthCallbackSupported = computed(() => appState.capabilities?.platform === 'android')
+
+const languageOptions = [
+  { value: 'system', label: 'System' },
+  { value: 'zh-CN', label: '中文' },
+  { value: 'en', label: 'English' },
+  { value: 'ja', label: '日本語' },
+  { value: 'ru', label: 'Русский' },
+  { value: 'fa', label: 'فارسی' },
+]
+
+const themeOptions = [
+  { value: 'system', label: t('theme_system') },
+  { value: 'light', label: t('theme_light') },
+  { value: 'dark', label: t('theme_dark') },
+]
 
 onMounted(() => {
   if (baseUrl.value) void loadGuestConfig()
@@ -270,77 +285,137 @@ async function finishLogin(authData: string, accountEmail: string) {
 
 <template>
   <main class="auth-shell">
-    <form class="auth-card glass-card" @submit.prevent="submit">
+    <form class="auth-card glass-panel" @submit.prevent="submit">
+      <!-- Toolbar: Language & Theme -->
       <div class="auth-toolbar">
         <v-select
           :model-value="appState.settings.appLanguage"
-          :items="['system', 'zh-CN', 'en', 'ja', 'ru', 'fa']"
+          :items="languageOptions"
+          item-title="label"
+          item-value="value"
           density="compact"
+          variant="outlined"
+          hide-details
           @update:model-value="persistSettings({ appLanguage: $event })"
         />
         <v-select
           :model-value="appState.settings.themeMode"
-          :items="['system', 'light', 'dark']"
+          :items="themeOptions"
+          item-title="label"
+          item-value="value"
           density="compact"
+          variant="outlined"
+          hide-details
           @update:model-value="persistSettings({ themeMode: $event })"
         />
       </div>
 
+      <!-- Brand -->
       <div class="auth-brand">
         <img src="/logo.png" :alt="appName">
         <h1>{{ appName }}</h1>
       </div>
 
-      <v-card class="glass-panel pa-4">
-        <v-btn-toggle v-model="mode" class="liquid-toggle mb-4" mandatory rounded="pill" divided>
-          <v-btn value="login" @click="switchMode('login')">{{ t('login') }}</v-btn>
-          <v-btn value="register" @click="switchMode('register')">{{ t('register') }}</v-btn>
-        </v-btn-toggle>
+      <!-- Auth Form -->
+      <v-card class="glass-panel">
+        <v-card-text>
+          <!-- Mode Toggle -->
+          <v-btn-toggle v-model="mode" class="liquid-toggle mb-4" mandatory rounded="pill" divided>
+            <v-btn value="login" @click="switchMode('login')">{{ t('login') }}</v-btn>
+            <v-btn value="register" @click="switchMode('register')">{{ t('register') }}</v-btn>
+          </v-btn-toggle>
 
-        <v-text-field v-model="email" :label="t('email')" type="email" autocomplete="username" />
-        <v-text-field v-model="password" :label="t('password')" type="password" autocomplete="current-password">
-          <template v-if="mode === 'login'" #append-inner>
-            <button class="text-button" type="button" @click="forgotPassword">
-              {{ forgotLoading ? t('refreshing') : t('forgot_password') }}
-            </button>
+          <v-text-field
+            v-model="email"
+            :label="t('email')"
+            type="email"
+            autocomplete="username"
+            variant="outlined"
+            density="comfortable"
+          />
+          <v-text-field
+            v-model="password"
+            :label="t('password')"
+            type="password"
+            autocomplete="current-password"
+            variant="outlined"
+            density="comfortable"
+            class="mt-2"
+          >
+            <template v-if="mode === 'login'" #append-inner>
+              <button class="text-button" type="button" @click="forgotPassword">
+                {{ forgotLoading ? t('refreshing') : t('forgot_password') }}
+              </button>
+            </template>
+          </v-text-field>
+
+          <template v-if="mode === 'register'">
+            <v-text-field
+              v-model="inviteCode"
+              :label="`${t('invite_code')}${appState.inviteForce ? ' *' : ''}`"
+              variant="outlined"
+              density="comfortable"
+              class="mt-2"
+            />
+            <v-text-field
+              v-if="appState.registerCaptchaEnabled"
+              v-model="captcha"
+              :label="t('captcha_token')"
+              variant="outlined"
+              density="comfortable"
+              class="mt-2"
+            />
+            <div v-if="appState.registerEmailVerifyEnabled" class="verify-row mt-2">
+              <v-text-field
+                v-model="emailCode"
+                :label="t('email_code')"
+                variant="outlined"
+                density="comfortable"
+              />
+              <v-btn
+                class="verify-button"
+                variant="outlined"
+                :loading="verifySending"
+                @click="sendEmailVerify"
+              >
+                {{ t('send_email_verify') }}
+              </v-btn>
+            </div>
           </template>
-        </v-text-field>
 
-        <template v-if="mode === 'register'">
-          <v-text-field v-model="inviteCode" :label="`${t('invite_code')}${appState.inviteForce ? ' *' : ''}`" />
-          <v-text-field v-if="appState.registerCaptchaEnabled" v-model="captcha" :label="t('captcha_token')" />
-          <div v-if="appState.registerEmailVerifyEnabled" class="verify-row">
-            <v-text-field v-model="emailCode" :label="t('email_code')" />
-            <v-btn class="verify-button" color="secondary" :loading="verifySending" @click="sendEmailVerify">
-              {{ t('send_email_verify') }}
-            </v-btn>
-          </div>
-        </template>
-
-        <v-btn class="mt-2" block color="primary" size="large" type="submit" :loading="loading">
-          {{ mode === 'login' ? t('login') : t('register') }}
-        </v-btn>
+          <v-btn class="mt-4" block color="primary" size="large" type="submit" :loading="loading">
+            {{ mode === 'login' ? t('login') : t('register') }}
+          </v-btn>
+        </v-card-text>
       </v-card>
 
-      <v-card v-if="oauthCallbackSupported || oauthConfirm" class="glass-panel pa-4">
-        <div class="section-row">
-          <h2>{{ t('auth_options') }}</h2>
-          <v-btn variant="text" size="small" :loading="configLoading" @click="loadGuestConfig(true)">{{ t('sync_config') }}</v-btn>
-        </div>
-        <div v-if="oauthCallbackSupported && appState.oauthProviders.length" class="stack">
-          <v-btn
-            v-for="provider in appState.oauthProviders"
-            :key="provider.driver"
-            variant="outlined"
-            @click="startOAuth(provider)"
-          >
-            {{ mode === 'login' ? t('oauth_login') : t('oauth_register') }} · {{ provider.label || provider.driver }}
-          </v-btn>
-        </div>
-        <v-alert v-if="oauthConfirm" color="primary" variant="tonal" density="compact">
-          {{ t('oauth_confirm_register') }} · {{ oauthConfirm.provider || 'OAuth' }}{{ oauthConfirm.email ? `：${oauthConfirm.email}` : '' }}
-          <v-btn class="ml-2" size="small" :loading="tokenLoading" @click="confirmOAuthRegister">{{ t('confirm') }}</v-btn>
-        </v-alert>
+      <!-- OAuth Section -->
+      <v-card v-if="oauthCallbackSupported && (appState.oauthProviders.length || oauthConfirm)" class="glass-panel">
+        <v-card-text>
+          <div class="d-flex align-center justify-space-between mb-2">
+            <p class="text-body-1 font-weight-bold mb-0">{{ t('auth_options') }}</p>
+            <v-btn variant="text" size="small" :loading="configLoading" @click="loadGuestConfig(true)">
+              {{ t('sync_config') }}
+            </v-btn>
+          </div>
+          <div v-if="appState.oauthProviders.length" class="stack">
+            <v-btn
+              v-for="provider in appState.oauthProviders"
+              :key="provider.driver"
+              variant="outlined"
+              block
+              @click="startOAuth(provider)"
+            >
+              {{ mode === 'login' ? t('oauth_login') : t('oauth_register') }} · {{ provider.label || provider.driver }}
+            </v-btn>
+          </div>
+          <v-alert v-if="oauthConfirm" color="primary" variant="tonal" density="compact" class="mt-3">
+            {{ t('oauth_confirm_register') }} · {{ oauthConfirm.provider || 'OAuth' }}{{ oauthConfirm.email ? `：${oauthConfirm.email}` : '' }}
+            <v-btn class="ml-2" size="small" :loading="tokenLoading" @click="confirmOAuthRegister">
+              {{ t('confirm') }}
+            </v-btn>
+          </v-alert>
+        </v-card-text>
       </v-card>
 
       <v-alert v-if="message" color="primary" variant="tonal">{{ message }}</v-alert>

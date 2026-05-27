@@ -58,6 +58,16 @@ const progressPercent = computed(() =>
     ? Math.min(100, (appState.subscription.trafficUsedBytes / appState.subscription.trafficTotalBytes) * 100)
     : 0,
 )
+const blockTitle = computed(() => {
+  if (appState.subscription.blockReason === 'no_plan') return t('subscription_no_plan_title')
+  if (appState.subscription.blockReason === 'traffic_exceeded') return t('subscription_traffic_exceeded_title')
+  return t('subscription_expired_title')
+})
+const blockDescription = computed(() => {
+  if (appState.subscription.blockReason === 'no_plan') return t('subscription_no_plan_body')
+  if (appState.subscription.blockReason === 'traffic_exceeded') return t('subscription_traffic_exceeded_body')
+  return t('subscription_expired_body')
+})
 
 onMounted(async () => {
   await refresh()
@@ -171,6 +181,7 @@ async function resolvedNode(node: AppNode): Promise<unknown> {
 
 async function testNode(node: AppNode, index: number) {
   const target = targetHostPort(appState.settings.nodeTestTarget)
+  store().setNodeLoading(index)
   const result = await aerionTestNode({
     node: await resolvedNode(node),
     target_host: target.host,
@@ -232,91 +243,175 @@ async function toggleConnection(index = selectedNodeIndex.value) {
     connectingIndex.value = null
   }
 }
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim()
+}
+
+function formatUnixTime(value: number): string {
+  if (value <= 0) return ''
+  return new Date(value * 1000).toLocaleString()
+}
 </script>
 
 <template>
   <section class="liquid-page">
-    <header class="liquid-header">
-      <div>
-        <p class="eyebrow">{{ loading ? t('refreshing') : (appState.email || t('logged_out')) }}</p>
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="page-header-bar" />
+      <div class="page-header-content">
         <h1>{{ t('nav_nodes') }}</h1>
       </div>
-      <v-btn class="glass-button" :loading="loading" @click="refresh">{{ loading ? t('refreshing') : t('refresh') }}</v-btn>
-    </header>
+      <v-btn variant="outlined" :loading="loading" @click="refresh">
+        {{ loading ? t('refreshing') : t('refresh') }}
+      </v-btn>
+    </div>
 
     <v-alert v-if="error" color="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
 
-    <v-card v-if="appState.subscription.blockReason" class="glass-card pa-4 mb-4">
-      <p class="font-weight-bold text-error mb-3">
-        {{ appState.subscription.blockReason === 'expired' ? t('subscription_expired') : appState.subscription.blockReason === 'traffic_exceeded' ? t('subscription_traffic_exceeded') : t('subscription_no_plan') }}
-      </p>
-      <v-btn color="primary" @click="router.push('/plans')">{{ t('go_to_plans') }}</v-btn>
-    </v-card>
-
-    <v-card class="glass-card connection-card pa-5">
-      <p class="eyebrow">{{ t('section_connection') }}</p>
-      <h2>{{ appState.vpn ? t('status_connected') : t('status_disconnected') }}</h2>
-      <button class="liquid-orb" :class="{ connected: appState.vpn }" :disabled="connectingIndex !== null || (!appState.vpn && Boolean(selectedNode && !selectedNode.connectSupported))" @click="toggleConnection()">
-        {{ connectingIndex !== null ? t('action_connecting') : appState.vpn ? t('action_disconnect') : t('action_connect') }}
-      </button>
-      <p v-if="selectedNode && !selectedNode.connectSupported" class="muted text-error">{{ t('unsupported_protocol') }}</p>
-      <div v-if="appState.vpn" class="metric-grid">
-        <div class="glass-chip">
-          <span>{{ t('session_duration') }}</span>
-          <strong>{{ formatDuration(duration) }}</strong>
-        </div>
-        <div class="glass-chip">
-          <span>{{ t('session_traffic') }}</span>
-          <strong>{{ formatTrafficBytes(appState.vpn.uploadBytes + appState.vpn.downloadBytes) }}</strong>
-        </div>
-      </div>
-    </v-card>
-
-    <v-card class="glass-card pa-4 mt-4">
-      <p class="eyebrow">{{ t('section_current_node') }}</p>
-      <h3>{{ selectedNode ? displayNodeName(selectedNode, selectedNodeIndex) : t('no_nodes') }}</h3>
-      <p v-if="selectedNode" class="muted">{{ selectedNode.protocolLabel }} · {{ selectedNode.host }}:{{ selectedNode.port }}</p>
-    </v-card>
-
-    <v-card v-if="appState.subscription.trafficTotalBytes > 0" class="glass-card pa-4 mt-4">
-      <p class="eyebrow">{{ t('section_traffic') }}</p>
-      <v-progress-linear class="my-3" color="primary" height="10" rounded :model-value="progressPercent" />
-      <p class="muted">{{ appState.subscription.summary }}</p>
-    </v-card>
-
-    <section v-if="appState.notices.length" class="mt-4 stack">
-      <p class="eyebrow">{{ t('announcement') }}</p>
-      <v-card v-for="notice in appState.notices" :key="notice.id" class="glass-card pa-4">
-        <h3>{{ notice.title }}</h3>
-        <p class="muted preline">{{ notice.content.replace(/<[^>]+>/g, '') }}</p>
+    <!-- Subscription Blocked -->
+    <div v-if="appState.subscription.blockReason" class="page-section">
+      <p class="section-label">{{ blockTitle }}</p>
+      <v-card class="panel-card">
+        <v-card-text>
+          <p class="muted">{{ blockDescription }}</p>
+          <p v-if="appState.subscription.summary" class="text-body-1 font-weight-bold mt-2">
+            {{ appState.subscription.summary }}
+          </p>
+          <v-btn class="mt-4" color="primary" block @click="router.push('/plans')">
+            {{ t('go_to_plans') }}
+          </v-btn>
+        </v-card-text>
       </v-card>
-    </section>
+    </div>
 
-    <v-card class="glass-card pa-4 mt-4">
-      <div class="section-row">
-        <p class="eyebrow mb-0">{{ t('select_node') }}</p>
-        <span class="muted">{{ appState.nodes.length }}</span>
+    <!-- Connection Section -->
+    <div v-if="!appState.subscription.blockReason" class="page-section">
+      <p class="section-label">{{ t('section_connection') }}</p>
+      <v-card class="panel-card connection-card">
+        <v-card-text>
+          <h2>{{ appState.vpn ? t('status_connected') : t('status_disconnected') }}</h2>
+          <button
+            class="liquid-orb mt-4"
+            :class="{ connected: appState.vpn }"
+            :disabled="connectingIndex !== null || (!appState.vpn && Boolean(selectedNode && !selectedNode.connectSupported))"
+            @click="toggleConnection()"
+          >
+            {{ connectingIndex !== null ? t('action_connecting') : appState.vpn ? t('action_disconnect') : t('action_connect') }}
+          </button>
+          <p v-if="selectedNode && !selectedNode.connectSupported" class="text-error mt-2 text-caption">
+            {{ t('unsupported_protocol') }}
+          </p>
+          <div v-if="appState.vpn" class="metric-grid mt-4">
+            <div class="metric-cell">
+              <span>{{ t('session_duration') }}</span>
+              <strong>{{ formatDuration(duration) }}</strong>
+            </div>
+            <div class="metric-cell">
+              <span>{{ t('session_traffic') }}</span>
+              <strong>{{ formatTrafficBytes(appState.vpn.uploadBytes + appState.vpn.downloadBytes) }}</strong>
+            </div>
+          </div>
+        </v-card-text>
+      </v-card>
+    </div>
+
+    <!-- Current Node Section -->
+    <div v-if="!appState.subscription.blockReason" class="page-section">
+      <p class="section-label">{{ t('section_current_node') }}</p>
+      <v-card
+        class="panel-card"
+        :class="{ 'cursor-pointer': appState.nodes.length > 0 }"
+        @click="appState.nodes.length > 0 && router.push('/home/nodes')"
+      >
+        <v-card-text>
+          <div class="d-flex align-center">
+            <div class="flex-grow-1">
+              <h3 class="text-h6">
+                {{ selectedNode ? displayNodeName(selectedNode, selectedNodeIndex) : (loading ? t('refreshing') : t('no_nodes')) }}
+              </h3>
+              <p v-if="selectedNode" class="muted mt-1">
+                {{ selectedNode.protocolLabel }}
+                <span v-if="selectedNode.latencyMs"> · {{ selectedNode.latencyMs }} ms</span>
+              </p>
+            </div>
+            <span v-if="appState.nodes.length > 0" class="text-h5 text-medium-emphasis">›</span>
+          </div>
+        </v-card-text>
+      </v-card>
+    </div>
+
+    <!-- Traffic Section -->
+    <div v-if="!appState.subscription.blockReason && appState.subscription.trafficTotalBytes > 0" class="page-section">
+      <p class="section-label">{{ t('section_traffic') }}</p>
+      <v-card class="panel-card">
+        <v-card-text>
+          <p class="muted mb-2">{{ appState.subscription.summary }}</p>
+          <v-progress-linear
+            color="primary"
+            height="8"
+            rounded
+            :model-value="progressPercent"
+            bg-color="surface-container-high"
+          />
+        </v-card-text>
+      </v-card>
+    </div>
+
+    <!-- Notices -->
+    <div v-if="appState.notices.length" class="page-section">
+      <p class="section-label">{{ t('announcement') }}</p>
+      <div class="stack">
+        <v-card v-for="notice in appState.notices" :key="notice.id" class="panel-card">
+          <v-card-text>
+            <p v-if="notice.title" class="text-body-1 font-weight-bold">{{ notice.title }}</p>
+            <p class="muted preline">{{ stripHtml(notice.content) }}</p>
+            <p v-if="notice.createdAt > 0" class="text-caption mt-2 text-medium-emphasis">
+              {{ formatUnixTime(notice.createdAt) }}
+            </p>
+          </v-card-text>
+        </v-card>
+      </div>
+    </div>
+
+    <!-- Node List Section -->
+    <div v-if="!appState.subscription.blockReason" class="page-section">
+      <div class="d-flex align-center justify-space-between mb-2">
+        <p class="section-label mb-0">{{ t('select_node') }}</p>
+        <span class="text-caption text-medium-emphasis">{{ appState.nodes.length }}</span>
       </div>
       <div class="node-list">
         <div
           v-for="(node, index) in appState.nodes"
           :key="`${node.name}-${index}`"
-          class="node-row node-row-action"
+          class="node-row"
           :class="{ active: index === selectedNodeIndex }"
         >
-          <button class="node-pick" :disabled="!node.connectSupported" @click="toggleConnection(index)">
+          <button
+            class="node-pick"
+            :disabled="!node.connectSupported"
+            @click="toggleConnection(index)"
+          >
             <span>
               <strong>{{ displayNodeName(node, index) }}</strong>
               <small>{{ node.protocolLabel }} · {{ node.host }}{{ node.connectSupported ? '' : ` · ${t('unsupported_protocol')}` }}</small>
             </span>
           </button>
           <span class="node-actions">
-            <small v-if="node.latencyMs">{{ node.latencyMs }}ms</small>
-            <v-btn size="small" variant="text" @click.stop="testNode(node, index)">{{ t('node_test') }}</v-btn>
+            <small v-if="node.latencyMs">{{ node.latencyMs }} ms</small>
+            <v-btn
+              v-if="node.connectSupported"
+              size="small"
+              variant="text"
+              :loading="node._testing"
+              @click.stop="testNode(node, index)"
+            >
+              ↻
+            </v-btn>
           </span>
         </div>
         <p v-if="!loading && !appState.nodes.length" class="muted pa-3">{{ t('no_nodes') }}</p>
       </div>
-    </v-card>
+    </div>
   </section>
 </template>

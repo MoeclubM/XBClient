@@ -31,6 +31,7 @@ interface XboardBody {
 const loading = ref(false)
 const rewardLoading = ref(false)
 const message = ref('')
+const error = ref('')
 
 function rows(value: unknown): RawPlan[] {
   if (Array.isArray(value)) return value as RawPlan[]
@@ -67,6 +68,7 @@ function parsePlan(raw: RawPlan): PlanItem {
 async function loadPlans() {
   loading.value = true
   message.value = ''
+  error.value = ''
   try {
     const [config, plans, userInfo] = await Promise.all([
       xboardRequest<XboardBody>('user_config', { baseUrl: appState.baseUrl, authData: appState.authData }),
@@ -74,7 +76,7 @@ async function loadPlans() {
       xboardRequest<XboardBody>('user_info', { baseUrl: appState.baseUrl, authData: appState.authData }),
     ])
     if (!plans.ok) {
-      message.value = plans.body?.message ?? plans.error ?? `HTTP ${plans.status}`
+      error.value = plans.body?.message ?? plans.error ?? `HTTP ${plans.status}`
       return
     }
     store().setPlans(rows(plans.body?.data).map(parsePlan).filter((plan) => plan.id > 0))
@@ -88,7 +90,7 @@ async function loadPlans() {
     })
     await loadRewardConfig()
   } catch (err) {
-    message.value = publicErrorText(err)
+    error.value = publicErrorText(err)
   } finally {
     loading.value = false
   }
@@ -129,34 +131,59 @@ async function loadRewardConfig() {
 }
 
 async function buy(plan: PlanItem, price: PlanPrice) {
-  if (appState.capabilities?.admob) {
-    const response = await xboardRequest<{ data?: string; message?: string }>('xbclient_plan_payment', {
+  if (appState.paymentEnabled) {
+    if (appState.capabilities?.admob) {
+      const response = await xboardRequest<{ data?: string; message?: string }>('xbclient_plan_payment', {
+        baseUrl: appState.baseUrl,
+        authData: appState.authData,
+        params: { plan_id: plan.id },
+      })
+      if (!response.ok || !response.body?.data) {
+        error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+        return
+      }
+      await openInAppBrowser(response.body.data, plan.name)
+      return
+    }
+    const response = await xboardRequest<{ data?: string; message?: string }>('quick_login_url', {
       baseUrl: appState.baseUrl,
       authData: appState.authData,
-      params: { plan_id: plan.id },
+      params: { redirect: `/#/plan/${plan.id}?period=${price.field}` },
     })
     if (!response.ok || !response.body?.data) {
-      message.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+      error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
       return
     }
     await openInAppBrowser(response.body.data, plan.name)
     return
   }
-  const response = await xboardRequest<{ data?: string; message?: string }>('quick_login_url', {
+  // Balance purchase
+  const response = await xboardRequest<{ data?: string; message?: string }>('order_save', {
     baseUrl: appState.baseUrl,
     authData: appState.authData,
-    params: { redirect: `/#/plan/${plan.id}?period=${price.field}` },
+    params: { plan_id: plan.id, period: price.field },
   })
   if (!response.ok || !response.body?.data) {
-    message.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+    error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
     return
   }
-  await openInAppBrowser(response.body.data, plan.name)
+  const tradeNo = response.body.data
+  const checkout = await xboardRequest<{ type?: number; message?: string }>('order_checkout', {
+    baseUrl: appState.baseUrl,
+    authData: appState.authData,
+    params: { trade_no: tradeNo },
+  })
+  if (!checkout.ok || checkout.body?.type !== -1) {
+    error.value = checkout.body?.message ?? checkout.error ?? `HTTP ${checkout.status}`
+    return
+  }
+  message.value = t('balance_pay_success')
+  await loadPlans()
 }
 
 async function watchPlanRewardAd() {
   rewardLoading.value = true
-  message.value = ''
+  error.value = ''
   try {
     await showRewardedAd({
       adUnitId: appState.planRewardedAdUnitId,
@@ -169,15 +196,25 @@ async function watchPlanRewardAd() {
       params: { custom_data: appState.planRewardSsvCustomData },
     })
     if (!pending.ok || pending.body?.status === 'fail') {
-      message.value = pending.body?.message ?? pending.error ?? `HTTP ${pending.status}`
+      error.value = pending.body?.message ?? pending.error ?? `HTTP ${pending.status}`
       return
     }
     await loadPlans()
   } catch (err) {
-    message.value = publicErrorText(err)
+    error.value = publicErrorText(err)
   } finally {
     rewardLoading.value = false
   }
+}
+
+function planPriceText(plan: PlanItem): string {
+  if (!plan.prices.length) return t('plan_price_unset')
+  return plan.prices.map((p) => `${p.label} ${formatMoney(p.amount, appState.currencySymbol || '¥', appState.currencyUnit)}`).join(' · ')
+}
+
+function formatUnixTime(value: number): string {
+  if (value <= 0) return ''
+  return new Date(value * 1000).toLocaleString()
 }
 
 onMounted(loadPlans)
@@ -185,53 +222,114 @@ onMounted(loadPlans)
 
 <template>
   <section class="liquid-page">
-    <header class="liquid-header">
-      <div>
-        <p class="eyebrow">{{ t('balance') }}</p>
-        <h1>{{ t('nav_plans') }}</h1>
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="page-header-bar" />
+      <div class="page-header-content">
         <p class="muted">{{ formatMoney(appState.balance, appState.currencySymbol || '¥', appState.currencyUnit) }}</p>
+        <h1>{{ t('nav_plans') }}</h1>
       </div>
-      <v-btn class="glass-button" :loading="loading" @click="loadPlans">{{ loading ? t('refreshing') : t('refresh') }}</v-btn>
-    </header>
+      <v-btn variant="outlined" :loading="loading" @click="loadPlans">
+        {{ loading ? t('refreshing') : t('refresh') }}
+      </v-btn>
+    </div>
 
-    <v-alert v-if="message" class="mb-4" color="primary" variant="tonal">{{ message }}</v-alert>
+    <v-alert v-if="error" color="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
+    <v-alert v-if="message" color="primary" variant="tonal" class="mb-4">{{ message }}</v-alert>
 
-    <v-card v-if="appState.capabilities?.admob && appState.planRewardAdEnabled" class="glass-card pa-4 mb-4">
-      <div class="section-row">
-        <div>
-          <p class="eyebrow">{{ t('plan_reward_ad_title') }}</p>
-          <p class="muted">{{ t('reward_ad_verify_desc') }}</p>
-        </div>
-        <v-btn color="primary" :loading="rewardLoading" @click="watchPlanRewardAd">{{ t('reward_watch') }}</v-btn>
-      </div>
-      <div v-if="appState.adRewardLogs.filter((log) => log.scene === 'plan').length" class="stack mt-3">
-        <div
-          v-for="log in appState.adRewardLogs.filter((item) => item.scene === 'plan').slice(0, 3)"
-          :key="log.id || log.transactionId"
-          class="glass-chip row-chip"
-        >
-          <span>{{ log.rewardContent || rewardStatusText(log.status, appState.settings.appLanguage) }}</span>
-          <strong>{{ rewardStatusText(log.status, appState.settings.appLanguage) }}</strong>
-        </div>
-      </div>
-    </v-card>
-
-    <div class="plans-grid">
-      <v-card v-for="plan in appState.plans" :key="plan.id" class="glass-card plan-card pa-4">
-        <div class="section-row">
-          <h2>{{ plan.name }}</h2>
-          <span class="glass-badge">{{ formatTrafficGb(plan.transferEnable) }}</span>
-        </div>
-        <p class="muted preline">{{ plan.content }}</p>
-        <div class="price-grid">
-          <button v-for="price in plan.prices" :key="price.field" class="price-tile" @click="buy(plan, price)">
-            <span>{{ price.label }}</span>
-            <strong>{{ formatMoney(price.amount, appState.currencySymbol || '¥', appState.currencyUnit) }}</strong>
-          </button>
-        </div>
+    <!-- Reward Ad Section -->
+    <div v-if="appState.capabilities?.admob && appState.planRewardAdEnabled" class="page-section">
+      <v-card class="panel-card">
+        <v-card-text>
+          <div class="d-flex align-center gap-3 mb-4">
+            <div
+              class="d-flex align-center justify-center rounded-circle flex-shrink-0"
+              style="width:50px;height:50px;background:var(--primary-container);color:var(--on-primary-container);"
+            >
+              <span style="font-size:26px;">🎁</span>
+            </div>
+            <div class="flex-grow-1">
+              <p class="text-body-1 font-weight-bold mb-0">{{ t('plan_reward_ad_title') }}</p>
+            </div>
+          </div>
+          <v-btn variant="tonal" color="primary" block :loading="rewardLoading" @click="watchPlanRewardAd">
+            {{ t('reward_watch') }}
+          </v-btn>
+          <div v-if="appState.adRewardLogs.filter((log) => log.scene === 'plan').length" class="mt-4">
+            <p class="text-body-2 font-weight-bold mb-2">{{ t('reward_recent') }}</p>
+            <div
+              v-for="(log, i) in appState.adRewardLogs.filter((item) => item.scene === 'plan').slice(0, 3)"
+              :key="log.id || log.transactionId"
+            >
+              <div class="d-flex align-center justify-space-between">
+                <div>
+                  <p class="text-body-2 mb-0">
+                    {{ log.rewardContent || rewardStatusText(log.status, appState.settings.appLanguage) }}
+                  </p>
+                  <p v-if="log.createdAt > 0" class="text-caption text-medium-emphasis mb-0">
+                    {{ formatUnixTime(log.createdAt) }}
+                  </p>
+                  <p v-if="log.status === 'failed' && log.error" class="text-caption text-error mb-0">{{ log.error }}</p>
+                </div>
+                <span
+                  class="tag-chip"
+                  :style="{
+                    background: log.status === 'credited' ? 'color-mix(in srgb, var(--primary) 12%, transparent)' : log.status === 'failed' ? 'color-mix(in srgb, var(--error) 12%, transparent)' : 'color-mix(in srgb, var(--tertiary) 12%, transparent)',
+                    color: log.status === 'credited' ? 'var(--primary)' : log.status === 'failed' ? 'var(--error)' : 'var(--tertiary)',
+                  }"
+                >{{ rewardStatusText(log.status, appState.settings.appLanguage) }}</span>
+              </div>
+              <v-divider v-if="i < Math.min(appState.adRewardLogs.filter((l) => l.scene === 'plan').length, 3) - 1" class="my-2" />
+            </div>
+          </div>
+        </v-card-text>
       </v-card>
-      <v-card v-if="!loading && !appState.plans.length" class="glass-card pa-4">
-        <p class="muted">{{ t('plans_empty') }}</p>
+    </div>
+
+    <!-- Plans -->
+    <div class="plans-grid">
+      <v-card v-for="plan in appState.plans" :key="plan.id" class="panel-card">
+        <v-card-text>
+          <div class="d-flex align-center justify-space-between">
+            <div>
+              <p class="text-h6 font-weight-bold mb-0">{{ plan.name }}</p>
+              <p v-if="plan.transferEnable > 0" class="muted mt-1">
+                {{ t('plan_traffic') }} {{ formatTrafficGb(plan.transferEnable) }}
+              </p>
+            </div>
+            <span class="glass-badge">{{ planPriceText(plan) }}</span>
+          </div>
+          <p v-if="plan.content && !plan.content.startsWith('[') && !plan.content.startsWith('{')" class="muted mt-3 preline">
+            {{ plan.content }}
+          </p>
+          <div v-if="!appState.paymentEnabled && plan.prices.length" class="mt-4 stack">
+            <v-btn
+              v-for="price in plan.prices"
+              :key="price.field"
+              variant="tonal"
+              block
+              @click="buy(plan, price)"
+            >
+              {{ price.label }} {{ formatMoney(price.amount, appState.currencySymbol || '¥', appState.currencyUnit) }}
+            </v-btn>
+          </div>
+          <div v-if="appState.paymentEnabled && plan.prices.length" class="price-grid mt-4">
+            <button
+              v-for="price in plan.prices"
+              :key="price.field"
+              class="price-tile"
+              @click="buy(plan, price)"
+            >
+              <span>{{ price.label }}</span>
+              <strong>{{ formatMoney(price.amount, appState.currencySymbol || '¥', appState.currencyUnit) }}</strong>
+            </button>
+          </div>
+        </v-card-text>
+      </v-card>
+      <v-card v-if="!loading && !appState.plans.length" class="panel-card">
+        <v-card-text>
+          <p class="muted">{{ t('plans_empty') }}</p>
+        </v-card-text>
       </v-card>
     </div>
   </section>
