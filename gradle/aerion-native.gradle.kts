@@ -38,7 +38,6 @@ val aerionNdkBinDir = aerionAndroidNdkDir.resolve("toolchains/llvm/prebuilt/$aer
 val aerionRustFlags = "-C link-arg=-Wl,-z,max-page-size=16384"
 val aerionTargets = listOf(
     Triple("arm64-v8a", "aarch64-linux-android", "aarch64-linux-android${aerionMinAndroidApi}-clang$aerionExecutableSuffix"),
-    Triple("x86_64", "x86_64-linux-android", "x86_64-linux-android${aerionMinAndroidApi}-clang$aerionExecutableSuffix"),
 )
 
 fun aerionRustEnvName(target: String): String =

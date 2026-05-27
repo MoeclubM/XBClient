@@ -102,42 +102,25 @@ jobs:
 
       - name: Set up Rust Android targets
         shell: bash
-        run: |
-          rustup target add \
-            aarch64-linux-android \
-            x86_64-linux-android
+        run: rustup target add aarch64-linux-android
 
-      - name: Build signed release APKs and AAB
+      - name: Build signed release APK and AAB
         shell: bash
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleRelease :app:bundleRelease --build-cache --stacktrace
 
-      - name: Upload release arm64-v8a APK
+      - name: Upload release Android APK
         uses: actions/upload-artifact@v6
         with:
-          name: xbclient-release-arm64-v8a-${{ github.ref_name }}
+          name: xbclient-release-android-${{ github.ref_name }}
           path: app/build/outputs/apk/release/app-arm64-v8a-release.apk
           if-no-files-found: error
 
-      - name: Upload release x86_64 APK
+      - name: Upload release Android AAB
         uses: actions/upload-artifact@v6
         with:
-          name: xbclient-release-x86_64-${{ github.ref_name }}
-          path: app/build/outputs/apk/release/app-x86_64-release.apk
-          if-no-files-found: error
-
-      - name: Upload release universal APK
-        uses: actions/upload-artifact@v6
-        with:
-          name: xbclient-release-universal-${{ github.ref_name }}
-          path: app/build/outputs/apk/release/app-universal-release.apk
-          if-no-files-found: error
-
-      - name: Upload release AAB
-        uses: actions/upload-artifact@v6
-        with:
-          name: xbclient-release-aab-${{ github.ref_name }}
+          name: xbclient-release-android-aab-${{ github.ref_name }}
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
@@ -146,8 +129,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/bundle/release/*.aab
+            app/build/outputs/apk/release/app-arm64-v8a-release.apk
+            app/build/outputs/bundle/release/app-release.aab
           generate_release_notes: true
 
   windows-electron-release:
