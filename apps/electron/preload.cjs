@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('electronAPI', {
   invoke: (cmd, args) => ipcRenderer.invoke('electron-invoke', { cmd, args }),
   getVersion: () => ipcRenderer.invoke('electron-get-version'),
+  getRuntimeConfig: () => ipcRenderer.invoke('electron-get-runtime-config'),
+  getRuntimeCapabilities: () => ipcRenderer.invoke('electron-get-runtime-capabilities'),
   openExternal: (url) => ipcRenderer.invoke('electron-open-external', { url }),
   openInAppBrowser: (url, title) => ipcRenderer.invoke('electron-open-inapp-browser', { url, title }),
   takeOAuthCallback: () => ipcRenderer.invoke('electron-oauth-take-callback'),

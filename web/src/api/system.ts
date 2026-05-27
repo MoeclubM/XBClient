@@ -29,10 +29,16 @@ export interface RuntimeConfig {
 }
 
 export async function runtimeCapabilities(): Promise<RuntimeCapabilities> {
+  if (window.electronAPI?.getRuntimeCapabilities) {
+    return window.electronAPI.getRuntimeCapabilities()
+  }
   return invoke('runtime_capabilities')
 }
 
 export async function runtimeConfig(): Promise<RuntimeConfig> {
+  if (window.electronAPI?.getRuntimeConfig) {
+    return window.electronAPI.getRuntimeConfig()
+  }
   return invoke('runtime_config')
 }
 

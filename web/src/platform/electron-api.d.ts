@@ -1,3 +1,15 @@
+export interface ElectronRuntimeCapabilities {
+  platform: string
+  system_proxy: boolean
+  oauth_callback: boolean
+  autostart: boolean
+  tray: boolean
+  local_socks: boolean
+  vpn: boolean
+  payment: boolean
+  admob: boolean
+}
+
 export interface ElectronAPIInvoke {
   <T = unknown>(cmd: string, args?: unknown): Promise<T>
 }
@@ -5,6 +17,13 @@ export interface ElectronAPIInvoke {
 export interface ElectronAPI {
   invoke: ElectronAPIInvoke
   getVersion: () => Promise<string>
+  getRuntimeConfig: () => Promise<{
+    app_name: string
+    default_api_url: string
+    user_agent: string
+    oauth_callback_scheme: string
+  }>
+  getRuntimeCapabilities: () => Promise<ElectronRuntimeCapabilities>
   openExternal: (url: string) => Promise<boolean>
   openInAppBrowser: (url: string, title?: string) => Promise<boolean>
   takeOAuthCallback: () => Promise<string | null>

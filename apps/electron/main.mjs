@@ -23,6 +23,7 @@ let viteProc = null
 let pendingOAuthUrl = null
 const oauthBrowserWindows = new Set()
 let activeVpnSessionId = null
+let backendIsReady = false
 
 function parsePropertiesFile(file) {
   const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/)
@@ -133,6 +134,31 @@ function backendReleaseBinaryPath() {
   return path.resolve(repoRoot, 'rust/electron-backend/target/release', backendBinaryName())
 }
 
+function desktopRuntimeConfig() {
+  const env = buildBackendEnv()
+  return {
+    app_name: env.XBCLIENT_APP_NAME,
+    default_api_url: env.XBCLIENT_DEFAULT_API_URL,
+    user_agent: env.XBCLIENT_USER_AGENT,
+    oauth_callback_scheme: env.XBCLIENT_OAUTH_CALLBACK_SCHEME,
+  }
+}
+
+function desktopRuntimeCapabilities() {
+  const desktop = process.platform === 'win32' || process.platform === 'linux'
+  return {
+    platform: process.platform === 'win32' ? 'windows' : process.platform,
+    system_proxy: false,
+    oauth_callback: desktop,
+    autostart: desktop,
+    tray: desktop,
+    local_socks: true,
+    vpn: desktop,
+    payment: true,
+    admob: false,
+  }
+}
+
 function buildBackendEnv() {
   const localProps = readLocalProperties()
   const env = { ...process.env }
@@ -179,6 +205,7 @@ function backendStart() {
       cwd: path.dirname(releaseBinary),
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
   }
 
@@ -188,10 +215,15 @@ function backendStart() {
     backendPending.clear()
   })
 
+  backendProc.stdout.setEncoding('utf8')
   const rl = readline.createInterface({ input: backendProc.stdout })
   rl.on('line', (line) => {
     const text = line.trim()
     if (!text) return
+    if (!text.startsWith('{')) {
+      console.log('[backend:stdout]', text.slice(0, 500))
+      return
+    }
 
     try {
       const msg = JSON.parse(text)
@@ -235,16 +267,46 @@ async function waitBackendReady() {
   throw new Error('electron-backend 启动超时')
 }
 
-function backendInvoke(method, params) {
+function backendInvoke(method, params, timeoutMs = 120_000) {
   if (!backendProc?.stdin) return Promise.reject(new Error('backend not started'))
 
   const id = backendNextId++
   const payload = JSON.stringify({ id, method, params }) + '\n'
 
   return new Promise((resolve, reject) => {
-    backendPending.set(id, { resolve, reject })
-    backendProc.stdin.write(payload)
+    const timer =
+      timeoutMs > 0
+        ? setTimeout(() => {
+            if (!backendPending.has(id)) return
+            backendPending.delete(id)
+            reject(new Error(`backend request timeout: ${method}`))
+          }, timeoutMs)
+        : null
+    backendPending.set(id, {
+      resolve: (value) => {
+        if (timer) clearTimeout(timer)
+        resolve(value)
+      },
+      reject: (error) => {
+        if (timer) clearTimeout(timer)
+        reject(error)
+      },
+    })
+    backendProc.stdin.write(payload, (err) => {
+      if (err) {
+        backendPending.delete(id)
+        if (timer) clearTimeout(timer)
+        reject(err)
+      }
+    })
   })
+}
+
+function notifyBackendReady() {
+  backendIsReady = true
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('backend-ready')
+  }
 }
 
 function startViteDevServer() {
@@ -320,6 +382,9 @@ function createMainWindow() {
   }
 
   mainWindow.webContents.on('did-finish-load', () => {
+    if (backendIsReady) {
+      mainWindow.webContents.send('backend-ready')
+    }
     if (pendingOAuthUrl) {
       mainWindow.webContents.send('oauth-callback', pendingOAuthUrl)
       pendingOAuthUrl = null
@@ -440,6 +505,11 @@ function showMainWindow() {
 
 function startHttpHandlers(autoLauncher) {
   ipcMain.handle('electron-get-version', () => app.getVersion())
+  ipcMain.handle('electron-get-runtime-config', () => {
+    validateBackendEnv()
+    return desktopRuntimeConfig()
+  })
+  ipcMain.handle('electron-get-runtime-capabilities', () => desktopRuntimeCapabilities())
   ipcMain.handle('electron-open-external', (_, { url }) => shell.openExternal(url))
   ipcMain.handle('electron-open-inapp-browser', (_, { url, title }) => {
     const win = new BrowserWindow({
@@ -472,7 +542,12 @@ function startHttpHandlers(autoLauncher) {
     return true
   })
 
-  ipcMain.handle('electron-invoke', async (_, { cmd, args }) => backendInvoke(cmd, args))
+  ipcMain.handle('electron-invoke', async (_, { cmd, args }) => {
+    if (!backendIsReady && cmd !== 'runtime_capabilities' && cmd !== 'runtime_config') {
+      await waitBackendReady()
+    }
+    return backendInvoke(cmd, args)
+  })
 
   ipcMain.handle('electron-report-vpn-session', (_, { sessionId }) => {
     activeVpnSessionId = typeof sessionId === 'number' ? sessionId : null
@@ -493,9 +568,7 @@ async function startBackendInBackground() {
     if (isDev) await startViteDevServer()
     backendStart()
     await waitBackendReady()
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('backend-ready')
-    }
+    notifyBackendReady()
   } catch (err) {
     notifyBackendError(err)
   }
