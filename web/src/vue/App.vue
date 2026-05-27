@@ -18,7 +18,7 @@ const themeName = computed(() => {
 })
 
 watch(themeName, (value) => {
-  theme.global.name.value = value
+  theme.change(value)
   applyDocumentTheme()
 }, { immediate: true })
 

@@ -121,7 +121,7 @@ button {
   height: 100%;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
 }
 
 .liquid-page {
@@ -462,18 +462,39 @@ button {
   inset-inline: 16px !important;
   bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
   left: 16px !important;
+  right: 16px !important;
   width: auto !important;
+  max-width: 48rem;
   height: 72px !important;
+  margin-inline: auto;
+  padding: 6px !important;
   border-radius: 999px !important;
   overflow: hidden;
+  z-index: 30 !important;
+}
+
+.liquid-bottom-nav .v-bottom-navigation__content {
+  height: 100%;
+  gap: 4px;
 }
 
 .liquid-bottom-nav .v-btn {
+  min-width: 0 !important;
   height: 100% !important;
+  border-radius: 999px !important;
   color: var(--on-surface-variant) !important;
 }
 
-.liquid-bottom-nav .v-btn--active {
+.liquid-bottom-nav .v-btn__content {
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1.1;
+}
+
+.liquid-bottom-nav .v-btn--active,
+.liquid-bottom-nav .v-btn--selected {
+  background: color-mix(in srgb, var(--primary-container) 72%, transparent) !important;
   color: var(--primary) !important;
 }
 
