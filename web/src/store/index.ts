@@ -29,9 +29,15 @@ export interface VpnSession {
   downloadBytes: number
 }
 
+export type RoutingMode = 'rule' | 'global' | 'direct'
+
 export interface AppSettings {
   autoApplyProxy: boolean
   autostart: boolean
+  silentStart: boolean
+  routingMode: RoutingMode
+  tunEnabled: boolean
+  systemProxyEnabled: boolean
   nodeDns: string
   overseasDns: string
   directDns: string
@@ -218,6 +224,10 @@ const initialState: AppState = {
   settings: {
     autoApplyProxy: true,
     autostart: false,
+    silentStart: false,
+    routingMode: 'rule',
+    tunEnabled: true,
+    systemProxyEnabled: false,
     nodeDns: DEFAULT_NODE_DNS,
     overseasDns: DEFAULT_OVERSEAS_DNS,
     directDns: DEFAULT_DIRECT_DNS,

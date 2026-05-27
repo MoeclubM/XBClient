@@ -1,5 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, Tray, Menu, nativeImage } from 'electron'
 import path from 'node:path'
+
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform')
+}
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import readline from 'node:readline'
@@ -26,12 +30,14 @@ let activeVpnSessionId = null
 let backendIsReady = false
 let trayInstance = null
 let trayBusy = false
+let autoLauncherInstance = null
 const trayState = {
   nodes: [],
   selectedNodeIndex: 0,
   vpn: null,
   systemProxyOn: false,
   useVpn: true,
+  routingMode: 'rule',
   settings: {
     nodeDns: '',
     overseasDns: '',
@@ -39,6 +45,9 @@ const trayState = {
     vpnDnsMode: 'virtual',
     virtualDnsPool: '',
     vpnIpv6Enabled: false,
+    routingMode: 'rule',
+    tunEnabled: true,
+    systemProxyEnabled: false,
   },
   userAgent: '',
 }
@@ -166,7 +175,7 @@ function desktopRuntimeCapabilities() {
   const desktop = process.platform === 'win32' || process.platform === 'linux'
   return {
     platform: process.platform === 'win32' ? 'windows' : process.platform,
-    system_proxy: false,
+    system_proxy: desktop,
     oauth_callback: desktop,
     autostart: desktop,
     tray: desktop,
@@ -175,6 +184,10 @@ function desktopRuntimeCapabilities() {
     payment: true,
     admob: false,
   }
+}
+
+function launchedSilentArgv() {
+  return process.argv.includes('--silent')
 }
 
 function buildBackendEnv() {
@@ -380,11 +393,13 @@ function loadAppIcon() {
 
 function createMainWindow() {
   const icon = loadAppIcon()
+  const startHidden = launchedSilentArgv()
   mainWindow = new BrowserWindow({
     width: 1024,
     height: 720,
     minWidth: 800,
     minHeight: 600,
+    show: !startHidden,
     ...(icon.isEmpty() ? {} : { icon }),
     webPreferences: {
       preload: path.resolve(__dirname, 'preload.cjs'),
@@ -416,10 +431,13 @@ function createMainWindow() {
   })
 }
 
-function setupAutoLaunch(appName) {
+function setupAutoLaunch(appName, silent = false) {
+  const args = silent ? ['--silent'] : []
   return new AutoLaunch({
     name: appName || 'XBClient',
     path: app.getPath('exe'),
+    args,
+    isHidden: silent,
   })
 }
 
@@ -550,8 +568,18 @@ function applyTraySnapshot(snapshot) {
       : null
   trayState.systemProxyOn = Boolean(snapshot.systemProxyOn)
   trayState.useVpn = snapshot.useVpn !== false
+  trayState.routingMode = 'rule'
   if (snapshot.settings && typeof snapshot.settings === 'object') {
     Object.assign(trayState.settings, snapshot.settings)
+    if (snapshot.settings.routingMode === 'global' || snapshot.settings.routingMode === 'direct') {
+      trayState.routingMode = snapshot.settings.routingMode
+    }
+    if (typeof snapshot.settings.tunEnabled === 'boolean') {
+      trayState.useVpn = snapshot.settings.tunEnabled
+    }
+  }
+  if (snapshot.routingMode === 'global' || snapshot.routingMode === 'direct') {
+    trayState.routingMode = snapshot.routingMode
   }
   trayState.userAgent = String(snapshot.userAgent ?? '')
   activeVpnSessionId = trayState.vpn?.sessionId ?? null
@@ -586,6 +614,7 @@ async function trayDisconnect() {
 }
 
 async function trayConnect(index) {
+  if (trayState.routingMode === 'direct') return
   const node = trayState.nodes[index]
   if (!node?.connectSupported) throw new Error('当前节点协议不支持连接')
   const resolved = await trayResolveNode(node)
@@ -618,17 +647,53 @@ async function trayConnect(index) {
   })
 }
 
+async function traySetRoutingMode(mode) {
+  if (trayBusy) return
+  trayBusy = true
+  rebuildTrayMenu()
+  try {
+    if (!backendIsReady) await waitBackendReady()
+    const wasDirect = trayState.routingMode === 'direct'
+    trayState.routingMode = mode
+    pushTrayStateToWeb({ settings: { routingMode: mode } })
+    if (mode === 'direct') {
+      if (trayState.vpn) await trayDisconnect()
+      return
+    }
+    if (wasDirect || !trayState.vpn) await trayConnect(trayState.selectedNodeIndex)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    dialog.showErrorBox('路由模式', message)
+    throw err
+  } finally {
+    trayBusy = false
+    rebuildTrayMenu()
+  }
+}
+
 async function trayToggleVpn() {
   if (trayBusy) return
   trayBusy = true
   rebuildTrayMenu()
   try {
     if (!backendIsReady) await waitBackendReady()
+    trayState.useVpn = !trayState.useVpn
+    pushTrayStateToWeb({ settings: { tunEnabled: trayState.useVpn } })
+    if (trayState.routingMode === 'direct') return
+    if (!trayState.useVpn) {
+      if (trayState.vpn && !trayState.vpn.socksAddr) await trayDisconnect()
+      return
+    }
+    if (trayState.vpn?.socksAddr) {
+      await trayDisconnect()
+      await trayConnect(trayState.selectedNodeIndex)
+      return
+    }
     if (trayState.vpn) await trayDisconnect()
     else await trayConnect(trayState.selectedNodeIndex)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    dialog.showErrorBox('TUN 连接', message)
+    dialog.showErrorBox('TUN 模式', message)
     throw err
   } finally {
     trayBusy = false
@@ -645,14 +710,15 @@ async function trayToggleSystemProxy() {
     if (trayState.systemProxyOn) {
       await backendInvoke('system_proxy_clear', {})
       trayState.systemProxyOn = false
+      pushTrayStateToWeb({ systemProxyOn: false, settings: { systemProxyEnabled: false } })
     } else {
       const socksAddr = trayState.vpn?.socksAddr
-      if (!socksAddr) throw new Error('请先使用 SOCKS 模式连接，或连接后带有本地 SOCKS 地址')
+      if (!socksAddr) throw new Error('请先关闭 TUN 并建立 SOCKS 会话，或连接后带有本地 SOCKS 地址')
       const parsed = parseSocksAddr(socksAddr)
       await backendInvoke('system_proxy_set', { host: parsed.host, port: parsed.port })
       trayState.systemProxyOn = true
+      pushTrayStateToWeb({ systemProxyOn: true, settings: { systemProxyEnabled: true } })
     }
-    pushTrayStateToWeb({ systemProxyOn: trayState.systemProxyOn })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     dialog.showErrorBox('系统代理', message)
@@ -705,16 +771,28 @@ function rebuildTrayMenu() {
   const nodeName = currentNode ? trayNodeLabel(currentNode, trayState.selectedNodeIndex) : '无节点'
   const proxySupported = trayDesktopProxySupported()
   const proxySocksReady = Boolean(trayState.vpn?.socksAddr)
-  const tunLabel = trayState.useVpn ? (connected ? '断开 TUN' : '连接 TUN') : connected ? '断开连接' : '连接'
+  const routingLabels = { rule: '规则', global: '全局', direct: '直连' }
 
   const template = [
     { label: '显示窗口', click: () => showMainWindow() },
     { type: 'separator' },
     {
-      label: tunLabel,
+      label: '路由模式',
+      submenu: ['rule', 'global', 'direct'].map((mode) => ({
+        label: routingLabels[mode],
+        type: 'radio',
+        checked: trayState.routingMode === mode,
+        enabled: !trayBusy,
+        click: () => {
+          void traySetRoutingMode(mode)
+        },
+      })),
+    },
+    {
+      label: 'TUN 模式',
       type: 'checkbox',
-      checked: connected,
-      enabled: !trayBusy && trayState.nodes.length > 0 && Boolean(currentNode?.connectSupported),
+      checked: trayState.useVpn,
+      enabled: !trayBusy && trayState.routingMode !== 'direct',
       click: () => {
         void trayToggleVpn()
       },
@@ -726,7 +804,7 @@ function rebuildTrayMenu() {
       label: '系统代理',
       type: 'checkbox',
       checked: trayState.systemProxyOn,
-      enabled: !trayBusy && (!trayState.systemProxyOn ? proxySocksReady : true),
+      enabled: !trayBusy && !trayState.useVpn && trayState.routingMode !== 'direct' && (!trayState.systemProxyOn ? proxySocksReady : true),
       click: () => {
         void trayToggleSystemProxy()
       },
@@ -765,8 +843,9 @@ function rebuildTrayMenu() {
   )
 
   trayInstance.setContextMenu(Menu.buildFromTemplate(template))
-  const status = [connected ? '已连接' : '未连接', nodeName]
-  if (trayState.systemProxyOn) status.push('系统代理开')
+  const status = [routingLabels[trayState.routingMode] || '规则', connected ? '已连接' : '未连接', nodeName]
+  if (trayState.useVpn) status.push('TUN')
+  if (trayState.systemProxyOn) status.push('系统代理')
   trayInstance.setToolTip(`${app.getName()} · ${status.join(' · ')}`)
 }
 
@@ -788,7 +867,7 @@ function showMainWindow() {
   mainWindow.focus()
 }
 
-function startHttpHandlers(autoLauncher) {
+function startHttpHandlers() {
   ipcMain.handle('electron-get-version', () => app.getVersion())
   ipcMain.handle('electron-get-runtime-config', () => {
     validateBackendEnv()
@@ -820,10 +899,20 @@ function startHttpHandlers(autoLauncher) {
     return url
   })
 
-  ipcMain.handle('electron-autostart-is-enabled', async () => autoLauncher.isEnabled())
-  ipcMain.handle('electron-autostart-set-enabled', async (_, { value }) => {
-    if (value) await autoLauncher.enable()
-    else await autoLauncher.disable()
+  ipcMain.on('electron-launched-silent', (event) => {
+    event.returnValue = launchedSilentArgv()
+  })
+
+  ipcMain.handle('electron-hide-main-window', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide()
+    return true
+  })
+
+  ipcMain.handle('electron-autostart-is-enabled', async () => autoLauncherInstance?.isEnabled() ?? false)
+  ipcMain.handle('electron-autostart-set-enabled', async (_, { value, silent }) => {
+    autoLauncherInstance = setupAutoLaunch(app.getName(), Boolean(silent))
+    if (value) await autoLauncherInstance.enable()
+    else await autoLauncherInstance.disable()
     return true
   })
 
@@ -871,11 +960,11 @@ if (instanceLock) {
     if (process.platform === 'win32') {
       app.setAppUserModelId('moe.telecom.xbclient')
     }
-    const autoLauncher = setupAutoLaunch(appName)
+    autoLauncherInstance = setupAutoLaunch(appName)
 
     handleOAuthArgv(process.argv)
 
-    startHttpHandlers(autoLauncher)
+    startHttpHandlers()
     createMainWindow()
     setupTray(appName)
     setupAutoUpdater()

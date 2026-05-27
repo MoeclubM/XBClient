@@ -47,8 +47,15 @@ async function toggleProxy(value: boolean) {
 }
 
 async function toggleAutostart(value: boolean) {
-  await autostartSetEnabled(value)
+  await autostartSetEnabled(value, appState.settings.silentStart)
   await persistSettings({ autostart: value })
+}
+
+async function toggleSilentStart(value: boolean) {
+  await persistSettings({ silentStart: value })
+  if (appState.settings.autostart) {
+    await autostartSetEnabled(true, value)
+  }
 }
 
 async function setIpv6(value: boolean | null) {
@@ -219,7 +226,7 @@ const dnsModeOptions = [
       <v-card class="panel-card">
         <v-card-text>
           <v-switch
-            v-if="appState.capabilities?.system_proxy"
+            v-if="appState.capabilities?.system_proxy && !appState.capabilities?.vpn"
             color="primary"
             :model-value="appState.settings.autoApplyProxy"
             :label="t('system_proxy')"
@@ -235,6 +242,16 @@ const dnsModeOptions = [
             :hint="t('autostart_desc')"
             persistent-hint
             @update:model-value="toggleAutostart($event === true)"
+          />
+          <v-switch
+            v-if="appState.capabilities?.autostart && isDesktop"
+            color="primary"
+            :model-value="appState.settings.silentStart"
+            :label="t('silent_start')"
+            :hint="t('silent_start_desc')"
+            persistent-hint
+            class="mt-1"
+            @update:model-value="toggleSilentStart($event === true)"
           />
         </v-card-text>
       </v-card>

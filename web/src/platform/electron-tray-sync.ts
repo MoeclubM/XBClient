@@ -20,6 +20,7 @@ export interface TrayStateSnapshot {
   } | null
   systemProxyOn: boolean
   useVpn: boolean
+  routingMode: 'rule' | 'global' | 'direct'
   settings: {
     nodeDns: string
     overseasDns: string
@@ -27,11 +28,15 @@ export interface TrayStateSnapshot {
     vpnDnsMode: 'virtual' | 'over_tcp' | 'direct'
     virtualDnsPool: string
     vpnIpv6Enabled: boolean
+    routingMode: 'rule' | 'global' | 'direct'
+    tunEnabled: boolean
+    systemProxyEnabled: boolean
   }
   userAgent: string
 }
 
 export interface TrayStatePushFromMain {
+  settings?: Partial<TrayStateSnapshot['settings']>
   selectedNodeIndex?: number
   vpn?: {
     sessionId: number
@@ -64,7 +69,8 @@ function buildTraySnapshot(): TrayStateSnapshot {
         }
       : null,
     systemProxyOn: state.systemProxyActive,
-    useVpn: state.capabilities?.vpn === true,
+    routingMode: state.settings.routingMode,
+    useVpn: state.settings.tunEnabled,
     settings: {
       nodeDns: state.settings.nodeDns,
       overseasDns: state.settings.overseasDns,
@@ -72,6 +78,9 @@ function buildTraySnapshot(): TrayStateSnapshot {
       vpnDnsMode: state.settings.vpnDnsMode,
       virtualDnsPool: state.settings.virtualDnsPool,
       vpnIpv6Enabled: state.settings.vpnIpv6Enabled,
+      routingMode: state.settings.routingMode,
+      tunEnabled: state.settings.tunEnabled,
+      systemProxyEnabled: state.settings.systemProxyEnabled,
     },
     userAgent: state.buildConfig?.user_agent ?? '',
   }
@@ -79,6 +88,9 @@ function buildTraySnapshot(): TrayStateSnapshot {
 
 function applyTrayPush(patch: TrayStatePushFromMain): void {
   const store = useAppStore.getState()
+  if (patch.settings) {
+    store.setSettings(patch.settings)
+  }
   if (typeof patch.selectedNodeIndex === 'number') {
     store.setPreferredNodeIndex(patch.selectedNodeIndex)
   }

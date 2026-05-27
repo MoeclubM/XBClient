@@ -42,8 +42,18 @@ export async function autostartIsEnabled(): Promise<boolean> {
   return assertElectronAPI().autostartIsEnabled()
 }
 
-export async function autostartSetEnabled(value: boolean): Promise<void> {
-  await assertElectronAPI().autostartSetEnabled(value)
+export async function autostartSetEnabled(value: boolean, silent = false): Promise<void> {
+  await assertElectronAPI().autostartSetEnabled(value, silent)
+}
+
+export function launchedSilent(): boolean {
+  if (!window.electronAPI?.launchedSilent) return false
+  return window.electronAPI.launchedSilent()
+}
+
+export async function hideMainWindow(): Promise<void> {
+  if (!window.electronAPI?.hideMainWindow) return
+  await window.electronAPI.hideMainWindow()
 }
 
 export async function takeOAuthCallback(): Promise<string | null> {

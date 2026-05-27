@@ -14,6 +14,7 @@ import {
   readableNodeTestError,
   targetHostPort,
 } from '../../nodes'
+import { applyDesktopConnection, isDesktopConnectionShell } from '../../desktop/connection'
 import { publicErrorText } from '../../format'
 import { appState, store, t } from '../state'
 import type { AppNode } from '../../store'
@@ -74,7 +75,7 @@ async function testAll() {
   }
 }
 
-function selectNode(index: number) {
+async function selectNode(index: number) {
   const node = appState.nodes[index]
   if (!node) return
   if (!node.connectSupported) {
@@ -82,6 +83,10 @@ function selectNode(index: number) {
     return
   }
   store().setPreferredNodeIndex(index)
+  if (isDesktopConnectionShell()) {
+    const message = await applyDesktopConnection()
+    if (message) error.value = message
+  }
   router.back()
 }
 </script>

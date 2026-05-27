@@ -10,6 +10,7 @@ import {
   subscriptionFetch,
   xboardRequest,
 } from '../../api/xboard'
+import { applyDesktopConnection, isDesktopConnectionShell } from '../../desktop/connection'
 import { onAeronEvent, reportVpnSession } from '../../platform/electron'
 import {
   parseSocksAddr,
@@ -17,6 +18,7 @@ import {
   systemProxyClear,
   systemProxySet,
 } from '../../api/system'
+import DesktopConnectionPanel from '../components/DesktopConnectionPanel.vue'
 import {
   aerionNodeWithResolvedHost,
   displayNodeName,
@@ -181,6 +183,10 @@ async function refresh() {
     error.value = publicErrorText(err)
   } finally {
     loading.value = false
+    if (isDesktopConnectionShell()) {
+      const message = await applyDesktopConnection()
+      if (message) error.value = message
+    }
   }
 }
 
@@ -208,6 +214,16 @@ function startDuration() {
   duration.value = 0
   if (durationTimer) window.clearInterval(durationTimer)
   durationTimer = window.setInterval(() => { duration.value = Date.now() - connectedAt }, 1000)
+}
+
+async function pickNode(index: number) {
+  if (isDesktopConnectionShell()) {
+    store().setPreferredNodeIndex(index)
+    const message = await applyDesktopConnection()
+    if (message) error.value = message
+    return
+  }
+  await toggleConnection(index)
 }
 
 async function toggleConnection(index = selectedNodeIndex.value) {
@@ -320,8 +336,10 @@ function formatUnixTime(value: number): string {
       </v-card>
     </div>
 
-    <!-- Connection Section -->
-    <div v-if="!appState.subscription.blockReason" class="page-section">
+    <DesktopConnectionPanel v-if="!appState.subscription.blockReason && isDesktopConnectionShell()" />
+
+    <!-- Connection Section (mobile) -->
+    <div v-if="!appState.subscription.blockReason && !isDesktopConnectionShell()" class="page-section">
       <p class="section-label">{{ t('section_connection') }}</p>
       <v-card class="panel-card connection-card">
         <v-card-text>
@@ -425,7 +443,7 @@ function formatUnixTime(value: number): string {
           <button
             class="node-pick"
             :disabled="!node.connectSupported"
-            @click="toggleConnection(index)"
+            @click="pickNode(index)"
           >
             <span>
               <strong>{{ displayNodeName(node, index) }}</strong>

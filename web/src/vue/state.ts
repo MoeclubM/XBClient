@@ -1,6 +1,9 @@
 import { reactive } from 'vue'
 import { syncGuestAuthConfig } from '../api/guestConfig'
-import { autostartIsEnabled, runtimeCapabilities, runtimeConfig } from '../api/system'
+import { autostartIsEnabled, autostartSetEnabled, runtimeCapabilities, runtimeConfig } from '../api/system'
+import { applyDesktopConnection, isDesktopConnectionShell } from '../desktop/connection'
+import { hideMainWindow, launchedSilent } from '../platform/electron'
+import { isDesktopShell } from '../platform/shell'
 import { useAppStore, type AppSettings } from '../store'
 import { loadSession, loadSettings, saveSettings } from '../store/persist'
 import { translate, type TranslationKey } from '../i18n'
@@ -44,9 +47,20 @@ export async function bootstrapApp(): Promise<void> {
   if (!capabilities.system_proxy) store().setSettings({ autoApplyProxy: false })
   if (capabilities.vpn) store().setSettings({ autoApplyProxy: false })
   if (capabilities.autostart) {
-    store().setSettings({ autostart: await autostartIsEnabled() })
+    const autostart = await autostartIsEnabled()
+    store().setSettings({ autostart })
+    if (autostart) await autostartSetEnabled(true, store().settings.silentStart)
   } else {
     store().setSettings({ autostart: false })
+  }
+
+  if (isDesktopShell() && (launchedSilent() || store().settings.silentStart)) {
+    await hideMainWindow().catch(() => {})
+  }
+
+  if (isDesktopConnectionShell() && store().authData) {
+    const message = await applyDesktopConnection()
+    if (message) console.error('desktop connection sync failed', message)
   }
 
   try {

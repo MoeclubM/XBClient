@@ -30,7 +30,9 @@ export interface ElectronAPI {
   onOAuthCallback: (handler: (url: string) => void) => () => void
   onAeronEvent: (handler: (payload: string) => void) => () => void
   autostartIsEnabled: () => Promise<boolean>
-  autostartSetEnabled: (value: boolean) => Promise<boolean>
+  autostartSetEnabled: (value: boolean, silent?: boolean) => Promise<boolean>
+  launchedSilent: () => boolean
+  hideMainWindow: () => Promise<void>
   reportVpnSession: (sessionId: number | null) => Promise<void>
   syncTrayState: (state: import('./electron-tray-sync').TrayStateSnapshot) => Promise<void>
   onTrayStateFromMain: (handler: (patch: import('./electron-tray-sync').TrayStatePushFromMain) => void) => () => void

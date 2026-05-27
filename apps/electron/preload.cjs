@@ -19,7 +19,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('aerion-event', listener)
   },
   autostartIsEnabled: () => ipcRenderer.invoke('electron-autostart-is-enabled'),
-  autostartSetEnabled: (value) => ipcRenderer.invoke('electron-autostart-set-enabled', { value }),
+  autostartSetEnabled: (value, silent) => ipcRenderer.invoke('electron-autostart-set-enabled', { value, silent }),
+  launchedSilent: () => ipcRenderer.sendSync('electron-launched-silent'),
+  hideMainWindow: () => ipcRenderer.invoke('electron-hide-main-window'),
   reportVpnSession: (sessionId) => ipcRenderer.invoke('electron-report-vpn-session', { sessionId }),
   syncTrayState: (state) => ipcRenderer.invoke('electron-sync-tray-state', { state }),
   onTrayStateFromMain: (handler) => {

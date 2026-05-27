@@ -43,6 +43,12 @@ export async function loadSettings(): Promise<Partial<AppSettings>> {
   const result: Partial<AppSettings> = {}
   if (typeof raw.autoApplyProxy === 'boolean') result.autoApplyProxy = raw.autoApplyProxy
   if (typeof raw.autostart === 'boolean') result.autostart = raw.autostart
+  if (typeof raw.silentStart === 'boolean') result.silentStart = raw.silentStart
+  if (raw.routingMode === 'rule' || raw.routingMode === 'global' || raw.routingMode === 'direct') {
+    result.routingMode = raw.routingMode
+  }
+  if (typeof raw.tunEnabled === 'boolean') result.tunEnabled = raw.tunEnabled
+  if (typeof raw.systemProxyEnabled === 'boolean') result.systemProxyEnabled = raw.systemProxyEnabled
   if (typeof raw.nodeDns === 'string' && raw.nodeDns.trim()) result.nodeDns = raw.nodeDns
   if (typeof raw.overseasDns === 'string' && raw.overseasDns.trim()) result.overseasDns = raw.overseasDns
   if (typeof raw.directDns === 'string' && raw.directDns.trim()) result.directDns = raw.directDns

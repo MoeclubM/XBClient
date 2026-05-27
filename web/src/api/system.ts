@@ -74,8 +74,8 @@ export async function autostartIsEnabled(): Promise<boolean> {
   return electronAutostartIsEnabled()
 }
 
-export async function autostartSetEnabled(value: boolean): Promise<void> {
-  await electronAutostartSetEnabled(value)
+export async function autostartSetEnabled(value: boolean, silent = false): Promise<void> {
+  await electronAutostartSetEnabled(value, silent)
 }
 
 export async function openExternal(url: string): Promise<void> {
