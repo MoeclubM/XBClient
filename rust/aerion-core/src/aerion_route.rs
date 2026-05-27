@@ -1,8 +1,8 @@
 use crate::aerion_mihomo_sanitize::sanitize_mihomo_route_yaml;
 use crate::aerion_protocol::{AerionProxyConfig, spawn_aerion_listener};
 use aerion::{
-    MihomoClientConfig, MihomoConfig, RouteDecision, RouteProxyConfig, RouteTable,
-    RouteProxyState, run_route_proxy_with_state,
+    MihomoClientConfig, MihomoConfig, RouteDecision, RouteProxyConfig, RouteProxyState, RouteTable,
+    run_route_proxy_with_state,
 };
 use anyhow::{Context, Result, ensure};
 use once_cell::sync::Lazy;
@@ -89,7 +89,8 @@ async fn spawn_route_outbounds(
     let mut upstreams = BTreeMap::new();
     let mut tasks = Vec::new();
     for tag in route_proxy_tags(routes) {
-        let listener = bind_listener(&format!("route outbound {tag}"), ephemeral_loopback()).await?;
+        let listener =
+            bind_listener(&format!("route outbound {tag}"), ephemeral_loopback()).await?;
         let upstream = listener.local_addr()?;
         let client = config
             .resolved_proxy_config(&tag, upstream)

@@ -161,8 +161,7 @@ struct SocksSession {
 static NEXT_SOCKS_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 static SOCKS_SESSIONS: Lazy<StdMutex<HashMap<u64, SocksSession>>> =
     Lazy::new(|| StdMutex::new(HashMap::new()));
-static TEST_NODE_GUARD: Lazy<tokio::sync::Mutex<()>> =
-    Lazy::new(|| tokio::sync::Mutex::new(()));
+static TEST_NODE_GUARD: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| tokio::sync::Mutex::new(()));
 
 async fn stop_listener(task: JoinHandle<Result<()>>) {
     task.abort();
