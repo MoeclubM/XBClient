@@ -51,7 +51,7 @@ let connectedAt = 0
 let durationTimer = 0
 let unlistenEvent: (() => void) | null = null
 
-const selectedNodeIndex = computed(() => appState.vpn?.nodeIndex ?? 0)
+const selectedNodeIndex = computed(() => appState.vpn?.nodeIndex ?? appState.preferredNodeIndex)
 const selectedNode = computed(() => appState.nodes[selectedNodeIndex.value] || appState.nodes[0])
 const progressPercent = computed(() =>
   appState.subscription.trafficTotalBytes > 0
@@ -216,7 +216,10 @@ async function toggleConnection(index = selectedNodeIndex.value) {
     if (useTun) await aerionStopVpn(appState.vpn.sessionId)
     else {
       await aerionStop(appState.vpn.sessionId)
-      if (appState.settings.autoApplyProxy) await systemProxyClear()
+      if (appState.settings.autoApplyProxy || appState.systemProxyActive) {
+        await systemProxyClear()
+        store().setSystemProxyActive(false)
+      }
     }
     store().setVpn(null)
     if (useTun) await reportVpnSession(null)
@@ -243,6 +246,7 @@ async function toggleConnection(index = selectedNodeIndex.value) {
         virtual_dns_pool: appState.settings.virtualDnsPool,
         ipv6: appState.settings.vpnIpv6Enabled,
       })
+      store().setPreferredNodeIndex(index)
       store().setVpn({
         sessionId: handle.session_id,
         socksAddr: '',
@@ -254,7 +258,11 @@ async function toggleConnection(index = selectedNodeIndex.value) {
     } else {
       const handle = await aerionStartSocks(resolved)
       const parsed = parseSocksAddr(handle.socks_addr)
-      if (appState.settings.autoApplyProxy) await systemProxySet(parsed.host, parsed.port)
+      if (appState.settings.autoApplyProxy) {
+        await systemProxySet(parsed.host, parsed.port)
+        store().setSystemProxyActive(true)
+      }
+      store().setPreferredNodeIndex(index)
       store().setVpn({
         sessionId: handle.session_id,
         socksAddr: handle.socks_addr,

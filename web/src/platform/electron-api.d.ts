@@ -32,6 +32,8 @@ export interface ElectronAPI {
   autostartIsEnabled: () => Promise<boolean>
   autostartSetEnabled: (value: boolean) => Promise<boolean>
   reportVpnSession: (sessionId: number | null) => Promise<void>
+  syncTrayState: (state: import('./electron-tray-sync').TrayStateSnapshot) => Promise<void>
+  onTrayStateFromMain: (handler: (patch: import('./electron-tray-sync').TrayStatePushFromMain) => void) => () => void
   onBackendReady: (handler: () => void) => () => void
   onBackendError: (handler: (message: string) => void) => () => void
 }

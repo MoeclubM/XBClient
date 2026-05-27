@@ -22,7 +22,7 @@ const router = useRouter()
 const testingAll = ref(false)
 const error = ref('')
 
-const selectedNodeIndex = computed(() => appState.vpn?.nodeIndex ?? 0)
+const selectedNodeIndex = computed(() => appState.vpn?.nodeIndex ?? appState.preferredNodeIndex)
 
 const blockTitle = computed(() => {
   if (appState.subscription.blockReason === 'no_plan') return t('subscription_no_plan_title')
@@ -81,6 +81,7 @@ function selectNode(index: number) {
     error.value = t('unsupported_protocol')
     return
   }
+  store().setPreferredNodeIndex(index)
   router.back()
 }
 </script>

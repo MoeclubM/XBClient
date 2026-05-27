@@ -58,3 +58,15 @@ export async function reportVpnSession(sessionId: number | null): Promise<void> 
   await assertElectronAPI().reportVpnSession(sessionId)
 }
 
+export type { TrayStatePushFromMain, TrayStateSnapshot } from './electron-tray-sync'
+
+export async function syncTrayState(state: import('./electron-tray-sync').TrayStateSnapshot): Promise<void> {
+  await assertElectronAPI().syncTrayState(state)
+}
+
+export function onTrayStateFromMain(
+  handler: (patch: import('./electron-tray-sync').TrayStatePushFromMain) => void,
+): () => void {
+  return assertElectronAPI().onTrayStateFromMain(handler)
+}
+

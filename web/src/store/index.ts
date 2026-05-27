@@ -104,6 +104,8 @@ interface AppState {
   subscribeUrl: string
   nodes: AppNode[]
   vpn: VpnSession | null
+  preferredNodeIndex: number
+  systemProxyActive: boolean
   settings: AppSettings
   capabilities: RuntimeCapabilities | null
   buildConfig: RuntimeConfig | null
@@ -140,6 +142,8 @@ interface AppState {
   setNodeResult(index: number, result: { latencyMs?: number; testError?: string }): void
   setNodeLoading(index: number): void
   setVpn(session: VpnSession | null): void
+  setPreferredNodeIndex(index: number): void
+  setSystemProxyActive(active: boolean): void
   updateVpnTraffic(sessionId: number, uploadBytes: number, downloadBytes: number): void
   setSettings(patch: Partial<AppSettings>): void
   setCapabilities(capabilities: RuntimeCapabilities): void
@@ -209,6 +213,8 @@ const initialState: AppState = {
   subscribeUrl: '',
   nodes: [],
   vpn: null,
+  preferredNodeIndex: 0,
+  systemProxyActive: false,
   settings: {
     autoApplyProxy: true,
     autostart: false,
@@ -270,6 +276,8 @@ const initialState: AppState = {
       return { nodes }
     }),
   setVpn: (session) => set({ vpn: session }),
+  setPreferredNodeIndex: (preferredNodeIndex) => set({ preferredNodeIndex }),
+  setSystemProxyActive: (systemProxyActive) => set({ systemProxyActive }),
   updateVpnTraffic: (sessionId, uploadBytes, downloadBytes) =>
     set((state) =>
       state.vpn && state.vpn.sessionId === sessionId
@@ -295,6 +303,8 @@ const initialState: AppState = {
       subscribeUrl: '',
       nodes: [],
       vpn: null,
+      preferredNodeIndex: 0,
+      systemProxyActive: false,
       balance: 0,
       commissionBalance: 0,
       currencySymbol: '',

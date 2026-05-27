@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, RouterView, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
+import { installElectronTraySync } from '../platform/electron-tray-sync'
 import { isDesktopShell } from '../platform/shell'
 import { appState, applyDocumentTheme, bootstrapApp, preventDesktopZoom, showStartupAd, t } from './state'
 
@@ -12,6 +13,7 @@ const ready = ref(false)
 const bootstrapError = ref('')
 const isDesktop = isDesktopShell()
 let cleanupZoom: (() => void) | null = null
+let cleanupTraySync: (() => void) | null = null
 
 const showNav = computed(() => Boolean(appState.authData) && !route.meta.hideNav)
 const appName = computed(() => appState.buildConfig?.app_name || 'XBClient')
@@ -59,6 +61,7 @@ onMounted(async () => {
   cleanupZoom = preventDesktopZoom()
   try {
     await bootstrapApp()
+    if (isDesktop) cleanupTraySync = installElectronTraySync()
     await showStartupAd().catch((error) => console.error('show app open ad failed', error))
     if (!appState.authData && route.path !== '/login') await router.replace('/login')
     if (appState.authData && route.path === '/login') await router.replace('/home')
@@ -69,7 +72,10 @@ onMounted(async () => {
   }
 })
 
-onUnmounted(() => cleanupZoom?.())
+onUnmounted(() => {
+  cleanupZoom?.()
+  cleanupTraySync?.()
+})
 </script>
 
 <template>
