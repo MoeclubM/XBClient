@@ -258,8 +258,14 @@ jobs:
         shell: bash
         run: bash scripts/ci/validate-desktop-secrets.sh
 
+      - name: Prepare system fpm (arm64)
+        shell: bash
+        run: bash scripts/ci/setup-linux-arm64-fpm.sh
+
       - name: Build Linux deb (arm64)
         shell: bash
+        env:
+          USE_SYSTEM_FPM: true
         run: |
           pnpm install --frozen-lockfile=false
           pnpm --filter xbclient-electron dist:linux:deb
