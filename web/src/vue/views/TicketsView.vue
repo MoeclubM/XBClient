@@ -98,21 +98,21 @@ onMounted(loadTickets)
         <p class="eyebrow">{{ appState.email || 'Support' }}</p>
         <h1>{{ t('nav_services') }}</h1>
       </div>
-      <v-btn class="glass-button" :loading="loading" @click="loadTickets">{{ t('refreshing') }}</v-btn>
+      <v-btn class="glass-button" :loading="loading" @click="loadTickets">{{ loading ? t('refreshing') : t('refresh') }}</v-btn>
     </header>
 
     <v-alert v-if="error" color="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
 
     <v-card class="glass-card pa-4 mb-4">
-      <p class="eyebrow">New Ticket</p>
-      <v-text-field v-model="subject" label="标题" />
-      <v-textarea v-model="message" label="内容" rows="3" variant="outlined" />
-      <v-btn color="primary" block @click="createTicket">提交</v-btn>
+      <p class="eyebrow">{{ t('ticket_new') }}</p>
+      <v-text-field v-model="subject" :label="t('ticket_title')" />
+      <v-textarea v-model="message" :label="t('ticket_message')" rows="3" variant="outlined" />
+      <v-btn color="primary" block @click="createTicket">{{ t('ticket_submit') }}</v-btn>
     </v-card>
 
     <div class="tickets-grid">
       <v-card class="glass-card pa-3">
-        <p class="eyebrow">Tickets</p>
+        <p class="eyebrow">{{ t('ticket_list') }}</p>
         <button
           v-for="ticket in tickets"
           :key="rowId(ticket)"
@@ -128,7 +128,7 @@ onMounted(loadTickets)
       </v-card>
 
       <v-card class="glass-card pa-4">
-        <p class="eyebrow">{{ selectedTicket ? field(selectedTicket, ['subject', 'title']) : 'Detail' }}</p>
+        <p class="eyebrow">{{ selectedTicket ? field(selectedTicket, ['subject', 'title']) : t('ticket_detail') }}</p>
         <div class="stack">
           <div v-for="(row, index) in detailRows" :key="`${rowId(row)}-${index}`" class="glass-chip">
             <strong>{{ field(row, ['user_name', 'email', 'role']) || '消息' }}</strong>
@@ -136,8 +136,8 @@ onMounted(loadTickets)
           </div>
         </div>
         <div v-if="selectedTicket" class="mt-4">
-          <v-textarea v-model="reply" label="回复" rows="3" variant="outlined" />
-          <v-btn color="primary" block @click="replyTicket">发送</v-btn>
+          <v-textarea v-model="reply" :label="t('ticket_reply')" rows="3" variant="outlined" />
+          <v-btn color="primary" block @click="replyTicket">{{ t('ticket_send') }}</v-btn>
         </div>
       </v-card>
     </div>

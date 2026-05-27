@@ -16,9 +16,9 @@ const items = [
   <section class="liquid-page">
     <header class="liquid-header">
       <div>
-        <p class="eyebrow">Open Source</p>
+        <p class="eyebrow">{{ t('open_source') }}</p>
         <h1>{{ t('licenses') }}</h1>
-        <p class="muted">Tauri 多平台版依赖的主要项目 / Core open source project dependencies.</p>
+        <p class="muted">{{ t('licenses_desc') }}</p>
       </div>
     </header>
 
@@ -26,7 +26,7 @@ const items = [
       <v-card v-for="[name, url] in items" :key="name" class="glass-card pa-4">
         <div class="section-row">
           <strong>{{ name }}</strong>
-          <v-btn variant="outlined" @click="openExternal(url)">Open</v-btn>
+          <v-btn variant="outlined" @click="openExternal(url)">{{ t('open_link') }}</v-btn>
         </div>
       </v-card>
     </div>

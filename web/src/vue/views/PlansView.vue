@@ -191,7 +191,7 @@ onMounted(loadPlans)
         <h1>{{ t('nav_plans') }}</h1>
         <p class="muted">{{ formatMoney(appState.balance, appState.currencySymbol || '¥', appState.currencyUnit) }}</p>
       </div>
-      <v-btn class="glass-button" :loading="loading" @click="loadPlans">{{ t('refreshing') }}</v-btn>
+      <v-btn class="glass-button" :loading="loading" @click="loadPlans">{{ loading ? t('refreshing') : t('refresh') }}</v-btn>
     </header>
 
     <v-alert v-if="message" class="mb-4" color="primary" variant="tonal">{{ message }}</v-alert>

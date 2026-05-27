@@ -241,7 +241,7 @@ async function toggleConnection(index = selectedNodeIndex.value) {
         <p class="eyebrow">{{ loading ? t('refreshing') : (appState.email || '未登录') }}</p>
         <h1>{{ t('nav_nodes') }}</h1>
       </div>
-      <v-btn class="glass-button" @click="refresh">{{ t('refreshing') }}</v-btn>
+      <v-btn class="glass-button" :loading="loading" @click="refresh">{{ loading ? t('refreshing') : t('refresh') }}</v-btn>
     </header>
 
     <v-alert v-if="error" color="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
@@ -256,9 +256,10 @@ async function toggleConnection(index = selectedNodeIndex.value) {
     <v-card class="glass-card connection-card pa-5">
       <p class="eyebrow">{{ t('section_connection') }}</p>
       <h2>{{ appState.vpn ? t('status_connected') : t('status_disconnected') }}</h2>
-      <button class="liquid-orb" :class="{ connected: appState.vpn }" :disabled="connectingIndex !== null" @click="toggleConnection()">
+      <button class="liquid-orb" :class="{ connected: appState.vpn }" :disabled="connectingIndex !== null || (!appState.vpn && Boolean(selectedNode && !selectedNode.connectSupported))" @click="toggleConnection()">
         {{ connectingIndex !== null ? t('action_connecting') : appState.vpn ? t('action_disconnect') : t('action_connect') }}
       </button>
+      <p v-if="selectedNode && !selectedNode.connectSupported" class="muted text-error">{{ t('unsupported_protocol') }}</p>
       <div v-if="appState.vpn" class="metric-grid">
         <div class="glass-chip">
           <span>{{ t('session_duration') }}</span>
@@ -302,11 +303,12 @@ async function toggleConnection(index = selectedNodeIndex.value) {
           :key="`${node.name}-${index}`"
           class="node-row"
           :class="{ active: index === selectedNodeIndex }"
+          :disabled="!node.connectSupported"
           @click="toggleConnection(index)"
         >
           <span>
             <strong>{{ displayNodeName(node, index) }}</strong>
-            <small>{{ node.protocolLabel }} · {{ node.host }}</small>
+            <small>{{ node.protocolLabel }} · {{ node.host }}{{ node.connectSupported ? '' : ` · ${t('unsupported_protocol')}` }}</small>
           </span>
           <span class="node-actions">
             <small v-if="node.latencyMs">{{ node.latencyMs }}ms</small>

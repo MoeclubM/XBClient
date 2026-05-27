@@ -325,7 +325,7 @@ async function finishLogin(authData: string, accountEmail: string) {
       <v-card v-if="oauthCallbackSupported || oauthConfirm" class="glass-panel pa-4">
         <div class="section-row">
           <h2>{{ t('auth_options') }}</h2>
-          <v-btn variant="text" size="small" :loading="configLoading" @click="loadGuestConfig(true)">同步</v-btn>
+          <v-btn variant="text" size="small" :loading="configLoading" @click="loadGuestConfig(true)">{{ t('sync_config') }}</v-btn>
         </div>
         <div v-if="oauthCallbackSupported && appState.oauthProviders.length" class="stack">
           <v-btn
