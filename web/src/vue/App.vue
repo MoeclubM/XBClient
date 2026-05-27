@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, RouterView, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
+import { isDesktopShell } from '../platform/shell'
 import { appState, applyDocumentTheme, bootstrapApp, preventDesktopZoom, showStartupAd, t } from './state'
 
 const route = useRoute()
@@ -9,9 +10,11 @@ const router = useRouter()
 const theme = useTheme()
 const ready = ref(false)
 const bootstrapError = ref('')
+const isDesktop = isDesktopShell()
 let cleanupZoom: (() => void) | null = null
 
 const showNav = computed(() => Boolean(appState.authData) && !route.meta.hideNav)
+const appName = computed(() => appState.buildConfig?.app_name || 'XBClient')
 
 const themeName = computed(() => {
   if (appState.settings.themeMode === 'light' || appState.settings.themeMode === 'dark') return appState.settings.themeMode
@@ -47,6 +50,11 @@ const navPillStyle = computed(() => {
   }
 })
 
+function navActive(itemPath: string): boolean {
+  if (itemPath === '/settings') return route.path.startsWith('/settings')
+  return route.path === itemPath
+}
+
 onMounted(async () => {
   cleanupZoom = preventDesktopZoom()
   try {
@@ -65,8 +73,21 @@ onUnmounted(() => cleanupZoom?.())
 </script>
 
 <template>
-  <v-app class="liquid-app">
-    <main v-if="!ready" class="startup-view">
+  <v-app class="liquid-app" :class="{ 'desktop-app': isDesktop }">
+    <div v-if="!ready && isDesktop" class="desktop-shell desktop-shell--boot">
+      <aside class="desktop-sidebar">
+        <div class="desktop-brand">
+          <img src="/logo.png" alt="Logo">
+          <strong>{{ appName }}</strong>
+        </div>
+      </aside>
+      <main class="desktop-main desktop-main--boot">
+        <v-progress-linear indeterminate color="primary" class="mb-4" />
+        <p class="muted mb-0">{{ t('startup_loading') }}</p>
+      </main>
+    </div>
+
+    <main v-else-if="!ready" class="startup-view">
       <div class="startup-card">
         <img src="/logo.png" alt="Logo">
         <p>{{ t('startup_loading') }}</p>
@@ -78,6 +99,31 @@ onUnmounted(() => cleanupZoom?.())
         <p class="text-error font-weight-bold mb-0">{{ t('bootstrap_config_missing') }}：{{ bootstrapError }}</p>
       </v-card>
     </main>
+
+    <div v-else-if="isDesktop" class="desktop-shell">
+      <aside v-if="showNav" class="desktop-sidebar">
+        <div class="desktop-brand">
+          <img src="/logo.png" alt="Logo">
+          <strong>{{ appName }}</strong>
+        </div>
+        <v-btn
+          v-for="item in NAV_ITEMS"
+          :key="item.path"
+          variant="text"
+          class="desktop-nav-btn"
+          :class="{ 'desktop-nav-btn--active': navActive(item.path) }"
+          @click="router.push(item.path)"
+        >
+          <span class="nav-symbol">{{ item.icon }}</span>
+          <span>{{ item.label() }}</span>
+        </v-btn>
+      </aside>
+      <div class="desktop-main">
+        <v-main class="liquid-main liquid-main--desktop">
+          <RouterView />
+        </v-main>
+      </div>
+    </div>
 
     <template v-else>
       <v-main class="liquid-main">

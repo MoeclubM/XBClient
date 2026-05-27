@@ -1,5 +1,7 @@
 import { reactive } from 'vue'
 import { autostartIsEnabled, runtimeCapabilities, runtimeConfig } from '../api/system'
+import { invoke, onBackendError, onBackendReady } from '../platform/electron'
+import { isDesktopShell } from '../platform/shell'
 import { useAppStore, type AppSettings } from '../store'
 import { loadSession, loadSettings, saveSettings } from '../store/persist'
 import { translate, type TranslationKey } from '../i18n'
@@ -26,7 +28,29 @@ export async function persistSettings(patch: Partial<AppSettings>): Promise<void
   await saveSettings(next)
 }
 
+async function waitForDesktopBackend(): Promise<void> {
+  if (!isDesktopShell()) return
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error('后端启动超时，请确认已安装到可写目录并以管理员权限运行。')),
+      120_000,
+    )
+    const finish = (run: () => void) => {
+      clearTimeout(timeout)
+      offReady()
+      offError()
+      run()
+    }
+    const offReady = onBackendReady(() => finish(resolve))
+    const offError = onBackendError((message) => finish(() => reject(new Error(message || '后端启动失败'))))
+    invoke('runtime_capabilities', {}, 5_000)
+      .then(() => finish(resolve))
+      .catch(() => {})
+  })
+}
+
 export async function bootstrapApp(): Promise<void> {
+  await waitForDesktopBackend()
   const config = await runtimeConfig()
   store().setBuildConfig(config)
 

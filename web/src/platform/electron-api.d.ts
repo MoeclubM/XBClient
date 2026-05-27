@@ -13,6 +13,8 @@ export interface ElectronAPI {
   autostartIsEnabled: () => Promise<boolean>
   autostartSetEnabled: (value: boolean) => Promise<boolean>
   reportVpnSession: (sessionId: number | null) => Promise<void>
+  onBackendReady: (handler: () => void) => () => void
+  onBackendError: (handler: (message: string) => void) => () => void
 }
 
 declare global {

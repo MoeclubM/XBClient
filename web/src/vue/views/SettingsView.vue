@@ -2,12 +2,14 @@
 import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getVersion } from '../../platform/electron'
+import { isDesktopShell } from '../../platform/shell'
 import { autostartSetEnabled, openInAppBrowser, parseSocksAddr, systemProxyClear, systemProxySet } from '../../api/system'
 import { publicErrorText } from '../../format'
 import { appState, persistSettings, t } from '../state'
 import type { AppSettings } from '../../store'
 
 const router = useRouter()
+const isDesktop = isDesktopShell()
 const error = ref('')
 const message = ref('')
 const appVersion = ref('')
@@ -148,7 +150,7 @@ const dnsModeOptions = [
     </div>
 
     <!-- App Rules Section -->
-    <div v-if="appState.capabilities?.vpn" class="page-section">
+    <div v-if="appState.capabilities?.vpn && !isDesktop" class="page-section">
       <p class="section-label">{{ t('section_app_rules') }}</p>
       <v-card class="panel-card">
         <v-card-text>

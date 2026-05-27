@@ -19,4 +19,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   autostartIsEnabled: () => ipcRenderer.invoke('electron-autostart-is-enabled'),
   autostartSetEnabled: (value) => ipcRenderer.invoke('electron-autostart-set-enabled', { value }),
   reportVpnSession: (sessionId) => ipcRenderer.invoke('electron-report-vpn-session', { sessionId }),
+  onBackendReady: (handler) => {
+    const listener = () => handler()
+    ipcRenderer.on('backend-ready', listener)
+    return () => ipcRenderer.removeListener('backend-ready', listener)
+  },
+  onBackendError: (handler) => {
+    const listener = (_, message) => handler(String(message ?? ''))
+    ipcRenderer.on('backend-error', listener)
+    return () => ipcRenderer.removeListener('backend-error', listener)
+  },
 })

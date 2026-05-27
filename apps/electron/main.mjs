@@ -479,6 +479,28 @@ function startHttpHandlers(autoLauncher) {
   })
 }
 
+function notifyBackendError(err) {
+  const message = err instanceof Error ? err.message : String(err)
+  console.error('[backend]', message)
+  dialog.showErrorBox('启动失败', message)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('backend-error', message)
+  }
+}
+
+async function startBackendInBackground() {
+  try {
+    if (isDev) await startViteDevServer()
+    backendStart()
+    await waitBackendReady()
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('backend-ready')
+    }
+  } catch (err) {
+    notifyBackendError(err)
+  }
+}
+
 if (instanceLock) {
   app.whenReady().then(async () => {
     const localProps = readLocalProperties()
@@ -491,20 +513,11 @@ if (instanceLock) {
 
     handleOAuthArgv(process.argv)
 
-    try {
-      if (isDev) await startViteDevServer()
-      backendStart()
-      await waitBackendReady()
-    } catch (err) {
-      console.error(err)
-      app.quit()
-      return
-    }
-
-    createMainWindow()
     startHttpHandlers(autoLauncher)
+    createMainWindow()
     setupTray(appName)
     setupAutoUpdater()
+    void startBackendInBackground()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow()

@@ -3,8 +3,23 @@ export function assertElectronAPI() {
   return window.electronAPI
 }
 
-export async function invoke<T = unknown>(cmd: string, args?: unknown): Promise<T> {
-  return assertElectronAPI().invoke<T>(cmd, args)
+export async function invoke<T = unknown>(cmd: string, args?: unknown, timeoutMs = 60_000): Promise<T> {
+  const call = assertElectronAPI().invoke<T>(cmd, args)
+  if (!timeoutMs) return call
+  return Promise.race([
+    call,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error('后端请求超时')), timeoutMs)
+    }),
+  ])
+}
+
+export function onBackendReady(handler: () => void): () => void {
+  return assertElectronAPI().onBackendReady(handler)
+}
+
+export function onBackendError(handler: (message: string) => void): () => void {
+  return assertElectronAPI().onBackendError(handler)
 }
 
 export function onAeronEvent(handler: (payload: string) => void): () => void {
