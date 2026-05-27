@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { syncGuestAuthConfig } from '../api/guestConfig'
 import { autostartIsEnabled, runtimeCapabilities, runtimeConfig } from '../api/system'
 import { useAppStore, type AppSettings } from '../store'
 import { loadSession, loadSettings, saveSettings } from '../store/persist'
@@ -46,6 +47,13 @@ export async function bootstrapApp(): Promise<void> {
     store().setSettings({ autostart: await autostartIsEnabled() })
   } else {
     store().setSettings({ autostart: false })
+  }
+
+  try {
+    await syncGuestAuthConfig(config.default_api_url)
+  } catch (error) {
+    if (!session?.authData) throw error
+    console.error('guest auth config sync failed', error)
   }
 }
 

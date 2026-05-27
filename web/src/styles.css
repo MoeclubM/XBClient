@@ -110,7 +110,7 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--on-background);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Helvetica, Arial,
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
@@ -141,10 +141,10 @@ button {
 }
 
 .liquid-page {
-  width: min(100%, 48rem);
+  width: min(100%, 56rem);
   min-height: 100%;
   margin-inline: auto;
-  padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem 1.25rem;
+  padding: calc(1rem + env(safe-area-inset-top, 0px)) clamp(1rem, 3vw, 2rem) 1.25rem;
 }
 
 /* Header */
@@ -229,24 +229,112 @@ button {
 /* Auth */
 .auth-shell,
 .startup-view {
+  position: relative;
+  isolation: isolate;
   min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: calc(1.25rem + env(safe-area-inset-top, 0px)) 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  padding: calc(1.25rem + env(safe-area-inset-top, 0px)) clamp(1rem, 4vw, 2.5rem)
+    calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  overflow: hidden auto;
 }
 
-.auth-card {
-  width: min(100%, 28rem);
+.auth-atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 55% at 12% -8%, color-mix(in srgb, var(--primary) 28%, transparent), transparent 58%),
+    radial-gradient(ellipse 70% 50% at 100% 0%, color-mix(in srgb, var(--tertiary) 18%, transparent), transparent 52%),
+    radial-gradient(ellipse 60% 45% at 50% 110%, color-mix(in srgb, var(--primary-container) 42%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-container-high) 55%, transparent), var(--background));
+}
+
+.auth-shell--desktop .auth-atmosphere {
+  background:
+    radial-gradient(ellipse 55% 70% at 0% 50%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 62%),
+    radial-gradient(ellipse 45% 55% at 100% 20%, color-mix(in srgb, var(--tertiary) 14%, transparent), transparent 58%),
+    linear-gradient(105deg, color-mix(in srgb, var(--surface-container-high) 40%, transparent), var(--background) 48%);
+}
+
+.auth-layout {
+  width: min(100%, 26rem);
   display: grid;
+  gap: 14px;
+}
+
+.auth-shell--desktop .auth-layout {
+  width: min(100%, 30rem);
+}
+
+.auth-top {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.auth-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
   gap: 16px;
-  border-radius: 30px;
-  padding: 18px;
+  padding: 18px 20px;
+  border-radius: 28px !important;
 }
 
-.auth-toolbar {
+.auth-logo-wrap {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--primary-container) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--outline-variant));
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.auth-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+
+.auth-hero-copy {
+  min-width: 0;
+}
+
+.auth-eyebrow {
+  margin: 0 0 4px;
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-hero h1 {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.auth-tagline {
+  margin: 6px 0 0;
+  font-size: 0.84rem;
+}
+
+.auth-form-card,
+.auth-oauth-card {
+  border-radius: 24px !important;
+}
+
+.auth-oauth-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
 }
 
@@ -263,6 +351,52 @@ button {
   width: 92px;
   height: 92px;
   object-fit: contain;
+}
+
+/* Compact language / theme controls */
+.appearance-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pref-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--outline-variant);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-container) 88%, transparent);
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.pref-icon-btn:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--outline-variant));
+  color: var(--primary);
+  background: var(--surface-container-high);
+}
+
+.pref-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.pref-menu {
+  min-width: 168px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 16px !important;
+  background: var(--surface-container) !important;
+}
+
+.appearance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .startup-card {
@@ -788,6 +922,7 @@ button {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: var(--background);
 }
 
 .desktop-main--boot {
@@ -799,14 +934,25 @@ button {
 
 .liquid-main--desktop {
   padding-bottom: 24px !important;
+  height: 100%;
 }
 
 .desktop-shell--boot .desktop-sidebar {
   opacity: 0.92;
 }
 
-.liquid-page {
-  width: min(100%, 56rem);
+.desktop-app .auth-shell {
+  min-height: 100%;
+}
+
+.desktop-app .liquid-main--desktop .auth-shell {
+  padding-inline: clamp(1.5rem, 6vw, 4rem);
+}
+
+@media (min-width: 900px) {
+  .auth-shell:not(.auth-shell--desktop) .auth-layout {
+    width: min(100%, 28rem);
+  }
 }
 
 /* Pull to refresh area */

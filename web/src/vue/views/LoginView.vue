@@ -1,29 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { syncGuestAuthConfig } from '../../api/guestConfig'
 import { onOAuthCallback, openInAppBrowser, takeOAuthCallback } from '../../api/system'
 import { normalizeBaseUrl, xboardRequest } from '../../api/xboard'
 import { publicErrorText } from '../../format'
-import { enabled } from '../../reward'
 import { saveSession } from '../../store/persist'
-import { parseOAuthProviders } from '../../api/helpers'
-import { appState, persistSettings, store, t } from '../state'
+import { isDesktopShell } from '../../platform/shell'
+import { appState, store, t } from '../state'
 import type { OAuthProvider } from '../../store'
+import AppearanceControls from '../components/AppearanceControls.vue'
 
 type AuthMode = 'login' | 'register'
 
 interface AuthBody {
   data?: { auth_data?: string; email?: string }
-  message?: string
-}
-
-interface GuestConfigBody {
-  data?: {
-    oauth_providers?: unknown
-    is_invite_force?: number | boolean | string
-    is_email_verify?: number | boolean | string
-    is_captcha?: number | boolean | string
-  }
   message?: string
 }
 
@@ -33,6 +24,7 @@ interface ConfirmOAuthBody {
 }
 
 const router = useRouter()
+const isDesktop = isDesktopShell()
 const mode = ref<AuthMode>('login')
 const email = ref('')
 const password = ref('')
@@ -52,54 +44,35 @@ const baseUrl = computed(() => appState.buildConfig?.default_api_url ?? appState
 const appName = computed(() => appState.buildConfig?.app_name || 'XBClient')
 const oauthCallbackSupported = computed(() => appState.capabilities?.oauth_callback === true)
 
-const languageOptions = [
-  { value: 'system', label: 'System' },
-  { value: 'zh-CN', label: '中文' },
-  { value: 'en', label: 'English' },
-  { value: 'ja', label: '日本語' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'fa', label: 'فارسی' },
-]
-
-const themeOptions = [
-  { value: 'system', label: t('theme_system') },
-  { value: 'light', label: t('theme_light') },
-  { value: 'dark', label: t('theme_dark') },
-]
-
 let unlistenOAuth: (() => void) | null = null
 
 onMounted(() => {
-  if (baseUrl.value) void loadGuestConfig()
+  void refreshGuestConfig()
   if (oauthCallbackSupported.value) {
     void checkOAuthCallback()
     unlistenOAuth = onOAuthCallback(() => { void checkOAuthCallback() })
-    window.addEventListener('focus', checkOAuthCallback)
+    window.addEventListener('focus', onWindowFocus)
+  } else {
+    window.addEventListener('focus', onWindowFocus)
   }
 })
 
 onUnmounted(() => {
   unlistenOAuth?.()
-  window.removeEventListener('focus', checkOAuthCallback)
+  window.removeEventListener('focus', onWindowFocus)
 })
 
-async function loadGuestConfig(showSuccess = false) {
+function onWindowFocus() {
+  void refreshGuestConfig()
+  if (oauthCallbackSupported.value) void checkOAuthCallback()
+}
+
+async function refreshGuestConfig() {
+  if (!baseUrl.value) return
   error.value = ''
   configLoading.value = true
   try {
-    const response = await xboardRequest<GuestConfigBody>('guest_config', { baseUrl: baseUrl.value })
-    if (!response.ok) {
-      error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
-      return
-    }
-    const data = response.body?.data ?? {}
-    store().setAuthConfig({
-      oauthProviders: parseOAuthProviders(data.oauth_providers),
-      inviteForce: enabled(data.is_invite_force),
-      registerEmailVerifyEnabled: enabled(data.is_email_verify),
-      registerCaptchaEnabled: enabled(data.is_captcha),
-    })
-    if (showSuccess) message.value = t('service_config_synced')
+    await syncGuestAuthConfig(baseUrl.value)
   } catch (err) {
     error.value = publicErrorText(err)
   } finally {
@@ -302,42 +275,26 @@ async function finishLogin(authData: string, accountEmail: string) {
 </script>
 
 <template>
-  <main class="auth-shell">
-    <form class="auth-card glass-panel" @submit.prevent="submit">
-      <!-- Toolbar: Language & Theme -->
-      <div class="auth-toolbar">
-        <v-select
-          :model-value="appState.settings.appLanguage"
-          :items="languageOptions"
-          item-title="label"
-          item-value="value"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="persistSettings({ appLanguage: $event })"
-        />
-        <v-select
-          :model-value="appState.settings.themeMode"
-          :items="themeOptions"
-          item-title="label"
-          item-value="value"
-          density="compact"
-          variant="outlined"
-          hide-details
-          @update:model-value="persistSettings({ themeMode: $event })"
-        />
-      </div>
+  <main class="auth-shell" :class="{ 'auth-shell--desktop': isDesktop }">
+    <div class="auth-atmosphere" aria-hidden="true" />
+    <form class="auth-layout" @submit.prevent="submit">
+      <header class="auth-top">
+        <AppearanceControls />
+      </header>
 
-      <!-- Brand -->
-      <div class="auth-brand">
-        <img src="/logo.png" :alt="appName">
-        <h1>{{ appName }}</h1>
-      </div>
+      <section class="auth-hero glass-panel">
+        <div class="auth-logo-wrap">
+          <img class="auth-logo" src="/logo.png" :alt="appName">
+        </div>
+        <div class="auth-hero-copy">
+          <p class="auth-eyebrow">{{ t('login') }} · {{ appName }}</p>
+          <h1>{{ appName }}</h1>
+          <p class="auth-tagline muted">{{ t('page_settings_subtitle') }}</p>
+        </div>
+      </section>
 
-      <!-- Auth Form -->
-      <v-card class="glass-panel">
+      <v-card class="auth-form-card glass-panel">
         <v-card-text>
-          <!-- Mode Toggle -->
           <v-btn-toggle v-model="mode" class="liquid-toggle mb-4" mandatory rounded="pill" divided>
             <v-btn value="login" @click="switchMode('login')">{{ t('login') }}</v-btn>
             <v-btn value="register" @click="switchMode('register')">{{ t('register') }}</v-btn>
@@ -407,16 +364,16 @@ async function finishLogin(authData: string, accountEmail: string) {
         </v-card-text>
       </v-card>
 
-      <!-- OAuth Section -->
-      <v-card v-if="oauthCallbackSupported && (appState.oauthProviders.length || oauthConfirm)" class="glass-panel">
+      <v-card
+        v-if="oauthCallbackSupported && (appState.oauthProviders.length || oauthConfirm || configLoading)"
+        class="auth-oauth-card glass-panel"
+      >
         <v-card-text>
-          <div class="d-flex align-center justify-space-between mb-2">
+          <div class="auth-oauth-head">
             <p class="text-body-1 font-weight-bold mb-0">{{ t('auth_options') }}</p>
-            <v-btn variant="text" size="small" :loading="configLoading" @click="loadGuestConfig(true)">
-              {{ t('sync_config') }}
-            </v-btn>
+            <v-progress-circular v-if="configLoading" indeterminate size="18" width="2" color="primary" />
           </div>
-          <div v-if="appState.oauthProviders.length" class="stack">
+          <div v-if="appState.oauthProviders.length" class="stack mt-3">
             <v-btn
               v-for="provider in appState.oauthProviders"
               :key="provider.driver"

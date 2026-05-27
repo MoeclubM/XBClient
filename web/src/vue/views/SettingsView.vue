@@ -6,7 +6,7 @@ import { isDesktopShell } from '../../platform/shell'
 import { autostartSetEnabled, openInAppBrowser, parseSocksAddr, systemProxyClear, systemProxySet } from '../../api/system'
 import { publicErrorText } from '../../format'
 import { appState, persistSettings, t } from '../state'
-import type { AppSettings } from '../../store'
+import AppearanceControls from '../components/AppearanceControls.vue'
 
 const router = useRouter()
 const isDesktop = isDesktopShell()
@@ -36,14 +36,6 @@ onMounted(async () => {
     return ''
   })
 })
-
-async function setTheme(value: AppSettings['themeMode']) {
-  await persistSettings({ themeMode: value })
-}
-
-async function setLanguage(value: AppSettings['appLanguage']) {
-  await persistSettings({ appLanguage: value })
-}
 
 async function toggleProxy(value: boolean) {
   await persistSettings({ autoApplyProxy: value })
@@ -82,21 +74,6 @@ async function saveDnsSettings() {
   setTimeout(() => { message.value = '' }, 2000)
 }
 
-const languageOptions = [
-  { value: 'system', label: 'System' },
-  { value: 'zh-CN', label: '中文' },
-  { value: 'en', label: 'English' },
-  { value: 'ja', label: '日本語' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'fa', label: 'فارسی' },
-]
-
-const themeOptions = [
-  { value: 'system', label: t('theme_system') },
-  { value: 'light', label: t('theme_light') },
-  { value: 'dark', label: t('theme_dark') },
-]
-
 const dnsModeOptions = [
   { value: 'over_tcp', label: t('dns_mode_over_tcp') },
   { value: 'virtual', label: t('dns_mode_virtual') },
@@ -123,26 +100,14 @@ const dnsModeOptions = [
       <p class="section-label">{{ t('section_appearance') }}</p>
       <v-card class="panel-card">
         <v-card-text>
-          <v-select
-            :model-value="appState.settings.appLanguage"
-            :label="t('language')"
-            :items="languageOptions"
-            item-title="label"
-            item-value="value"
-            variant="outlined"
-            @update:model-value="setLanguage"
-          />
-          <v-select
-            class="mt-3"
-            :model-value="appState.settings.themeMode"
-            :label="t('theme')"
-            :items="themeOptions"
-            item-title="label"
-            item-value="value"
-            variant="outlined"
-            @update:model-value="setTheme"
-          />
-          <v-btn class="mt-3" variant="outlined" block @click="router.push('/login')">
+          <div class="appearance-row">
+            <div>
+              <p class="text-body-2 font-weight-bold mb-1">{{ t('language') }} · {{ t('theme') }}</p>
+              <p class="muted mb-0">{{ t('page_settings_subtitle') }}</p>
+            </div>
+            <AppearanceControls />
+          </div>
+          <v-btn class="mt-4" variant="outlined" block @click="router.push('/login')">
             {{ t('setting_reset_onboarding') }}
           </v-btn>
         </v-card-text>
