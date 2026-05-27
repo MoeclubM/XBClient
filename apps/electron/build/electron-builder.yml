@@ -8,6 +8,7 @@ directories:
   output: dist
   buildResources: build
 files:
+  - bootstrap.mjs
   - main.mjs
   - preload.cjs
   - updater.mjs
@@ -53,18 +54,25 @@ portable:
   artifactName: ${productName}-${version}-portable-${os}-${arch}.${ext}
 linux:
   target:
-    - AppImage
     - deb
   icon: build/icon.png
   category: Network
   executableName: XBClient
+  executableArgs:
+    - --enable-features=UseOzonePlatform
+    - --ozone-platform-hint=auto
   desktop:
     entry:
       Name: XBClient
       Comment: XBClient proxy client
       Categories: Network;
+      StartupWMClass: XBClient
   maintainer: PassClient
+  synopsis: XBClient proxy client
+  description: Desktop client for PassClient (Wayland-first on GNOME/KDE).
 deb:
   depends:
     - gsettings-desktop-schemas
     - libgtk-3-0
+    - libnotify4
+    - libayatana-appindicator3-1 | libappindicator3-1

@@ -1,15 +1,15 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, Tray, Menu, nativeImage } from 'electron'
 import path from 'node:path'
-
-if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform')
-}
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import readline from 'node:readline'
 import fs from 'node:fs'
 import AutoLaunch from 'auto-launch'
 import { setupAutoUpdater } from './updater.mjs'
+
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform')
+}
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)

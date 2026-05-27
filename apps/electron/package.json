@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "main.mjs",
+  "main": "bootstrap.mjs",
   "author": "PassClient",
   "description": "XBClient desktop client",
   "scripts": {
@@ -16,7 +16,8 @@
     "build": "pnpm run icons && pnpm run build:web && pnpm run build:backend",
     "dist": "pnpm run prepare-dist && pnpm run build && electron-builder -p never --config build/electron-builder.generated.yml",
     "dist:win": "pnpm run prepare-dist && pnpm run build && electron-builder --win -p never --config build/electron-builder.generated.yml",
-    "dist:linux": "pnpm run prepare-dist && pnpm run build && electron-builder --linux -p never --config build/electron-builder.generated.yml"
+    "dist:linux": "pnpm run prepare-dist && pnpm run build && electron-builder --linux -p never --config build/electron-builder.generated.yml",
+    "dist:linux:deb": "pnpm run prepare-dist && pnpm run build && electron-builder --linux deb -p never --config build/electron-builder.generated.yml"
   },
   "dependencies": {
     "auto-launch": "5.0.6",

@@ -170,3 +170,103 @@ jobs:
             apps/electron/dist/*.exe
             apps/electron/dist/*.exe.blockmap
           if-no-files-found: error
+
+  linux-beta-x86_64:
+    name: Linux Electron beta deb (x86_64)
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_TERM_COLOR: always
+      XBCLIENT_LINUX_TARGETS: deb
+      XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
+      XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
+      XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
+      XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
+      XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
+      XBCLIENT_PRIVACY_POLICY_URL: ${{ secrets.XBCLIENT_PRIVACY_POLICY_URL }}
+      XBCLIENT_USER_AGREEMENT_URL: ${{ secrets.XBCLIENT_USER_AGREEMENT_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Install pnpm
+        shell: bash
+        run: npm install -g pnpm@10.20.0
+
+      - name: Set up Rust
+        shell: bash
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Validate desktop build secrets
+        shell: bash
+        run: bash scripts/ci/validate-desktop-secrets.sh
+
+      - name: Build Linux deb (x86_64)
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile=false
+          pnpm --filter xbclient-electron dist:linux:deb
+
+      - name: Upload beta Linux deb (x86_64)
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-beta-linux-x86_64-${{ github.run_number }}
+          path: apps/electron/dist/*.deb
+          if-no-files-found: error
+
+  linux-beta-arm64:
+    name: Linux Electron beta deb (arm64)
+    runs-on: ubuntu-24.04-arm
+    env:
+      CARGO_TERM_COLOR: always
+      XBCLIENT_LINUX_TARGETS: deb
+      XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
+      XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
+      XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
+      XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
+      XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
+      XBCLIENT_PRIVACY_POLICY_URL: ${{ secrets.XBCLIENT_PRIVACY_POLICY_URL }}
+      XBCLIENT_USER_AGREEMENT_URL: ${{ secrets.XBCLIENT_USER_AGREEMENT_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Install pnpm
+        shell: bash
+        run: npm install -g pnpm@10.20.0
+
+      - name: Set up Rust
+        shell: bash
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Validate desktop build secrets
+        shell: bash
+        run: bash scripts/ci/validate-desktop-secrets.sh
+
+      - name: Build Linux deb (arm64)
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile=false
+          pnpm --filter xbclient-electron dist:linux:deb
+
+      - name: Upload beta Linux deb (arm64)
+        uses: actions/upload-artifact@v6
+        with:
+          name: xbclient-beta-linux-arm64-${{ github.run_number }}
+          path: apps/electron/dist/*.deb
+          if-no-files-found: error

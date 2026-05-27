@@ -133,7 +133,7 @@ fn runtime_capabilities() -> RuntimeCapabilities {
     let vpn = desktop;
     RuntimeCapabilities {
         platform: platform_name(),
-        system_proxy: desktop && !vpn,
+        system_proxy: desktop,
         oauth_callback: desktop,
         autostart: desktop,
         tray: desktop,

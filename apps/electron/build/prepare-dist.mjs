@@ -92,6 +92,15 @@ const executableName = productName.replace(/[^\w.-]+/g, '') || 'XBClient'
 let yml = fs.readFileSync(path.join(__dirname, 'electron-builder.yml'), 'utf8')
 yml = yml.replace(/^productName:.*$/m, `productName: ${productName}`)
 yml = yml.replace(/^  executableName:.*$/gm, `  executableName: ${executableName}`)
+const linuxTargets = process.env.XBCLIENT_LINUX_TARGETS?.trim()
+if (linuxTargets) {
+  const list = linuxTargets
+    .split(/[,\s]+/)
+    .filter(Boolean)
+    .map((t) => `    - ${t}`)
+    .join('\n')
+  yml = yml.replace(/^linux:\n  target:\n(?:    - .+\n)+/m, `linux:\n  target:\n${list}\n`)
+}
 if (scheme && !yml.includes('protocols:')) {
   yml += `\nprotocols:\n  - name: XBClient OAuth\n    schemes:\n      - ${scheme}\n`
 }

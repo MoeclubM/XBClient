@@ -7,6 +7,7 @@
     "build:desktop": "pnpm --filter xbclient-electron build",
     "dist:desktop": "pnpm --filter xbclient-electron dist",
     "dist:desktop:win": "pnpm --filter xbclient-electron dist:win",
+    "dist:desktop:linux": "pnpm --filter xbclient-electron dist:linux:deb",
     "typecheck": "pnpm --filter xbclient-web typecheck",
     "install:all": "pnpm install"
   }
