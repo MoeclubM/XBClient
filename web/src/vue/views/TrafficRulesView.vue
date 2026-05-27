@@ -23,10 +23,10 @@ const routing = computed(() => appState.routing)
       <v-card class="panel-card">
         <v-card-text>
           <div v-if="routing.hasRules" class="rules-summary">
-            <p>{{ t('traffic_rules_count', routing.ruleCount) }}</p>
+            <p>{{ routing.ruleCount }} {{ t('traffic_rules_count_suffix') }}</p>
             <p class="muted">
-              {{ t('traffic_rules_groups', routing.proxyGroupCount) }} ·
-              {{ t('traffic_rules_providers', routing.ruleProviderCount) }}
+              {{ routing.proxyGroupCount }} {{ t('traffic_rules_groups_suffix') }} ·
+              {{ routing.ruleProviderCount }} {{ t('traffic_rules_providers_suffix') }}
             </p>
           </div>
           <p v-else class="muted">{{ t('traffic_rules_none') }}</p>
@@ -37,7 +37,7 @@ const routing = computed(() => appState.routing)
             </li>
           </ul>
           <p v-if="routing.ruleCount > routing.rulesPreview.length" class="muted mt-2">
-            {{ t('traffic_rules_more', routing.ruleCount - routing.rulesPreview.length) }}
+            {{ routing.ruleCount - routing.rulesPreview.length }} {{ t('traffic_rules_more_suffix') }}
           </p>
 
           <p class="muted mt-4">{{ t('traffic_rules_hint') }}</p>

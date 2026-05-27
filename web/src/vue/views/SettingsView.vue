@@ -20,6 +20,7 @@ const directDns = ref(appState.settings.directDns)
 const vpnDnsMode = ref(appState.settings.vpnDnsMode)
 const virtualDnsPool = ref(appState.settings.virtualDnsPool)
 const nodeTestTarget = ref(appState.settings.nodeTestTarget)
+const geoipDir = ref(appState.settings.geoipDir)
 
 watch(() => appState.settings, (s) => {
   nodeDns.value = s.nodeDns
@@ -28,6 +29,7 @@ watch(() => appState.settings, (s) => {
   vpnDnsMode.value = s.vpnDnsMode
   virtualDnsPool.value = s.virtualDnsPool
   nodeTestTarget.value = s.nodeTestTarget
+  geoipDir.value = s.geoipDir
 }, { deep: true })
 
 onMounted(async () => {
@@ -60,6 +62,10 @@ async function toggleSilentStart(value: boolean) {
 
 async function setIpv6(value: boolean | null) {
   await persistSettings({ vpnIpv6Enabled: value === true })
+}
+
+async function saveGeoipDir() {
+  await persistSettings({ geoipDir: geoipDir.value.trim() })
 }
 
 async function saveDnsSettings() {
@@ -117,6 +123,33 @@ const dnsModeOptions = [
           <v-btn class="mt-4" variant="outlined" block @click="router.push('/login')">
             {{ t('setting_reset_onboarding') }}
           </v-btn>
+        </v-card-text>
+      </v-card>
+    </div>
+
+    <!-- Traffic Rules (desktop) -->
+    <div v-if="isDesktop && appState.capabilities?.vpn" class="page-section">
+      <p class="section-label">{{ t('section_traffic_rules') }}</p>
+      <v-card class="panel-card">
+        <v-card-text>
+          <p class="muted">
+            {{ appState.routing.hasRules
+              ? `${appState.routing.ruleCount} ${t('traffic_rules_count_suffix')}`
+              : t('traffic_rules_none') }}
+          </p>
+          <v-btn color="primary" class="mt-3" @click="router.push('/settings/traffic-rules')">
+            {{ t('action_view_rules') }}
+          </v-btn>
+          <v-text-field
+            v-model="geoipDir"
+            class="mt-4"
+            :label="t('geoip_dir')"
+            :hint="t('geoip_dir_help')"
+            variant="outlined"
+            density="comfortable"
+            persistent-hint
+            @change="saveGeoipDir"
+          />
         </v-card-text>
       </v-card>
     </div>
