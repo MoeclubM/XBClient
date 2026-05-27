@@ -1,53 +1,28 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { aerionTestNode } from '../../api/xboard'
+import { resolveAppNode } from '../../api/system'
 import {
-  aerionTestNode,
-} from '../../api/xboard'
-import {
-  resolveNodeHost,
-} from '../../api/system'
-import {
-  aerionNodeWithResolvedHost,
   displayNodeName,
-  rawNodeHost,
   readableNodeTestError,
   targetHostPort,
 } from '../../nodes'
 import { applyDesktopConnection, isDesktopConnectionShell } from '../../desktop/connection'
 import { publicErrorText } from '../../format'
+import SubscriptionBlockedPanel from '../components/SubscriptionBlockedPanel.vue'
 import { appState, store, t } from '../state'
 import type { AppNode } from '../../store'
 
-const router = useRouter()
 const testingAll = ref(false)
 const error = ref('')
 
 const selectedNodeIndex = computed(() => appState.vpn?.nodeIndex ?? appState.preferredNodeIndex)
 
-const blockTitle = computed(() => {
-  if (appState.subscription.blockReason === 'no_plan') return t('subscription_no_plan_title')
-  if (appState.subscription.blockReason === 'traffic_exceeded') return t('subscription_traffic_exceeded_title')
-  return t('subscription_expired_title')
-})
-
-const blockDescription = computed(() => {
-  if (appState.subscription.blockReason === 'no_plan') return t('subscription_no_plan_body')
-  if (appState.subscription.blockReason === 'traffic_exceeded') return t('subscription_traffic_exceeded_body')
-  return t('subscription_expired_body')
-})
-
-async function resolvedNode(node: AppNode): Promise<unknown> {
-  const host = rawNodeHost(node)
-  const resolvedHost = await resolveNodeHost(appState.settings.nodeDns, host, appState.buildConfig?.user_agent ?? '')
-  return aerionNodeWithResolvedHost(node, resolvedHost)
-}
-
 async function testOne(node: AppNode, index: number) {
   store().setNodeLoading(index)
   const target = targetHostPort(appState.settings.nodeTestTarget)
   const result = await aerionTestNode({
-    node: await resolvedNode(node),
+    node: await resolveAppNode(node, appState.settings.nodeDns, appState.buildConfig?.user_agent ?? ''),
     target_host: target.host,
     target_port: target.port,
     target_tls: target.tls,
@@ -87,7 +62,6 @@ async function selectNode(index: number) {
     const message = await applyDesktopConnection()
     if (message) error.value = message
   }
-  router.back()
 }
 </script>
 
@@ -113,18 +87,7 @@ async function selectNode(index: number) {
 
     <v-alert v-if="error" color="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
 
-    <!-- Subscription Blocked -->
-    <div v-if="appState.subscription.blockReason" class="page-section">
-      <p class="section-label">{{ blockTitle }}</p>
-      <v-card class="panel-card">
-        <v-card-text>
-          <p class="muted">{{ blockDescription }}</p>
-          <v-btn class="mt-4" color="primary" block @click="router.push('/plans')">
-            {{ t('go_to_plans') }}
-          </v-btn>
-        </v-card-text>
-      </v-card>
-    </div>
+    <SubscriptionBlockedPanel />
 
     <!-- Empty -->
     <div v-if="!appState.subscription.blockReason && !appState.nodes.length" class="page-section">
@@ -139,38 +102,34 @@ async function selectNode(index: number) {
         :key="`${node.name}-${index}`"
         class="node-row"
         :class="{ active: index === selectedNodeIndex }"
-        @click="selectNode(index)"
       >
-        <div class="flex-grow-1 min-w-0">
-          <div class="d-flex align-center gap-2">
-            <strong class="text-truncate">
+        <button
+          class="node-pick flex-grow-1"
+          :disabled="!node.connectSupported"
+          @click="selectNode(index)"
+        >
+          <span>
+            <strong>
               <span v-if="index === selectedNodeIndex" class="text-primary font-weight-bold">✓ </span>
               {{ displayNodeName(node, index) }}
             </strong>
-            <v-btn
-              v-if="node.connectSupported"
-              icon="↻"
-              size="x-small"
-              variant="text"
-              :loading="node._testing"
-              @click.stop="testOne(node, index)"
-            />
-          </div>
-          <div class="d-flex align-center flex-wrap gap-1 mt-1">
-            <span class="text-caption text-medium-emphasis">{{ node.protocolLabel }}</span>
-            <span
-              v-for="tag in node.tags"
-              :key="tag"
-              class="tag-chip"
-            >{{ tag }}</span>
-            <span v-if="node.latencyMs" class="text-caption text-medium-emphasis ml-auto">
-              {{ node.latencyMs }} ms
-            </span>
-            <span v-if="node.testError" class="text-caption text-error ml-auto">
-              {{ node.testError }}
-            </span>
-          </div>
-        </div>
+            <small>{{ node.protocolLabel }} · {{ node.host }}{{ node.connectSupported ? '' : ` · ${t('unsupported_protocol')}` }}</small>
+          </span>
+        </button>
+        <span class="node-actions">
+          <small v-if="node.latencyMs">{{ node.latencyMs }} ms</small>
+          <small v-if="node.testError" class="text-error">{{ node.testError }}</small>
+          <v-btn
+            v-if="node.connectSupported"
+            size="small"
+            variant="tonal"
+            :loading="node._testing"
+            :disabled="node._testing"
+            @click.stop="testOne(node, index)"
+          >
+            {{ t('node_test') }}
+          </v-btn>
+        </span>
       </div>
     </div>
   </section>

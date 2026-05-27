@@ -1,6 +1,7 @@
 export const TRANSLATIONS = {
   'zh-CN': {
-    nav_nodes: '主页',
+    nav_home: '主页',
+    nav_nodes: '节点',
     section_connection: '连接',
     section_current_node: '当前线路',
     section_traffic: '流量',
@@ -28,7 +29,8 @@ export const TRANSLATIONS = {
     routing_mode_global: '全局',
     routing_mode_direct: '直连',
     tun_mode: 'TUN 模式',
-    tun_mode_desc: '开启后通过虚拟网卡接管系统流量（需管理员权限）。',
+    tun_mode_desc: '通过虚拟网卡接管系统流量。无需安装 Clash Verge 式系统服务，但 Windows 需以管理员身份运行。',
+    tun_admin_required: 'TUN 需要管理员权限（Windows）或可访问 /dev/net/tun（Linux）。请右键「以管理员身份运行」，或关闭 TUN 改用系统代理。',
     system_proxy_toggle: '系统代理',
     system_proxy_toggle_desc: '关闭 TUN 时，将本地 SOCKS 写入系统代理。',
     node_dns: '节点 DNS',
@@ -183,7 +185,8 @@ export const TRANSLATIONS = {
     status_logged_in: '已登录',
   },
   en: {
-    nav_nodes: 'Home',
+    nav_home: 'Home',
+    nav_nodes: 'Nodes',
     section_connection: 'Connection',
     section_current_node: 'Current Route',
     section_traffic: 'Traffic',
@@ -211,7 +214,8 @@ export const TRANSLATIONS = {
     routing_mode_global: 'Global',
     routing_mode_direct: 'Direct',
     tun_mode: 'TUN Mode',
-    tun_mode_desc: 'Route system traffic through the virtual adapter (admin required on Windows).',
+    tun_mode_desc: 'Route traffic through a virtual adapter. No Clash Verge-style service install; on Windows run the app as administrator.',
+    tun_admin_required: 'TUN requires administrator rights on Windows or access to /dev/net/tun on Linux. Restart as admin, or disable TUN and use system proxy.',
     system_proxy_toggle: 'System Proxy',
     system_proxy_toggle_desc: 'When TUN is off, apply the local SOCKS endpoint to the OS proxy settings.',
     node_dns: 'Node DNS',
@@ -366,7 +370,8 @@ export const TRANSLATIONS = {
     status_logged_in: 'Signed In',
   },
   ja: {
-    nav_nodes: 'ホーム',
+    nav_home: 'ホーム',
+    nav_nodes: 'ノード',
     section_connection: '接続',
     section_current_node: '現在のノード',
     section_traffic: '流量',
@@ -512,7 +517,8 @@ export const TRANSLATIONS = {
     node_test_timeout: '接続タイムアウト',
   },
   ru: {
-    nav_nodes: 'Главная',
+    nav_home: 'Главная',
+    nav_nodes: 'Узлы',
     section_connection: 'Подключение',
     section_current_node: 'Текущий узел',
     section_traffic: 'Трафик',
@@ -658,7 +664,8 @@ export const TRANSLATIONS = {
     node_test_timeout: 'Тайм-аут подключения',
   },
   fa: {
-    nav_nodes: 'خانه',
+    nav_home: 'خانه',
+    nav_nodes: 'گره‌ها',
     section_connection: 'اتصال',
     section_current_node: 'مسیر فعلی',
     section_traffic: 'ترافیک',

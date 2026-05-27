@@ -6,14 +6,12 @@ import {
 } from '../api/xboard'
 import {
   parseSocksAddr,
-  resolveNodeHost,
+  resolveAppNode,
   systemProxyClear,
   systemProxySet,
 } from '../api/system'
 import {
-  aerionNodeWithResolvedHost,
   dnsAddressForVpn,
-  rawNodeHost,
 } from '../nodes'
 import { publicErrorText } from '../format'
 import { reportVpnSession } from '../platform/electron'
@@ -29,13 +27,7 @@ export function isDesktopConnectionShell(): boolean {
 
 async function resolvedNode(node: AppNode): Promise<unknown> {
   const state = useAppStore.getState()
-  const host = rawNodeHost(node)
-  const resolvedHost = await resolveNodeHost(
-    state.settings.nodeDns,
-    host,
-    state.buildConfig?.user_agent ?? '',
-  )
-  return aerionNodeWithResolvedHost(node, resolvedHost)
+  return resolveAppNode(node, state.settings.nodeDns, state.buildConfig?.user_agent ?? '')
 }
 
 async function disconnectSession(): Promise<void> {

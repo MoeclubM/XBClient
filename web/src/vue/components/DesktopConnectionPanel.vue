@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import {
-  applyDesktopConnection,
   desktopConnectionBusy,
   setRoutingMode,
   setSystemProxyEnabled,
@@ -24,6 +23,9 @@ const routingModes = [
 const connected = computed(() => Boolean(appState.vpn))
 const busy = computed(() => desktopConnectionBusy())
 const proxyToggleDisabled = computed(() => appState.settings.tunEnabled || appState.settings.routingMode === 'direct')
+const tunNeedsElevation = computed(
+  () => appState.settings.tunEnabled && appState.capabilities?.vpn && appState.capabilities.tun_elevated === false,
+)
 
 watch(
   () => appState.vpn,
@@ -64,8 +66,6 @@ async function onProxyToggle(value: boolean | null) {
   await persistSettings({ systemProxyEnabled: value === true })
   await run(() => setSystemProxyEnabled(value === true))
 }
-
-defineExpose({ apply: () => run(() => applyDesktopConnection()) })
 </script>
 
 <template>
@@ -100,6 +100,16 @@ defineExpose({ apply: () => run(() => applyDesktopConnection()) })
 
         <v-alert v-if="error" color="error" variant="tonal" density="compact" class="mb-3">
           {{ error }}
+        </v-alert>
+
+        <v-alert
+          v-if="tunNeedsElevation"
+          color="warning"
+          variant="tonal"
+          density="compact"
+          class="mb-3"
+        >
+          {{ t('tun_admin_required') }}
         </v-alert>
 
         <v-switch

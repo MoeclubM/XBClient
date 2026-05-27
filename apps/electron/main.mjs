@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, Tray, Menu, nativeImage } from 'electron'
 import path from 'node:path'
-import { spawn } from 'node:child_process'
+import { spawn, execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import readline from 'node:readline'
 import fs from 'node:fs'
@@ -28,6 +28,9 @@ let pendingOAuthUrl = null
 const oauthBrowserWindows = new Set()
 let activeVpnSessionId = null
 let backendIsReady = false
+let backendStderr = ''
+let backendBootPromise = null
+let lastBackendStartAt = 0
 let trayInstance = null
 let trayBusy = false
 let autoLauncherInstance = null
@@ -171,6 +174,26 @@ function desktopRuntimeConfig() {
   }
 }
 
+function isProcessElevated() {
+  if (process.platform === 'win32') {
+    try {
+      execSync('net session', { stdio: 'ignore' })
+      return true
+    } catch {
+      return false
+    }
+  }
+  if (process.platform === 'linux') {
+    try {
+      fs.accessSync('/dev/net/tun', fs.constants.R_OK | fs.constants.W_OK)
+      return true
+    } catch {
+      return false
+    }
+  }
+  return true
+}
+
 function desktopRuntimeCapabilities() {
   const desktop = process.platform === 'win32' || process.platform === 'linux'
   return {
@@ -181,6 +204,7 @@ function desktopRuntimeCapabilities() {
     tray: desktop,
     local_socks: true,
     vpn: desktop,
+    tun_elevated: desktop ? isProcessElevated() : false,
     payment: true,
     admob: false,
   }
@@ -217,10 +241,19 @@ function validateBackendEnv() {
 }
 
 function backendStart() {
+  if (backendProc) {
+    backendProc.removeAllListeners()
+    try {
+      backendProc.kill()
+    } catch {}
+    backendProc = null
+  }
   const env = validateBackendEnv()
   const releaseBinary = backendReleaseBinaryPath()
+  backendStderr = ''
+  lastBackendStartAt = Date.now()
 
-  if (isDev) {
+  if (isDev && !fs.existsSync(releaseBinary)) {
     backendProc = spawn('cargo', ['run', '--quiet', '--manifest-path', backendManifestPath()], {
       cwd: repoRoot,
       env,
@@ -229,7 +262,7 @@ function backendStart() {
   } else {
     if (!fs.existsSync(releaseBinary)) {
       throw new Error(
-        `未找到 electron-backend：${releaseBinary}\n请先运行：pnpm --filter xbclient-electron build`,
+        `未找到 electron-backend：${releaseBinary}\n请先运行：pnpm --filter xbclient-electron build:backend`,
       )
     }
     backendProc = spawn(releaseBinary, [], {
@@ -240,10 +273,28 @@ function backendStart() {
     })
   }
 
-  backendProc.on('exit', (code) => {
-    const error = new Error(`electron-backend exited with code ${code}`)
+  backendProc.on('error', (err) => {
+    backendIsReady = false
+    const error = new Error(`electron-backend 无法启动：${err.message}`)
     for (const [, pending] of backendPending.entries()) pending.reject(error)
     backendPending.clear()
+    notifyBackendError(error)
+  })
+
+  backendProc.on('exit', (code, signal) => {
+    backendIsReady = false
+    backendProc = null
+    const detail = backendStderr.trim() ? `\n${backendStderr.trim().slice(-2000)}` : ''
+    const error = new Error(
+      signal
+        ? `electron-backend 被信号终止：${signal}${detail}`
+        : `electron-backend 异常退出（code ${code ?? 'null'}）${detail}`,
+    )
+    for (const [, pending] of backendPending.entries()) pending.reject(error)
+    backendPending.clear()
+    if (!quitRequested) {
+      console.error('[backend:exit]', error.message)
+    }
   })
 
   backendProc.stdout.setEncoding('utf8')
@@ -281,13 +332,32 @@ function backendStart() {
   })
 
   backendProc.stderr.on('data', (data) => {
-    console.error('[backend:stderr]', String(data).trim())
+    const chunk = String(data)
+    backendStderr = (backendStderr + chunk).slice(-8000)
+    console.error('[backend:stderr]', chunk.trim())
   })
+}
+
+async function ensureBackendRunning() {
+  if (backendIsReady && backendProc?.stdin) return
+  if (!backendBootPromise) {
+    backendBootPromise = (async () => {
+      try {
+        if (!backendProc) backendStart()
+        await waitBackendReady()
+        notifyBackendReady()
+      } finally {
+        backendBootPromise = null
+      }
+    })()
+  }
+  await backendBootPromise
 }
 
 async function waitBackendReady() {
   const deadline = Date.now() + 120_000
   while (Date.now() < deadline) {
+    if (!backendProc?.stdin && Date.now() - lastBackendStartAt > 1000) backendStart()
     try {
       await backendInvoke('runtime_capabilities', {})
       return
@@ -295,7 +365,8 @@ async function waitBackendReady() {
       await new Promise((resolve) => setTimeout(resolve, 200))
     }
   }
-  throw new Error('electron-backend 启动超时')
+  const detail = backendStderr.trim() ? `\n${backendStderr.trim().slice(-2000)}` : ''
+  throw new Error(`electron-backend 启动超时${detail}`)
 }
 
 function backendInvoke(method, params, timeoutMs = 120_000) {
@@ -917,9 +988,7 @@ function startHttpHandlers() {
   })
 
   ipcMain.handle('electron-invoke', async (_, { cmd, args }) => {
-    if (!backendIsReady && cmd !== 'runtime_capabilities' && cmd !== 'runtime_config') {
-      await waitBackendReady()
-    }
+    await ensureBackendRunning()
     return backendInvoke(cmd, args)
   })
 
@@ -944,9 +1013,7 @@ function notifyBackendError(err) {
 async function startBackendInBackground() {
   try {
     if (isDev) await startViteDevServer()
-    backendStart()
-    await waitBackendReady()
-    notifyBackendReady()
+    await ensureBackendRunning()
   } catch (err) {
     notifyBackendError(err)
   }

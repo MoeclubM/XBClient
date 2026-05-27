@@ -80,17 +80,28 @@ writeProps(dstProps, config)
 console.log('wrote resources/config/local.properties from env/local.properties')
 
 const { electronVersion } = resolveAppVersion()
+const ghRepo = process.env.GITHUB_REPOSITORY?.trim()
+const websiteUrl = config['xbclient.websiteUrl']?.trim() ?? ''
+const homepage = websiteUrl.startsWith('http')
+  ? websiteUrl
+  : ghRepo
+    ? `https://github.com/${ghRepo}`
+    : 'https://github.com/MoeclubM/XBClient'
+
 const pkgPath = path.join(electronDir, 'package.json')
 const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
 pkg.version = electronVersion
+pkg.homepage = homepage
 fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
 console.log(`electron package version -> ${electronVersion}`)
 
 const scheme = config['xbclient.oauthCallbackScheme']
 const productName = config['xbclient.appName']
 const executableName = productName.replace(/[^\w.-]+/g, '') || 'XBClient'
+
 let yml = fs.readFileSync(path.join(__dirname, 'electron-builder.yml'), 'utf8')
 yml = yml.replace(/^productName:.*$/m, `productName: ${productName}`)
+yml = yml.replace(/^homepage:.*$/m, `homepage: ${homepage}`)
 yml = yml.replace(/^  executableName:.*$/gm, `  executableName: ${executableName}`)
 const linuxTargets = process.env.XBCLIENT_LINUX_TARGETS?.trim()
 if (linuxTargets) {
@@ -104,7 +115,6 @@ if (linuxTargets) {
 if (scheme && !yml.includes('protocols:')) {
   yml += `\nprotocols:\n  - name: XBClient OAuth\n    schemes:\n      - ${scheme}\n`
 }
-const ghRepo = process.env.GITHUB_REPOSITORY?.trim()
 if (ghRepo && !yml.includes('\npublish:')) {
   const [owner, repo] = ghRepo.split('/')
   if (owner && repo) {

@@ -272,3 +272,14 @@ function nodeTags(node: RawNode): string[] {
   }
   return [...new Set(tags)]
 }
+
+export function rawNodeRows(value: unknown): RawNode[] {
+  if (Array.isArray(value)) return value as RawNode[]
+  if (value && typeof value === 'object') {
+    const object = value as Record<string, unknown>
+    for (const key of ['nodes', 'data', 'list', 'items']) {
+      if (Array.isArray(object[key])) return object[key] as RawNode[]
+    }
+  }
+  return []
+}

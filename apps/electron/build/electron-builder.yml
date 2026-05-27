@@ -1,5 +1,6 @@
 appId: moe.telecom.xbclient
 productName: XBClient
+homepage: https://github.com/MoeclubM/XBClient
 copyright: Copyright © PassClient
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 asar: true

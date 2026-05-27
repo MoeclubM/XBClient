@@ -1,4 +1,6 @@
 import { publicErrorText } from '../format'
+import { aerionNodeWithResolvedHost, rawNodeHost } from '../nodes'
+import type { AppNode } from '../store'
 import {
   autostartIsEnabled as electronAutostartIsEnabled,
   autostartSetEnabled as electronAutostartSetEnabled,
@@ -17,6 +19,7 @@ export interface RuntimeCapabilities {
   tray: boolean
   local_socks: boolean
   vpn: boolean
+  tun_elevated?: boolean
   payment: boolean
   admob: boolean
 }
@@ -52,6 +55,11 @@ export function onOAuthCallback(handler: (url: string) => void): () => void {
 
 export async function resolveNodeHost(dnsUrl: string, host: string, userAgent = ''): Promise<string> {
   return invoke('resolve_node_host', { dnsUrl, host, userAgent })
+}
+
+export async function resolveAppNode(node: AppNode, dnsUrl: string, userAgent = ''): Promise<unknown> {
+  const resolvedHost = await resolveNodeHost(dnsUrl, rawNodeHost(node), userAgent)
+  return aerionNodeWithResolvedHost(node, resolvedHost)
 }
 
 export async function systemProxySet(host: string, port: number): Promise<void> {

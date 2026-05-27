@@ -6,43 +6,21 @@ import {
   aerionStartVpn,
   aerionStop,
   aerionStopVpn,
-  aerionTestNode,
-  subscriptionFetch,
-  xboardRequest,
 } from '../../api/xboard'
 import { applyDesktopConnection, isDesktopConnectionShell } from '../../desktop/connection'
 import { onAeronEvent, reportVpnSession } from '../../platform/electron'
 import {
   parseSocksAddr,
-  resolveNodeHost,
+  resolveAppNode,
   systemProxyClear,
   systemProxySet,
 } from '../../api/system'
 import DesktopConnectionPanel from '../components/DesktopConnectionPanel.vue'
-import {
-  aerionNodeWithResolvedHost,
-  displayNodeName,
-  mergeNodeLists,
-  mergeXboardNodeTags,
-  dnsAddressForVpn,
-  rawNodeHost,
-  readableNodeTestError,
-  targetHostPort,
-  toAppNode,
-  type RawNode,
-} from '../../nodes'
-import { formatDuration, formatTrafficBytes, formatUnixDate, numericValue, publicErrorText } from '../../format'
+import SubscriptionBlockedPanel from '../components/SubscriptionBlockedPanel.vue'
+import { displayNodeName, dnsAddressForVpn } from '../../nodes'
+import { formatDuration, formatTrafficBytes, publicErrorText } from '../../format'
+import { syncSubscription } from '../../subscription-sync'
 import { appState, store, t } from '../state'
-import type { AppNode, NoticeItem } from '../../store'
-
-interface XboardBody {
-  data?: unknown
-  message?: string
-}
-
-interface NoticeFetchBody {
-  data?: Array<{ id?: number; title?: string; subject?: string; content?: string; message?: string; created_at?: number }>
-}
 
 const router = useRouter()
 const loading = ref(false)
@@ -60,16 +38,6 @@ const progressPercent = computed(() =>
     ? Math.min(100, (appState.subscription.trafficUsedBytes / appState.subscription.trafficTotalBytes) * 100)
     : 0,
 )
-const blockTitle = computed(() => {
-  if (appState.subscription.blockReason === 'no_plan') return t('subscription_no_plan_title')
-  if (appState.subscription.blockReason === 'traffic_exceeded') return t('subscription_traffic_exceeded_title')
-  return t('subscription_expired_title')
-})
-const blockDescription = computed(() => {
-  if (appState.subscription.blockReason === 'no_plan') return t('subscription_no_plan_body')
-  if (appState.subscription.blockReason === 'traffic_exceeded') return t('subscription_traffic_exceeded_body')
-  return t('subscription_expired_body')
-})
 
 onMounted(async () => {
   await refresh()
@@ -101,84 +69,12 @@ onUnmounted(() => {
   unlistenEvent?.()
 })
 
-function extractRows(value: unknown): RawNode[] {
-  if (Array.isArray(value)) return value as RawNode[]
-  if (value && typeof value === 'object') {
-    const object = value as Record<string, unknown>
-    for (const key of ['nodes', 'data', 'list', 'items']) {
-      if (Array.isArray(object[key])) return object[key] as RawNode[]
-    }
-  }
-  return []
-}
-
-function parseNotices(body: NoticeFetchBody | undefined): NoticeItem[] {
-  return (body?.data ?? [])
-    .map((row) => ({
-      id: Number(row.id ?? 0),
-      title: row.title ?? row.subject ?? '',
-      content: row.content ?? row.message ?? '',
-      createdAt: Number(row.created_at ?? 0),
-    }))
-    .filter((item) => item.title.trim() || item.content.trim())
-}
-
-function responseError(response: { status: number; error?: string; body?: XboardBody }): string {
-  return response.body?.message || response.error || `HTTP ${response.status}`
-}
-
-function subscriptionState(data: Record<string, unknown>) {
-  const used = numericValue(data.u) + numericValue(data.d)
-  const total = numericValue(data.transfer_enable)
-  const plan = data.plan && typeof data.plan === 'object' ? (data.plan as Record<string, unknown>) : null
-  const planName = String(plan?.name ?? '')
-  const expiredAt = numericValue(data.expired_at)
-  const planId = numericValue(data.plan_id)
-  return {
-    summary: [
-      planName,
-      total > 0 ? `${t('used_traffic')} ${formatTrafficBytes(used)} / ${formatTrafficBytes(total)}` : '',
-      expiredAt > 0 ? `${t('expires_prefix')} ${formatUnixDate(expiredAt)}` : '',
-    ].filter(Boolean).join(' · '),
-    blockReason: (planId <= 0 && !plan
-      ? 'no_plan'
-      : expiredAt > 0 && expiredAt <= Date.now() / 1000
-        ? 'expired'
-        : total <= 0 || used >= total
-          ? 'traffic_exceeded'
-          : '') as '' | 'no_plan' | 'expired' | 'traffic_exceeded',
-    trafficUsedBytes: used,
-    trafficTotalBytes: total,
-    planName,
-    expiredAt,
-  }
-}
-
 async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    const sub = await xboardRequest<XboardBody>('user_subscribe', { baseUrl: appState.baseUrl, authData: appState.authData })
-    if (!sub.ok) {
-      error.value = responseError(sub)
-      return
-    }
-    const data = sub.body?.data && typeof sub.body.data === 'object' ? sub.body.data as Record<string, unknown> : {}
-    const url = String(data.subscribe_url ?? data.subscribeUrl ?? '')
-    let list: AppNode[] = []
-    const xbclientNodes = await xboardRequest<XboardBody>('xbclient_nodes', { baseUrl: appState.baseUrl, authData: appState.authData })
-    if (xbclientNodes.ok) {
-      list = extractRows(xbclientNodes.body?.data).map(toAppNode)
-    } else if (url) {
-      const subscription = await subscriptionFetch(url, 'meta')
-      list = (subscription.nodes ?? []).map((node) => toAppNode(node as RawNode))
-      const tagRows = await xboardRequest<XboardBody>('nodes', { baseUrl: appState.baseUrl, authData: appState.authData })
-      if (tagRows.ok) list = mergeXboardNodeTags(list, extractRows(tagRows.body?.data))
-    }
-    store().setSubscribe({ subscribeUrl: url, nodes: mergeNodeLists(appState.nodes, list) })
-    store().setSubscriptionState(subscriptionState(data))
-    const noticeResponse = await xboardRequest<NoticeFetchBody>('notices', { baseUrl: appState.baseUrl, authData: appState.authData })
-    if (noticeResponse.ok) store().setNotices(parseNotices(noticeResponse.body))
+    const message = await syncSubscription()
+    if (message) error.value = message
   } catch (err) {
     error.value = publicErrorText(err)
   } finally {
@@ -190,40 +86,11 @@ async function refresh() {
   }
 }
 
-async function resolvedNode(node: AppNode): Promise<unknown> {
-  const host = rawNodeHost(node)
-  const resolvedHost = await resolveNodeHost(appState.settings.nodeDns, host, appState.buildConfig?.user_agent ?? '')
-  return aerionNodeWithResolvedHost(node, resolvedHost)
-}
-
-async function testNode(node: AppNode, index: number) {
-  const target = targetHostPort(appState.settings.nodeTestTarget)
-  store().setNodeLoading(index)
-  const result = await aerionTestNode({
-    node: await resolvedNode(node),
-    target_host: target.host,
-    target_port: target.port,
-    target_tls: target.tls,
-    timeout_ms: 8000,
-  })
-  store().setNodeResult(index, result.ok ? { latencyMs: result.latency_ms ?? result.first_latency_ms } : { testError: readableNodeTestError(result.error ?? '', appState.settings.appLanguage) })
-}
-
 function startDuration() {
   connectedAt = Date.now()
   duration.value = 0
   if (durationTimer) window.clearInterval(durationTimer)
   durationTimer = window.setInterval(() => { duration.value = Date.now() - connectedAt }, 1000)
-}
-
-async function pickNode(index: number) {
-  if (isDesktopConnectionShell()) {
-    store().setPreferredNodeIndex(index)
-    const message = await applyDesktopConnection()
-    if (message) error.value = message
-    return
-  }
-  await toggleConnection(index)
 }
 
 async function toggleConnection(index = selectedNodeIndex.value) {
@@ -248,7 +115,7 @@ async function toggleConnection(index = selectedNodeIndex.value) {
   connectingIndex.value = index
   error.value = ''
   try {
-    const resolved = await resolvedNode(node)
+    const resolved = await resolveAppNode(node, appState.settings.nodeDns, appState.buildConfig?.user_agent ?? '')
     if (useTun) {
       const dnsMode = appState.settings.vpnDnsMode
       const dns_addr = dnsAddressForVpn(
@@ -311,7 +178,7 @@ function formatUnixTime(value: number): string {
     <div class="page-header">
       <div class="page-header-bar" />
       <div class="page-header-content">
-        <h1>{{ t('nav_nodes') }}</h1>
+        <h1>{{ t('nav_home') }}</h1>
       </div>
       <v-btn variant="outlined" :loading="loading" @click="refresh">
         {{ loading ? t('refreshing') : t('refresh') }}
@@ -320,21 +187,7 @@ function formatUnixTime(value: number): string {
 
     <v-alert v-if="error" color="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
 
-    <!-- Subscription Blocked -->
-    <div v-if="appState.subscription.blockReason" class="page-section">
-      <p class="section-label">{{ blockTitle }}</p>
-      <v-card class="panel-card">
-        <v-card-text>
-          <p class="muted">{{ blockDescription }}</p>
-          <p v-if="appState.subscription.summary" class="text-body-1 font-weight-bold mt-2">
-            {{ appState.subscription.summary }}
-          </p>
-          <v-btn class="mt-4" color="primary" block @click="router.push('/plans')">
-            {{ t('go_to_plans') }}
-          </v-btn>
-        </v-card-text>
-      </v-card>
-    </div>
+    <SubscriptionBlockedPanel show-summary />
 
     <DesktopConnectionPanel v-if="!appState.subscription.blockReason && isDesktopConnectionShell()" />
 
@@ -375,7 +228,7 @@ function formatUnixTime(value: number): string {
       <v-card
         class="panel-card"
         :class="{ 'cursor-pointer': appState.nodes.length > 0 }"
-        @click="appState.nodes.length > 0 && router.push('/home/nodes')"
+        @click="appState.nodes.length > 0 && router.push('/nodes')"
       >
         <v-card-text>
           <div class="d-flex align-center">
@@ -424,46 +277,6 @@ function formatUnixTime(value: number): string {
             </p>
           </v-card-text>
         </v-card>
-      </div>
-    </div>
-
-    <!-- Node List Section -->
-    <div v-if="!appState.subscription.blockReason" class="page-section">
-      <div class="d-flex align-center justify-space-between mb-2">
-        <p class="section-label mb-0">{{ t('select_node') }}</p>
-        <span class="text-caption text-medium-emphasis">{{ appState.nodes.length }}</span>
-      </div>
-      <div class="node-list">
-        <div
-          v-for="(node, index) in appState.nodes"
-          :key="`${node.name}-${index}`"
-          class="node-row"
-          :class="{ active: index === selectedNodeIndex }"
-        >
-          <button
-            class="node-pick"
-            :disabled="!node.connectSupported"
-            @click="pickNode(index)"
-          >
-            <span>
-              <strong>{{ displayNodeName(node, index) }}</strong>
-              <small>{{ node.protocolLabel }} · {{ node.host }}{{ node.connectSupported ? '' : ` · ${t('unsupported_protocol')}` }}</small>
-            </span>
-          </button>
-          <span class="node-actions">
-            <small v-if="node.latencyMs">{{ node.latencyMs }} ms</small>
-            <v-btn
-              v-if="node.connectSupported"
-              size="small"
-              variant="text"
-              :loading="node._testing"
-              @click.stop="testNode(node, index)"
-            >
-              ↻
-            </v-btn>
-          </span>
-        </div>
-        <p v-if="!loading && !appState.nodes.length" class="muted pa-3">{{ t('no_nodes') }}</p>
       </div>
     </div>
   </section>

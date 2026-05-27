@@ -45,13 +45,6 @@ struct RpcResponseOk {
 }
 
 #[derive(Serialize)]
-struct RpcResponseErr {
-    id: u64,
-    ok: bool,
-    error: String,
-}
-
-#[derive(Serialize)]
 pub struct RuntimeCapabilities {
     pub platform: &'static str,
     pub system_proxy: bool,
@@ -351,6 +344,21 @@ async fn system_proxy_clear() -> Result<()> {
     Ok(())
 }
 
+fn emit_rpc_response(id: u64, out: Result<RpcResponseOk, anyhow::Error>) {
+    match out {
+        Ok(ok) => {
+            if let Ok(value) = serde_json::to_value(ok) {
+                emit_line(&value);
+            } else {
+                emit_line(&json!({ "id": id, "ok": false, "error": "serialize response failed" }));
+            }
+        }
+        Err(error) => {
+            emit_line(&json!({ "id": id, "ok": false, "error": error.to_string() }));
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let mut stdin = BufReader::new(io::stdin());
@@ -365,7 +373,17 @@ async fn main() -> Result<()> {
 
     loop {
         lines.clear();
-        let read = stdin.read_line(&mut lines).await?;
+        let read = match stdin.read_line(&mut lines).await {
+            Ok(n) => n,
+            Err(error) => {
+                emit_line(&json!({
+                    "type": "log",
+                    "level": "error",
+                    "message": format!("stdin read error: {error}")
+                }));
+                break;
+            }
+        };
         if read == 0 {
             break;
         }
@@ -433,17 +451,7 @@ async fn main() -> Result<()> {
             other => bail!("unsupported method: {other}"),
         };
 
-        match out {
-            Ok(ok) => emit_line(&serde_json::to_value(ok)?),
-            Err(error) => {
-                let err = error.to_string();
-                emit_line(&serde_json::to_value(RpcResponseErr {
-                    id: req.id,
-                    ok: false,
-                    error: err,
-                })?)
-            }
-        }
+        emit_rpc_response(req.id, out);
     }
 
     Ok(())
