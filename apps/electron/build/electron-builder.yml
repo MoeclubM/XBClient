@@ -9,7 +9,7 @@ directories:
   buildResources: build
 files:
   - main.mjs
-  - preload.mjs
+  - preload.cjs
   - updater.mjs
   - package.json
 extraResources:

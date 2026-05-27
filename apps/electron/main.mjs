@@ -11,9 +11,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '../..')
 
-const mode = process.argv[2] === 'build' ? 'build' : 'dev'
-const isDev = mode === 'dev'
 const isPackaged = app.isPackaged
+const isDev = !isPackaged && process.argv[2] !== 'build'
 
 let mainWindow = null
 let backendProc = null
@@ -77,10 +76,10 @@ function registerOAuthProtocol() {
   const scheme = oauthScheme()
   if (!scheme) return
 
-  if (isDev) {
-    app.setAsDefaultProtocolClient(scheme, process.execPath, [path.resolve(__dirname, 'main.mjs')])
-  } else {
+  if (isPackaged) {
     app.setAsDefaultProtocolClient(scheme)
+  } else {
+    app.setAsDefaultProtocolClient(scheme, process.execPath, [app.getAppPath(), isDev ? 'dev' : 'build'])
   }
 }
 
@@ -308,7 +307,7 @@ function createMainWindow() {
     minHeight: 600,
     ...(icon.isEmpty() ? {} : { icon }),
     webPreferences: {
-      preload: path.resolve(__dirname, 'preload.mjs'),
+      preload: path.resolve(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },

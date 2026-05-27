@@ -7,8 +7,8 @@
   "author": "PassClient",
   "description": "XBClient desktop client",
   "scripts": {
-    "dev": "node main.mjs dev",
-    "start": "node main.mjs build",
+    "dev": "electron . dev",
+    "start": "electron . build",
     "icons": "node build/generate-icon.mjs",
     "prepare-dist": "node build/prepare-dist.mjs",
     "build:backend": "cargo build --release --manifest-path ../../rust/electron-backend/Cargo.toml",
