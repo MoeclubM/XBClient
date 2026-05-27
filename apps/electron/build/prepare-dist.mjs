@@ -101,7 +101,6 @@ const executableName = productName.replace(/[^\w.-]+/g, '') || 'XBClient'
 
 let yml = fs.readFileSync(path.join(__dirname, 'electron-builder.yml'), 'utf8')
 yml = yml.replace(/^productName:.*$/m, `productName: ${productName}`)
-yml = yml.replace(/^homepage:.*$/m, `homepage: ${homepage}`)
 yml = yml.replace(/^  executableName:.*$/gm, `  executableName: ${executableName}`)
 const linuxTargets = process.env.XBCLIENT_LINUX_TARGETS?.trim()
 if (linuxTargets) {
