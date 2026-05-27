@@ -64,7 +64,7 @@ onMounted(async () => {
   cleanupZoom = preventDesktopZoom()
   try {
     await bootstrapApp()
-    if (isDesktop) cleanupTraySync = installElectronTraySync()
+    if (isDesktop && appState.capabilities?.tray) cleanupTraySync = installElectronTraySync()
     await showStartupAd().catch((error) => console.error('show app open ad failed', error))
     if (!appState.authData && route.path !== '/login') await router.replace('/login')
     if (appState.authData && route.path === '/login') await router.replace('/home')

@@ -1,5 +1,6 @@
 import { useAppStore } from '../store'
 import { reportVpnSession } from './electron'
+import { isDesktopShell } from './shell'
 
 export interface TrayNodeSnapshot {
   name: string
@@ -115,6 +116,7 @@ function applyTrayPush(patch: TrayStatePushFromMain): void {
 }
 
 export function installElectronTraySync(): () => void {
+  if (!isDesktopShell()) return () => {}
   const api = window.electronAPI
   if (!api?.syncTrayState) return () => {}
 

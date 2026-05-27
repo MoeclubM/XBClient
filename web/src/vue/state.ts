@@ -46,7 +46,7 @@ export async function bootstrapApp(): Promise<void> {
 
   if (!capabilities.system_proxy) store().setSettings({ autoApplyProxy: false })
   if (capabilities.vpn) store().setSettings({ autoApplyProxy: false })
-  if (capabilities.autostart) {
+  if (capabilities.autostart && isDesktopShell()) {
     const autostart = await autostartIsEnabled()
     store().setSettings({ autostart })
     if (autostart) await autostartSetEnabled(true, store().settings.silentStart)

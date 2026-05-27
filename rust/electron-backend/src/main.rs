@@ -122,6 +122,7 @@ fn required_env(name: &str) -> Result<String> {
 }
 
 fn runtime_capabilities() -> RuntimeCapabilities {
+    // Electron 桌面端：Windows / Linux only. macOS may be added later.
     let desktop = cfg!(any(target_os = "windows", target_os = "linux"));
     let vpn = desktop;
     RuntimeCapabilities {

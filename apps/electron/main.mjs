@@ -15,6 +15,9 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '../..')
 
+/** Electron 桌面端当前仅支持 Windows / Linux；macOS 预留，移动端不使用 Electron。 */
+const ELECTRON_SUPPORTED_PLATFORMS = new Set(['win32', 'linux'])
+
 const isPackaged = app.isPackaged
 const isDev = !isPackaged && process.argv[2] !== 'build'
 
@@ -103,7 +106,7 @@ function oauthScheme() {
 }
 
 function registerOAuthProtocol() {
-  if (!['win32', 'linux'].includes(process.platform)) return
+  if (!ELECTRON_SUPPORTED_PLATFORMS.has(process.platform)) return
   const scheme = oauthScheme()
   if (!scheme) return
 
@@ -195,9 +198,14 @@ function isProcessElevated() {
 }
 
 function desktopRuntimeCapabilities() {
-  const desktop = process.platform === 'win32' || process.platform === 'linux'
+  const desktop = ELECTRON_SUPPORTED_PLATFORMS.has(process.platform)
+  const platform =
+    process.platform === 'win32' ? 'windows'
+    : process.platform === 'linux' ? 'linux'
+    : process.platform === 'darwin' ? 'macos'
+    : process.platform
   return {
-    platform: process.platform === 'win32' ? 'windows' : process.platform,
+    platform,
     system_proxy: desktop,
     oauth_callback: desktop,
     autostart: desktop,
@@ -616,7 +624,7 @@ function trayNodeLabel(node, index) {
 }
 
 function trayDesktopProxySupported() {
-  return process.platform === 'win32' || process.platform === 'linux'
+  return ELECTRON_SUPPORTED_PLATFORMS.has(process.platform)
 }
 
 function pushTrayStateToWeb(patch) {
@@ -1024,6 +1032,16 @@ if (instanceLock) {
     const localProps = readLocalProperties()
     const appName = process.env.XBCLIENT_APP_NAME || localProps['xbclient.appName'] || 'XBClient'
     app.setName(appName)
+    if (!ELECTRON_SUPPORTED_PLATFORMS.has(process.platform)) {
+      await dialog.showMessageBox({
+        type: 'warning',
+        title: appName,
+        message: '当前 Electron 桌面端仅支持 Windows 与 Linux。macOS 版本尚未发布，移动端请使用 Android 客户端。',
+        buttons: ['退出'],
+      })
+      app.quit()
+      return
+    }
     if (process.platform === 'win32') {
       app.setAppUserModelId('moe.telecom.xbclient')
     }

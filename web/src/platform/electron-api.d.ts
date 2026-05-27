@@ -15,6 +15,9 @@ export interface ElectronAPIInvoke {
 }
 
 export interface ElectronAPI {
+  /** 当前 Electron 进程是否为受支持的桌面平台（Windows / Linux）。 */
+  isSupportedDesktop: () => boolean
+  getDesktopPlatform: () => string
   invoke: ElectronAPIInvoke
   getVersion: () => Promise<string>
   getRuntimeConfig: () => Promise<{

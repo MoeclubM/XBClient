@@ -1,6 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
+const SUPPORTED_DESKTOP_PLATFORMS = new Set(['win32', 'linux'])
+
 contextBridge.exposeInMainWorld('electronAPI', {
+  isSupportedDesktop: () => SUPPORTED_DESKTOP_PLATFORMS.has(process.platform),
+  getDesktopPlatform: () => process.platform,
   invoke: (cmd, args) => ipcRenderer.invoke('electron-invoke', { cmd, args }),
   getVersion: () => ipcRenderer.invoke('electron-get-version'),
   getRuntimeConfig: () => ipcRenderer.invoke('electron-get-runtime-config'),

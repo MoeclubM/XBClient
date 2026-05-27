@@ -93,7 +93,7 @@ jobs:
           ./gradlew :app:compileDebugKotlin --build-cache --stacktrace
 
   desktop-web:
-    name: Desktop web and Electron backend
+    name: Desktop web (Win/Linux Electron)
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always

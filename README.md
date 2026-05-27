@@ -141,12 +141,12 @@ cargo test --manifest-path rust\aerion-core\Cargo.toml
 | 平台 | 技术栈 | 目录 |
 | --- | --- | --- |
 | Android | Kotlin + Jetpack Compose | `app/` |
-| Windows / Linux | Electron + Vue (`web/`) | `apps/electron/`、`web/`、`rust/electron-backend/` |
-| iOS / macOS | 原生（规划中，暂不开发） | — |
+| Windows / Linux | Electron + Vue（`web/`，不含 Android/iOS 移动端） | `apps/electron/`、`web/`、`rust/electron-backend/` |
+| iOS / macOS | 原生（规划中，Electron macOS 暂未发布） | — |
 
-## Electron 桌面端（Windows / Linux）
+## Electron 桌面端（Windows / Linux，不含移动端）
 
-桌面端复用 `web` 前端，通过 `rust/electron-backend` 提供节点、订阅与系统代理能力。
+桌面端复用 `web` 前端，通过 `rust/electron-backend` 提供节点、订阅与系统代理能力。Android 使用原生 Kotlin 客户端，不加载 Electron 或 `electronAPI`。
 
 ```powershell
 pnpm install

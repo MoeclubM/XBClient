@@ -10,6 +10,7 @@ import {
   openInAppBrowser as openInAppBrowserDesktop,
   takeOAuthCallback as electronTakeOAuthCallback,
 } from '../platform/electron'
+import { isDesktopShell, isElectronShell } from '../platform/shell'
 
 export interface RuntimeCapabilities {
   platform: string
@@ -32,24 +33,22 @@ export interface RuntimeConfig {
 }
 
 export async function runtimeCapabilities(): Promise<RuntimeCapabilities> {
-  if (window.electronAPI?.getRuntimeCapabilities) {
-    return window.electronAPI.getRuntimeCapabilities()
-  }
-  return invoke('runtime_capabilities')
+  if (!isElectronShell()) throw new Error('runtimeCapabilities requires Electron shell')
+  return window.electronAPI.getRuntimeCapabilities()
 }
 
 export async function runtimeConfig(): Promise<RuntimeConfig> {
-  if (window.electronAPI?.getRuntimeConfig) {
-    return window.electronAPI.getRuntimeConfig()
-  }
-  return invoke('runtime_config')
+  if (!isElectronShell()) throw new Error('runtimeConfig requires Electron shell')
+  return window.electronAPI.getRuntimeConfig()
 }
 
 export async function takeOAuthCallback(): Promise<string | null> {
+  if (!isDesktopShell()) throw new Error('OAuth callback requires supported Electron desktop shell')
   return electronTakeOAuthCallback()
 }
 
 export function onOAuthCallback(handler: (url: string) => void): () => void {
+  if (!isDesktopShell()) throw new Error('OAuth callback requires supported Electron desktop shell')
   return electronOnOAuthCallback(handler)
 }
 
@@ -63,10 +62,12 @@ export async function resolveAppNode(node: AppNode, dnsUrl: string, userAgent = 
 }
 
 export async function systemProxySet(host: string, port: number): Promise<void> {
+  if (!isDesktopShell()) throw new Error('systemProxySet requires supported Electron desktop shell')
   await invoke('system_proxy_set', { host, port })
 }
 
 export async function systemProxyClear(): Promise<void> {
+  if (!isDesktopShell()) throw new Error('systemProxyClear requires supported Electron desktop shell')
   await invoke('system_proxy_clear')
 }
 
@@ -79,14 +80,17 @@ export function parseSocksAddr(addr: string): { host: string; port: number } {
 }
 
 export async function autostartIsEnabled(): Promise<boolean> {
+  if (!isDesktopShell()) throw new Error('autostart requires supported Electron desktop shell')
   return electronAutostartIsEnabled()
 }
 
 export async function autostartSetEnabled(value: boolean, silent = false): Promise<void> {
+  if (!isDesktopShell()) throw new Error('autostart requires supported Electron desktop shell')
   await electronAutostartSetEnabled(value, silent)
 }
 
 export async function openExternal(url: string): Promise<void> {
+  if (!isElectronShell()) throw new Error('openExternal requires Electron shell')
   try {
     await electronOpenExternal(url)
   } catch (error) {
@@ -95,6 +99,7 @@ export async function openExternal(url: string): Promise<void> {
 }
 
 export async function openInAppBrowser(url: string, title = 'Browser'): Promise<void> {
+  if (!isDesktopShell()) throw new Error('openInAppBrowser requires supported Electron desktop shell')
   try {
     await openInAppBrowserDesktop(url, title)
   } catch (error) {
