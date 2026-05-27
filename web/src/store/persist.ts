@@ -1,99 +1,70 @@
-import { Store } from '@tauri-apps/plugin-store'
 import type { AppSettings } from '.'
 
-const SESSION_FILE = 'session.json'
-const SETTINGS_FILE = 'settings.json'
+const SESSION_KEY = 'xbclient.session.v1'
+const SETTINGS_KEY = 'xbclient.settings.v1'
 
 export interface PersistedSession {
   authData: string
   email: string
 }
 
-const sessionStore = (() => {
-  let promise: Promise<Store> | null = null
-  return () => (promise ??= Store.load(SESSION_FILE))
-})()
+function readJson<T>(key: string): T | null {
+  const text = window.localStorage.getItem(key)
+  if (!text) return null
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    return null
+  }
+}
 
-const settingsStore = (() => {
-  let promise: Promise<Store> | null = null
-  return () => (promise ??= Store.load(SETTINGS_FILE))
-})()
+function writeJson(key: string, value: unknown): void {
+  window.localStorage.setItem(key, JSON.stringify(value))
+}
 
 export async function loadSession(): Promise<PersistedSession | null> {
-  const store = await sessionStore()
-  const authData = await store.get<string>('authData')
-  const email = await store.get<string>('email')
-  if (!authData) return null
-  return { authData, email: email ?? '' }
+  const raw = readJson<Partial<PersistedSession>>(SESSION_KEY)
+  const authData = typeof raw?.authData === 'string' ? raw.authData : ''
+  if (!authData.trim()) return null
+  const email = typeof raw?.email === 'string' ? raw.email : ''
+  return { authData, email }
 }
 
 export async function saveSession(session: PersistedSession): Promise<void> {
-  const store = await sessionStore()
-  await store.delete('baseUrl')
-  await store.set('authData', session.authData)
-  await store.set('email', session.email)
-  await store.save()
+  writeJson(SESSION_KEY, { authData: session.authData, email: session.email })
 }
 
 export async function clearSession(): Promise<void> {
-  const store = await sessionStore()
-  await store.delete('baseUrl')
-  await store.delete('authData')
-  await store.delete('email')
-  await store.save()
+  window.localStorage.removeItem(SESSION_KEY)
 }
 
 export async function loadSettings(): Promise<Partial<AppSettings>> {
-  const store = await settingsStore()
-  const autoApplyProxy = await store.get<boolean>('autoApplyProxy')
-  const autostart = await store.get<boolean>('autostart')
-  const nodeDns = await store.get<string>('nodeDns')
-  const overseasDns = await store.get<string>('overseasDns')
-  const directDns = await store.get<string>('directDns')
-  const nodeTestTarget = await store.get<string>('nodeTestTarget')
-  const vpnDnsMode = await store.get<string>('vpnDnsMode')
-  const virtualDnsPool = await store.get<string>('virtualDnsPool')
-  const vpnIpv6Enabled = await store.get<boolean>('vpnIpv6Enabled')
-  const appRuleMode = await store.get<string>('appRuleMode')
-  const excludedApps = await store.get<string>('excludedApps')
-  const allowedApps = await store.get<string>('allowedApps')
-  const themeMode = await store.get<string>('themeMode')
-  const appLanguage = await store.get<string>('appLanguage')
+  const raw = readJson<Partial<AppSettings>>(SETTINGS_KEY) ?? {}
   const result: Partial<AppSettings> = {}
-  if (typeof autoApplyProxy === 'boolean') result.autoApplyProxy = autoApplyProxy
-  if (typeof autostart === 'boolean') result.autostart = autostart
-  if (typeof nodeDns === 'string' && nodeDns.trim()) result.nodeDns = nodeDns
-  if (typeof overseasDns === 'string' && overseasDns.trim()) result.overseasDns = overseasDns
-  if (typeof directDns === 'string' && directDns.trim()) result.directDns = directDns
-  if (typeof nodeTestTarget === 'string' && nodeTestTarget.trim()) result.nodeTestTarget = nodeTestTarget
-  if (vpnDnsMode === 'virtual' || vpnDnsMode === 'over_tcp' || vpnDnsMode === 'direct') result.vpnDnsMode = vpnDnsMode
-  if (typeof virtualDnsPool === 'string' && virtualDnsPool.trim()) result.virtualDnsPool = virtualDnsPool
-  if (typeof vpnIpv6Enabled === 'boolean') result.vpnIpv6Enabled = vpnIpv6Enabled
-  if (appRuleMode === 'exclude' || appRuleMode === 'allow') result.appRuleMode = appRuleMode
-  if (typeof excludedApps === 'string') result.excludedApps = excludedApps
-  if (typeof allowedApps === 'string') result.allowedApps = allowedApps
-  if (themeMode === 'system' || themeMode === 'light' || themeMode === 'dark') result.themeMode = themeMode
-  if (appLanguage === 'system' || appLanguage === 'zh-CN' || appLanguage === 'en' || appLanguage === 'ja' || appLanguage === 'ru' || appLanguage === 'fa') {
-    result.appLanguage = appLanguage
-  }
+  if (typeof raw.autoApplyProxy === 'boolean') result.autoApplyProxy = raw.autoApplyProxy
+  if (typeof raw.autostart === 'boolean') result.autostart = raw.autostart
+  if (typeof raw.nodeDns === 'string' && raw.nodeDns.trim()) result.nodeDns = raw.nodeDns
+  if (typeof raw.overseasDns === 'string' && raw.overseasDns.trim()) result.overseasDns = raw.overseasDns
+  if (typeof raw.directDns === 'string' && raw.directDns.trim()) result.directDns = raw.directDns
+  if (typeof raw.nodeTestTarget === 'string' && raw.nodeTestTarget.trim()) result.nodeTestTarget = raw.nodeTestTarget
+  if (raw.vpnDnsMode === 'virtual' || raw.vpnDnsMode === 'over_tcp' || raw.vpnDnsMode === 'direct') result.vpnDnsMode = raw.vpnDnsMode
+  if (typeof raw.virtualDnsPool === 'string' && raw.virtualDnsPool.trim()) result.virtualDnsPool = raw.virtualDnsPool
+  if (typeof raw.vpnIpv6Enabled === 'boolean') result.vpnIpv6Enabled = raw.vpnIpv6Enabled
+  if (raw.appRuleMode === 'exclude' || raw.appRuleMode === 'allow') result.appRuleMode = raw.appRuleMode
+  if (typeof raw.excludedApps === 'string') result.excludedApps = raw.excludedApps
+  if (typeof raw.allowedApps === 'string') result.allowedApps = raw.allowedApps
+  if (raw.themeMode === 'system' || raw.themeMode === 'light' || raw.themeMode === 'dark') result.themeMode = raw.themeMode
+  if (
+    raw.appLanguage === 'system' ||
+    raw.appLanguage === 'zh-CN' ||
+    raw.appLanguage === 'en' ||
+    raw.appLanguage === 'ja' ||
+    raw.appLanguage === 'ru' ||
+    raw.appLanguage === 'fa'
+  ) result.appLanguage = raw.appLanguage
   return result
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
-  const store = await settingsStore()
-  await store.set('autoApplyProxy', settings.autoApplyProxy)
-  await store.set('autostart', settings.autostart)
-  await store.set('nodeDns', settings.nodeDns)
-  await store.set('overseasDns', settings.overseasDns)
-  await store.set('directDns', settings.directDns)
-  await store.set('nodeTestTarget', settings.nodeTestTarget)
-  await store.set('vpnDnsMode', settings.vpnDnsMode)
-  await store.set('virtualDnsPool', settings.virtualDnsPool)
-  await store.set('vpnIpv6Enabled', settings.vpnIpv6Enabled)
-  await store.set('appRuleMode', settings.appRuleMode)
-  await store.set('excludedApps', settings.excludedApps)
-  await store.set('allowedApps', settings.allowedApps)
-  await store.set('themeMode', settings.themeMode)
-  await store.set('appLanguage', settings.appLanguage)
-  await store.save()
+  writeJson(SETTINGS_KEY, settings)
 }

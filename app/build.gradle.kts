@@ -84,6 +84,13 @@ val userAgreementUrl = providers.gradleProperty("xbclient.userAgreementUrl")
     ?: rootLocalProperties.getProperty("xbclient.userAgreementUrl")
     ?: rootLocalProperties.getProperty("XBCLIENT_USER_AGREEMENT_URL")
     ?: ""
+val githubProjectUrl = providers.gradleProperty("xbclient.githubProjectUrl")
+    .orNull
+    ?: providers.environmentVariable("XBCLIENT_GITHUB_PROJECT_URL").orNull
+    ?: providers.environmentVariable("GITHUB_REPOSITORY").orNull
+    ?: rootLocalProperties.getProperty("xbclient.githubProjectUrl")
+    ?: rootLocalProperties.getProperty("XBCLIENT_GITHUB_PROJECT_URL")
+    ?: ""
 val localSigningProperties = Properties()
 val localSigningPropertiesFile = rootProject.file("app/config/release-signing.local.txt")
 if (localSigningPropertiesFile.isFile) {
@@ -151,6 +158,11 @@ android {
         buildConfigField("String", "WEBSITE_URL", "\"${websiteUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "PRIVACY_POLICY_URL", "\"${privacyPolicyUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "USER_AGREEMENT_URL", "\"${userAgreementUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField(
+            "String",
+            "GITHUB_PROJECT_URL",
+            "\"${githubProjectUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"",
+        )
     }
 
     signingConfigs {

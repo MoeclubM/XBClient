@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { getVersion } from '@tauri-apps/api/app'
 import { useRouter } from 'vue-router'
+import { getVersion } from '../../platform/electron'
 import { autostartSetEnabled, openInAppBrowser, parseSocksAddr, systemProxyClear, systemProxySet } from '../../api/system'
 import { publicErrorText } from '../../format'
 import { appState, persistSettings, t } from '../state'

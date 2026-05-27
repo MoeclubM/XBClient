@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { listen } from '@tauri-apps/api/event'
 import { useRouter } from 'vue-router'
 import {
   aerionStartSocks,
+  aerionStartVpn,
   aerionStop,
+  aerionStopVpn,
   aerionTestNode,
   subscriptionFetch,
   xboardRequest,
 } from '../../api/xboard'
+import { onAeronEvent, reportVpnSession } from '../../platform/electron'
 import {
-  androidGetVpnState,
-  androidStartVpn,
-  androidStopVpn,
   parseSocksAddr,
   resolveNodeHost,
   systemProxyClear,
@@ -23,6 +22,7 @@ import {
   displayNodeName,
   mergeNodeLists,
   mergeXboardNodeTags,
+  dnsAddressForVpn,
   rawNodeHost,
   readableNodeTestError,
   targetHostPort,
@@ -71,12 +71,23 @@ const blockDescription = computed(() => {
 
 onMounted(async () => {
   await refresh()
-  unlistenEvent = await listen<string>('aerion-event', (event) => {
+  unlistenEvent = onAeronEvent((payload) => {
     try {
-      const data = JSON.parse(event.payload) as { session_id?: number; upload_bytes?: number; download_bytes?: number }
-      if (typeof data.session_id === 'number') {
-        store().updateVpnTraffic(data.session_id, Number(data.upload_bytes ?? 0), Number(data.download_bytes ?? 0))
+      const data = JSON.parse(payload) as {
+        type?: string
+        wrapper_session_id?: number
+        session_id?: number
+        upload_bytes?: number
+        download_bytes?: number
       }
+      if (data.type !== 'traffic_recorded') return
+      const sessionId = data.wrapper_session_id ?? data.session_id
+      if (typeof sessionId !== 'number' || appState.vpn?.sessionId !== sessionId) return
+      store().updateVpnTraffic(
+        sessionId,
+        Number(data.upload_bytes ?? 0),
+        Number(data.download_bytes ?? 0),
+      )
     } catch (err) {
       console.error('parse Aerion event failed', err)
     }
@@ -200,11 +211,15 @@ function startDuration() {
 }
 
 async function toggleConnection(index = selectedNodeIndex.value) {
+  const useTun = appState.capabilities?.vpn === true
   if (appState.vpn) {
-    if (appState.capabilities?.vpn) await androidStopVpn()
-    else await aerionStop(appState.vpn.sessionId)
-    if (appState.settings.autoApplyProxy) await systemProxyClear()
+    if (useTun) await aerionStopVpn(appState.vpn.sessionId)
+    else {
+      await aerionStop(appState.vpn.sessionId)
+      if (appState.settings.autoApplyProxy) await systemProxyClear()
+    }
     store().setVpn(null)
+    if (useTun) await reportVpnSession(null)
     if (durationTimer) window.clearInterval(durationTimer)
     duration.value = 0
     return
@@ -214,27 +229,39 @@ async function toggleConnection(index = selectedNodeIndex.value) {
   connectingIndex.value = index
   error.value = ''
   try {
-    if (appState.capabilities?.vpn) {
-      await androidStartVpn({
-        nodeJson: JSON.stringify(await resolvedNode(node)),
-        nodesJson: JSON.stringify(appState.nodes.map((item) => JSON.parse(item.rawJson))),
-        nodeIndex: index,
-        excludedApps: appState.settings.excludedApps,
-        allowedApps: appState.settings.allowedApps,
-        nodeDns: appState.settings.nodeDns,
-        overseasDns: appState.settings.overseasDns,
-        directDns: appState.settings.directDns,
-        dnsMode: appState.settings.vpnDnsMode,
-        virtualDnsPool: appState.settings.virtualDnsPool,
-        ipv6Enabled: appState.settings.vpnIpv6Enabled,
+    const resolved = await resolvedNode(node)
+    if (useTun) {
+      const dnsMode = appState.settings.vpnDnsMode
+      const dns_addr = dnsAddressForVpn(
+        dnsMode === 'direct' ? appState.settings.directDns : appState.settings.overseasDns,
+      )
+      const handle = await aerionStartVpn({
+        node: resolved,
+        mtu: 1500,
+        dns: dnsMode,
+        dns_addr,
+        virtual_dns_pool: appState.settings.virtualDnsPool,
+        ipv6: appState.settings.vpnIpv6Enabled,
       })
-      const state = await androidGetVpnState()
-      store().setVpn({ sessionId: 0, socksAddr: '', nodeIndex: state.nodeIndex, uploadBytes: 0, downloadBytes: 0 })
+      store().setVpn({
+        sessionId: handle.session_id,
+        socksAddr: '',
+        nodeIndex: index,
+        uploadBytes: 0,
+        downloadBytes: 0,
+      })
+      await reportVpnSession(handle.session_id)
     } else {
-      const handle = await aerionStartSocks(await resolvedNode(node))
+      const handle = await aerionStartSocks(resolved)
       const parsed = parseSocksAddr(handle.socks_addr)
       if (appState.settings.autoApplyProxy) await systemProxySet(parsed.host, parsed.port)
-      store().setVpn({ sessionId: handle.session_id, socksAddr: handle.socks_addr, nodeIndex: index, uploadBytes: 0, downloadBytes: 0 })
+      store().setVpn({
+        sessionId: handle.session_id,
+        socksAddr: handle.socks_addr,
+        nodeIndex: index,
+        uploadBytes: 0,
+        downloadBytes: 0,
+      })
     }
     startDuration()
   } catch (err) {

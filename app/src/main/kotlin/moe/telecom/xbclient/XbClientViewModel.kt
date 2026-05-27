@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
@@ -155,7 +156,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             loadInstalledApps()
             refreshOAuthProviders()
             val state = _uiState.value
-            checkGithubReleaseUpdate(state.githubProjectUrl)
+            checkGithubReleaseUpdate(resolvedGithubProjectUrl(state.githubProjectUrl))
             if (state.authData.isNotEmpty()) {
                 showDailyNoticeDialog(state.notices)
                 refreshSubscriptionAndNodes(force = true)
@@ -457,11 +458,32 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun openUpdatePage(context: Context) {
-        val url = _uiState.value.latestDownloadUrl.ifEmpty { _uiState.value.latestReleaseUrl }
+        val downloadUrl = _uiState.value.latestDownloadUrl.trim()
+        val releaseUrl = _uiState.value.latestReleaseUrl.trim()
+        dismissUpdateDialog()
+        if (downloadUrl.endsWith(".apk", ignoreCase = true)) {
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    emitMessage("正在下载更新…")
+                    val dir = File(context.cacheDir, "apk-updates").apply { mkdirs() }
+                    val apkFile = File(dir, "update.apk")
+                    ApkUpdateInstaller.downloadApk(downloadUrl, apkFile, BuildConfig.USER_AGENT)
+                    emitMessage("正在打开安装程序…")
+                    ApkUpdateInstaller.installApk(context, apkFile)
+                } catch (error: Exception) {
+                    emitMessage("应用内更新失败：${error.message}")
+                    val fallback = downloadUrl.ifEmpty { releaseUrl }
+                    if (fallback.isNotEmpty()) {
+                        BrowserOpener.open(context, fallback)
+                    }
+                }
+            }
+            return
+        }
+        val url = downloadUrl.ifEmpty { releaseUrl }
         if (url.isNotEmpty()) {
             BrowserOpener.open(context, url)
         }
-        dismissUpdateDialog()
     }
 
     fun logout() {
@@ -953,7 +975,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 )
             }
             persistStoredState(_uiState.value)
-            checkGithubReleaseUpdate(githubProjectUrl)
+            checkGithubReleaseUpdate(resolvedGithubProjectUrl(githubProjectUrl))
             return Triple("", "", "")
         }
         val planEnabled = data.optBoolean("plan_reward_ad_enabled")
@@ -979,7 +1001,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             )
         }
         persistStoredState(_uiState.value)
-        checkGithubReleaseUpdate(githubProjectUrl)
+        checkGithubReleaseUpdate(resolvedGithubProjectUrl(githubProjectUrl))
         return if (scene == REWARD_SCENE_POINTS) {
             Triple(pointsAdUnitId, pointsUserId, pointsCustomData)
         } else {
@@ -1826,6 +1848,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             params.put("cf_turnstile_response", token)
         }
     }
+
+    private fun resolvedGithubProjectUrl(fromConfig: String): String =
+        fromConfig.trim().ifEmpty { BuildConfig.GITHUB_PROJECT_URL.trim() }
 
     private fun checkGithubReleaseUpdate(projectUrl: String) {
         val value = projectUrl.trim()

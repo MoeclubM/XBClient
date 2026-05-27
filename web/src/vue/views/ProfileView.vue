@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { showRewardedAd } from '../../api/system'
 import { xboardRequest } from '../../api/xboard'
 import { formatMoney, numericValue, publicErrorText } from '../../format'
 import { enabled, parseRewardLogs, rewardStatusText } from '../../reward'
@@ -133,11 +132,6 @@ async function watchPointsRewardAd() {
   rewardLoading.value = true
   error.value = ''
   try {
-    await showRewardedAd({
-      adUnitId: appState.pointsRewardedAdUnitId,
-      userId: appState.pointsRewardSsvUserId,
-      customData: appState.pointsRewardSsvCustomData,
-    })
     const pending = await xboardRequest<XboardBody>('xbclient_reward_pending', {
       baseUrl: appState.baseUrl,
       authData: appState.authData,

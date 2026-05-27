@@ -1,0 +1,5 @@
+dist/
+build/icon.png
+build/icon.ico
+build/electron-builder.generated.yml
+node_modules/

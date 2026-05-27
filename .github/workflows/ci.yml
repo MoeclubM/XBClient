@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   android:
-    name: Android native and Tauri Android
+    name: Android native
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
@@ -56,11 +56,6 @@ jobs:
         uses: gradle/actions/setup-gradle@v5
         with:
           cache-cleanup: always
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '24'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
@@ -97,45 +92,9 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:compileDebugKotlin --build-cache --stacktrace
 
-      - name: Install pnpm
-        shell: bash
-        run: |
-          npm install -g pnpm@10.20.0
-
-      - name: Build Tauri web
-        shell: bash
-        run: |
-          pnpm install --frozen-lockfile=false
-          pnpm --filter xbclient-web typecheck
-          pnpm --filter xbclient-web build
-
-      - name: Set up Tauri Android target
-        shell: bash
-        run: |
-          rustup target add aarch64-linux-android
-
-      - name: Configure Tauri Android NDK toolchain
-        shell: bash
-        run: |
-          ndk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/ndk/28.2.13676358"
-          echo "ANDROID_NDK_HOME=$ndk" >> "$GITHUB_ENV"
-          echo "CC_aarch64_linux_android=$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang" >> "$GITHUB_ENV"
-          echo "AR_aarch64_linux_android=$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar" >> "$GITHUB_ENV"
-          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang" >> "$GITHUB_ENV"
-
-      - name: Check Tauri Android
-        shell: bash
-        run: |
-          cargo check --manifest-path apps/tauri/src-tauri/Cargo.toml --target aarch64-linux-android --release
-
-      - name: Build Tauri Android debug APK
-        shell: bash
-        run: |
-          pnpm --filter xbclient-tauri android:build --apk --target aarch64 --debug --ci
-
-  windows-tauri:
-    name: Windows app
-    runs-on: windows-latest
+  desktop-web:
+    name: Desktop web and Electron backend
+    runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
@@ -159,34 +118,19 @@ jobs:
 
       - name: Install pnpm
         shell: bash
+        run: npm install -g pnpm@10.20.0
+
+      - name: Install and typecheck web
+        shell: bash
         run: |
-          npm install -g pnpm@10.20.0
+          pnpm install --frozen-lockfile=false
+          pnpm --filter xbclient-web typecheck
+          pnpm --filter xbclient-web build
 
       - name: Set up Rust
         shell: bash
         run: rustup toolchain install stable --profile minimal
 
-      - name: Install web deps
+      - name: Check Electron backend
         shell: bash
-        run: |
-          pnpm install --frozen-lockfile=false
-
-      - name: Type-check web
-        shell: bash
-        run: |
-          pnpm --filter xbclient-web typecheck
-
-      - name: Build web
-        shell: bash
-        run: |
-          pnpm --filter xbclient-web build
-
-      - name: Check Tauri Windows
-        shell: bash
-        run: |
-          cargo check --manifest-path apps/tauri/src-tauri/Cargo.toml --release
-
-      - name: Build Tauri Windows
-        shell: bash
-        run: |
-          pnpm --filter xbclient-tauri build
+        run: cargo check --manifest-path rust/electron-backend/Cargo.toml

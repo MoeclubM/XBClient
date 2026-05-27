@@ -1,0 +1,13 @@
+{
+  "name": "xbclient",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter xbclient-electron dev",
+    "build:web": "pnpm --filter xbclient-web build",
+    "build:desktop": "pnpm --filter xbclient-electron build",
+    "dist:desktop": "pnpm --filter xbclient-electron dist",
+    "dist:desktop:win": "pnpm --filter xbclient-electron dist:win",
+    "typecheck": "pnpm --filter xbclient-web typecheck",
+    "install:all": "pnpm install"
+  }
+}

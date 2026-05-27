@@ -124,7 +124,7 @@ fn traffic_direction_name(direction: aerion::TrafficDirection) -> &'static str {
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
 struct StartVpnRequest {
     node: Value,
-    tun_fd: i32,
+    tun_fd: Option<i32>,
     mtu: Option<u16>,
     dns: Option<String>,
     dns_addr: String,
@@ -498,8 +498,12 @@ mod platform {
 
         let (socks_addr, proxy_task, core) = start_aerion_socks(request.node, true).await?;
 
+        let tun_fd = request
+            .tun_fd
+            .ok_or_else(|| anyhow::anyhow!("tun_fd is required on Android"))?;
+
         let mut tun_config = TunConfig::new(socks_proxy_url(socks_addr));
-        tun_config.tun_fd = Some(request.tun_fd);
+        tun_config.tun_fd = Some(tun_fd);
         tun_config.close_fd_on_drop = false;
         tun_config.setup = false;
         tun_config.mtu = mtu;
@@ -609,19 +613,172 @@ mod platform {
     }
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+mod platform {
+    use super::*;
+    use aerion::{
+        TunCancellationToken, TunConfig, TunDnsStrategy, TunVerbosity, socks_proxy_url, spawn_tun,
+    };
+    use std::net::IpAddr;
+
+    static NEXT_VPN_SESSION_ID: AtomicU64 = AtomicU64::new(1);
+    static VPN_SESSIONS: Lazy<StdMutex<HashMap<u64, VpnSession>>> =
+        Lazy::new(|| StdMutex::new(HashMap::new()));
+
+    struct VpnSession {
+        shutdown: TunCancellationToken,
+        proxy_task: JoinHandle<Result<()>>,
+        _log_task: Option<JoinHandle<()>>,
+        _event_task: Option<JoinHandle<()>>,
+        _core: Option<aerion::ProxyCore>,
+    }
+
+    pub async fn start(input: &str) -> Result<String> {
+        let request: StartVpnRequest =
+            serde_json::from_str(input).context("parse start VPN request")?;
+        let mtu = request.mtu.unwrap_or(1500);
+        let dns = match request.dns.as_deref().unwrap_or("over_tcp") {
+            "virtual" => TunDnsStrategy::Virtual,
+            "direct" => TunDnsStrategy::Direct,
+            "over_tcp" => TunDnsStrategy::OverTcp,
+            other => bail!("unsupported VPN DNS strategy: {other}"),
+        };
+        let dns_addr: IpAddr = request.dns_addr.parse().context("parse VPN DNS address")?;
+
+        let (socks_addr, proxy_task, core) = start_aerion_socks(request.node, true).await?;
+
+        let mut tun_config = TunConfig::new(socks_proxy_url(socks_addr));
+        tun_config.setup = true;
+        tun_config.mtu = mtu;
+        tun_config.packet_information = false;
+        tun_config.dns = dns;
+        tun_config.dns_addr = dns_addr;
+        if let Some(virtual_dns_pool) = request.virtual_dns_pool {
+            tun_config.virtual_dns_pool = virtual_dns_pool;
+        }
+        if let Some(bypass) = request.bypass {
+            tun_config.bypass = bypass;
+        }
+        tun_config.ipv6 = request.ipv6.unwrap_or(false);
+        if let Some(tcp_timeout_secs) = request.tcp_timeout_secs {
+            tun_config.tcp_timeout_secs = tcp_timeout_secs;
+        }
+        if let Some(udp_timeout_secs) = request.udp_timeout_secs {
+            tun_config.udp_timeout_secs = udp_timeout_secs;
+        }
+        if let Some(max_sessions) = request.max_sessions {
+            tun_config.max_sessions = max_sessions;
+        }
+        if let Some(exit_on_fatal_error) = request.exit_on_fatal_error {
+            tun_config.exit_on_fatal_error = exit_on_fatal_error;
+        }
+        let virtual_dns_pool = tun_config.virtual_dns_pool.clone();
+        tun_config.verbosity = TunVerbosity::Info;
+
+        let log_bridge = aerion::LogBridge::new();
+        let runtime = spawn_tun(tun_config).context("spawn Aerion TUN runtime")?;
+        let shutdown = runtime.shutdown_token();
+        let session_id = NEXT_VPN_SESSION_ID.fetch_add(1, Ordering::SeqCst);
+
+        let log_task = {
+            let mut rx = log_bridge.subscribe();
+            Some(tokio::spawn(async move {
+                while let Some(entry) = rx.recv().await {
+                    on_log(&entry.level.to_string(), &entry.message);
+                }
+            }))
+        };
+
+        let event_task = core.as_ref().map(|core| {
+            let mut event_rx = core.subscribe_events();
+            tokio::spawn(async move {
+                while let Some(event) = event_rx.recv().await {
+                    on_event(&core_event_json(&event, Some(session_id)));
+                }
+            })
+        });
+
+        VPN_SESSIONS
+            .lock()
+            .expect("VPN session map lock poisoned")
+            .insert(
+                session_id,
+                VpnSession {
+                    shutdown: shutdown.clone(),
+                    proxy_task,
+                    _log_task: log_task,
+                    _event_task: event_task,
+                    _core: core.clone(),
+                },
+            );
+
+        tokio::spawn(async move {
+            if let Err(error) = runtime.wait().await {
+                log::error!("Aerion TUN runtime exited with error: {error:?}");
+            }
+            if let Some(session) = VPN_SESSIONS
+                .lock()
+                .expect("VPN session map lock poisoned")
+                .remove(&session_id)
+            {
+                if let Some(core) = session._core {
+                    core.cancel_all_sessions();
+                }
+                session.proxy_task.abort();
+                if let Some(task) = session._log_task {
+                    task.abort();
+                }
+                if let Some(task) = session._event_task {
+                    task.abort();
+                }
+            }
+        });
+
+        Ok(json!({
+            "ok": true,
+            "session_id": session_id,
+            "mtu": mtu,
+            "dns": request.dns.unwrap_or_else(|| "over_tcp".to_string()),
+            "dns_addr": dns_addr.to_string(),
+            "virtual_dns_pool": virtual_dns_pool,
+        })
+        .to_string())
+    }
+
+    pub async fn stop(session_id: u64) -> Result<String> {
+        let session = VPN_SESSIONS
+            .lock()
+            .expect("VPN session map lock poisoned")
+            .remove(&session_id)
+            .with_context(|| format!("VPN session not found: {session_id}"))?;
+        session.shutdown.cancel();
+        if let Some(core) = session._core {
+            core.cancel_all_sessions();
+        }
+        session.proxy_task.abort();
+        if let Some(task) = session._log_task {
+            task.abort();
+        }
+        if let Some(task) = session._event_task {
+            task.abort();
+        }
+        Ok(json!({"ok": true, "session_id": session_id}).to_string())
+    }
+}
+
+#[cfg(not(any(target_os = "android", target_os = "windows", target_os = "linux")))]
 mod platform {
     use super::*;
 
     pub async fn start(input: &str) -> Result<String> {
         let _request: StartVpnRequest =
             serde_json::from_str(input).context("parse start VPN request")?;
-        bail!("Android VPN is only available on Android target builds")
+        bail!("VPN is not supported on this platform")
     }
 
     pub async fn stop(session_id: u64) -> Result<String> {
         let _ = session_id;
-        bail!("Android VPN is only available on Android target builds")
+        bail!("VPN is not supported on this platform")
     }
 }
 

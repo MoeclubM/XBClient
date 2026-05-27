@@ -141,45 +141,6 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
-      - name: Set up Node.js for Tauri Android
-        uses: actions/setup-node@v5
-        with:
-          node-version: '24'
-
-      - name: Install pnpm
-        shell: bash
-        run: |
-          npm install -g pnpm@10.20.0
-          pnpm install --frozen-lockfile=false
-
-      - name: Build signed Tauri release APKs and AAB
-        shell: bash
-        run: |
-          pnpm --filter xbclient-tauri android:build --apk --aab --split-per-abi --target aarch64 x86_64 --ci
-
-      - name: Collect Tauri release Android artifacts
-        shell: bash
-        run: |
-          mkdir -p artifacts/tauri-android/apk artifacts/tauri-android/aab
-          find apps/tauri/src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -print0 \
-            | while IFS= read -r -d '' file; do cp "$file" "artifacts/tauri-android/apk/tauri-$(basename "$file")"; done
-          find apps/tauri/src-tauri/gen/android/app/build/outputs/bundle -name '*.aab' -print0 \
-            | while IFS= read -r -d '' file; do cp "$file" "artifacts/tauri-android/aab/tauri-$(basename "$file")"; done
-
-      - name: Upload release Tauri Android APKs
-        uses: actions/upload-artifact@v6
-        with:
-          name: xbclient-tauri-release-android-apks-${{ github.ref_name }}
-          path: artifacts/tauri-android/apk/*.apk
-          if-no-files-found: error
-
-      - name: Upload release Tauri Android AABs
-        uses: actions/upload-artifact@v6
-        with:
-          name: xbclient-tauri-release-android-aabs-${{ github.ref_name }}
-          path: artifacts/tauri-android/aab/*.aab
-          if-no-files-found: error
-
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -187,6 +148,56 @@ jobs:
           files: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/bundle/release/*.aab
-            artifacts/tauri-android/apk/*.apk
-            artifacts/tauri-android/aab/*.aab
           generate_release_notes: true
+
+  windows-electron-release:
+    name: Windows Electron release installer
+    runs-on: windows-latest
+    env:
+      CARGO_TERM_COLOR: always
+      XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
+      XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
+      XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
+      XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
+      XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
+      XBCLIENT_PRIVACY_POLICY_URL: ${{ secrets.XBCLIENT_PRIVACY_POLICY_URL }}
+      XBCLIENT_USER_AGREEMENT_URL: ${{ secrets.XBCLIENT_USER_AGREEMENT_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Install pnpm
+        shell: bash
+        run: npm install -g pnpm@10.20.0
+
+      - name: Set up Rust
+        shell: bash
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Validate desktop build secrets
+        shell: bash
+        run: bash scripts/ci/validate-desktop-secrets.sh
+
+      - name: Build Windows installer
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile=false
+          pnpm --filter xbclient-electron dist:win
+          rm -f apps/electron/dist/*portable*.exe
+
+      - name: Publish desktop assets to GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            apps/electron/dist/latest.yml
+            apps/electron/dist/*.blockmap
+            apps/electron/dist/*-win-x64.exe

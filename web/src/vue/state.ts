@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import { autostartIsEnabled, runtimeCapabilities, runtimeConfig, showAppOpenAd } from '../api/system'
+import { autostartIsEnabled, runtimeCapabilities, runtimeConfig } from '../api/system'
 import { useAppStore, type AppSettings } from '../store'
 import { loadSession, loadSettings, saveSettings } from '../store/persist'
 import { translate, type TranslationKey } from '../i18n'
@@ -41,6 +41,7 @@ export async function bootstrapApp(): Promise<void> {
   store().setProfile({ paymentEnabled: true })
 
   if (!capabilities.system_proxy) store().setSettings({ autoApplyProxy: false })
+  if (capabilities.vpn) store().setSettings({ autoApplyProxy: false })
   if (capabilities.autostart) {
     store().setSettings({ autostart: await autostartIsEnabled() })
   } else {
@@ -75,8 +76,4 @@ export function preventDesktopZoom(): () => void {
   }
 }
 
-export async function showStartupAd(): Promise<void> {
-  if (appState.capabilities?.admob && appState.appOpenAdEnabled && appState.appOpenAdUnitId) {
-    await showAppOpenAd(appState.appOpenAdUnitId)
-  }
-}
+export async function showStartupAd(): Promise<void> {}

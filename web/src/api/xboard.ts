@@ -1,6 +1,6 @@
-import { invoke } from '@tauri-apps/api/core'
 import { useAppStore } from '../store'
 import { publicErrorText } from '../format'
+import { invoke } from '../platform/electron'
 
 export interface XboardResponse<T = unknown> {
   ok: boolean
@@ -172,6 +172,32 @@ export async function aerionStartSocks(node: unknown): Promise<SocksHandle> {
 
 export async function aerionStop(sessionId: number): Promise<{ ok: boolean; session_id: number }> {
   return invoke('aerion_stop', { sessionId })
+}
+
+export interface VpnHandle {
+  ok: boolean
+  session_id: number
+  mtu?: number
+  dns?: string
+  dns_addr?: string
+  virtual_dns_pool?: string
+}
+
+export interface VpnStartRequest {
+  node: unknown
+  mtu?: number
+  dns?: string
+  dns_addr: string
+  virtual_dns_pool?: string
+  ipv6?: boolean
+}
+
+export async function aerionStartVpn(request: VpnStartRequest): Promise<VpnHandle> {
+  return invoke<VpnHandle>('aerion_start_vpn', request)
+}
+
+export async function aerionStopVpn(sessionId: number): Promise<{ ok: boolean; session_id: number }> {
+  return invoke('aerion_stop_vpn', { sessionId })
 }
 
 export function normalizeBaseUrl(value: string): string {

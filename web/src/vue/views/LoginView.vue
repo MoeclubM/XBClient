@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { openInAppBrowser, takeOAuthCallback } from '../../api/system'
+import { onOAuthCallback, openInAppBrowser, takeOAuthCallback } from '../../api/system'
 import { normalizeBaseUrl, xboardRequest } from '../../api/xboard'
 import { publicErrorText } from '../../format'
 import { enabled } from '../../reward'
@@ -50,7 +50,7 @@ const oauthConfirm = ref<{ token: string; provider: string; email: string } | nu
 
 const baseUrl = computed(() => appState.buildConfig?.default_api_url ?? appState.baseUrl)
 const appName = computed(() => appState.buildConfig?.app_name || 'XBClient')
-const oauthCallbackSupported = computed(() => appState.capabilities?.platform === 'android')
+const oauthCallbackSupported = computed(() => appState.capabilities?.oauth_callback === true)
 
 const languageOptions = [
   { value: 'system', label: 'System' },
@@ -67,13 +67,21 @@ const themeOptions = [
   { value: 'dark', label: t('theme_dark') },
 ]
 
+let unlistenOAuth: (() => void) | null = null
+
 onMounted(() => {
   if (baseUrl.value) void loadGuestConfig()
-  if (oauthCallbackSupported.value) void checkOAuthCallback()
-  window.addEventListener('focus', checkOAuthCallback)
+  if (oauthCallbackSupported.value) {
+    void checkOAuthCallback()
+    unlistenOAuth = onOAuthCallback(() => { void checkOAuthCallback() })
+    window.addEventListener('focus', checkOAuthCallback)
+  }
 })
 
-onUnmounted(() => window.removeEventListener('focus', checkOAuthCallback))
+onUnmounted(() => {
+  unlistenOAuth?.()
+  window.removeEventListener('focus', checkOAuthCallback)
+})
 
 async function loadGuestConfig(showSuccess = false) {
   error.value = ''
@@ -219,7 +227,17 @@ async function checkOAuthCallback() {
   if (!oauthCallbackSupported.value) return
   const callbackUrl = await takeOAuthCallback()
   if (!callbackUrl) return
-  const uri = new URL(callbackUrl)
+  const uri = new URL(callbackUrl.replace(/^([a-z][a-z0-9+.-]*):([^/])/i, '$1://$2'))
+  const oauthError = uri.searchParams.get('oauth_error')
+  if (oauthError) {
+    error.value = `${t('oauth_open_failed')}: ${oauthError}`
+    return
+  }
+  const oauthSuccess = uri.searchParams.get('oauth_success')
+  if (oauthSuccess) {
+    message.value = oauthSuccess
+    return
+  }
   const confirmToken = uri.searchParams.get('oauth_confirm_token') ?? ''
   if (confirmToken) {
     mode.value = 'register'

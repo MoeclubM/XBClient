@@ -1,12 +1,18 @@
-import { invoke } from '@tauri-apps/api/core'
-import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
-import { openUrl } from '@tauri-apps/plugin-opener'
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { publicErrorText } from '../format'
+import {
+  autostartIsEnabled as electronAutostartIsEnabled,
+  autostartSetEnabled as electronAutostartSetEnabled,
+  invoke,
+  onOAuthCallback as electronOnOAuthCallback,
+  openExternal as electronOpenExternal,
+  openInAppBrowser as openInAppBrowserDesktop,
+  takeOAuthCallback as electronTakeOAuthCallback,
+} from '../platform/electron'
 
 export interface RuntimeCapabilities {
   platform: string
   system_proxy: boolean
+  oauth_callback: boolean
   autostart: boolean
   tray: boolean
   local_socks: boolean
@@ -22,23 +28,6 @@ export interface RuntimeConfig {
   oauth_callback_scheme: string
 }
 
-export interface RewardedAdRequest {
-  adUnitId: string
-  userId: string
-  customData: string
-}
-
-export interface RewardedAdResult {
-  earned: boolean
-  rewardType: string
-  rewardAmount: number
-}
-
-export interface InstalledAppItem {
-  label: string
-  packageName: string
-}
-
 export async function runtimeCapabilities(): Promise<RuntimeCapabilities> {
   return invoke('runtime_capabilities')
 }
@@ -48,7 +37,11 @@ export async function runtimeConfig(): Promise<RuntimeConfig> {
 }
 
 export async function takeOAuthCallback(): Promise<string | null> {
-  return invoke<string | null>('oauth_take_callback')
+  return electronTakeOAuthCallback()
+}
+
+export function onOAuthCallback(handler: (url: string) => void): () => void {
+  return electronOnOAuthCallback(handler)
 }
 
 export async function resolveNodeHost(dnsUrl: string, host: string, userAgent = ''): Promise<string> {
@@ -72,82 +65,25 @@ export function parseSocksAddr(addr: string): { host: string; port: number } {
 }
 
 export async function autostartIsEnabled(): Promise<boolean> {
-  return isEnabled()
+  return electronAutostartIsEnabled()
 }
 
 export async function autostartSetEnabled(value: boolean): Promise<void> {
-  if (value) await enable()
-  else await disable()
+  await electronAutostartSetEnabled(value)
 }
 
 export async function openExternal(url: string): Promise<void> {
   try {
-    await openUrl(url)
+    await electronOpenExternal(url)
   } catch (error) {
     throw new Error(publicErrorText(error, 'Unable to open link'))
   }
 }
 
 export async function openInAppBrowser(url: string, title = 'Browser'): Promise<void> {
-  const capabilities = await runtimeCapabilities()
-  if (capabilities.platform === 'android' || capabilities.platform === 'ios') {
-    try {
-      await openUrl(url, 'inAppBrowser')
-    } catch (error) {
-      throw new Error(publicErrorText(error, 'Unable to open link'))
-    }
-    return
+  try {
+    await openInAppBrowserDesktop(url, title)
+  } catch (error) {
+    throw new Error(publicErrorText(error, 'Unable to open link'))
   }
-  await new Promise<void>((resolve, reject) => {
-    const label = `browser-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    const webview = new WebviewWindow(label, {
-      url,
-      title,
-      width: 1024,
-      height: 720,
-      minWidth: 720,
-      minHeight: 520,
-      focus: true,
-    })
-    void webview.once('tauri://created', () => resolve())
-    void webview.once('tauri://error', (event) => reject(new Error(publicErrorText(event.payload, 'Unable to open link'))))
-  })
-}
-
-export async function showRewardedAd(request: RewardedAdRequest): Promise<RewardedAdResult> {
-  return invoke('admob_show_rewarded', { request })
-}
-
-export async function showAppOpenAd(adUnitId: string): Promise<{ shown: boolean }> {
-  return invoke('admob_show_app_open', { request: { adUnitId } })
-}
-
-export interface AndroidVpnPayload {
-  nodeJson: string
-  nodesJson: string
-  nodeIndex: number
-  excludedApps: string
-  allowedApps: string
-  nodeDns: string
-  overseasDns: string
-  directDns: string
-  dnsMode: string
-  virtualDnsPool: string
-  ipv6Enabled: boolean
-}
-
-export async function androidStartVpn(request: AndroidVpnPayload): Promise<unknown> {
-  return invoke('android_start_vpn', { request })
-}
-
-export async function androidStopVpn(): Promise<unknown> {
-  return invoke('android_stop_vpn')
-}
-
-export async function androidGetVpnState(): Promise<{ running: boolean; nodeIndex: number }> {
-  return invoke('android_get_vpn_state')
-}
-
-export async function androidListInstalledApps(): Promise<{ apps: InstalledAppItem[] }> {
-  return invoke('android_list_installed_apps')
 }

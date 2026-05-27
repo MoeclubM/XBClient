@@ -136,30 +136,36 @@ gh secret set XBCLIENT_RELEASE_KEY_PASSWORD
 cargo test --manifest-path rust\aerion-core\Cargo.toml
 ```
 
-## Tauri 全平台
+## 平台分工
 
-Tauri 入口位于 `apps/tauri`，复用 `web` 前端与 `rust/aerion-core`。开发模式固定使用
-`http://127.0.0.1:5173`，避免 Windows 上 `localhost` 解析差异导致 WebView 先打开空白页。
+| 平台 | 技术栈 | 目录 |
+| --- | --- | --- |
+| Android | Kotlin + Jetpack Compose | `app/` |
+| Windows / Linux | Electron + Vue (`web/`) | `apps/electron/`、`web/`、`rust/electron-backend/` |
+| iOS / macOS | 原生（规划中，暂不开发） | — |
+
+## Electron 桌面端（Windows / Linux）
+
+桌面端复用 `web` 前端，通过 `rust/electron-backend` 提供节点、订阅与系统代理能力。
 
 ```powershell
 pnpm install
-pnpm --filter xbclient-tauri dev
-pnpm --filter xbclient-tauri build
+pnpm dev
 ```
 
-本地调试只需要先跑 `pnpm --filter xbclient-tauri dev`；Tauri 会自动启动 Vite。
-如果 Windows 提示找不到 `link.exe`，需要安装 Visual Studio Build Tools 的 MSVC 与 Windows SDK。
-Tauri 打包通过 `scripts/tauri-sync-version.mjs` 复用 Kotlin Android 的 Git 版本号规则，并把 `XBCLIENT_DEFAULT_API_URL`、`XBCLIENT_USER_AGENT`、`XBCLIENT_APP_NAME`、`XBCLIENT_APPLICATION_ID` 与 `XBCLIENT_OAUTH_CALLBACK_SCHEME` 同步进构建环境。Tauri 客户端不提供服务地址、请求标识或 OAuth token 的手动输入；OAuth 只通过应用链接自动回调完成。
+`pnpm dev` 会启动 Vite（`http://127.0.0.1:5173`）与 Electron 主进程。构建配置从 `local.properties` 或环境变量读取 `XBCLIENT_*`（与 Android 相同字段，桌面端不需要 `XBCLIENT_ADMOB_APP_ID`）。
 
-Tauri Android 工程已生成在 `apps/tauri/src-tauri/gen/android`：
+Windows 构建 Rust 后端需要 Visual Studio Build Tools（MSVC + Windows SDK）。
+
+生产构建（需先配置 `local.properties` 中的 `xbclient.*` / `XBCLIENT_*`）：
 
 ```powershell
-pnpm --filter xbclient-tauri android:dev
-pnpm --filter xbclient-tauri android:build
+pnpm build:desktop    # web dist + release electron-backend
+pnpm --filter xbclient-electron start   # 加载 web/dist 并运行 release 后端
+pnpm dist:desktop     # electron-builder 安装包（Windows NSIS / Linux AppImage）
 ```
 
-CI 会额外产出 Tauri Android APK/AAB。Tauri Android 的 `applicationId`、release 签名与版本号
-复用原 Kotlin Android 配置，因此同一提交的两个 Android 版本不能同时安装，只能互相覆盖安装。
+能力边界：Aerion 仅负责代理内核（协议/TUN/SOCKS）；OAuth、系统代理、面板 API 等见 [docs/AERION_DESKTOP_REQUIREMENTS.md](docs/AERION_DESKTOP_REQUIREMENTS.md)。
 
 ## 开源许可
 

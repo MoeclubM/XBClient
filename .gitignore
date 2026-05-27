@@ -2,6 +2,8 @@
 .gradle/
 .kotlin/
 **/build/
+!apps/electron/build/
+!apps/electron/build/**
 local.properties
 *.local.properties
 *.local.txt

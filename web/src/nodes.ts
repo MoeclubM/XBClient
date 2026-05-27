@@ -7,6 +7,21 @@ export const DEFAULT_OVERSEAS_DNS = 'https://cloudflare-dns.com/dns-query'
 export const DEFAULT_DIRECT_DNS = '223.5.5.5'
 export const DEFAULT_VIRTUAL_DNS_POOL = '198.18.0.0/15'
 
+export function dnsAddressForVpn(value: string): string {
+  const dns = value.trim()
+  if (/^[0-9.]+$/.test(dns) || (/^[0-9A-Fa-f:.]+$/.test(dns) && dns.includes(':'))) {
+    return dns
+  }
+  const lower = dns.toLowerCase()
+  if (lower.includes('cloudflare-dns.com') || lower.includes('1.1.1.1')) {
+    return '1.1.1.1'
+  }
+  if (lower.includes('dns.alidns.com') || lower.includes('223.5.5.5')) {
+    return '223.5.5.5'
+  }
+  throw new Error('海外 DNS 需填写普通 DNS 地址，或已支持的 DoH 地址。')
+}
+
 export interface RawNode {
   type?: unknown
   protocol?: unknown

@@ -144,47 +144,8 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
-      - name: Set up Node.js for Tauri Android
-        uses: actions/setup-node@v5
-        with:
-          node-version: '24'
-
-      - name: Install pnpm
-        shell: bash
-        run: |
-          npm install -g pnpm@10.20.0
-          pnpm install --frozen-lockfile=false
-
-      - name: Build signed Tauri beta APKs and AAB
-        shell: bash
-        run: |
-          pnpm --filter xbclient-tauri android:build --apk --aab --split-per-abi --target aarch64 x86_64 --ci
-
-      - name: Collect Tauri beta Android artifacts
-        shell: bash
-        run: |
-          mkdir -p artifacts/tauri-android/apk artifacts/tauri-android/aab
-          find apps/tauri/src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -print0 \
-            | while IFS= read -r -d '' file; do cp "$file" "artifacts/tauri-android/apk/tauri-$(basename "$file")"; done
-          find apps/tauri/src-tauri/gen/android/app/build/outputs/bundle -name '*.aab' -print0 \
-            | while IFS= read -r -d '' file; do cp "$file" "artifacts/tauri-android/aab/tauri-$(basename "$file")"; done
-
-      - name: Upload beta Tauri Android APKs
-        uses: actions/upload-artifact@v6
-        with:
-          name: xbclient-tauri-beta-android-apks-${{ github.run_number }}
-          path: artifacts/tauri-android/apk/*.apk
-          if-no-files-found: error
-
-      - name: Upload beta Tauri Android AABs
-        uses: actions/upload-artifact@v6
-        with:
-          name: xbclient-tauri-beta-android-aabs-${{ github.run_number }}
-          path: artifacts/tauri-android/aab/*.aab
-          if-no-files-found: error
-
   windows-beta:
-    name: Windows beta
+    name: Windows Electron beta installer
     runs-on: windows-latest
     env:
       CARGO_TERM_COLOR: always
@@ -192,15 +153,15 @@ jobs:
       XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
       XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
+      XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
+      XBCLIENT_PRIVACY_POLICY_URL: ${{ secrets.XBCLIENT_PRIVACY_POLICY_URL }}
+      XBCLIENT_USER_AGREEMENT_URL: ${{ secrets.XBCLIENT_USER_AGREEMENT_URL }}
 
     steps:
       - name: Checkout
-        shell: bash
-        run: |
-          git init .
-          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
-          git fetch --tags origin "${GITHUB_REF}"
-          git checkout --detach "${GITHUB_SHA}"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
@@ -209,36 +170,27 @@ jobs:
 
       - name: Install pnpm
         shell: bash
-        run: |
-          npm install -g pnpm@10.20.0
+        run: npm install -g pnpm@10.20.0
 
       - name: Set up Rust
         shell: bash
         run: rustup toolchain install stable --profile minimal
 
-      - name: Install web deps
+      - name: Validate desktop build secrets
+        shell: bash
+        run: bash scripts/ci/validate-desktop-secrets.sh
+
+      - name: Build Windows installer
         shell: bash
         run: |
           pnpm install --frozen-lockfile=false
+          pnpm --filter xbclient-electron dist:win
 
-      - name: Type-check web
-        shell: bash
-        run: |
-          pnpm --filter xbclient-web typecheck
-
-      - name: Build web
-        shell: bash
-        run: |
-          pnpm --filter xbclient-web build
-
-      - name: Build Tauri Windows
-        shell: bash
-        run: |
-          pnpm --filter xbclient-tauri build
-
-      - name: Upload beta Windows exe
+      - name: Upload beta Windows installer
         uses: actions/upload-artifact@v6
         with:
-          name: xbclient-tauri-beta-windows-${{ github.run_number }}
-          path: apps/tauri/src-tauri/target/release/xbclient-tauri.exe
+          name: xbclient-beta-windows-${{ github.run_number }}
+          path: |
+            apps/electron/dist/*.exe
+            apps/electron/dist/*.exe.blockmap
           if-no-files-found: error

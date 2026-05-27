@@ -6,7 +6,7 @@ const items = [
   ['XBClient', 'https://github.com/MoeclubM/XBClient'],
   ['Aerion', 'https://github.com/MoeclubM/Aerion'],
   ['NodeRS', 'https://github.com/MoeclubM/NodeRS'],
-  ['Tauri', 'https://tauri.app'],
+  ['Electron', 'https://www.electronjs.org'],
   ['Vue', 'https://vuejs.org'],
   ['Vuetify', 'https://vuetifyjs.com'],
 ]
