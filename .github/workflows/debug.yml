@@ -162,6 +162,8 @@ jobs:
         run: |
           pnpm install --frozen-lockfile=false
           pnpm --filter xbclient-electron dist:win
+          # Remove portable build so the upload glob resolves to exactly one file (required by upload-artifact@v7 + archive:false)
+          find apps/electron/dist -type f -name '*-portable-*.exe' -delete || true
 
       - name: Upload beta Windows installer
         uses: actions/upload-artifact@v7
