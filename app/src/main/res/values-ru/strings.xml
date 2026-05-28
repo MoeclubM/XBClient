@@ -60,7 +60,7 @@
     <string name="connection_duration">Время подключения</string>
     <string name="session_traffic">Трафик сеанса</string>
     <string name="connection_health_last_minute">Качество за последнюю минуту</string>
-    <string name="connection_health_summary">Успешно %1$d / %2$d</string>
+    <string name="connection_health_summary">Успешно %1$d / %2$d · Среднее %3$d мс</string>
     <string name="node_latency">Задержка %1$s</string>
     <string name="status_logged_in">Выполнен вход</string>
     <string name="action_connect">Подключиться</string>

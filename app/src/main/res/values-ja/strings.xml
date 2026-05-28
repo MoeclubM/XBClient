@@ -60,7 +60,7 @@
     <string name="connection_duration">接続時間</string>
     <string name="session_traffic">今回の通信量</string>
     <string name="connection_health_last_minute">直近1分の接続品質</string>
-    <string name="connection_health_summary">成功 %1$d / %2$d</string>
+    <string name="connection_health_summary">成功 %1$d / %2$d · 平均 %3$d ms</string>
     <string name="node_latency">遅延 %1$s</string>
     <string name="status_logged_in">ログイン済み</string>
     <string name="action_connect">接続開始</string>

@@ -62,6 +62,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
@@ -109,6 +110,7 @@ import androidx.compose.ui.autofill.contentType
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -1377,7 +1379,7 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    val connectionSamples = remember { mutableStateListOf<Boolean>() }
+    val connectionSamples = remember { mutableStateListOf<Int>() }
     LaunchedEffect(state.vpnRequested, state.selectedNodeIndex) {
         if (!state.vpnRequested) {
             connectionSamples.clear()
@@ -1429,32 +1431,39 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
         }
         return
     }
+    Spacer(Modifier.height(24.dp))
     Panel {
         val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            AnimatedContent(
-                targetState = connectionStateText,
-                transitionSpec = { contentTransition() },
-                label = "connection-state",
-            ) { text ->
-                Text(text, style = MaterialTheme.typography.headlineMedium)
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        val connectionActionText = stringResource(
-            id = when {
-                state.vpnStarting -> R.string.status_connecting
-                state.vpnRequested -> R.string.action_disconnect
-                else -> R.string.action_connect
-            }
-        )
-        Button(
-            onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
-            enabled = !state.vpnStarting,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
         ) {
-            AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
-                Text(text)
+            val connectionActionText = stringResource(
+                id = when {
+                    state.vpnStarting -> R.string.status_connecting
+                    state.vpnRequested -> R.string.action_disconnect
+                    else -> R.string.action_connect
+                }
+            )
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+                AnimatedContent(
+                    targetState = connectionStateText,
+                    transitionSpec = { contentTransition() },
+                    label = "connection-state",
+                ) { text ->
+                    Text(text, style = MaterialTheme.typography.headlineMedium)
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+            Button(
+                onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
+                enabled = !state.vpnStarting,
+                modifier = Modifier.size(96.dp),
+                shape = CircleShape
+            ) {
+                AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
+                    Text(text, style = MaterialTheme.typography.titleLarge)
+                }
             }
         }
         if (state.vpnRequested) {
@@ -1545,9 +1554,11 @@ private fun InfoCell(label: String, value: String, modifier: Modifier = Modifier
 }
 
 @Composable
-private fun ConnectionHealthChart(samples: List<Boolean>) {
+private fun ConnectionHealthChart(samples: List<Int>) {
     val outlineColor = MaterialTheme.colorScheme.outlineVariant
     val lineColor = MaterialTheme.colorScheme.primary
+    val successColor = MaterialTheme.colorScheme.primary
+    val failColor = MaterialTheme.colorScheme.error
     Column(Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.connection_health_last_minute),
@@ -1563,30 +1574,34 @@ private fun ConnectionHealthChart(samples: List<Boolean>) {
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(92.dp)
+                    .height(120.dp)
                     .padding(horizontal = 10.dp, vertical = 12.dp)
             ) {
                 val w = size.width
                 val h = size.height
-                val successY = h * 0.2f
-                val failY = h * 0.8f
-                drawLine(
-                    color = outlineColor,
-                    start = androidx.compose.ui.geometry.Offset(0f, successY),
-                    end = androidx.compose.ui.geometry.Offset(w, successY),
-                    strokeWidth = 1.dp.toPx()
-                )
-                drawLine(
-                    color = outlineColor,
-                    start = androidx.compose.ui.geometry.Offset(0f, failY),
-                    end = androidx.compose.ui.geometry.Offset(w, failY),
-                    strokeWidth = 1.dp.toPx()
-                )
-                if (samples.size > 1) {
+                val validSamples = samples.filter { it >= 0 }
+                if (validSamples.isEmpty()) return@Canvas
+                val maxLatency = (validSamples.maxOrNull() ?: 100).coerceAtLeast(100)
+                val minLatency = (validSamples.minOrNull() ?: 0).coerceAtMost(maxLatency - 50)
+                val range = (maxLatency - minLatency).coerceAtLeast(1)
+                // Draw horizontal grid lines
+                val gridLines = 4
+                for (i in 0..gridLines) {
+                    val y = h * (i.toFloat() / gridLines)
+                    drawLine(
+                        color = outlineColor,
+                        start = Offset(0f, y),
+                        end = Offset(w, y),
+                        strokeWidth = 0.5.dp.toPx()
+                    )
+                }
+                // Draw line chart
+                if (validSamples.size > 1) {
                     val path = Path()
-                    samples.forEachIndexed { index, ok ->
-                        val x = (index.toFloat() / (samples.size - 1).toFloat()) * w
-                        val y = if (ok) successY else failY
+                    validSamples.forEachIndexed { index, latency ->
+                        val x = (index.toFloat() / (validSamples.size - 1).toFloat()) * w
+                        val normalizedLatency = ((latency - minLatency).toFloat() / range)
+                        val y = h * (1f - normalizedLatency.coerceIn(0f, 1f))
                         if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
                     }
                     drawPath(
@@ -1594,13 +1609,29 @@ private fun ConnectionHealthChart(samples: List<Boolean>) {
                         color = lineColor,
                         style = Stroke(width = 2.dp.toPx())
                     )
+                    // Draw points
+                    validSamples.forEachIndexed { index, latency ->
+                        val x = (index.toFloat() / (validSamples.size - 1).toFloat()) * w
+                        val normalizedLatency = ((latency - minLatency).toFloat() / range)
+                        val y = h * (1f - normalizedLatency.coerceIn(0f, 1f))
+                        drawCircle(
+                            color = lineColor,
+                            radius = 3.dp.toPx(),
+                            center = Offset(x, y)
+                        )
+                    }
                 }
             }
         }
         Spacer(Modifier.height(6.dp))
-        val successCount = samples.count { it }
+        val successCount = samples.count { it >= 0 }
+        val avgLatency = if (successCount > 0) {
+            samples.filter { it >= 0 }.average().toInt()
+        } else {
+            0
+        }
         Text(
-            text = stringResource(R.string.connection_health_summary, successCount, samples.size),
+            text = stringResource(R.string.connection_health_summary, successCount, samples.size, avgLatency),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

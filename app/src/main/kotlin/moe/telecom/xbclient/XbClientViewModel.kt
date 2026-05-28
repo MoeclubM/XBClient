@@ -1358,9 +1358,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    suspend fun probeVpnConnectivityNow(): Boolean = withContext(Dispatchers.IO) {
+    suspend fun probeVpnConnectivityNow(): Int = withContext(Dispatch.IO) {
         if (!_uiState.value.vpnRequested) {
-            return@withContext false
+            return@withContext -1
         }
         // Use IP endpoints to avoid high-frequency DNS resolution pressure.
         val targets = listOf(
@@ -1369,15 +1369,17 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         )
         for (target in targets) {
             try {
+                val startMs = System.currentTimeMillis()
                 Socket().use { socket ->
                     socket.connect(target, 900)
                 }
-                return@withContext true
+                val latencyMs = System.currentTimeMillis() - startMs
+                return@withContext latencyMs.toInt()
             } catch (_: Exception) {
                 continue
             }
         }
-        false
+        -1
     }
 
     private fun testNodeBlocking(node: AnyTlsNode): String {
