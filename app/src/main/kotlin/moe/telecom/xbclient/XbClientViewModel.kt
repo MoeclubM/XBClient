@@ -32,6 +32,8 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.net.InetSocketAddress
+import java.net.Socket
 
 private val Context.passVpnDataStore by preferencesDataStore(name = XBCLIENT_PREFS)
 private const val NODE_AUTO_REFRESH_INTERVAL_MS = 30L * 60L * 1000L
@@ -69,7 +71,7 @@ data class XbClientUiState(
     val overseasDns: String = DEFAULT_OVERSEAS_DNS,
     val directDns: String = DEFAULT_DIRECT_DNS,
     val nodeTestTarget: String = DEFAULT_NODE_TEST_TARGET,
-    val vpnDnsMode: String = DNS_MODE_OVER_TCP,
+    val vpnDnsMode: String = DNS_MODE_VIRTUAL,
     val virtualDnsPool: String = DEFAULT_VIRTUAL_DNS_POOL,
     val vpnIpv6Enabled: Boolean = true,
     val vpnRequested: Boolean = false,
@@ -1357,46 +1359,25 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     suspend fun probeVpnConnectivityNow(): Boolean = withContext(Dispatchers.IO) {
-        val state = _uiState.value
-        if (!state.vpnRequested) {
+        if (!_uiState.value.vpnRequested) {
             return@withContext false
         }
-        val node = state.anyTlsNodes.getOrNull(state.selectedNodeIndex) ?: return@withContext false
-        if (!node.connectSupported) {
-            return@withContext false
-        }
-        try {
-            val testNode = JSONObject(node.rawJson)
-            if (node.protocol != "direct" && node.protocol != "block") {
-                val originalHost = testNode.getString("host")
-                val resolvedHost = XboardApi.resolveNodeHost(state.nodeDns, originalHost)
-                if (resolvedHost != originalHost && testNode.optString("sni").isEmpty()) {
-                    testNode.put("sni", originalHost)
+        // Use IP endpoints to avoid high-frequency DNS resolution pressure.
+        val targets = listOf(
+            InetSocketAddress("1.1.1.1", 443),
+            InetSocketAddress("223.5.5.5", 53)
+        )
+        for (target in targets) {
+            try {
+                Socket().use { socket ->
+                    socket.connect(target, 900)
                 }
-                testNode.put("host", resolvedHost)
-                if (testNode.has("server")) {
-                    testNode.put("server", resolvedHost)
-                }
-                if (testNode.has("address")) {
-                    testNode.put("address", resolvedHost)
-                }
+                return@withContext true
+            } catch (_: Exception) {
+                continue
             }
-            val (targetHost, targetPort, targetTls) = targetHostPort(state.nodeTestTarget.trim().ifEmpty { DEFAULT_NODE_TEST_TARGET })
-            val result = JSONObject(
-                AerionCore.testNode(
-                    JSONObject()
-                        .put("node", testNode)
-                        .put("target_host", targetHost)
-                        .put("target_port", targetPort)
-                        .put("target_tls", targetTls)
-                        .put("timeout_ms", 1000)
-                        .toString()
-                )
-            )
-            result.optBoolean("ok")
-        } catch (_: Exception) {
-            false
         }
+        false
     }
 
     private fun testNodeBlocking(node: AnyTlsNode): String {
@@ -1495,7 +1476,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 overseasDns = prefs[Keys.OVERSEAS_DNS] ?: DEFAULT_OVERSEAS_DNS,
                 directDns = prefs[Keys.DIRECT_DNS] ?: DEFAULT_DIRECT_DNS,
                 nodeTestTarget = (prefs[Keys.NODE_TEST_TARGET] ?: DEFAULT_NODE_TEST_TARGET).let { if (it == "cp.cloudflare.com") DEFAULT_NODE_TEST_TARGET else it },
-                vpnDnsMode = prefs[Keys.VPN_DNS_MODE] ?: DNS_MODE_OVER_TCP,
+                vpnDnsMode = prefs[Keys.VPN_DNS_MODE] ?: DNS_MODE_VIRTUAL,
                 virtualDnsPool = prefs[Keys.VIRTUAL_DNS_POOL] ?: DEFAULT_VIRTUAL_DNS_POOL,
                 vpnIpv6Enabled = prefs[Keys.VPN_IPV6_ENABLED] ?: true,
                 vpnRequested = legacy.getBoolean("vpn_running", false),
@@ -1549,7 +1530,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 overseasDns = legacy.getString("overseas_dns", DEFAULT_OVERSEAS_DNS).orEmpty(),
                 directDns = legacy.getString("direct_dns", DEFAULT_DIRECT_DNS).orEmpty(),
                 nodeTestTarget = legacy.getString("node_test_target", DEFAULT_NODE_TEST_TARGET).orEmpty().let { if (it == "cp.cloudflare.com") DEFAULT_NODE_TEST_TARGET else it },
-                vpnDnsMode = legacy.getString("vpn_dns_mode", DNS_MODE_OVER_TCP).orEmpty(),
+                vpnDnsMode = legacy.getString("vpn_dns_mode", DNS_MODE_VIRTUAL).orEmpty(),
                 virtualDnsPool = legacy.getString("virtual_dns_pool", DEFAULT_VIRTUAL_DNS_POOL).orEmpty(),
                 vpnIpv6Enabled = legacy.getBoolean("vpn_ipv6_enabled", true),
                 vpnRequested = legacy.getBoolean("vpn_running", false),

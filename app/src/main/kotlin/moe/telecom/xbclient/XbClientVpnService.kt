@@ -36,7 +36,7 @@ class XbClientVpnService : VpnService() {
     private var currentNodeDns = DEFAULT_NODE_DNS
     private var currentOverseasDns = DEFAULT_OVERSEAS_DNS
     private var currentDirectDns = DEFAULT_DIRECT_DNS
-    private var currentDnsMode = DNS_MODE_OVER_TCP
+    private var currentDnsMode = DNS_MODE_VIRTUAL
     private var currentVirtualDnsPool = DEFAULT_VIRTUAL_DNS_POOL
     private var currentIpv6Enabled = true
     private var tunInterface: ParcelFileDescriptor? = null
@@ -124,7 +124,7 @@ class XbClientVpnService : VpnService() {
                 val nodeDns = intent.getStringExtra(EXTRA_NODE_DNS) ?: DEFAULT_NODE_DNS
                 val overseasDns = intent.getStringExtra(EXTRA_OVERSEAS_DNS) ?: DEFAULT_OVERSEAS_DNS
                 val directDns = intent.getStringExtra(EXTRA_DIRECT_DNS) ?: DEFAULT_DIRECT_DNS
-                val dnsMode = intent.getStringExtra(EXTRA_DNS_MODE) ?: DNS_MODE_OVER_TCP
+                val dnsMode = intent.getStringExtra(EXTRA_DNS_MODE) ?: DNS_MODE_VIRTUAL
                 val virtualDnsPool = intent.getStringExtra(EXTRA_VIRTUAL_DNS_POOL) ?: DEFAULT_VIRTUAL_DNS_POOL
                 val ipv6Enabled = intent.getBooleanExtra(EXTRA_IPV6_ENABLED, true)
                 currentNodeJson = nodeJson
@@ -403,7 +403,7 @@ class XbClientVpnService : VpnService() {
         private const val DEFAULT_OVERSEAS_DNS = "https://cloudflare-dns.com/dns-query"
         private const val DEFAULT_DIRECT_DNS = "223.5.5.5"
         private const val DEFAULT_VIRTUAL_DNS_POOL = "198.18.0.0/15"
-        private const val DNS_MODE_OVER_TCP = "over_tcp"
+        private const val DNS_MODE_VIRTUAL = "virtual"
         private const val DNS_MODE_DIRECT = "direct"
         private const val PRIVATE_IPV4_CLIENT = "172.19.0.1"
         private const val PRIVATE_IPV4_DNS = "172.19.0.2"
