@@ -7,14 +7,17 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.net.VpnService
+import android.net.TrafficStats
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -37,6 +40,12 @@ class XbClientVpnService : VpnService() {
     private var currentVirtualDnsPool = DEFAULT_VIRTUAL_DNS_POOL
     private var currentIpv6Enabled = true
     private var tunInterface: ParcelFileDescriptor? = null
+    private var sessionBaseRxBytes = 0L
+    private var sessionBaseTxBytes = 0L
+    private var lastSampleRxBytes = 0L
+    private var lastSampleTxBytes = 0L
+    private var lastSampleAtMs = 0L
+    private var statsJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -69,7 +78,8 @@ class XbClientVpnService : VpnService() {
                 serviceScope.launch {
                     try {
                         startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, directDns, dnsMode, virtualDnsPool, ipv6Enabled)
-                        startForegroundNotification(getString(R.string.vpn_notification_current_node, currentNodeName()))
+                        startForegroundNotification(connectedNotificationText())
+                        startStatsTicker()
                         publishVpnState(true)
                     } catch (error: CancellationException) {
                         throw error
@@ -92,7 +102,8 @@ class XbClientVpnService : VpnService() {
                         currentNodeIndex = (currentNodeIndex + 1) % nodes.length()
                         currentNodeJson = nodes.getJSONObject(currentNodeIndex).toString()
                         startVpn(currentNodeJson, currentExcludedApps, currentAllowedApps, currentNodeDns, currentOverseasDns, currentDirectDns, currentDnsMode, currentVirtualDnsPool, currentIpv6Enabled)
-                        startForegroundNotification(getString(R.string.vpn_notification_current_node, currentNodeName()))
+                        startForegroundNotification(connectedNotificationText())
+                        startStatsTicker()
                         publishVpnState(true)
                     } catch (error: CancellationException) {
                         throw error
@@ -131,7 +142,8 @@ class XbClientVpnService : VpnService() {
                 serviceScope.launch {
                     try {
                         startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, directDns, dnsMode, virtualDnsPool, ipv6Enabled)
-                        startForegroundNotification(getString(R.string.vpn_notification_current_node, currentNodeName()))
+                        startForegroundNotification(connectedNotificationText())
+                        startStatsTicker()
                         publishVpnState(true)
                     } catch (error: CancellationException) {
                         throw error
@@ -228,10 +240,16 @@ class XbClientVpnService : VpnService() {
             throw IllegalStateException(result.toString())
         }
         vpnSessionId = result.getLong("session_id")
+        sessionBaseRxBytes = currentUidRxBytes()
+        sessionBaseTxBytes = currentUidTxBytes()
+        lastSampleRxBytes = sessionBaseRxBytes
+        lastSampleTxBytes = sessionBaseTxBytes
+        lastSampleAtMs = System.currentTimeMillis()
         Log.i("XBClient", "VPN started: $result")
     }
 
     private fun stopCurrentVpn(error: String = "") {
+        stopStatsTicker()
         stopNativeVpn()
         publishVpnState(false, error)
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -247,6 +265,11 @@ class XbClientVpnService : VpnService() {
             }
             vpnSessionId = 0L
         }
+        sessionBaseRxBytes = 0L
+        sessionBaseTxBytes = 0L
+        lastSampleRxBytes = 0L
+        lastSampleTxBytes = 0L
+        lastSampleAtMs = 0L
         tunInterface?.close()
         tunInterface = null
     }
@@ -274,6 +297,21 @@ class XbClientVpnService : VpnService() {
         startForeground(NOTIFICATION_ID, notification)
     }
 
+    private fun startStatsTicker() {
+        stopStatsTicker()
+        statsJob = serviceScope.launch {
+            while (vpnSessionId != 0L) {
+                startForegroundNotification(connectedNotificationText())
+                delay(1000)
+            }
+        }
+    }
+
+    private fun stopStatsTicker() {
+        statsJob?.cancel()
+        statsJob = null
+    }
+
     private fun selectNodeIntent(): PendingIntent {
         val intent = Intent(this, MainActivity::class.java)
         intent.action = MainActivity.ACTION_SELECT_NODE
@@ -297,6 +335,26 @@ class XbClientVpnService : VpnService() {
         return name
     }
 
+    private fun connectedNotificationText(): String {
+        val now = System.currentTimeMillis()
+        val rx = currentUidRxBytes()
+        val tx = currentUidTxBytes()
+        val sessionTraffic = (rx - sessionBaseRxBytes).coerceAtLeast(0L) + (tx - sessionBaseTxBytes).coerceAtLeast(0L)
+        val elapsedMs = (now - lastSampleAtMs).coerceAtLeast(1L)
+        val rxSpeed = ((rx - lastSampleRxBytes).coerceAtLeast(0L) * 1000L) / elapsedMs
+        val txSpeed = ((tx - lastSampleTxBytes).coerceAtLeast(0L) * 1000L) / elapsedMs
+        lastSampleRxBytes = rx
+        lastSampleTxBytes = tx
+        lastSampleAtMs = now
+        return getString(
+            R.string.vpn_notification_runtime_stats,
+            currentNodeName(),
+            formatTrafficBytes(sessionTraffic),
+            formatTrafficBytes(txSpeed) + "/s",
+            formatTrafficBytes(rxSpeed) + "/s"
+        )
+    }
+
     private fun publishVpnState(running: Boolean, error: String = "") {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("vpn_running", running).commit()
         val intent = Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_RUNNING, running)
@@ -312,6 +370,14 @@ class XbClientVpnService : VpnService() {
 
     private fun errorMessage(error: Throwable): String =
         error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
+
+    private fun currentUidRxBytes(): Long =
+        TrafficStats.getUidRxBytes(applicationInfo.uid).coerceAtLeast(0L)
+
+    private fun currentUidTxBytes(): Long =
+        TrafficStats.getUidTxBytes(applicationInfo.uid).coerceAtLeast(0L)
+
+    private fun formatTrafficBytes(value: Long): String = formatTrafficBytes(value.toDouble())
 
     companion object {
         const val ACTION_START = "moe.telecom.xbclient.action.START_VPN"

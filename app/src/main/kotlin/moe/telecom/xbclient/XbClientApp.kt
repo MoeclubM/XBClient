@@ -35,6 +35,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -48,7 +49,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -71,9 +71,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -99,6 +96,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -110,7 +108,9 @@ import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.autofill.contentType
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -628,7 +628,6 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
             .padding(bottom = 18.dp)
             .animateContentSize(animationSpec = tween(180))
     ) {
-        PageHeader(stringResource(R.string.auth_login_title))
         OutlinedCard(
             colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -673,8 +672,6 @@ private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(18.dp)) {
-                    Text(stringResource(R.string.auth_oauth_login_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(10.dp))
                     for (provider in state.oauthProviders) {
                         OutlinedButton(
                             onClick = { viewModel.openOAuthPage("login", provider.driver) },
@@ -711,7 +708,6 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
     val legalRequired = BuildConfig.USER_AGREEMENT_URL.trim().isNotEmpty() && BuildConfig.PRIVACY_POLICY_URL.trim().isNotEmpty()
     val registerEnabled = !legalRequired || legalAccepted
     Column(modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))) {
-        PageHeader(stringResource(R.string.auth_register_title))
         OutlinedCard(
             colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -773,8 +769,6 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
                 }
                 if (state.oauthConfirmToken.isNotEmpty()) {
                     Spacer(Modifier.height(14.dp))
-                    Text(stringResource(R.string.auth_oauth_confirm_title), style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.height(6.dp))
                     Text(
                         stringResource(R.string.auth_oauth_confirm_message, state.oauthConfirmProvider.ifEmpty { "OAuth" }, state.oauthConfirmEmail),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -790,8 +784,6 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
                 }
                 if (state.oauthProviders.isNotEmpty()) {
                     Spacer(Modifier.height(14.dp))
-                    Text(stringResource(R.string.auth_oauth_register_title), style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.height(8.dp))
                     for (provider in state.oauthProviders) {
                         OutlinedButton(
                             onClick = { viewModel.openOAuthPage("register", provider.driver, inviteCode) },
@@ -845,18 +837,29 @@ private fun AuthFooterLinks(context: Context) {
 @Composable
 private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val selectedLabel = (LanguageOptions.firstOrNull { it.first == current } ?: LanguageOptions.first()).second
     Box {
         Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-            IconButton(onClick = { expanded = true }, modifier = Modifier.size(40.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clickable { expanded = true }
+                    .padding(horizontal = 12.dp, vertical = 9.dp)
+            ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_language),
                     contentDescription = stringResource(R.string.setting_language),
-                    modifier = Modifier.size(20.dp)
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
                 )
+                Spacer(Modifier.width(8.dp))
+                Text(selectedLabel, style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.width(6.dp))
+                Text("▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -878,18 +881,29 @@ private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
 private fun CompactThemeMenu(current: String, appLanguage: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val themeOptions = ThemeOptions.map { it.first to themeOptionLabel(it.first, appLanguage) }
+    val selectedLabel = (themeOptions.firstOrNull { it.first == current } ?: themeOptions.first()).second
     Box {
         Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-            IconButton(onClick = { expanded = true }, modifier = Modifier.size(40.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clickable { expanded = true }
+                    .padding(horizontal = 12.dp, vertical = 9.dp)
+            ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_theme),
                     contentDescription = stringResource(R.string.setting_theme),
-                    modifier = Modifier.size(20.dp)
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
                 )
+                Spacer(Modifier.width(8.dp))
+                Text(selectedLabel, style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.width(6.dp))
+                Text("▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -917,26 +931,43 @@ private fun LinkText(text: String, onClick: () -> Unit) {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = (LanguageOptions.firstOrNull { it.first == current } ?: LanguageOptions.first()).second,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(stringResource(R.string.setting_language)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+    val selectedLabel = (LanguageOptions.firstOrNull { it.first == current } ?: LanguageOptions.first()).second
+    Box(Modifier.fillMaxWidth()) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
                 .fillMaxWidth()
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                .clickable { expanded = true }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_language),
+                    contentDescription = stringResource(R.string.setting_language),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.setting_language), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(2.dp))
+                    Text(selectedLabel, style = MaterialTheme.typography.titleSmall)
+                }
+                Text("▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             for ((tag, label) in LanguageOptions) {
                 DropdownMenuItem(
                     text = { Text(label) },
+                    trailingIcon = { if (current == tag) Text("✓") },
                     onClick = {
                         expanded = false
                         viewModel.setAppLanguage(tag)
@@ -947,27 +978,44 @@ private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThemeChooser(current: String, appLanguage: String, viewModel: XbClientViewModel) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val themeOptions = ThemeOptions.map { it.first to themeOptionLabel(it.first, appLanguage) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = (themeOptions.firstOrNull { it.first == current } ?: themeOptions.first()).second,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(stringResource(R.string.setting_theme)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+    val selectedLabel = (themeOptions.firstOrNull { it.first == current } ?: themeOptions.first()).second
+    Box(Modifier.fillMaxWidth()) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
                 .fillMaxWidth()
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                .clickable { expanded = true }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_theme),
+                    contentDescription = stringResource(R.string.setting_theme),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.setting_theme), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(2.dp))
+                    Text(selectedLabel, style = MaterialTheme.typography.titleSmall)
+                }
+                Text("▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             for ((mode, label) in themeOptions) {
                 DropdownMenuItem(
                     text = { Text(label) },
+                    trailingIcon = { if (current == mode) Text("✓") },
                     onClick = {
                         expanded = false
                         viewModel.setThemeMode(mode)
@@ -1329,14 +1377,22 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(state.vpnRequested) {
+    val connectionSamples = remember { mutableStateListOf<Boolean>() }
+    LaunchedEffect(state.vpnRequested, state.selectedNodeIndex) {
+        if (!state.vpnRequested) {
+            connectionSamples.clear()
+            return@LaunchedEffect
+        }
         while (state.vpnRequested) {
             now = System.currentTimeMillis()
             viewModel.refreshVpnSessionStats()
+            connectionSamples.add(viewModel.probeVpnConnectivityNow())
+            if (connectionSamples.size > 60) {
+                connectionSamples.removeAt(0)
+            }
             delay(1000)
         }
     }
-    PageHeader(stringResource(R.string.nav_home))
     if (state.subscriptionBlocked) {
         val blockTitle = stringResource(
             id = when (state.subscriptionBlockReason) {
@@ -1373,50 +1429,50 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
         }
         return
     }
-    Section(stringResource(R.string.section_connection)) {
-        Panel {
-            val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                AnimatedContent(
-                    targetState = connectionStateText,
-                    transitionSpec = { contentTransition() },
-                    label = "connection-state",
-                ) { text ->
-                    Text(text, style = MaterialTheme.typography.headlineMedium)
-                }
+    Panel {
+        val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            AnimatedContent(
+                targetState = connectionStateText,
+                transitionSpec = { contentTransition() },
+                label = "connection-state",
+            ) { text ->
+                Text(text, style = MaterialTheme.typography.headlineMedium)
             }
-            Spacer(Modifier.height(16.dp))
-            val connectionActionText = stringResource(
-                id = when {
-                    state.vpnStarting -> R.string.status_connecting
-                    state.vpnRequested -> R.string.action_disconnect
-                    else -> R.string.action_connect
-                }
-            )
-            Button(
-                onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
-                enabled = !state.vpnStarting,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
-                    Text(text)
-                }
+        }
+        Spacer(Modifier.height(16.dp))
+        val connectionActionText = stringResource(
+            id = when {
+                state.vpnStarting -> R.string.status_connecting
+                state.vpnRequested -> R.string.action_disconnect
+                else -> R.string.action_connect
             }
-            if (state.vpnRequested) {
-                Spacer(Modifier.height(14.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    InfoCell(
-                        label = stringResource(R.string.connection_duration),
-                        value = formatDuration((now - state.vpnConnectedAt).coerceAtLeast(0L)),
-                        modifier = Modifier.weight(1f)
-                    )
-                    InfoCell(
-                        label = stringResource(R.string.session_traffic),
-                        value = formatTrafficBytes((state.vpnSessionRxBytes + state.vpnSessionTxBytes).toDouble()),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+        )
+        Button(
+            onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
+            enabled = !state.vpnStarting,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
+                Text(text)
             }
+        }
+        if (state.vpnRequested) {
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                InfoCell(
+                    label = stringResource(R.string.connection_duration),
+                    value = formatDuration((now - state.vpnConnectedAt).coerceAtLeast(0L)),
+                    modifier = Modifier.weight(1f)
+                )
+                InfoCell(
+                    label = stringResource(R.string.session_traffic),
+                    value = formatTrafficBytes((state.vpnSessionRxBytes + state.vpnSessionTxBytes).toDouble()),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+            ConnectionHealthChart(samples = connectionSamples)
         }
     }
     Section(stringResource(R.string.section_current_node)) {
@@ -1489,6 +1545,69 @@ private fun InfoCell(label: String, value: String, modifier: Modifier = Modifier
 }
 
 @Composable
+private fun ConnectionHealthChart(samples: List<Boolean>) {
+    val outlineColor = MaterialTheme.colorScheme.outlineVariant
+    val lineColor = MaterialTheme.colorScheme.primary
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.connection_health_last_minute),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh
+        ) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(92.dp)
+                    .padding(horizontal = 10.dp, vertical = 12.dp)
+            ) {
+                val w = size.width
+                val h = size.height
+                val successY = h * 0.2f
+                val failY = h * 0.8f
+                drawLine(
+                    color = outlineColor,
+                    start = androidx.compose.ui.geometry.Offset(0f, successY),
+                    end = androidx.compose.ui.geometry.Offset(w, successY),
+                    strokeWidth = 1.dp.toPx()
+                )
+                drawLine(
+                    color = outlineColor,
+                    start = androidx.compose.ui.geometry.Offset(0f, failY),
+                    end = androidx.compose.ui.geometry.Offset(w, failY),
+                    strokeWidth = 1.dp.toPx()
+                )
+                if (samples.size > 1) {
+                    val path = Path()
+                    samples.forEachIndexed { index, ok ->
+                        val x = (index.toFloat() / (samples.size - 1).toFloat()) * w
+                        val y = if (ok) successY else failY
+                        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    drawPath(
+                        path = path,
+                        color = lineColor,
+                        style = Stroke(width = 2.dp.toPx())
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        val successCount = samples.count { it }
+        Text(
+            text = stringResource(R.string.connection_health_summary, successCount, samples.size),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
 private fun NoticeCard(notice: NoticeItem) {
     OutlinedCard(
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
@@ -1517,7 +1636,6 @@ private fun NoticeCard(notice: NoticeItem) {
 @Composable
 private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
-    PageHeader(stringResource(R.string.nav_plans))
     RewardAdSection(
         title = stringResource(R.string.reward_plan_title),
         enabled = state.planRewardAdEnabled,
@@ -1703,7 +1821,6 @@ private fun RewardAdSection(
 @Composable
 private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
-    PageHeader(stringResource(R.string.nav_profile))
     Section(stringResource(R.string.section_account)) {
         Panel {
             Text(state.userEmail.ifEmpty { stringResource(R.string.status_logged_in) }, style = MaterialTheme.typography.titleLarge)
@@ -1803,7 +1920,6 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     var vpnDnsMode by rememberSaveable(state.vpnDnsMode) { mutableStateOf(state.vpnDnsMode) }
     var virtualDnsPool by rememberSaveable(state.virtualDnsPool) { mutableStateOf(state.virtualDnsPool) }
     var nodeTestTarget by rememberSaveable(state.nodeTestTarget) { mutableStateOf(state.nodeTestTarget) }
-    PageHeader(stringResource(R.string.common_settings), stringResource(R.string.page_settings_subtitle))
     Section(stringResource(R.string.section_appearance)) {
         Panel {
             LanguageChooser(state.appLanguage, viewModel)
@@ -1942,7 +2058,6 @@ private fun OpenSourceLicensesScreen() {
         contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
     ) {
         item {
-            PageHeader(stringResource(R.string.about_open_source_licenses))
             Panel {
                 Text(
                     licenses,
@@ -1961,8 +2076,8 @@ private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMode
         contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
     ) {
         item {
-            PageHeader(stringResource(R.string.page_node_select_title)) {
-                if (!state.subscriptionBlocked && state.anyTlsNodes.isNotEmpty()) {
+            if (!state.subscriptionBlocked && state.anyTlsNodes.isNotEmpty()) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     FilledTonalButton(
                         onClick = viewModel::testAllNodes,
                         enabled = !state.nodesTesting
@@ -2106,7 +2221,6 @@ private fun AppRulesScreen(state: XbClientUiState, viewModel: XbClientViewModel)
         contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
     ) {
         item {
-            PageHeader(stringResource(R.string.page_app_rules_title), stringResource(R.string.page_app_rules_subtitle))
             Panel {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     if (state.appRuleMode == MODE_EXCLUDE) {
@@ -2271,27 +2385,6 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
             Spacer(Modifier.height(24.dp))
         }
     }
-}
-
-@Composable
-private fun PageHeader(title: String, subtitle: String = "", actions: @Composable RowScope.() -> Unit = {}) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Surface(
-            color = MaterialTheme.colorScheme.primary,
-            shape = RoundedCornerShape(50),
-            modifier = Modifier.size(width = 4.dp, height = if (subtitle.isNotEmpty()) 46.dp else 30.dp)
-        ) {}
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
-            if (subtitle.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
-                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        actions()
-    }
-    Spacer(Modifier.height(20.dp))
 }
 
 @Composable

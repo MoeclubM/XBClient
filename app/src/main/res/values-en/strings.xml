@@ -59,6 +59,8 @@
     <string name="status_not_tested">Not tested</string>
     <string name="connection_duration">Duration</string>
     <string name="session_traffic">Session traffic</string>
+    <string name="connection_health_last_minute">Connection quality in last 1 minute</string>
+    <string name="connection_health_summary">Success %1$d / %2$d</string>
     <string name="node_latency">Latency %1$s</string>
     <string name="status_logged_in">Logged in</string>
     <string name="action_connect">Connect</string>
@@ -184,6 +186,7 @@
     <string name="vpn_notification_reconnecting">Reconnecting</string>
     <string name="vpn_notification_switching">Switching node</string>
     <string name="vpn_notification_current_node">Current node: %1$s</string>
+    <string name="vpn_notification_runtime_stats">%1$s · Session %2$s · Speed ↑%3$s ↓%4$s</string>
     <string name="vpn_notification_reconnect_failed">Reconnect failed: %1$s</string>
     <string name="vpn_notification_switch_failed">Node switch failed: %1$s</string>
     <string name="vpn_notification_start_failed">Connection failed to start: %1$s</string>

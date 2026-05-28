@@ -1356,6 +1356,49 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    suspend fun probeVpnConnectivityNow(): Boolean = withContext(Dispatchers.IO) {
+        val state = _uiState.value
+        if (!state.vpnRequested) {
+            return@withContext false
+        }
+        val node = state.anyTlsNodes.getOrNull(state.selectedNodeIndex) ?: return@withContext false
+        if (!node.connectSupported) {
+            return@withContext false
+        }
+        try {
+            val testNode = JSONObject(node.rawJson)
+            if (node.protocol != "direct" && node.protocol != "block") {
+                val originalHost = testNode.getString("host")
+                val resolvedHost = XboardApi.resolveNodeHost(state.nodeDns, originalHost)
+                if (resolvedHost != originalHost && testNode.optString("sni").isEmpty()) {
+                    testNode.put("sni", originalHost)
+                }
+                testNode.put("host", resolvedHost)
+                if (testNode.has("server")) {
+                    testNode.put("server", resolvedHost)
+                }
+                if (testNode.has("address")) {
+                    testNode.put("address", resolvedHost)
+                }
+            }
+            val (targetHost, targetPort, targetTls) = targetHostPort(state.nodeTestTarget.trim().ifEmpty { DEFAULT_NODE_TEST_TARGET })
+            val result = JSONObject(
+                AerionCore.testNode(
+                    JSONObject()
+                        .put("node", testNode)
+                        .put("target_host", targetHost)
+                        .put("target_port", targetPort)
+                        .put("target_tls", targetTls)
+                        .put("timeout_ms", 1000)
+                        .toString()
+                )
+            )
+            result.optBoolean("ok")
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun testNodeBlocking(node: AnyTlsNode): String {
         return try {
             val testNode = JSONObject(node.rawJson)
