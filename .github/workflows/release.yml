@@ -111,22 +111,24 @@ jobs:
           ./gradlew :app:assembleRelease :app:bundleRelease --build-cache --stacktrace
 
       - name: Upload release Android APK
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: xbclient-release-android-${{ github.ref_name }}
+          archive: false
           path: app/build/outputs/apk/release/app-arm64-v8a-release.apk
           if-no-files-found: error
 
       - name: Upload release Android AAB
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: xbclient-release-android-aab-${{ github.ref_name }}
+          archive: false
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             app/build/outputs/apk/release/app-arm64-v8a-release.apk
@@ -178,7 +180,7 @@ jobs:
 
       - name: Publish desktop assets to GitHub release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             apps/electron/dist/latest.yml
@@ -229,15 +231,16 @@ jobs:
           pnpm --filter xbclient-electron dist:linux:deb
 
       - name: Upload release Linux deb (x86_64)
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: xbclient-release-linux-x86_64-${{ github.ref_name }}
+          archive: false
           path: apps/electron/dist/*.deb
           if-no-files-found: error
 
       - name: Publish Linux deb (x86_64) to GitHub release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: apps/electron/dist/*.deb
 
@@ -291,14 +294,15 @@ jobs:
           pnpm --filter xbclient-electron dist:linux:deb
 
       - name: Upload release Linux deb (arm64)
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: xbclient-release-linux-arm64-${{ github.ref_name }}
+          archive: false
           path: apps/electron/dist/*.deb
           if-no-files-found: error
 
       - name: Publish Linux deb (arm64) to GitHub release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: apps/electron/dist/*.deb
