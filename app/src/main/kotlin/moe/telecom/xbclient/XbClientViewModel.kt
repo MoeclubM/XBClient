@@ -1358,7 +1358,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    suspend fun probeVpnConnectivityNow(): Int = withContext(Dispatch.IO) {
+    suspend fun probeVpnConnectivityNow(): Int = withContext(Dispatchers.IO) {
         if (!_uiState.value.vpnRequested) {
             return@withContext -1
         }
