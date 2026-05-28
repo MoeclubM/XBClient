@@ -56,6 +56,26 @@ export async function hideMainWindow(): Promise<void> {
   await window.electronAPI.hideMainWindow()
 }
 
+export async function minimizeWindow(): Promise<void> {
+  await assertElectronAPI().windowMinimize()
+}
+
+export async function maximizeWindow(): Promise<boolean> {
+  return assertElectronAPI().windowMaximize()
+}
+
+export async function closeWindow(): Promise<void> {
+  await assertElectronAPI().windowClose()
+}
+
+export async function isWindowMaximized(): Promise<boolean> {
+  return assertElectronAPI().windowIsMaximized()
+}
+
+export function onWindowMaximizedChanged(handler: (maximized: boolean) => void): () => void {
+  return assertElectronAPI().onWindowMaximizedChanged(handler)
+}
+
 export async function takeOAuthCallback(): Promise<string | null> {
   return assertElectronAPI().takeOAuthCallback()
 }

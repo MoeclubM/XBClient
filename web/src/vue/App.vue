@@ -5,6 +5,7 @@ import { useTheme } from 'vuetify'
 import { installElectronTraySync } from '../platform/electron-tray-sync'
 import { isDesktopShell } from '../platform/shell'
 import { appState, applyDocumentTheme, bootstrapApp, preventDesktopZoom, showStartupAd, t } from './state'
+import DesktopTitleBar from './components/DesktopTitleBar.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -83,17 +84,20 @@ onUnmounted(() => {
 
 <template>
   <v-app class="liquid-app" :class="{ 'desktop-app': isDesktop }">
-    <div v-if="!ready && isDesktop" class="desktop-shell desktop-shell--boot">
-      <aside class="desktop-sidebar">
-        <div class="desktop-brand">
-          <img src="/logo.png" alt="Logo">
-          <strong>{{ appName }}</strong>
-        </div>
-      </aside>
-      <main class="desktop-main desktop-main--boot">
-        <v-progress-linear indeterminate color="primary" class="mb-4" />
-        <p class="muted mb-0">{{ t('startup_loading') }}</p>
-      </main>
+    <div v-if="!ready && isDesktop" class="desktop-frame">
+      <DesktopTitleBar :title="appName" />
+      <div class="desktop-shell desktop-shell--boot">
+        <aside class="desktop-sidebar">
+          <div class="desktop-brand">
+            <img src="/logo.png" alt="Logo">
+            <strong>{{ appName }}</strong>
+          </div>
+        </aside>
+        <main class="desktop-main desktop-main--boot">
+          <v-progress-linear indeterminate color="primary" class="mb-4" />
+          <p class="muted mb-0">{{ t('startup_loading') }}</p>
+        </main>
+      </div>
     </div>
 
     <main v-else-if="!ready" class="startup-view">
@@ -109,28 +113,31 @@ onUnmounted(() => {
       </v-card>
     </main>
 
-    <div v-else-if="isDesktop" class="desktop-shell">
-      <aside v-if="showNav" class="desktop-sidebar">
-        <div class="desktop-brand">
-          <img src="/logo.png" alt="Logo">
-          <strong>{{ appName }}</strong>
+    <div v-else-if="isDesktop" class="desktop-frame">
+      <DesktopTitleBar :title="appName" />
+      <div class="desktop-shell">
+        <aside v-if="showNav" class="desktop-sidebar">
+          <div class="desktop-brand">
+            <img src="/logo.png" alt="Logo">
+            <strong>{{ appName }}</strong>
+          </div>
+          <v-btn
+            v-for="item in NAV_ITEMS"
+            :key="item.path"
+            variant="text"
+            class="desktop-nav-btn"
+            :class="{ 'desktop-nav-btn--active': navActive(item.path) }"
+            @click="router.push(item.path)"
+          >
+            <span class="nav-symbol">{{ item.icon }}</span>
+            <span>{{ item.label() }}</span>
+          </v-btn>
+        </aside>
+        <div class="desktop-main">
+          <v-main class="liquid-main liquid-main--desktop">
+            <RouterView />
+          </v-main>
         </div>
-        <v-btn
-          v-for="item in NAV_ITEMS"
-          :key="item.path"
-          variant="text"
-          class="desktop-nav-btn"
-          :class="{ 'desktop-nav-btn--active': navActive(item.path) }"
-          @click="router.push(item.path)"
-        >
-          <span class="nav-symbol">{{ item.icon }}</span>
-          <span>{{ item.label() }}</span>
-        </v-btn>
-      </aside>
-      <div class="desktop-main">
-        <v-main class="liquid-main liquid-main--desktop">
-          <RouterView />
-        </v-main>
       </div>
     </div>
 

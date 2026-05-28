@@ -36,6 +36,11 @@ export interface ElectronAPI {
   autostartSetEnabled: (value: boolean, silent?: boolean) => Promise<boolean>
   launchedSilent: () => boolean
   hideMainWindow: () => Promise<void>
+  windowMinimize: () => Promise<boolean>
+  windowMaximize: () => Promise<boolean>
+  windowClose: () => Promise<boolean>
+  windowIsMaximized: () => Promise<boolean>
+  onWindowMaximizedChanged: (handler: (maximized: boolean) => void) => () => void
   reportVpnSession: (sessionId: number | null) => Promise<void>
   syncTrayState: (state: import('./electron-tray-sync').TrayStateSnapshot) => Promise<void>
   onTrayStateFromMain: (handler: (patch: import('./electron-tray-sync').TrayStatePushFromMain) => void) => () => void

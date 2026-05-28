@@ -26,6 +26,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   autostartSetEnabled: (value, silent) => ipcRenderer.invoke('electron-autostart-set-enabled', { value, silent }),
   launchedSilent: () => ipcRenderer.sendSync('electron-launched-silent'),
   hideMainWindow: () => ipcRenderer.invoke('electron-hide-main-window'),
+  windowMinimize: () => ipcRenderer.invoke('electron-window-minimize'),
+  windowMaximize: () => ipcRenderer.invoke('electron-window-maximize'),
+  windowClose: () => ipcRenderer.invoke('electron-window-close'),
+  windowIsMaximized: () => ipcRenderer.invoke('electron-window-is-maximized'),
+  onWindowMaximizedChanged: (handler) => {
+    const listener = (_, maximized) => handler(Boolean(maximized))
+    ipcRenderer.on('window-maximized-changed', listener)
+    return () => ipcRenderer.removeListener('window-maximized-changed', listener)
+  },
   reportVpnSession: (sessionId) => ipcRenderer.invoke('electron-report-vpn-session', { sessionId }),
   syncTrayState: (state) => ipcRenderer.invoke('electron-sync-tray-state', { state }),
   onTrayStateFromMain: (handler) => {

@@ -884,9 +884,124 @@ button {
   background: var(--background) !important;
 }
 
+.desktop-frame {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.desktop-titlebar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  height: var(--desktop-titlebar-height, 32px);
+  border-bottom: 1px solid var(--outline-variant);
+  background: var(--surface-container-low);
+  user-select: none;
+}
+
+.desktop-titlebar__drag {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  -webkit-app-region: drag;
+}
+
+.desktop-titlebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 12px;
+  color: var(--on-surface-variant);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.desktop-titlebar__brand img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.desktop-titlebar__controls {
+  display: flex;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.desktop-titlebar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: var(--desktop-titlebar-height, 32px);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--on-surface-variant);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.desktop-titlebar__btn:hover {
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+}
+
+.desktop-titlebar__btn--close:hover {
+  background: #c42b1c;
+  color: #fff;
+}
+
+.desktop-titlebar--mac {
+  flex-direction: row-reverse;
+}
+
+.desktop-titlebar--mac .desktop-titlebar__controls {
+  padding-inline: 8px;
+  gap: 8px;
+  align-items: center;
+}
+
+.desktop-titlebar--mac .desktop-titlebar__btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  font-size: 0;
+  overflow: hidden;
+}
+
+.desktop-titlebar--mac .desktop-titlebar__btn span {
+  display: none;
+}
+
+.desktop-titlebar--mac .desktop-titlebar__btn--close {
+  background: #ff5f57;
+}
+
+.desktop-titlebar--mac .desktop-titlebar__btn--minimize {
+  background: #febc2e;
+}
+
+.desktop-titlebar--mac .desktop-titlebar__btn--maximize {
+  background: #28c840;
+}
+
+.desktop-titlebar--mac .desktop-titlebar__btn:hover {
+  filter: brightness(0.92);
+  color: inherit;
+}
+
 .desktop-shell {
   display: flex;
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
   width: 100%;
 }
 
@@ -944,7 +1059,7 @@ button {
 .desktop-main {
   flex: 1;
   min-width: 0;
-  min-height: 100vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--background);

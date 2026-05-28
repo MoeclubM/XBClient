@@ -479,12 +479,21 @@ function createMainWindow() {
     minWidth: 800,
     minHeight: 600,
     show: !startHidden,
+    frame: false,
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : {}),
     ...(icon.isEmpty() ? {} : { icon }),
     webPreferences: {
       preload: path.resolve(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
+  })
+
+  mainWindow.on('maximize', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('window-maximized-changed', true)
+  })
+  mainWindow.on('unmaximize', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('window-maximized-changed', false)
   })
 
   if (isDev) {
@@ -985,6 +994,28 @@ function startHttpHandlers() {
   ipcMain.handle('electron-hide-main-window', () => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide()
     return true
+  })
+
+  ipcMain.handle('electron-window-minimize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize()
+    return true
+  })
+
+  ipcMain.handle('electron-window-maximize', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return false
+    if (mainWindow.isMaximized()) mainWindow.unmaximize()
+    else mainWindow.maximize()
+    return mainWindow.isMaximized()
+  })
+
+  ipcMain.handle('electron-window-close', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close()
+    return true
+  })
+
+  ipcMain.handle('electron-window-is-maximized', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return false
+    return mainWindow.isMaximized()
   })
 
   ipcMain.handle('electron-autostart-is-enabled', async () => autoLauncherInstance?.isEnabled() ?? false)
