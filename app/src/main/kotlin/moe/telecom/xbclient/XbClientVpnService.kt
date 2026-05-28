@@ -350,7 +350,7 @@ class XbClientVpnService : VpnService() {
 
         @JvmStatic
         fun protectSocketFd(fd: Int): Boolean {
-            val service = activeService ?: return false
+            val service = activeService ?: return true
             return service.protect(fd)
         }
 
