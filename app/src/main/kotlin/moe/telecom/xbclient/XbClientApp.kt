@@ -1484,6 +1484,7 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             ConnectionHealthChart(samples = connectionSamples)
         }
     }
+    Spacer(Modifier.height(24.dp))
     Section(stringResource(R.string.section_current_node)) {
         OutlinedCard(
             colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
