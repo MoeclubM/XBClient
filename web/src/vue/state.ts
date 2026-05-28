@@ -97,5 +97,3 @@ export function preventDesktopZoom(): () => void {
     window.removeEventListener('keydown', preventKeyZoom)
   }
 }
-
-export async function showStartupAd(): Promise<void> {}

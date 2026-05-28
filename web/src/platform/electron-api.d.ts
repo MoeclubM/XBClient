@@ -7,7 +7,6 @@ export interface ElectronRuntimeCapabilities {
   local_socks: boolean
   vpn: boolean
   payment: boolean
-  admob: boolean
 }
 
 export interface ElectronAPIInvoke {

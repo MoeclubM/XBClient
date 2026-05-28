@@ -4,7 +4,7 @@ import { useRoute, RouterView, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { installElectronTraySync } from '../platform/electron-tray-sync'
 import { isDesktopShell } from '../platform/shell'
-import { appState, applyDocumentTheme, bootstrapApp, preventDesktopZoom, showStartupAd, t } from './state'
+import { appState, applyDocumentTheme, bootstrapApp, preventDesktopZoom, t } from './state'
 import DesktopTitleBar from './components/DesktopTitleBar.vue'
 
 const route = useRoute()
@@ -66,7 +66,6 @@ onMounted(async () => {
   try {
     await bootstrapApp()
     if (isDesktop && appState.capabilities?.tray) cleanupTraySync = installElectronTraySync()
-    await showStartupAd().catch((error) => console.error('show app open ad failed', error))
     if (!appState.authData && route.path !== '/login') await router.replace('/login')
     if (appState.authData && route.path === '/login') await router.replace('/home')
   } catch (error) {

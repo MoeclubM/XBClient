@@ -22,7 +22,6 @@ export interface RuntimeCapabilities {
   vpn: boolean
   tun_elevated?: boolean
   payment: boolean
-  admob: boolean
 }
 
 export interface RuntimeConfig {

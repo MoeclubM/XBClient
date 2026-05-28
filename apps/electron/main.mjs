@@ -214,7 +214,6 @@ function desktopRuntimeCapabilities() {
     vpn: desktop,
     tun_elevated: desktop ? isProcessElevated() : false,
     payment: true,
-    admob: false,
   }
 }
 
