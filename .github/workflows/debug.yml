@@ -114,9 +114,10 @@ jobs:
           ./gradlew :app:assembleRelease --build-cache --stacktrace
 
       - name: Upload beta Android APK
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: xbclient-beta-android-${{ github.run_number }}
+          archive: false
           path: app/build/outputs/apk/release/app-arm64-v8a-release.apk
           if-no-files-found: error
 
@@ -163,12 +164,11 @@ jobs:
           pnpm --filter xbclient-electron dist:win
 
       - name: Upload beta Windows installer
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: xbclient-beta-windows-${{ github.run_number }}
-          path: |
-            apps/electron/dist/*.exe
-            apps/electron/dist/*.exe.blockmap
+          archive: false
+          path: apps/electron/dist/*-win-x64.exe
           if-no-files-found: error
 
   linux-beta-x86_64:
@@ -215,9 +215,10 @@ jobs:
           pnpm --filter xbclient-electron dist:linux:deb
 
       - name: Upload beta Linux deb (x86_64)
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: xbclient-beta-linux-x86_64-${{ github.run_number }}
+          archive: false
           path: apps/electron/dist/*.deb
           if-no-files-found: error
 
@@ -271,8 +272,9 @@ jobs:
           pnpm --filter xbclient-electron dist:linux:deb
 
       - name: Upload beta Linux deb (arm64)
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: xbclient-beta-linux-arm64-${{ github.run_number }}
+          archive: false
           path: apps/electron/dist/*.deb
           if-no-files-found: error
