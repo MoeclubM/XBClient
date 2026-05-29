@@ -617,6 +617,9 @@ mod platform {
             "dns": request.dns.unwrap_or_else(|| "over_tcp".to_string()),
             "dns_addr": dns_addr.to_string(),
             "virtual_dns_pool": virtual_dns_pool,
+            // Loopback SOCKS5 endpoint that backs the TUN; the UI dials through it
+            // to measure real tunnel latency instead of the app's direct (VPN-excluded) path.
+            "socks_addr": socks_addr.to_string(),
         })
         .to_string())
     }
@@ -764,6 +767,9 @@ mod platform {
             "dns": request.dns.unwrap_or_else(|| "over_tcp".to_string()),
             "dns_addr": dns_addr.to_string(),
             "virtual_dns_pool": virtual_dns_pool,
+            // Loopback SOCKS5 endpoint that backs the TUN; the UI dials through it
+            // to measure real tunnel latency instead of the app's direct (VPN-excluded) path.
+            "socks_addr": socks_addr.to_string(),
         })
         .to_string())
     }

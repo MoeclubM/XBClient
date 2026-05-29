@@ -33,6 +33,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.Socket
 
 private val Context.passVpnDataStore by preferencesDataStore(name = XBCLIENT_PREFS)
@@ -1367,16 +1368,20 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (!_uiState.value.vpnRequested) {
             return@withContext -1
         }
+        // The app is excluded from its own VPN, so a direct socket would bypass the
+        // tunnel. Dial through the tunnel's loopback SOCKS endpoint instead so the
+        // sample reflects real tunnel latency (falls back to direct until it is known).
+        val proxy = vpnTunnelProxy()
         // Use IP endpoints to avoid high-frequency DNS resolution pressure.
         val targets = listOf(
             InetSocketAddress("1.1.1.1", 443),
-            InetSocketAddress("223.5.5.5", 53)
+            InetSocketAddress("8.8.8.8", 443)
         )
         for (target in targets) {
             try {
                 val startMs = System.currentTimeMillis()
-                Socket().use { socket ->
-                    socket.connect(target, 900)
+                (if (proxy != null) Socket(proxy) else Socket()).use { socket ->
+                    socket.connect(target, 1200)
                 }
                 val latencyMs = System.currentTimeMillis() - startMs
                 return@withContext latencyMs.toInt()
@@ -1385,6 +1390,18 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             }
         }
         -1
+    }
+
+    /** Resolves the tunnel's loopback SOCKS5 proxy published by the VPN service, if running. */
+    private fun vpnTunnelProxy(): Proxy? {
+        val addr = app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
+            .getString("vpn_socks_addr", "")
+            ?.takeIf { it.isNotBlank() }
+            ?: return null
+        val host = addr.substringBeforeLast(':', "")
+        val port = addr.substringAfterLast(':', "").toIntOrNull()
+        if (host.isEmpty() || port == null) return null
+        return Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
     }
 
     private fun testNodeBlocking(node: AnyTlsNode): String {

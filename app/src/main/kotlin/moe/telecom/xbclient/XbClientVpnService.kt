@@ -41,6 +41,7 @@ class XbClientVpnService : VpnService() {
     private var currentDnsMode = DNS_MODE_VIRTUAL
     private var currentVirtualDnsPool = DEFAULT_VIRTUAL_DNS_POOL
     private var currentIpv6Enabled = true
+    private var currentSocksAddr = ""
     private var tunInterface: ParcelFileDescriptor? = null
     private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
@@ -245,6 +246,7 @@ class XbClientVpnService : VpnService() {
             throw IllegalStateException(result.toString())
         }
         vpnSessionId = result.getLong("session_id")
+        currentSocksAddr = result.optString("socks_addr")
         sessionBaseRxBytes = currentUidRxBytes()
         sessionBaseTxBytes = currentUidTxBytes()
         lastSampleRxBytes = sessionBaseRxBytes
@@ -316,6 +318,7 @@ class XbClientVpnService : VpnService() {
             }
             vpnSessionId = 0L
         }
+        currentSocksAddr = ""
         sessionBaseRxBytes = 0L
         sessionBaseTxBytes = 0L
         lastSampleRxBytes = 0L
@@ -420,7 +423,10 @@ class XbClientVpnService : VpnService() {
     }
 
     private fun publishVpnState(running: Boolean, error: String = "") {
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("vpn_running", running).commit()
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+            .putBoolean("vpn_running", running)
+            .putString("vpn_socks_addr", if (running) currentSocksAddr else "")
+            .commit()
         val intent = Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_RUNNING, running)
         if (error.isNotEmpty()) {
             intent.putExtra(EXTRA_ERROR, error)
