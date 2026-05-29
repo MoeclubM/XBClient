@@ -63,7 +63,7 @@
     <string name="connection_health_summary">成功 %1$d / %2$d · 平均延迟 %3$d ms</string>
     <string name="node_latency">延迟 %1$s</string>
     <string name="status_logged_in">已登录</string>
-    <string name="action_connect">开始连接</string>
+    <string name="action_connect">连接</string>
     <string name="action_disconnect">断开</string>
     <string name="action_test_current_node">测试当前节点</string>
     <string name="action_test_all_nodes">测试全部节点</string>
@@ -192,7 +192,7 @@
     <string name="vpn_notification_reconnecting">正在重新连接</string>
     <string name="vpn_notification_switching">正在更换节点</string>
     <string name="vpn_notification_current_node">当前节点：%1$s</string>
-    <string name="vpn_notification_runtime_stats">%1$s · 本次流量 %2$s · 实时速度 ↑%3$s ↓%4$s</string>
+    <string name="vpn_notification_runtime_stats">%1$s · %2$s · ↑%3$s ↓%4$s</string>
     <string name="vpn_notification_reconnect_failed">重新连接失败：%1$s</string>
     <string name="vpn_notification_switch_failed">更换节点失败：%1$s</string>
     <string name="vpn_notification_start_failed">连接启动失败：%1$s</string>

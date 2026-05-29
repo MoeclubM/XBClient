@@ -124,6 +124,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -1379,19 +1380,45 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    val connectionSamples = remember { mutableStateListOf<Int>() }
+    val latencySamples = remember { mutableStateListOf<Int>() }
+    val uploadSpeedSamples = remember { mutableStateListOf<Long>() }
+    val downloadSpeedSamples = remember { mutableStateListOf<Long>() }
+    // Clock + traffic/speed tick: advances exactly once per second, independent of the
+    // (potentially blocking) connectivity probe below, so the connection timer never stalls.
+    LaunchedEffect(state.vpnRequested) {
+        if (!state.vpnRequested) {
+            uploadSpeedSamples.clear()
+            downloadSpeedSamples.clear()
+            return@LaunchedEffect
+        }
+        var (lastRx, lastTx) = viewModel.refreshVpnSessionStats()
+        var lastAt = System.currentTimeMillis()
+        while (state.vpnRequested) {
+            delay(1000)
+            now = System.currentTimeMillis()
+            val (rx, tx) = viewModel.refreshVpnSessionStats()
+            val elapsed = (now - lastAt).coerceAtLeast(1L)
+            val downBps = ((rx - lastRx).coerceAtLeast(0L) * 1000L) / elapsed
+            val upBps = ((tx - lastTx).coerceAtLeast(0L) * 1000L) / elapsed
+            lastRx = rx
+            lastTx = tx
+            lastAt = now
+            uploadSpeedSamples.add(upBps)
+            downloadSpeedSamples.add(downBps)
+            if (uploadSpeedSamples.size > 60) uploadSpeedSamples.removeAt(0)
+            if (downloadSpeedSamples.size > 60) downloadSpeedSamples.removeAt(0)
+        }
+    }
+    // Connectivity/latency probe in its own loop: its blocking socket connect must not
+    // delay the per-second timer above.
     LaunchedEffect(state.vpnRequested, state.selectedNodeIndex) {
         if (!state.vpnRequested) {
-            connectionSamples.clear()
+            latencySamples.clear()
             return@LaunchedEffect
         }
         while (state.vpnRequested) {
-            now = System.currentTimeMillis()
-            viewModel.refreshVpnSessionStats()
-            connectionSamples.add(viewModel.probeVpnConnectivityNow())
-            if (connectionSamples.size > 60) {
-                connectionSamples.removeAt(0)
-            }
+            latencySamples.add(viewModel.probeVpnConnectivityNow())
+            if (latencySamples.size > 60) latencySamples.removeAt(0)
             delay(1000)
         }
     }
@@ -1432,57 +1459,63 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
         return
     }
     Spacer(Modifier.height(24.dp))
-    Panel {
+    // Connection control sits directly on the page (no card) with an enlarged circular button.
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            val connectionActionText = stringResource(
-                id = when {
-                    state.vpnStarting -> R.string.status_connecting
-                    state.vpnRequested -> R.string.action_disconnect
-                    else -> R.string.action_connect
-                }
-            )
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
-                AnimatedContent(
-                    targetState = connectionStateText,
-                    transitionSpec = { contentTransition() },
-                    label = "connection-state",
-                ) { text ->
-                    Text(text, style = MaterialTheme.typography.headlineMedium)
-                }
+        val connectionActionText = stringResource(
+            id = when {
+                state.vpnStarting -> R.string.status_connecting
+                state.vpnRequested -> R.string.action_disconnect
+                else -> R.string.action_connect
             }
-            Spacer(Modifier.height(20.dp))
-            Button(
-                onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
-                enabled = !state.vpnStarting,
-                modifier = Modifier.size(96.dp),
-                shape = CircleShape
-            ) {
-                AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
-                    Text(text, style = MaterialTheme.typography.titleLarge)
-                }
+        )
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+            AnimatedContent(
+                targetState = connectionStateText,
+                transitionSpec = { contentTransition() },
+                label = "connection-state",
+            ) { text ->
+                Text(text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+        Button(
+            onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
+            enabled = !state.vpnStarting,
+            modifier = Modifier.size(176.dp),
+            shape = CircleShape
+        ) {
+            AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
+                Text(text, style = MaterialTheme.typography.headlineSmall)
             }
         }
         if (state.vpnRequested) {
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                InfoCell(
-                    label = stringResource(R.string.connection_duration),
-                    value = formatDuration((now - state.vpnConnectedAt).coerceAtLeast(0L)),
-                    modifier = Modifier.weight(1f)
-                )
-                InfoCell(
-                    label = stringResource(R.string.session_traffic),
-                    value = formatTrafficBytes((state.vpnSessionRxBytes + state.vpnSessionTxBytes).toDouble()),
-                    modifier = Modifier.weight(1f)
-                )
+            Spacer(Modifier.height(16.dp))
+            AnimatedContent(
+                targetState = formatDuration((now - state.vpnConnectedAt).coerceAtLeast(0L)),
+                transitionSpec = { contentTransition() },
+                label = "connection-duration",
+            ) { text ->
+                Text(text, style = MaterialTheme.typography.titleMedium)
             }
-            Spacer(Modifier.height(14.dp))
-            ConnectionHealthChart(samples = connectionSamples)
         }
+    }
+    if (state.vpnRequested) {
+        Spacer(Modifier.height(20.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            LatencyChart(samples = latencySamples, modifier = Modifier.weight(1f))
+            SpeedChart(upload = uploadSpeedSamples, download = downloadSpeedSamples, modifier = Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "${stringResource(R.string.session_traffic)} · ${formatTrafficBytes((state.vpnSessionRxBytes + state.vpnSessionTxBytes).toDouble())}",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
     Spacer(Modifier.height(24.dp))
     Section(stringResource(R.string.section_current_node)) {
@@ -1539,103 +1572,89 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     }
 }
 
+/** Smoothly-updating single-line chart of round-trip latency samples (ms, -1 = timeout). */
 @Composable
-private fun InfoCell(label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
-    ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(4.dp))
-            Text(value, style = MaterialTheme.typography.titleMedium)
+private fun LatencyChart(samples: List<Int>, modifier: Modifier = Modifier) {
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val lineColor = MaterialTheme.colorScheme.primary
+    val current = samples.lastOrNull()
+    val header = when {
+        current == null -> "— ms"
+        current < 0 -> "—"
+        else -> "$current ms"
+    }
+    ChartCard(modifier = modifier, header = header, headerColor = lineColor) {
+        val valid = samples.filter { it >= 0 }
+        if (valid.size < 2) return@ChartCard
+        val max = (valid.maxOrNull() ?: 100).coerceAtLeast(1)
+        val min = (valid.minOrNull() ?: 0)
+        val range = (max - min).coerceAtLeast(1)
+        val path = Path()
+        valid.forEachIndexed { index, value ->
+            val x = (index.toFloat() / (valid.size - 1)) * size.width
+            val y = size.height * (1f - ((value - min).toFloat() / range).coerceIn(0f, 1f))
+            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
+        drawGrid(gridColor)
+        drawPath(path = path, color = lineColor, style = Stroke(width = 2.dp.toPx()))
     }
 }
 
+/** Smoothly-updating chart of upload (↑) and download (↓) speed in bytes/second. */
 @Composable
-private fun ConnectionHealthChart(samples: List<Int>) {
-    val outlineColor = MaterialTheme.colorScheme.outlineVariant
-    val lineColor = MaterialTheme.colorScheme.primary
-    val successColor = MaterialTheme.colorScheme.primary
-    val failColor = MaterialTheme.colorScheme.error
-    Column(Modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.connection_health_last_minute),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(8.dp))
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh
-        ) {
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .padding(horizontal = 10.dp, vertical = 12.dp)
-            ) {
-                val w = size.width
-                val h = size.height
-                val validSamples = samples.filter { it >= 0 }
-                if (validSamples.isEmpty()) return@Canvas
-                val maxLatency = (validSamples.maxOrNull() ?: 100).coerceAtLeast(100)
-                val minLatency = (validSamples.minOrNull() ?: 0).coerceAtMost(maxLatency - 50)
-                val range = (maxLatency - minLatency).coerceAtLeast(1)
-                // Draw horizontal grid lines
-                val gridLines = 4
-                for (i in 0..gridLines) {
-                    val y = h * (i.toFloat() / gridLines)
-                    drawLine(
-                        color = outlineColor,
-                        start = Offset(0f, y),
-                        end = Offset(w, y),
-                        strokeWidth = 0.5.dp.toPx()
-                    )
-                }
-                // Draw line chart
-                if (validSamples.size > 1) {
-                    val path = Path()
-                    validSamples.forEachIndexed { index, latency ->
-                        val x = (index.toFloat() / (validSamples.size - 1).toFloat()) * w
-                        val normalizedLatency = ((latency - minLatency).toFloat() / range)
-                        val y = h * (1f - normalizedLatency.coerceIn(0f, 1f))
-                        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                    }
-                    drawPath(
-                        path = path,
-                        color = lineColor,
-                        style = Stroke(width = 2.dp.toPx())
-                    )
-                    // Draw points
-                    validSamples.forEachIndexed { index, latency ->
-                        val x = (index.toFloat() / (validSamples.size - 1).toFloat()) * w
-                        val normalizedLatency = ((latency - minLatency).toFloat() / range)
-                        val y = h * (1f - normalizedLatency.coerceIn(0f, 1f))
-                        drawCircle(
-                            color = lineColor,
-                            radius = 3.dp.toPx(),
-                            center = Offset(x, y)
-                        )
-                    }
-                }
-            }
+private fun SpeedChart(upload: List<Long>, download: List<Long>, modifier: Modifier = Modifier) {
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val upColor = MaterialTheme.colorScheme.primary
+    val downColor = MaterialTheme.colorScheme.tertiary
+    val curUp = upload.lastOrNull() ?: 0L
+    val curDown = download.lastOrNull() ?: 0L
+    val header = "↑${formatTrafficBytes(curUp.toDouble())}/s ↓${formatTrafficBytes(curDown.toDouble())}/s"
+    ChartCard(modifier = modifier, header = header, headerColor = MaterialTheme.colorScheme.onSurface) {
+        val peak = ((upload + download).maxOrNull() ?: 0L).coerceAtLeast(1L)
+        drawGrid(gridColor)
+        drawSpeedLine(download, peak, downColor)
+        drawSpeedLine(upload, peak, upColor)
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGrid(color: Color) {
+    val gridLines = 4
+    for (i in 0..gridLines) {
+        val y = size.height * (i.toFloat() / gridLines)
+        drawLine(color = color, start = Offset(0f, y), end = Offset(size.width, y), strokeWidth = 0.5.dp.toPx())
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSpeedLine(values: List<Long>, peak: Long, color: Color) {
+    if (values.size < 2) return
+    val path = Path()
+    values.forEachIndexed { index, value ->
+        val x = (index.toFloat() / (values.size - 1)) * size.width
+        val y = size.height * (1f - (value.toFloat() / peak).coerceIn(0f, 1f))
+        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    drawPath(path = path, color = color, style = Stroke(width = 2.dp.toPx()))
+}
+
+@Composable
+private fun ChartCard(
+    modifier: Modifier = Modifier,
+    header: String,
+    headerColor: Color,
+    draw: androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit,
+) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Column(Modifier.padding(12.dp)) {
+            Text(
+                header,
+                style = MaterialTheme.typography.labelMedium,
+                color = headerColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(8.dp))
+            Canvas(modifier = Modifier.fillMaxWidth().height(72.dp)) { draw() }
         }
-        Spacer(Modifier.height(6.dp))
-        val successCount = samples.count { it >= 0 }
-        val avgLatency = if (successCount > 0) {
-            samples.filter { it >= 0 }.average().toInt()
-        } else {
-            0
-        }
-        Text(
-            text = stringResource(R.string.connection_health_summary, successCount, samples.size, avgLatency),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

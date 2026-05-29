@@ -186,7 +186,7 @@
     <string name="vpn_notification_reconnecting">再接続中</string>
     <string name="vpn_notification_switching">ノードを切り替え中</string>
     <string name="vpn_notification_current_node">現在のノード：%1$s</string>
-    <string name="vpn_notification_runtime_stats">%1$s ・今回通信量 %2$s ・速度 ↑%3$s ↓%4$s</string>
+    <string name="vpn_notification_runtime_stats">%1$s · %2$s · ↑%3$s ↓%4$s</string>
     <string name="vpn_notification_reconnect_failed">再接続に失敗：%1$s</string>
     <string name="vpn_notification_switch_failed">ノード切り替えに失敗：%1$s</string>
     <string name="vpn_notification_start_failed">接続開始に失敗：%1$s</string>

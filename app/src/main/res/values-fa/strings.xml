@@ -186,7 +186,7 @@
     <string name="vpn_notification_reconnecting">در حال اتصال دوباره</string>
     <string name="vpn_notification_switching">در حال تغییر گره</string>
     <string name="vpn_notification_current_node">گره فعلی: %1$s</string>
-    <string name="vpn_notification_runtime_stats">%1$s · نشست %2$s · سرعت ↑%3$s ↓%4$s</string>
+    <string name="vpn_notification_runtime_stats">%1$s · %2$s · ↑%3$s ↓%4$s</string>
     <string name="vpn_notification_reconnect_failed">اتصال دوباره ناموفق بود: %1$s</string>
     <string name="vpn_notification_switch_failed">تغییر گره ناموفق بود: %1$s</string>
     <string name="vpn_notification_start_failed">شروع اتصال ناموفق بود: %1$s</string>

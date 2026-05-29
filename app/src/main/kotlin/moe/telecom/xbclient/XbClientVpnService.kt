@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.drawable.Icon
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.VpnService
 import android.net.TrafficStats
 import android.os.Build
@@ -40,6 +42,9 @@ class XbClientVpnService : VpnService() {
     private var currentVirtualDnsPool = DEFAULT_VIRTUAL_DNS_POOL
     private var currentIpv6Enabled = true
     private var tunInterface: ParcelFileDescriptor? = null
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var notificationChannelReady = false
     private var sessionBaseRxBytes = 0L
     private var sessionBaseTxBytes = 0L
     private var lastSampleRxBytes = 0L
@@ -245,7 +250,52 @@ class XbClientVpnService : VpnService() {
         lastSampleRxBytes = sessionBaseRxBytes
         lastSampleTxBytes = sessionBaseTxBytes
         lastSampleAtMs = System.currentTimeMillis()
+        registerUnderlyingNetworkTracking()
         Log.i("XBClient", "VPN started: $result")
+    }
+
+    /**
+     * Follows the active underlying (non-VPN) network and pins it via
+     * [setUnderlyingNetworks]. Without this, after a Wi-Fi sleep/handover or IP
+     * change the tunnel stays bound to the now-dead network and apps lose
+     * connectivity until the VPN is restarted. The default-network callback runs
+     * in this (VPN-excluded) process, so it reports the physical uplink, not the
+     * tunnel itself.
+     */
+    private fun registerUnderlyingNetworkTracking() {
+        if (networkCallback != null) return
+        val manager = getSystemService(ConnectivityManager::class.java) ?: return
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                setUnderlyingNetworks(arrayOf(network))
+            }
+
+            override fun onLost(network: Network) {
+                // Fall back to the system default until a new uplink appears.
+                setUnderlyingNetworks(null)
+            }
+        }
+        try {
+            manager.registerDefaultNetworkCallback(callback)
+            connectivityManager = manager
+            networkCallback = callback
+        } catch (error: Throwable) {
+            Log.e("XBClient", "register underlying network callback failed", error)
+        }
+    }
+
+    private fun unregisterUnderlyingNetworkTracking() {
+        val manager = connectivityManager
+        val callback = networkCallback
+        if (manager != null && callback != null) {
+            try {
+                manager.unregisterNetworkCallback(callback)
+            } catch (error: Throwable) {
+                Log.e("XBClient", "unregister underlying network callback failed", error)
+            }
+        }
+        networkCallback = null
+        connectivityManager = null
     }
 
     private fun stopCurrentVpn(error: String = "") {
@@ -256,6 +306,7 @@ class XbClientVpnService : VpnService() {
     }
 
     private fun stopNativeVpn() {
+        unregisterUnderlyingNetworkTracking()
         if (vpnSessionId != 0L) {
             try {
                 val result = AerionCore.stopVpn(vpnSessionId)
@@ -274,18 +325,22 @@ class XbClientVpnService : VpnService() {
         tunInterface = null
     }
 
-    private fun startForegroundNotification(text: String) {
-        val manager = getSystemService(NotificationManager::class.java)
+    private fun ensureNotificationChannel() {
+        if (notificationChannelReady) return
         val channel = NotificationChannel(
             CHANNEL_ID,
             getString(R.string.vpn_notification_channel, getString(R.string.app_name)),
             NotificationManager.IMPORTANCE_LOW
         )
-        manager.createNotificationChannel(channel)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        notificationChannelReady = true
+    }
+
+    private fun buildNotification(text: String): Notification {
         val activityIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, activityIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val notification: Notification = Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.vpn_notification_title, getString(R.string.app_name)))
+        return Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
@@ -294,14 +349,23 @@ class XbClientVpnService : VpnService() {
             .addAction(Notification.Action.Builder(Icon.createWithResource(this, android.R.drawable.ic_popup_sync), getString(R.string.vpn_action_reconnect), serviceIntent(ACTION_RECONNECT, 2)).build())
             .addAction(Notification.Action.Builder(Icon.createWithResource(this, android.R.drawable.ic_media_pause), getString(R.string.vpn_action_stop), serviceIntent(ACTION_STOP, 3)).build())
             .build()
-        startForeground(NOTIFICATION_ID, notification)
+    }
+
+    private fun startForegroundNotification(text: String) {
+        ensureNotificationChannel()
+        startForeground(NOTIFICATION_ID, buildNotification(text))
+    }
+
+    private fun updateNotification(text: String) {
+        ensureNotificationChannel()
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(text))
     }
 
     private fun startStatsTicker() {
         stopStatsTicker()
         statsJob = serviceScope.launch {
             while (vpnSessionId != 0L) {
-                startForegroundNotification(connectedNotificationText())
+                updateNotification(connectedNotificationText())
                 delay(1000)
             }
         }

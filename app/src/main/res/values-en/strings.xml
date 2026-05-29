@@ -186,7 +186,7 @@
     <string name="vpn_notification_reconnecting">Reconnecting</string>
     <string name="vpn_notification_switching">Switching node</string>
     <string name="vpn_notification_current_node">Current node: %1$s</string>
-    <string name="vpn_notification_runtime_stats">%1$s · Session %2$s · Speed ↑%3$s ↓%4$s</string>
+    <string name="vpn_notification_runtime_stats">%1$s · %2$s · ↑%3$s ↓%4$s</string>
     <string name="vpn_notification_reconnect_failed">Reconnect failed: %1$s</string>
     <string name="vpn_notification_switch_failed">Node switch failed: %1$s</string>
     <string name="vpn_notification_start_failed">Connection failed to start: %1$s</string>

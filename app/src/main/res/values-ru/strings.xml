@@ -186,7 +186,7 @@
     <string name="vpn_notification_reconnecting">Повторное подключение</string>
     <string name="vpn_notification_switching">Смена узла</string>
     <string name="vpn_notification_current_node">Текущий узел: %1$s</string>
-    <string name="vpn_notification_runtime_stats">%1$s · Сессия %2$s · Скорость ↑%3$s ↓%4$s</string>
+    <string name="vpn_notification_runtime_stats">%1$s · %2$s · ↑%3$s ↓%4$s</string>
     <string name="vpn_notification_reconnect_failed">Не удалось переподключиться: %1$s</string>
     <string name="vpn_notification_switch_failed">Не удалось сменить узел: %1$s</string>
     <string name="vpn_notification_start_failed">Не удалось запустить подключение: %1$s</string>

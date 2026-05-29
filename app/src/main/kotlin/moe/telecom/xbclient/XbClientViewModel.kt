@@ -1346,16 +1346,21 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun refreshVpnSessionStats() {
+    /**
+     * Refreshes the cumulative session traffic counters and returns the current
+     * (downloadBytes, uploadBytes) totals so callers can derive instantaneous
+     * speed without re-reading [TrafficStats].
+     */
+    fun refreshVpnSessionStats(): Pair<Long, Long> {
         if (!_uiState.value.vpnRequested) {
-            return
+            return 0L to 0L
         }
+        val rx = (currentUidRxBytes() - vpnBaseRxBytes).coerceAtLeast(0L)
+        val tx = (currentUidTxBytes() - vpnBaseTxBytes).coerceAtLeast(0L)
         _uiState.update {
-            it.copy(
-                vpnSessionRxBytes = (currentUidRxBytes() - vpnBaseRxBytes).coerceAtLeast(0L),
-                vpnSessionTxBytes = (currentUidTxBytes() - vpnBaseTxBytes).coerceAtLeast(0L)
-            )
+            it.copy(vpnSessionRxBytes = rx, vpnSessionTxBytes = tx)
         }
+        return rx to tx
     }
 
     suspend fun probeVpnConnectivityNow(): Int = withContext(Dispatchers.IO) {
