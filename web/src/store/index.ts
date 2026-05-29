@@ -257,7 +257,7 @@ const initialState: AppState = {
     nodeTestTarget: DEFAULT_NODE_TEST_TARGET,
     vpnDnsMode: 'over_tcp',
     virtualDnsPool: DEFAULT_VIRTUAL_DNS_POOL,
-    vpnIpv6Enabled: true,
+    vpnIpv6Enabled: false,
     geoipDir: '',
     routeConfigYaml: '',
     appRuleMode: 'exclude',

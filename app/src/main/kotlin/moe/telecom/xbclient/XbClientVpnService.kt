@@ -40,7 +40,7 @@ class XbClientVpnService : VpnService() {
     private var currentDirectDns = DEFAULT_DIRECT_DNS
     private var currentDnsMode = DNS_MODE_OVER_TCP
     private var currentVirtualDnsPool = DEFAULT_VIRTUAL_DNS_POOL
-    private var currentIpv6Enabled = true
+    private var currentIpv6Enabled = false
     private var currentRouteConfigYaml = ""
     private var currentGeoipDir = ""
     private var currentRouteSessionId = 0L
@@ -152,7 +152,7 @@ class XbClientVpnService : VpnService() {
                 if (!intent.hasExtra(EXTRA_IPV6_ENABLED)) {
                     throw IllegalStateException("VPN start missing IPv6 flag")
                 }
-                val ipv6Enabled = intent.getBooleanExtra(EXTRA_IPV6_ENABLED, true)
+                val ipv6Enabled = intent.getBooleanExtra(EXTRA_IPV6_ENABLED, false)
                 val routeConfigYaml = intent.getStringExtra(EXTRA_ROUTE_CONFIG_YAML)
                     ?: throw IllegalStateException("VPN start missing route config")
                 val geoipDir = intent.getStringExtra(EXTRA_GEOIP_DIR)
@@ -224,7 +224,7 @@ class XbClientVpnService : VpnService() {
             Log.w("XBClient", "Clash rule routing is enabled with DNS mode $dnsMode; DOMAIN rules only keep hostnames reliably in Fake-IP mode.")
         }
         if (dnsMode == DNS_MODE_VIRTUAL && ipv6Enabled) {
-            Log.w("XBClient", "Fake-IP is enabled with IPv6; if Android browser DNS fails, disable IPv6 first because tun2proxy virtual DNS uses one fake address family.")
+            throw IllegalStateException("Fake-IP DNS mode does not support IPv6; disable IPv6 or use TCP forwarding DNS mode.")
         }
 
         if (!allowedApps.isNullOrBlank()) {
