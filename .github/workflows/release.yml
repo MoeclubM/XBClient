@@ -237,10 +237,11 @@ jobs:
         shell: bash
         run: bash scripts/ci/setup-linux-arm64-fpm.sh
 
+      # arm64 builds use the system fpm installed above (exported via
+      # $GITHUB_ENV by setup-linux-arm64-fpm.sh); x86_64 lets electron-builder
+      # fetch its own fpm, so USE_SYSTEM_FPM must stay unset there.
       - name: Build Linux deb
         shell: bash
-        env:
-          USE_SYSTEM_FPM: ${{ matrix.arch == 'arm64' && 'true' || '' }}
         run: |
           pnpm install --frozen-lockfile=false
           pnpm --filter xbclient-electron dist:linux:deb
