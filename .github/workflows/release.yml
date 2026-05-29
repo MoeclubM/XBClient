@@ -187,66 +187,17 @@ jobs:
             apps/electron/dist/*.blockmap
             apps/electron/dist/*-win-x64.exe
 
-  linux-electron-release-x86_64:
-    name: Linux Electron release deb (x86_64)
-    runs-on: ubuntu-24.04
-    env:
-      CARGO_TERM_COLOR: always
-      XBCLIENT_LINUX_TARGETS: deb
-      XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
-      XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
-      XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
-      XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
-      XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
-      XBCLIENT_PRIVACY_POLICY_URL: ${{ secrets.XBCLIENT_PRIVACY_POLICY_URL }}
-      XBCLIENT_USER_AGREEMENT_URL: ${{ secrets.XBCLIENT_USER_AGREEMENT_URL }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '24'
-
-      - name: Install pnpm
-        shell: bash
-        run: npm install -g pnpm@10.20.0
-
-      - name: Set up Rust
-        shell: bash
-        run: rustup toolchain install stable --profile minimal
-
-      - name: Validate desktop build secrets
-        shell: bash
-        run: bash scripts/ci/validate-desktop-secrets.sh
-
-      - name: Build Linux deb (x86_64)
-        shell: bash
-        run: |
-          pnpm install --frozen-lockfile=false
-          pnpm --filter xbclient-electron dist:linux:deb
-
-      - name: Upload release Linux deb (x86_64)
-        uses: actions/upload-artifact@v7
-        with:
-          name: xbclient-release-linux-x86_64-${{ github.ref_name }}
-          archive: false
-          path: apps/electron/dist/*.deb
-          if-no-files-found: error
-
-      - name: Publish Linux deb (x86_64) to GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v3
-        with:
-          files: apps/electron/dist/*.deb
-
-  linux-electron-release-arm64:
-    name: Linux Electron release deb (arm64)
-    runs-on: ubuntu-24.04-arm
+  linux-electron-release:
+    name: Linux Electron release deb (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     env:
       CARGO_TERM_COLOR: always
       XBCLIENT_LINUX_TARGETS: deb
@@ -282,26 +233,27 @@ jobs:
         run: bash scripts/ci/validate-desktop-secrets.sh
 
       - name: Prepare system fpm (arm64)
+        if: matrix.arch == 'arm64'
         shell: bash
         run: bash scripts/ci/setup-linux-arm64-fpm.sh
 
-      - name: Build Linux deb (arm64)
+      - name: Build Linux deb
         shell: bash
         env:
-          USE_SYSTEM_FPM: true
+          USE_SYSTEM_FPM: ${{ matrix.arch == 'arm64' && 'true' || '' }}
         run: |
           pnpm install --frozen-lockfile=false
           pnpm --filter xbclient-electron dist:linux:deb
 
-      - name: Upload release Linux deb (arm64)
+      - name: Upload release Linux deb
         uses: actions/upload-artifact@v7
         with:
-          name: xbclient-release-linux-arm64-${{ github.ref_name }}
+          name: xbclient-release-linux-${{ matrix.arch }}-${{ github.ref_name }}
           archive: false
           path: apps/electron/dist/*.deb
           if-no-files-found: error
 
-      - name: Publish Linux deb (arm64) to GitHub release
+      - name: Publish Linux deb to GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:

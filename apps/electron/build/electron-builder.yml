@@ -1,7 +1,7 @@
 appId: moe.telecom.xbclient
 productName: XBClient
 copyright: Copyright © PassClient
-artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+artifactName: app-${version}-${os}-${arch}.${ext}
 asar: true
 npmRebuild: false
 directories:
@@ -51,7 +51,7 @@ nsis:
   differentialPackage: true
   deleteAppDataOnUninstall: false
 portable:
-  artifactName: ${productName}-${version}-portable-${os}-${arch}.${ext}
+  artifactName: app-${version}-portable-${os}-${arch}.${ext}
 linux:
   target:
     - deb
