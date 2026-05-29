@@ -29,8 +29,6 @@ export function setupAutoUpdater() {
   })
 
   setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-      console.error('[updater] check failed', err)
-    })
+    void autoUpdater.checkForUpdatesAndNotify()
   }, 5000)
 }

@@ -5,34 +5,6 @@ const SUBSCRIPTION_USER_AGENT: &str = "mihomo";
 const SUBSCRIPTION_NODE_TYPES: &str =
     "anytls,hysteria,trojan,vless,vmess,mieru,naive,shadowsocks,tuic,http,socks5,direct,block";
 
-const SUPPORTED_TYPES: &[&str] = &[
-    "anytls",
-    "hysteria2",
-    "hy2",
-    "trojan",
-    "vless",
-    "vmess",
-    "mieru",
-    "mierus",
-    "naive",
-    "naive+https",
-    "naive+quic",
-    "tuic",
-    "http",
-    "socks",
-    "socks5",
-    "socks5h",
-    "direct",
-    "freedom",
-    "reject",
-    "block",
-    "blackhole",
-    "ss",
-    "shadowsocks",
-];
-
-const SKIP_NAME_PREFIXES: &[&str] = &["剩余流量：", "距离下次重置剩余：", "套餐到期："];
-
 pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str) -> Result<Value> {
     let sing_box = flag.eq_ignore_ascii_case("sing-box");
     let request_url = with_subscription_query(url, flag)?;
@@ -57,8 +29,13 @@ pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str) -> Result<Va
     let subscription_userinfo = response
         .headers()
         .get("subscription-userinfo")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_string);
+        .map(|value| {
+            value
+                .to_str()
+                .context("subscription-userinfo header is not valid UTF-8")
+                .map(str::to_string)
+        })
+        .transpose()?;
     let text = response.text().await.context("read subscription body")?;
     if !(200..300).contains(&status) {
         return Ok(json!({
@@ -68,11 +45,6 @@ pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str) -> Result<Va
             "body": text,
         }));
     }
-    let nodes = if sing_box {
-        parse_singbox(&text)?
-    } else {
-        parse_clash_meta(&text)?
-    };
     let routing = if sing_box {
         json!({
             "has_rules": false,
@@ -91,7 +63,6 @@ pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str) -> Result<Va
         "format": if sing_box { "sing-box" } else { "clashmeta" },
         "flag": flag,
         "subscription_userinfo": subscription_userinfo,
-        "nodes": nodes,
         "routing": routing,
     }))
 }
@@ -105,45 +76,6 @@ fn with_subscription_query(url: &str, flag: &str) -> Result<reqwest::Url> {
     Ok(parsed)
 }
 
-fn parse_clash_meta(text: &str) -> Result<Vec<Value>> {
-    let root: Value = serde_yaml::from_str::<serde_yaml::Value>(text)
-        .context("parse clash-meta YAML")
-        .and_then(yaml_to_json)?;
-    parse_clash_proxies(&root)
-}
-
-fn parse_clash_proxies(root: &Value) -> Result<Vec<Value>> {
-    let proxies = root
-        .get("proxies")
-        .and_then(Value::as_array)
-        .context("clash-meta subscription missing proxies list")?;
-    let mut nodes = Vec::new();
-    for proxy in proxies {
-        let Some(raw_type) = proxy
-            .get("type")
-            .and_then(Value::as_str)
-            .map(|value| value.to_ascii_lowercase())
-        else {
-            continue;
-        };
-        if !SUPPORTED_TYPES.contains(&raw_type.as_str()) {
-            continue;
-        }
-        let name = proxy
-            .get("name")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        if SKIP_NAME_PREFIXES
-            .iter()
-            .any(|prefix| name.starts_with(prefix))
-        {
-            continue;
-        }
-        nodes.push(normalize_proxy_node(proxy, &raw_type));
-    }
-    Ok(nodes)
-}
-
 fn clash_routing_meta(text: &str) -> Result<Value> {
     let root: Value = serde_yaml::from_str::<serde_yaml::Value>(text)
         .context("parse clash-meta routing YAML")
@@ -152,24 +84,24 @@ fn clash_routing_meta(text: &str) -> Result<Value> {
         .get("rules")
         .and_then(Value::as_array)
         .cloned()
-        .unwrap_or_default();
-    let rule_strings: Vec<String> = rules
-        .iter()
-        .filter_map(Value::as_str)
-        .map(str::to_string)
-        .collect();
-    let proxy_group_count = root
-        .get("proxy-groups")
-        .or_else(|| root.get("proxy_groups"))
-        .and_then(Value::as_array)
-        .map(|items| items.len())
-        .unwrap_or(0);
-    let rule_provider_count = root
-        .get("rule-providers")
-        .or_else(|| root.get("rule_providers"))
-        .and_then(Value::as_object)
-        .map(|items| items.len())
-        .unwrap_or(0);
+        .context("clash-meta routing YAML missing rules array")?;
+    let mut rule_strings = Vec::with_capacity(rules.len());
+    for rule in rules {
+        let rule = rule
+            .as_str()
+            .context("clash-meta routing YAML rules item must be a string")?;
+        rule_strings.push(rule.to_string());
+    }
+    let proxy_group_count = match root.get("proxy-groups") {
+        None => 0,
+        Some(Value::Array(items)) => items.len(),
+        Some(_) => bail!("clash-meta routing YAML field proxy-groups must be an array"),
+    };
+    let rule_provider_count = match root.get("rule-providers") {
+        None => 0,
+        Some(Value::Object(items)) => items.len(),
+        Some(_) => bail!("clash-meta routing YAML field rule-providers must be an object"),
+    };
     let preview: Vec<&str> = rule_strings.iter().take(20).map(String::as_str).collect();
     Ok(json!({
         "has_rules": !rule_strings.is_empty(),
@@ -179,109 +111,6 @@ fn clash_routing_meta(text: &str) -> Result<Value> {
         "rules_preview": preview,
         "route_config_yaml": if rule_strings.is_empty() { Value::Null } else { Value::String(text.to_string()) },
     }))
-}
-
-fn parse_singbox(text: &str) -> Result<Vec<Value>> {
-    let root: Value = serde_json::from_str(text).context("parse sing-box JSON")?;
-    let outbounds = root
-        .get("outbounds")
-        .and_then(Value::as_array)
-        .context("sing-box subscription missing outbounds array")?;
-    let mut nodes = Vec::new();
-    for outbound in outbounds {
-        let Some(raw_type) = outbound
-            .get("type")
-            .and_then(Value::as_str)
-            .map(|value| value.to_ascii_lowercase())
-        else {
-            continue;
-        };
-        if !SUPPORTED_TYPES.contains(&raw_type.as_str()) {
-            continue;
-        }
-        nodes.push(normalize_outbound_node(outbound, &raw_type));
-    }
-    Ok(nodes)
-}
-
-fn normalize_proxy_node(raw: &Value, raw_type: &str) -> Value {
-    let mut node = raw.clone();
-    let protocol = canonical_protocol(raw_type);
-    let raw_text = raw.to_string();
-    let object = node.as_object_mut().expect("proxy entry must be object");
-    object.insert("type".to_string(), Value::String(protocol.to_string()));
-    object.insert("raw".to_string(), Value::String(raw_text));
-    ensure_host_from_server(object);
-    if raw_type == "naive+quic" {
-        object.insert("quic".to_string(), Value::Bool(true));
-    }
-    node
-}
-
-fn normalize_outbound_node(raw: &Value, raw_type: &str) -> Value {
-    let mut node = raw.clone();
-    let protocol = canonical_protocol(raw_type);
-    let raw_text = raw.to_string();
-    let object = node.as_object_mut().expect("outbound entry must be object");
-    if object
-        .get("name")
-        .and_then(Value::as_str)
-        .is_none_or(str::is_empty)
-        && let Some(tag) = object
-            .get("tag")
-            .and_then(Value::as_str)
-            .map(str::to_string)
-            .filter(|value| !value.is_empty())
-    {
-        object.insert("name".to_string(), Value::String(tag));
-    }
-    ensure_host_from_server(object);
-    object.insert("type".to_string(), Value::String(protocol.to_string()));
-    object.insert("raw".to_string(), Value::String(raw_text));
-    node
-}
-
-fn canonical_protocol(raw_type: &str) -> &'static str {
-    match raw_type {
-        "hy2" => "hysteria2",
-        "mierus" => "mieru",
-        "naive+https" | "naive+quic" => "naive",
-        "shadowsocks" => "ss",
-        "socks" | "socks5" | "socks5h" => "socks5",
-        "freedom" => "direct",
-        "reject" | "blackhole" => "block",
-        "anytls" => "anytls",
-        "hysteria2" => "hysteria2",
-        "trojan" => "trojan",
-        "vless" => "vless",
-        "vmess" => "vmess",
-        "mieru" => "mieru",
-        "naive" => "naive",
-        "tuic" => "tuic",
-        "http" => "http",
-        "direct" => "direct",
-        "block" => "block",
-        "ss" => "ss",
-        _ => "unknown",
-    }
-}
-
-fn ensure_host_from_server(object: &mut Map<String, Value>) {
-    let needs_host = object
-        .get("host")
-        .and_then(Value::as_str)
-        .is_none_or(str::is_empty);
-    if !needs_host {
-        return;
-    }
-    if let Some(server) = object
-        .get("server")
-        .and_then(Value::as_str)
-        .map(str::to_string)
-        .filter(|value| !value.is_empty())
-    {
-        object.insert("host".to_string(), Value::String(server));
-    }
 }
 
 fn yaml_to_json(value: serde_yaml::Value) -> Result<Value> {
@@ -312,12 +141,7 @@ fn yaml_to_json(value: serde_yaml::Value) -> Result<Value> {
             for (key, value) in mapping {
                 let key = match key {
                     serde_yaml::Value::String(value) => value,
-                    serde_yaml::Value::Number(value) => value.to_string(),
-                    serde_yaml::Value::Bool(value) => value.to_string(),
-                    other => serde_yaml::to_string(&other)
-                        .context("encode YAML key as string")?
-                        .trim()
-                        .to_string(),
+                    _ => bail!("YAML object key must be a string"),
                 };
                 object.insert(key, yaml_to_json(value)?);
             }
@@ -326,4 +150,3 @@ fn yaml_to_json(value: serde_yaml::Value) -> Result<Value> {
         serde_yaml::Value::Tagged(tagged) => yaml_to_json(tagged.value),
     }
 }
-

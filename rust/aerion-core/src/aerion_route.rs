@@ -1,10 +1,11 @@
+use crate::aerion_config_compat::node_to_proxy_config;
 use crate::aerion_mihomo_sanitize::sanitize_mihomo_route_yaml;
 use crate::aerion_protocol::{AerionProxyConfig, spawn_aerion_listener};
 use aerion::{
     MihomoClientConfig, MihomoConfig, RouteDecision, RouteProxyConfig, RouteProxyState, RouteTable,
     run_route_proxy_with_state,
 };
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_json::json;
@@ -23,6 +24,10 @@ struct StartRouteRequest {
     geoip_dir: Option<String>,
     #[serde(default)]
     global_proxy: Option<String>,
+    #[serde(default)]
+    selected_proxy: Option<String>,
+    #[serde(default)]
+    selected_node: Option<serde_json::Value>,
 }
 
 struct RouteSession {
@@ -85,6 +90,8 @@ async fn bind_listener(label: &str, listen: SocketAddr) -> Result<TcpListener> {
 async fn spawn_route_outbounds(
     config: &MihomoConfig,
     routes: &RouteTable,
+    selected_proxy: Option<&str>,
+    selected_node: Option<&serde_json::Value>,
 ) -> Result<(BTreeMap<String, SocketAddr>, Vec<JoinHandle<Result<()>>>)> {
     let mut upstreams = BTreeMap::new();
     let mut tasks = Vec::new();
@@ -92,10 +99,17 @@ async fn spawn_route_outbounds(
         let listener =
             bind_listener(&format!("route outbound {tag}"), ephemeral_loopback()).await?;
         let upstream = listener.local_addr()?;
-        let client = config
-            .resolved_proxy_config(&tag, upstream)
-            .with_context(|| format!("resolve mihomo route outbound {tag}"))?;
-        let proxy = mihomo_client_config(client, upstream);
+        let proxy = if selected_proxy == Some(tag.as_str()) {
+            let node = selected_node
+                .with_context(|| format!("selected route outbound {tag} missing selected_node"))?;
+            node_to_proxy_config(node, upstream)
+                .with_context(|| format!("resolve selected route outbound {tag}"))?
+        } else {
+            let client = config
+                .resolved_proxy_config(&tag, upstream)
+                .with_context(|| format!("resolve mihomo route outbound {tag}"))?;
+            mihomo_client_config(client, upstream)
+        };
         tasks.push(spawn_aerion_listener(listener, proxy, None));
         upstreams.insert(tag, upstream);
     }
@@ -106,6 +120,58 @@ fn apply_global_proxy(config: &mut MihomoConfig, proxy: &str) {
     config.rules = vec![format!("MATCH,{proxy}")];
     config.proxy_groups.clear();
     config.rule_providers.clear();
+}
+
+fn route_action_index(parts: &[&str]) -> Option<usize> {
+    if parts.len() < 2 {
+        return None;
+    }
+    if parts
+        .last()
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case("no-resolve"))
+    {
+        return (parts.len() >= 3).then_some(parts.len() - 2);
+    }
+    Some(parts.len() - 1)
+}
+
+fn apply_selected_proxy(config: &mut MihomoConfig, proxy: &str) -> Result<()> {
+    for rule in &mut config.rules {
+        let parts: Vec<&str> = rule.split(',').collect();
+        let Some(action_index) = route_action_index(&parts) else {
+            bail!("mihomo route rule has no action: {rule}");
+        };
+        let action = parts[action_index].trim();
+        if action.eq_ignore_ascii_case("DIRECT")
+            || action.eq_ignore_ascii_case("REJECT")
+            || action.eq_ignore_ascii_case("REJECT-DROP")
+            || action.eq_ignore_ascii_case("PASS")
+        {
+            continue;
+        }
+        let mut updated: Vec<String> = parts.iter().map(|value| value.trim().to_string()).collect();
+        updated[action_index] = proxy.to_string();
+        *rule = updated.join(",");
+    }
+    Ok(())
+}
+
+fn ensure_geoip_baseline(config: &mut MihomoConfig) {
+    if config.rules.iter().any(|rule| {
+        rule.trim_start()
+            .to_ascii_uppercase()
+            .starts_with("GEOIP,CN,")
+    }) {
+        return;
+    }
+    let insert_at = config
+        .rules
+        .iter()
+        .position(|rule| rule.trim_start().to_ascii_uppercase().starts_with("MATCH,"))
+        .unwrap_or(config.rules.len());
+    config
+        .rules
+        .insert(insert_at, "GEOIP,CN,DIRECT,no-resolve".to_string());
 }
 
 pub async fn start_route_from_json(input: &str) -> Result<String> {
@@ -123,14 +189,24 @@ pub async fn start_route_from_json(input: &str) -> Result<String> {
         .filter(|value| !value.is_empty())
     {
         apply_global_proxy(&mut config, proxy);
+    } else if let Some(proxy) = request
+        .selected_proxy
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        apply_selected_proxy(&mut config, proxy)?;
     }
-    ensure!(!config.rules.is_empty(), "mihomo route config has no rules");
     let assets_dir = request
         .geoip_dir
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(PathBuf::from);
+    if assets_dir.is_some() {
+        ensure_geoip_baseline(&mut config);
+    }
+    ensure!(!config.rules.is_empty(), "mihomo route config has no rules");
     let routes = config
         .route_table_with_assets(assets_dir.as_deref())
         .context("compile mihomo route table")?;
@@ -138,7 +214,18 @@ pub async fn start_route_from_json(input: &str) -> Result<String> {
     let listen = ephemeral_loopback();
     let router_listener = bind_listener("route proxy", listen).await?;
     let router_addr = router_listener.local_addr()?;
-    let (upstreams, outbound_tasks) = spawn_route_outbounds(&config, &routes).await?;
+    let selected_proxy = request
+        .selected_proxy
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let (upstreams, outbound_tasks) = spawn_route_outbounds(
+        &config,
+        &routes,
+        selected_proxy,
+        request.selected_node.as_ref(),
+    )
+    .await?;
     let route_config = RouteProxyConfig { routes, upstreams };
     let state = RouteProxyState::from_config(route_config);
     let router_task = tokio::spawn(async move {

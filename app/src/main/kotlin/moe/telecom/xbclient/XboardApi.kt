@@ -2,7 +2,6 @@ package moe.telecom.xbclient
 
 import android.net.Uri
 import org.json.JSONArray
-import org.json.JSONException
 import org.json.JSONObject
 import org.json.JSONTokener
 import okhttp3.MediaType.Companion.toMediaType
@@ -16,7 +15,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
-import java.util.Locale
 
 object XboardApi {
     private const val SUBSCRIPTION_USER_AGENT = "mihomo"
@@ -28,32 +26,6 @@ object XboardApi {
         .connectTimeout(30000, TimeUnit.MILLISECONDS)
         .readTimeout(30000, TimeUnit.MILLISECONDS)
         .build()
-    private val supportedSubscriptionNodeTypes = setOf(
-        "anytls",
-        "hysteria2",
-        "hy2",
-        "trojan",
-        "vless",
-        "vmess",
-        "mieru",
-        "mierus",
-        "naive",
-        "naive+https",
-        "naive+quic",
-        "tuic",
-        "http",
-        "ss",
-        "shadowsocks",
-        "socks",
-        "socks5",
-        "socks5h",
-        "direct",
-        "freedom",
-        "reject",
-        "block",
-        "blackhole"
-    )
-
     fun request(action: String, baseUrl: String, authData: String, params: JSONObject): JSONObject {
         val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
         return when (action) {
@@ -104,8 +76,6 @@ object XboardApi {
             "knowledge" -> getAuth(normalizedBaseUrl, "/api/v1/user/knowledge/fetch", authData, optionalQuery(params, "id", "language", "keyword"))
             "user_config" -> getAuth(normalizedBaseUrl, "/api/v1/user/comm/config", authData, emptyMap())
             "stripe_public_key" -> postAuth(normalizedBaseUrl, "/api/v1/user/comm/getStripePublicKey", authData, params)
-            "nodes" -> getAuth(normalizedBaseUrl, "/api/v1/user/server/fetch", authData, emptyMap())
-
             // Xboard 插件 API
             "admob_reward_config" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/config", authData, emptyMap())
             "xbclient_plan_payment" -> postAuth(normalizedBaseUrl, "/api/v1/admob/user/plan-payment", authData, params)
@@ -114,7 +84,7 @@ object XboardApi {
             "xbclient_nodes" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/nodes", authData, emptyMap())
 
             // 非站点 API：订阅内容解析
-            "anytls_nodes" -> fetchProxyNodes(params.getString("subscribe_url"), params.optString("flag", "meta"))
+            "anytls_nodes" -> fetchProxyNodes(params.getString("subscribe_url"), params.getString("flag"))
             else -> throw IllegalArgumentException("unsupported Xboard action: $action")
         }
     }
@@ -151,9 +121,13 @@ object XboardApi {
             if (body !is JSONObject) {
                 throw IllegalStateException("节点 DNS 响应不是 JSON。")
             }
-            val answers = body.optJSONArray("Answer") ?: continue
+            val answers = when (val value = body.opt("Answer")) {
+                null, JSONObject.NULL -> continue
+                is JSONArray -> value
+                else -> throw IllegalStateException("节点 DNS 响应 Answer 必须是数组。")
+            }
             for (index in 0 until answers.length()) {
-                val data = answers.getJSONObject(index).optString("data")
+                val data = answers.getJSONObject(index).getString("data")
                 if (data.matches(Regex("^[0-9.]+$")) || data.matches(Regex("^[0-9A-Fa-f:.]+$")) && data.contains(":")) {
                     return data
                 }
@@ -212,7 +186,8 @@ object XboardApi {
         }
         val response = httpClient.newCall(builder.build()).execute()
         val status = response.code
-        val text = response.body?.string().orEmpty().trim()
+        val body = response.body ?: throw IllegalStateException("HTTP response body is required")
+        val text = body.string().trim()
         val parsedBody = parseJson(text)
         response.close()
         return JSONObject()
@@ -242,7 +217,8 @@ object XboardApi {
                 .build()
         ).execute()
         val status = response.code
-        val text = response.body?.string().orEmpty().trim()
+        val body = response.body ?: throw IllegalStateException("subscription response body is required")
+        val text = body.string().trim()
         if (status !in 200..299) {
             response.close()
             return JSONObject()
@@ -255,22 +231,34 @@ object XboardApi {
         val subscriptionUserInfo = response.header("subscription-userinfo")
         response.close()
         if (singBox) {
-            return singBoxNodes(text, status, subscriptionUserInfo, flag)
+            return JSONObject()
+                .put("ok", true)
+                .put("status", status)
+                .put("format", "sing-box")
+                .put("flag", flag)
+                .put("subscription_userinfo", subscriptionUserInfo)
+                .put("routing", JSONObject()
+                    .put("has_rules", false)
+                    .put("rule_count", 0)
+                    .put("proxy_group_count", 0)
+                    .put("rule_provider_count", 0)
+                    .put("rules_preview", JSONArray())
+                    .put("route_config_yaml", JSONObject.NULL)
+                )
         }
         val root = Yaml().load<Any>(text) as Map<*, *>
-        val proxies = root["proxies"] as List<*>
-        val nodes = JSONArray()
-        for (item in proxies) {
-            val proxy = item as Map<*, *>
-            val type = proxy["type"]?.toString()?.lowercase(Locale.US).orEmpty()
-            if (type !in supportedSubscriptionNodeTypes) {
-                continue
-            }
-            val name = proxy["name"]?.toString().orEmpty()
-            if (name.startsWith("剩余流量：") || name.startsWith("距离下次重置剩余：") || name.startsWith("套餐到期：")) {
-                continue
-            }
-            nodes.put(proxyNode(proxy, type))
+        val rules = (root["rules"] as? List<*>
+            ?: throw IllegalStateException("clash-meta routing YAML missing rules array"))
+            .map { it.toString() }
+        val proxyGroupCount = when (val proxyGroups = root["proxy-groups"]) {
+            null -> 0
+            is List<*> -> proxyGroups.size
+            else -> throw IllegalStateException("clash-meta routing YAML field proxy-groups must be an array")
+        }
+        val ruleProviderCount = when (val ruleProviders = root["rule-providers"]) {
+            null -> 0
+            is Map<*, *> -> ruleProviders.size
+            else -> throw IllegalStateException("clash-meta routing YAML field rule-providers must be an object")
         }
         return JSONObject()
             .put("ok", true)
@@ -278,96 +266,19 @@ object XboardApi {
             .put("format", "clashmeta")
             .put("flag", flag)
             .put("subscription_userinfo", subscriptionUserInfo)
-            .put("nodes", nodes)
-    }
-
-    private fun singBoxNodes(text: String, status: Int, subscriptionUserInfo: String?, flag: String): JSONObject {
-        val root = parseJson(text) as JSONObject
-        val outbounds = root.optJSONArray("outbounds") ?: JSONArray()
-        val nodes = JSONArray()
-        for (index in 0 until outbounds.length()) {
-            val outbound = outbounds.optJSONObject(index) ?: continue
-            val type = outbound.optString("type").lowercase(Locale.US)
-            if (type !in supportedSubscriptionNodeTypes) {
-                continue
-            }
-            nodes.put(outboundNode(outbound, type))
-        }
-        return JSONObject()
-            .put("ok", true)
-            .put("status", status)
-            .put("format", "sing-box")
-            .put("flag", flag)
-            .put("subscription_userinfo", subscriptionUserInfo)
-            .put("nodes", nodes)
-    }
-
-    private fun proxyNode(proxy: Map<*, *>, type: String): JSONObject {
-        val raw = toJson(proxy) as JSONObject
-        val node = JSONObject(raw.toString())
-        val protocol = when (type) {
-            "hy2" -> "hysteria2"
-            "mierus" -> "mieru"
-            "naive+https", "naive+quic" -> "naive"
-            "shadowsocks" -> "ss"
-            "socks", "socks5h" -> "socks5"
-            "freedom" -> "direct"
-            "reject", "blackhole" -> "block"
-            else -> type
-        }
-        node.put("type", protocol)
-        node.put("raw", raw.toString())
-        if (node.optString("host").isEmpty() && node.optString("server").isNotEmpty()) {
-            node.put("host", node.optString("server"))
-        }
-        if (type == "naive+quic") {
-            node.put("quic", true)
-        }
-        return node
-    }
-
-    private fun outboundNode(outbound: JSONObject, type: String): JSONObject {
-        val raw = JSONObject(outbound.toString())
-        val node = JSONObject(raw.toString())
-        val protocol = when (type) {
-            "hy2" -> "hysteria2"
-            "shadowsocks" -> "ss"
-            "socks", "socks5h" -> "socks5"
-            "freedom" -> "direct"
-            "reject", "blackhole" -> "block"
-            else -> type
-        }
-        if (node.optString("name").isEmpty() && node.optString("tag").isNotEmpty()) {
-            node.put("name", node.optString("tag"))
-        }
-        if (node.optString("host").isEmpty() && node.optString("server").isNotEmpty()) {
-            node.put("host", node.optString("server"))
-        }
-        node.put("type", protocol)
-        node.put("raw", raw.toString())
-        return node
-    }
-
-    private fun toJson(value: Any?): Any = when (value) {
-        is Map<*, *> -> JSONObject().also { output ->
-            for ((key, item) in value) {
-                output.put(key.toString(), toJson(item))
-            }
-        }
-        is List<*> -> JSONArray().also { output ->
-            for (item in value) {
-                output.put(toJson(item))
-            }
-        }
-        null -> JSONObject.NULL
-        else -> value
+            .put("routing", JSONObject()
+                .put("has_rules", rules.isNotEmpty())
+                .put("rule_count", rules.size)
+                .put("proxy_group_count", proxyGroupCount)
+                .put("rule_provider_count", ruleProviderCount)
+                .put("rules_preview", JSONArray().also { array -> rules.take(20).forEach { array.put(it) } })
+                .put("route_config_yaml", if (rules.isEmpty()) JSONObject.NULL else text)
+            )
     }
 
     private fun readBody(connection: HttpURLConnection): String {
         val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
-        if (stream == null) {
-            return ""
-        }
+        if (stream == null) throw IllegalStateException("HTTP response stream is required")
         return BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { reader ->
             val builder = StringBuilder()
             var line = reader.readLine()
@@ -380,14 +291,8 @@ object XboardApi {
     }
 
     private fun parseJson(text: String): Any {
-        if (text.isEmpty()) {
-            return ""
-        }
-        return try {
-            JSONTokener(text).nextValue() ?: ""
-        } catch (_: JSONException) {
-            text
-        }
+        if (text.isEmpty()) throw IllegalStateException("JSON response body is empty")
+        return JSONTokener(text).nextValue() ?: JSONObject.NULL
     }
 
     private fun normalizeBaseUrl(baseUrl: String): String {
@@ -408,7 +313,13 @@ object XboardApi {
     }
 
     private fun optionalQuery(params: JSONObject, vararg keys: String): Map<String, String> =
-        keys.mapNotNull { key -> params.optString(key).takeIf { it.isNotEmpty() }?.let { key to it } }.toMap()
+        keys.mapNotNull { key ->
+            if (!params.has(key) || params.isNull(key)) {
+                null
+            } else {
+                params.getString(key).takeIf { it.isNotEmpty() }?.let { key to it }
+            }
+        }.toMap()
 
     private fun requiredQuery(params: JSONObject, vararg keys: String): Map<String, String> =
         keys.associateWith { key -> params.getString(key) }

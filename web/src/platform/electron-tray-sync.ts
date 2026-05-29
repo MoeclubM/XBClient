@@ -18,6 +18,7 @@ export interface TrayStateSnapshot {
     sessionId: number
     socksAddr: string
     nodeIndex: number
+    routeMode?: boolean
   } | null
   systemProxyOn: boolean
   useVpn: boolean
@@ -32,7 +33,10 @@ export interface TrayStateSnapshot {
     routingMode: 'rule' | 'global' | 'direct'
     tunEnabled: boolean
     systemProxyEnabled: boolean
+    routeConfigYaml: string
+    geoipDir: string
   }
+  routingRouteConfigYaml: string
   userAgent: string
 }
 
@@ -43,14 +47,16 @@ export interface TrayStatePushFromMain {
     sessionId: number
     socksAddr: string
     nodeIndex: number
-    uploadBytes?: number
-    downloadBytes?: number
+    uploadBytes: number
+    downloadBytes: number
+    routeMode?: boolean
   } | null
   systemProxyOn?: boolean
 }
 
 function buildTraySnapshot(): TrayStateSnapshot {
   const state = useAppStore.getState()
+  if (!state.buildConfig) throw new Error('runtime build config is required before tray sync')
   const selectedNodeIndex = state.vpn?.nodeIndex ?? state.preferredNodeIndex
   return {
     nodes: state.nodes.map((node) => ({
@@ -67,6 +73,7 @@ function buildTraySnapshot(): TrayStateSnapshot {
           sessionId: state.vpn.sessionId,
           socksAddr: state.vpn.socksAddr,
           nodeIndex: state.vpn.nodeIndex,
+          routeMode: state.vpn.routeMode,
         }
       : null,
     systemProxyOn: state.systemProxyActive,
@@ -82,8 +89,11 @@ function buildTraySnapshot(): TrayStateSnapshot {
       routingMode: state.settings.routingMode,
       tunEnabled: state.settings.tunEnabled,
       systemProxyEnabled: state.settings.systemProxyEnabled,
+      routeConfigYaml: state.settings.routeConfigYaml,
+      geoipDir: state.settings.geoipDir,
     },
-    userAgent: state.buildConfig?.user_agent ?? '',
+    routingRouteConfigYaml: state.routing.routeConfigYaml ?? '',
+    userAgent: state.buildConfig.user_agent,
   }
 }
 
@@ -104,8 +114,9 @@ function applyTrayPush(patch: TrayStatePushFromMain): void {
         sessionId: patch.vpn.sessionId,
         socksAddr: patch.vpn.socksAddr,
         nodeIndex: patch.vpn.nodeIndex,
-        uploadBytes: patch.vpn.uploadBytes ?? 0,
-        downloadBytes: patch.vpn.downloadBytes ?? 0,
+        uploadBytes: patch.vpn.uploadBytes,
+        downloadBytes: patch.vpn.downloadBytes,
+        routeMode: patch.vpn.routeMode,
       })
       void reportVpnSession(patch.vpn.sessionId)
     } else {

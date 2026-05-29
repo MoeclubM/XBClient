@@ -132,8 +132,8 @@ onMounted(loadTickets)
             @click="selectTicket(ticket)"
           >
             <span>
-              <strong>{{ field(ticket, ['subject', 'title']) || `#${rowId(ticket)}` }}</strong>
-              <small>{{ field(ticket, ['status']) || 'open' }}</small>
+              <strong>{{ field(ticket, 'subject') }}</strong>
+              <small>{{ field(ticket, 'status') }}</small>
             </span>
           </div>
           <p v-if="!loading && !tickets.length" class="muted pa-3">{{ t('tickets_empty') }}</p>
@@ -144,12 +144,12 @@ onMounted(loadTickets)
       <v-card class="panel-card">
         <v-card-text>
           <p class="section-label">
-            {{ selectedTicket ? field(selectedTicket, ['subject', 'title']) : t('ticket_detail') }}
+            {{ selectedTicket ? field(selectedTicket, 'subject') : t('ticket_detail') }}
           </p>
           <div class="stack">
             <div v-for="(row, index) in detailRows" :key="`${rowId(row)}-${index}`" class="glass-chip">
-              <strong>{{ field(row, ['user_name', 'email', 'role']) || t('message_sender') }}</strong>
-              <span class="preline">{{ field(row, ['message', 'content', 'reply']) }}</span>
+              <strong>{{ field(row, 'user_name') }}</strong>
+              <span class="preline">{{ field(row, 'message') }}</span>
             </div>
           </div>
           <div v-if="selectedTicket" class="mt-4">

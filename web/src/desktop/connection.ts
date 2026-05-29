@@ -29,14 +29,15 @@ export function isDesktopConnectionShell(): boolean {
 
 async function resolvedNode(node: AppNode): Promise<unknown> {
   const state = useAppStore.getState()
-  return resolveAppNode(node, state.settings.nodeDns, state.buildConfig?.user_agent ?? '')
+  if (!state.buildConfig?.user_agent) throw new Error('XBCLIENT_USER_AGENT is required in build config')
+  return resolveAppNode(node, state.settings.nodeDns, state.buildConfig.user_agent)
 }
 
 async function disconnectSession(): Promise<void> {
   const state = useAppStore.getState()
   const session = state.vpn
   if (!session) return
-  const useTun = state.settings.tunEnabled && !session.routeMode && !session.socksAddr
+  const useTun = !session.routeMode && !session.socksAddr
   if (session.routeMode) await aerionStopRoute(session.sessionId)
   else if (useTun) await aerionStopVpn(session.sessionId)
   else await aerionStop(session.sessionId)
@@ -107,12 +108,15 @@ async function startRoute(index: number): Promise<void> {
   const state = useAppStore.getState()
   const node = state.nodes[index]
   if (!node?.connectSupported) throw new Error('unsupported_protocol')
-  const configYaml = state.routing.routeConfigYaml
+  const resolved = await resolvedNode(node)
+  const configYaml = state.settings.routeConfigYaml.trim() || state.routing.routeConfigYaml
   if (!configYaml?.trim()) throw new Error('routing_rules_missing')
   const request = {
     config_yaml: configYaml,
     geoip_dir: state.settings.geoipDir.trim() || undefined,
     global_proxy: state.settings.routingMode === 'global' ? node.name : undefined,
+    selected_proxy: state.settings.routingMode === 'rule' ? node.name : undefined,
+    selected_node: state.settings.routingMode === 'rule' ? resolved : undefined,
   }
   const handle = await aerionStartRoute(request)
   const parsed = parseSocksAddr(handle.socks_addr)
@@ -147,7 +151,8 @@ export async function applyDesktopConnection(): Promise<string | null> {
       return null
     }
 
-    const useRuleRouting = state.settings.routingMode === 'rule' && state.routing.hasRules
+    const routeConfigYaml = state.settings.routeConfigYaml.trim() || state.routing.routeConfigYaml || ''
+    const useRuleRouting = state.settings.routingMode === 'rule' && Boolean(routeConfigYaml.trim())
     const wantTun = state.settings.tunEnabled && !useRuleRouting
     const session = state.vpn
     const tunSession = session && !session.socksAddr && !session.routeMode

@@ -12,5 +12,9 @@ object AerionCore {
 
     external fun stopVpn(sessionId: Long): String
 
+    external fun startRoute(requestJson: String): String
+
+    external fun stopRoute(sessionId: Long): String
+
     external fun testNode(requestJson: String): String
 }

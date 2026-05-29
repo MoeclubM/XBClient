@@ -1,7 +1,7 @@
 import { subscriptionFetch, xboardRequest } from './api/xboard'
 import { formatTrafficBytes, formatUnixDate, numericValue } from './format'
 import { translate, type TranslationKey } from './i18n'
-import { mergeNodeLists, mergeXboardNodeTags, rawNodeRows, toAppNode, type RawNode } from './nodes'
+import { rawNodeRows, toAppNode } from './nodes'
 import { useAppStore, type AppNode, type NoticeItem, type SubscriptionState } from './store'
 
 interface XboardBody {
@@ -10,7 +10,7 @@ interface XboardBody {
 }
 
 interface NoticeFetchBody {
-  data?: Array<{ id?: number; title?: string; subject?: string; content?: string; message?: string; created_at?: number }>
+  data?: Array<{ id?: unknown; title?: unknown; content?: unknown; created_at?: unknown }>
 }
 
 function t(key: TranslationKey, language: string): string {
@@ -18,25 +18,37 @@ function t(key: TranslationKey, language: string): string {
 }
 
 function responseError(response: { status: number; error?: string; body?: XboardBody }): string {
-  return response.body?.message || response.error || `HTTP ${response.status}`
+  if (response.body?.message) return response.body.message
+  if (response.error) return response.error
+  throw new Error('Xboard failed response missing message or error')
 }
 
 function parseNotices(body: NoticeFetchBody | undefined): NoticeItem[] {
-  return (body?.data ?? [])
-    .map((row) => ({
-      id: Number(row.id ?? 0),
-      title: row.title ?? row.subject ?? '',
-      content: row.content ?? row.message ?? '',
-      createdAt: Number(row.created_at ?? 0),
-    }))
-    .filter((item) => item.title.trim() || item.content.trim())
+  if (!Array.isArray(body?.data)) throw new Error('公告响应 data 必须是数组。')
+  return body.data
+    .map((row) => {
+      if (typeof row.title !== 'string' || typeof row.content !== 'string') throw new Error('公告缺少 title 或 content。')
+      const id = Number(row.id)
+      const createdAt = Number(row.created_at)
+      if (!Number.isFinite(id) || !Number.isFinite(createdAt)) throw new Error('公告 id 或 created_at 无效。')
+      return {
+        id,
+        title: row.title,
+        content: row.content,
+        createdAt,
+      }
+    })
 }
 
 function subscriptionState(data: Record<string, unknown>, language: string): SubscriptionState {
+  for (const key of ['u', 'd', 'transfer_enable', 'expired_at', 'plan_id']) {
+    if (data[key] === undefined || data[key] === null) throw new Error(`订阅同步响应缺少 ${key}。`)
+  }
   const used = numericValue(data.u) + numericValue(data.d)
   const total = numericValue(data.transfer_enable)
   const plan = data.plan && typeof data.plan === 'object' ? (data.plan as Record<string, unknown>) : null
-  const planName = String(plan?.name ?? '')
+  if (plan && typeof plan.name !== 'string') throw new Error('订阅套餐缺少 name。')
+  const planName = plan ? (plan.name as string) : ''
   const expiredAt = numericValue(data.expired_at)
   const planId = numericValue(data.plan_id)
   return {
@@ -65,41 +77,38 @@ export async function syncSubscription(): Promise<string | null> {
   const sub = await xboardRequest<XboardBody>('user_subscribe', { baseUrl: state.baseUrl, authData: state.authData })
   if (!sub.ok) return responseError(sub)
 
-  const data = sub.body?.data && typeof sub.body.data === 'object' ? sub.body.data as Record<string, unknown> : {}
-  const url = String(data.subscribe_url ?? data.subscribeUrl ?? '')
+  if (!sub.body?.data || typeof sub.body.data !== 'object') throw new Error('订阅同步响应缺少 data。')
+  const data = sub.body.data as Record<string, unknown>
+  if (typeof data.subscribe_url !== 'string') throw new Error('订阅同步响应缺少 subscribe_url。')
+  const url = data.subscribe_url
   let list: AppNode[] = []
-  const xbclientNodes = await xboardRequest<XboardBody>('xbclient_nodes', { baseUrl: state.baseUrl, authData: state.authData })
-  if (xbclientNodes.ok) {
-    list = rawNodeRows(xbclientNodes.body?.data).map(toAppNode)
-  } else if (url) {
-    const subscription = await subscriptionFetch(url, 'meta')
-    list = (subscription.nodes ?? []).map((node) => toAppNode(node as RawNode))
-    const routing = subscription.routing
+  let metaSubscription: Awaited<ReturnType<typeof subscriptionFetch>> | null = null
+  if (url) {
+    metaSubscription = await subscriptionFetch(url, 'meta')
+    if (!metaSubscription.ok) {
+      if (!metaSubscription.error) throw new Error('订阅规则同步失败但缺少 error 字段。')
+      return metaSubscription.error
+    }
+    const routing = metaSubscription.routing
+    if (!routing) throw new Error('订阅规则响应缺少 routing。')
     state.setRouting({
-      hasRules: Boolean(routing?.has_rules),
-      ruleCount: Number(routing?.rule_count ?? 0),
-      proxyGroupCount: Number(routing?.proxy_group_count ?? 0),
-      ruleProviderCount: Number(routing?.rule_provider_count ?? 0),
-      rulesPreview: Array.isArray(routing?.rules_preview) ? routing.rules_preview.filter((item): item is string => typeof item === 'string') : [],
-      routeConfigYaml: typeof routing?.route_config_yaml === 'string' ? routing.route_config_yaml : null,
-    })
-    const tagRows = await xboardRequest<XboardBody>('nodes', { baseUrl: state.baseUrl, authData: state.authData })
-    if (tagRows.ok) list = mergeXboardNodeTags(list, rawNodeRows(tagRows.body?.data))
-  } else {
-    state.setRouting({
-      hasRules: false,
-      ruleCount: 0,
-      proxyGroupCount: 0,
-      ruleProviderCount: 0,
-      rulesPreview: [],
-      routeConfigYaml: null,
+      hasRules: Boolean(routing.has_rules),
+      ruleCount: Number(routing.rule_count),
+      proxyGroupCount: Number(routing.proxy_group_count),
+      ruleProviderCount: Number(routing.rule_provider_count),
+      rulesPreview: routing.rules_preview,
+      routeConfigYaml: typeof routing.route_config_yaml === 'string' ? routing.route_config_yaml : null,
     })
   }
+  const xbclientNodes = await xboardRequest<XboardBody>('xbclient_nodes', { baseUrl: state.baseUrl, authData: state.authData })
+  if (!xbclientNodes.ok) return responseError(xbclientNodes)
+  list = rawNodeRows(xbclientNodes.body?.data).map(toAppNode)
 
-  state.setSubscribe({ subscribeUrl: url, nodes: mergeNodeLists(state.nodes, list) })
+  state.setSubscribe({ subscribeUrl: url, nodes: list })
   state.setSubscriptionState(subscriptionState(data, language))
 
   const noticeResponse = await xboardRequest<NoticeFetchBody>('notices', { baseUrl: state.baseUrl, authData: state.authData })
-  if (noticeResponse.ok) state.setNotices(parseNotices(noticeResponse.body))
+  if (!noticeResponse.ok) return responseError(noticeResponse)
+  state.setNotices(parseNotices(noticeResponse.body))
   return null
 }

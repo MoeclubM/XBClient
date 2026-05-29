@@ -46,6 +46,7 @@
     <string name="section_plans">套餐</string>
     <string name="section_invite">邀请</string>
     <string name="section_app_rules">应用规则</string>
+    <string name="section_traffic_rules">分流规则</string>
     <string name="section_node_test">节点测试</string>
     <string name="section_about">关于</string>
     <string name="section_appearance">外观</string>
@@ -137,6 +138,12 @@
     <string name="app_rules_exclude_desc">黑名单模式：已选择的应用不使用连接。</string>
     <string name="app_rules_none_selected">尚未选择应用。</string>
     <string name="app_rules_selected_count">已选择 %1$d 个应用。</string>
+    <string name="traffic_rules_none">当前订阅未包含 Clash/Mihomo 分流规则。</string>
+    <string name="traffic_rules_count">已同步 %1$d 条 Clash/Mihomo 分流规则。</string>
+    <string name="traffic_rules_custom_enabled">正在使用手动分流配置。</string>
+    <string name="traffic_rules_config_label">Clash/Mihomo 分流配置</string>
+    <string name="geoip_dir_label">GEOIP 数据目录</string>
+    <string name="traffic_rules_config_help">留空使用订阅下发规则。连接时会按 GEOIP,CN,DIRECT 做保底直连，其余代理规则使用当前选择节点。</string>
     <string name="dns_node_label">解析节点域名的本地 DNS</string>
     <string name="dns_overseas_label">连接后解析域名的海外 DNS</string>
     <string name="dns_direct_label">连接后解析分流直连域名的 DNS</string>

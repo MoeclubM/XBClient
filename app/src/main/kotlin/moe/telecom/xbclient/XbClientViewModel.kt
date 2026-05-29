@@ -72,9 +72,14 @@ data class XbClientUiState(
     val overseasDns: String = DEFAULT_OVERSEAS_DNS,
     val directDns: String = DEFAULT_DIRECT_DNS,
     val nodeTestTarget: String = DEFAULT_NODE_TEST_TARGET,
-    val vpnDnsMode: String = DNS_MODE_VIRTUAL,
+    val vpnDnsMode: String = DNS_MODE_OVER_TCP,
     val virtualDnsPool: String = DEFAULT_VIRTUAL_DNS_POOL,
     val vpnIpv6Enabled: Boolean = true,
+    val routeConfigYaml: String = "",
+    val customRouteConfigYaml: String = "",
+    val geoipDir: String = "",
+    val routeRuleCount: Int = 0,
+    val routeRulesPreview: List<String> = emptyList(),
     val vpnRequested: Boolean = false,
     val vpnStarting: Boolean = false,
     val vpnConnectedAt: Long = 0L,
@@ -159,7 +164,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             loadInstalledApps()
             refreshOAuthProviders()
             val state = _uiState.value
-            checkGithubReleaseUpdate(resolvedGithubProjectUrl(state.githubProjectUrl))
+            checkGithubReleaseUpdate(state.githubProjectUrl)
             if (state.authData.isNotEmpty()) {
                 showDailyNoticeDialog(state.notices)
                 refreshSubscriptionAndNodes(force = true)
@@ -276,8 +281,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     authMode = AuthMode.LOGIN,
                     screen = PassScreen.NODES,
                     authData = data.getString("auth_data"),
-                    subscribeToken = data.optString("token", _uiState.value.subscribeToken),
-                    subscribeUrl = data.optString("subscribe_url", _uiState.value.subscribeUrl)
+                    subscribeToken = data.getString("token"),
+                    subscribeUrl = data.getString("subscribe_url")
                 )
                 _uiState.value = next
                 persistStoredState(next)
@@ -310,8 +315,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     authMode = AuthMode.LOGIN,
                     screen = PassScreen.NODES,
                     authData = data.getString("auth_data"),
-                    subscribeToken = data.optString("token", _uiState.value.subscribeToken),
-                    subscribeUrl = data.optString("subscribe_url", _uiState.value.subscribeUrl)
+                    subscribeToken = data.getString("token"),
+                    subscribeUrl = data.getString("subscribe_url")
                 )
                 _uiState.value = next
                 persistStoredState(next)
@@ -348,17 +353,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             try {
                 val result = XboardApi.request("guest_config", defaultApiUrl(), "", JSONObject())
                 val body = requireSuccessfulBody("访客配置", result)
-                val data = body.optJSONObject("data")
-                val providers = data
-                    ?.optJSONArray("oauth_providers")
-                    ?.toOAuthProviderList()
-                    ?: emptyList()
+                val data = body.getJSONObject("data")
+                val providers = data.getJSONArray("oauth_providers").toOAuthProviderList()
                 _uiState.update {
                     it.copy(
                         oauthProviders = providers,
-                        inviteForce = data?.optInt("is_invite_force") == 1,
-                        registerEmailVerifyEnabled = data?.optInt("is_email_verify") == 1,
-                        registerCaptchaEnabled = data?.optInt("is_captcha") == 1
+                        inviteForce = data.getInt("is_invite_force") == 1,
+                        registerEmailVerifyEnabled = data.getInt("is_email_verify") == 1,
+                        registerCaptchaEnabled = data.getInt("is_captcha") == 1
                     )
                 }
                 persistStoredState(_uiState.value)
@@ -393,31 +395,35 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             return
         }
         closeOAuthWebView()
-        val error = uri.getQueryParameter("oauth_error").orEmpty()
-        if (error.isNotEmpty()) {
+        val error = uri.getQueryParameter("oauth_error")
+        if (!error.isNullOrEmpty()) {
             emitMessage("OAuth 失败：$error")
             return
         }
-        val success = uri.getQueryParameter("oauth_success").orEmpty()
-        if (success.isNotEmpty()) {
+        val success = uri.getQueryParameter("oauth_success")
+        if (!success.isNullOrEmpty()) {
             emitMessage(success)
             return
         }
-        val confirmToken = uri.getQueryParameter("oauth_confirm_token").orEmpty()
-        if (confirmToken.isNotEmpty()) {
+        val confirmToken = uri.getQueryParameter("oauth_confirm_token")
+        if (!confirmToken.isNullOrEmpty()) {
+            val provider = uri.getQueryParameter("oauth_provider")
+                ?: throw IllegalStateException("OAuth confirm callback missing provider")
+            val email = uri.getQueryParameter("oauth_email")
+                ?: throw IllegalStateException("OAuth confirm callback missing email")
             _uiState.update {
                 it.copy(
                     authMode = AuthMode.REGISTER,
                     oauthConfirmToken = confirmToken,
-                    oauthConfirmProvider = uri.getQueryParameter("oauth_provider").orEmpty(),
-                    oauthConfirmEmail = uri.getQueryParameter("oauth_email").orEmpty()
+                    oauthConfirmProvider = provider,
+                    oauthConfirmEmail = email
                 )
             }
             emitMessage("请确认 OAuth 注册。")
             return
         }
-        val verify = uri.getQueryParameter("verify").orEmpty()
-        if (verify.isNotEmpty()) {
+        val verify = uri.getQueryParameter("verify")
+        if (!verify.isNullOrEmpty()) {
             completeOAuthLogin(verify)
         }
     }
@@ -475,18 +481,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     ApkUpdateInstaller.installApk(context, apkFile)
                 } catch (error: Exception) {
                     emitMessage("应用内更新失败：${error.message}")
-                    val fallback = downloadUrl.ifEmpty { releaseUrl }
-                    if (fallback.isNotEmpty()) {
-                        BrowserOpener.open(context, fallback)
-                    }
                 }
             }
             return
         }
-        val url = downloadUrl.ifEmpty { releaseUrl }
-        if (url.isNotEmpty()) {
-            BrowserOpener.open(context, url)
-        }
+        throw IllegalStateException("更新下载地址不是 APK：$releaseUrl")
     }
 
     fun logout() {
@@ -531,61 +530,58 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val subscribeResult = XboardApi.request("user_subscribe", defaultApiUrl(), current.authData, JSONObject())
                 val subscribeBody = requireSuccessfulBody("订阅同步", subscribeResult)
                 val data = subscribeBody.getJSONObject("data")
-                val subscribeUrl = data.optString("subscribe_url", current.subscribeUrl)
+                val subscribeUrl = data.getString("subscribe_url")
                 val blockReason = subscriptionBlockReason(data)
+                var subscriptionRouteConfigYaml = ""
+                var subscriptionRouteRuleCount = 0
+                var subscriptionRouteRulesPreview = emptyList<String>()
+                var metaNodesResult: JSONObject? = null
+                if (blockReason.isEmpty() && subscribeUrl.isNotEmpty()) {
+                    metaNodesResult = XboardApi.request(
+                        "anytls_nodes",
+                        defaultApiUrl(),
+                        "",
+                        JSONObject().put("subscribe_url", subscribeUrl).put("flag", "meta")
+                    )
+                    if (metaNodesResult.getBoolean("ok")) {
+                        val routing = metaNodesResult.getJSONObject("routing")
+                        subscriptionRouteConfigYaml = if (routing.isNull("route_config_yaml")) "" else routing.getString("route_config_yaml")
+                        subscriptionRouteRuleCount = routing.getInt("rule_count")
+                        subscriptionRouteRulesPreview = routing.getJSONArray("rules_preview").let { array ->
+                            List(array.length()) { index -> array.getString(index) }.filter { it.isNotBlank() }
+                        }
+                    } else {
+                        throw IllegalStateException(resultError(metaNodesResult))
+                    }
+                }
                 val baseNodes = if (blockReason.isEmpty()) {
                     val xbclientNodesResult = XboardApi.request("xbclient_nodes", defaultApiUrl(), current.authData, JSONObject())
-                    if (xbclientNodesResult.optBoolean("ok")) {
+                    if (xbclientNodesResult.getBoolean("ok")) {
                         val nodesBody = requireSuccessfulBody("XBClient 节点同步", xbclientNodesResult)
                         nodesBody.getJSONObject("data").getJSONArray("nodes").toAnyTlsNodeList()
-                    } else if (xbclientNodesResult.optInt("status") == 404) {
-                        if (subscribeUrl.isEmpty()) {
-                            throw IllegalStateException("XBClient 节点接口不可用，且订阅地址为空。")
-                        }
-                        val nodesResult = XboardApi.request(
-                            "anytls_nodes",
-                            defaultApiUrl(),
-                            "",
-                            JSONObject().put("subscribe_url", subscribeUrl).put("flag", "meta")
-                        )
-                        if (!nodesResult.optBoolean("ok")) {
-                            throw IllegalStateException(resultError(nodesResult))
-                        }
-                        val singBoxNodesResult = XboardApi.request(
-                            "anytls_nodes",
-                            defaultApiUrl(),
-                            "",
-                            JSONObject().put("subscribe_url", subscribeUrl).put("flag", "sing-box")
-                        )
-                        if (!singBoxNodesResult.optBoolean("ok")) {
-                            throw IllegalStateException(resultError(singBoxNodesResult))
-                        }
-                        if (showErrors) {
-                            emitMessage("XBClient 节点接口不可用，已使用原订阅节点。")
-                        }
-                        (nodesResult.getJSONArray("nodes").toAnyTlsNodeList()
-                            + singBoxNodesResult.getJSONArray("nodes").toAnyTlsNodeList())
-                            .distinctBy { "${it.protocol}|${it.host}|${it.port}|${it.name}" }
                     } else {
                         throw IllegalStateException(resultError(xbclientNodesResult))
                     }
                 } else {
                     emptyList()
                 }
-                val nodes = if (baseNodes.isEmpty()) baseNodes else mergeXboardNodeTags(baseNodes)
+                val nodes = baseNodes
                 val selectedIndex = _uiState.value.selectedNodeIndex.coerceIn(0, (nodes.size - 1).coerceAtLeast(0))
                 val firstConnectableIndex = nodes.indexOfFirst { it.connectSupported }
                 val next = _uiState.value.copy(
-                    subscribeToken = data.optString("token", current.subscribeToken),
+                    subscribeToken = data.getString("token"),
                     subscribeUrl = subscribeUrl,
                     subscriptionSummary = subscriptionSummary(data),
                     subscriptionBlockReason = blockReason,
-                    subscriptionTrafficUsedBytes = (numericValue(data.opt("u")) + numericValue(data.opt("d"))).toLong(),
-                    subscriptionTrafficTotalBytes = numericValue(data.opt("transfer_enable")).toLong(),
+                    subscriptionTrafficUsedBytes = (numericValue(data.get("u")) + numericValue(data.get("d"))).toLong(),
+                    subscriptionTrafficTotalBytes = numericValue(data.get("transfer_enable")).toLong(),
                     nodesUpdatedAt = System.currentTimeMillis(),
                     anyTlsNodes = nodes,
                     selectedNodeIndex = if (nodes.getOrNull(selectedIndex)?.connectSupported == true || firstConnectableIndex < 0) selectedIndex else firstConnectableIndex,
                     nodeTestResults = emptyMap(),
+                    routeConfigYaml = subscriptionRouteConfigYaml,
+                    routeRuleCount = subscriptionRouteRuleCount,
+                    routeRulesPreview = subscriptionRouteRulesPreview,
                     nodesLoading = false
                 )
                 _uiState.value = next
@@ -595,7 +591,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     _uiState.update { it.copy(nodesLoading = false) }
                 }
                 if (showErrors) {
-                    emitMessage(if (_uiState.value.anyTlsNodes.isEmpty()) "节点同步失败：${error.message}" else "节点同步失败，继续使用本地缓存：${error.message}")
+                    emitMessage("节点同步失败：${error.message}")
                 }
             }
         }
@@ -676,14 +672,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             try {
                 val result = XboardApi.request("invite_fetch", defaultApiUrl(), authData, JSONObject())
                 val body = requireSuccessfulBody("邀请码加载", result)
-                val data = body.optJSONObject("data")
-                val stat = data?.optJSONArray("stat")
-                val invites = extractDataArray(body).toInviteItemList()
+                val data = body.getJSONObject("data")
+                val stat = data.getJSONArray("stat")
+                val invites = data.getJSONArray("codes").toInviteItemList()
                 val next = _uiState.value.copy(
                     invites = invites,
                     invitesLoading = false,
-                    inviteCommissionRate = stat?.optInt(3) ?: 0,
-                    inviteCommissionBalance = stat?.optInt(4) ?: _uiState.value.commissionBalance
+                    inviteCommissionRate = stat.getInt(3),
+                    inviteCommissionBalance = stat.getInt(4)
                 )
                 _uiState.value = next
                 persistStoredState(next)
@@ -745,10 +741,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 }
                 notifyPendingRewardIfCredited(logs)
                 persistStoredState(_uiState.value)
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 if (showLoading) {
                     _uiState.update { it.copy(adRewardLogsLoading = false) }
                 }
+                emitMessage("广告奖励记录加载失败：${error.message}")
             }
         }
     }
@@ -768,13 +765,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     .getJSONObject("data")
                 _uiState.update {
                     it.copy(
-                        userEmail = info.optString("email"),
-                        balance = info.optInt("balance"),
-                        commissionBalance = info.optInt("commission_balance"),
-                        inviteCommissionRate = if (info.optInt("commission_rate") > 0) info.optInt("commission_rate") else it.inviteCommissionRate,
-                        inviteCommissionBalance = info.optInt("commission_balance", it.inviteCommissionBalance),
-                        currencySymbol = config.optString("currency_symbol"),
-                        currencyUnit = config.optString("currency"),
+                        userEmail = info.getString("email"),
+                        balance = info.getInt("balance"),
+                        commissionBalance = info.getInt("commission_balance"),
+                        inviteCommissionRate = info.getInt("commission_rate"),
+                        inviteCommissionBalance = info.getInt("commission_balance"),
+                        currencySymbol = config.getString("currency_symbol"),
+                        currencyUnit = config.getString("currency"),
                         userLoading = false
                     )
                 }
@@ -798,12 +795,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             try {
                 val config = loadRewardConfig(authData, scene)
                 if (config.first.isEmpty()) {
-                    return@launch
+                    throw IllegalStateException("广告场景未启用：$scene")
                 }
                 pendingRewardScene = scene
                 emitEvent(XbClientEvent.ShowRewardAd(config.first, config.second, config.third))
-            } catch (_: Exception) {
-                return@launch
+            } catch (error: Exception) {
+                emitMessage("广告配置加载失败：${error.message}")
             }
         }
     }
@@ -819,8 +816,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     JSONObject().put("custom_data", customData)
                 )
                 val body = requireSuccessfulBody("广告验证记录", result)
-                val data = body.optJSONObject("data") ?: body
-                if (data.optBoolean("credited")) {
+                val data = body.getJSONObject("data")
+                if (data.getBoolean("credited")) {
                     showRewardCreditedDialog(rewardContentText(data))
                     pendingRewardScene = ""
                     pendingRewardStartedAt = 0L
@@ -888,7 +885,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         JSONObject().put("trade_no", tradeNo)
                     )
                 )
-                if (checkoutBody.optInt("type") != -1) {
+                if (checkoutBody.getInt("type") != -1) {
                     throw IllegalStateException("订单未完成账户金额抵扣。")
                 }
                 emitMessage("账户金额支付成功。")
@@ -911,7 +908,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     authMode = AuthMode.LOGIN,
                     screen = PassScreen.NODES,
                     authData = data.getString("auth_data"),
-                    subscribeToken = data.optString("token", _uiState.value.subscribeToken),
+                    subscribeToken = data.getString("token"),
                     oauthConfirmToken = "",
                     oauthConfirmProvider = "",
                     oauthConfirmEmail = ""
@@ -940,35 +937,30 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             ?: throw IllegalStateException("快捷登录地址缺少 verify。")
 
     private suspend fun loadRewardConfig(authData: String, scene: String = REWARD_SCENE_PLAN): Triple<String, String, String> {
-        val result = try {
-            XboardApi.request("admob_reward_config", defaultApiUrl(), authData, JSONObject())
-        } catch (_: Exception) {
-            clearRewardConfig()
-            return Triple("", "", "")
+        val result = XboardApi.request("admob_reward_config", defaultApiUrl(), authData, JSONObject())
+        if (!result.getBoolean("ok")) {
+            throw IllegalStateException(resultError(result))
         }
-        if (!result.optBoolean("ok")) {
-            clearRewardConfig()
-            return Triple("", "", "")
+        val body = result.getJSONObject("body")
+        if (body.getString("status") == "fail") {
+            throw IllegalStateException(body.getString("message"))
         }
-        val body = result.optJSONObject("body")
-        if (body == null || body.optString("status") == "fail") {
-            clearRewardConfig()
-            return Triple("", "", "")
+        val data = body.getJSONObject("data")
+        val githubProjectUrl = data.getString("github_project_url")
+        val paymentEnabled = data.getBoolean("payment_enabled")
+        val appOpenEnabled = data.getBoolean("app_open_ad_enabled")
+        val appOpenUnitId = data.getString("app_open_ad_unit_id")
+        if (appOpenEnabled && appOpenUnitId.isBlank()) {
+            throw IllegalStateException("开屏广告已启用但缺少广告位。")
         }
-        val data = body.optJSONObject("data")
-        if (data == null) {
-            clearRewardConfig()
-            return Triple("", "", "")
-        }
-        val githubProjectUrl = data.optString("github_project_url")
         val configUpdatedAt = System.currentTimeMillis()
-        if (!data.optBoolean("ad_enabled")) {
+        if (!data.getBoolean("ad_enabled")) {
             _uiState.update {
                 it.copy(
                     adEnabled = false,
-                    paymentEnabled = data.optBoolean("payment_enabled", false),
-                    appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
-                    appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
+                    paymentEnabled = paymentEnabled,
+                    appOpenAdEnabled = appOpenEnabled,
+                    appOpenAdUnitId = appOpenUnitId,
                     githubProjectUrl = githubProjectUrl,
                     configUpdatedAt = configUpdatedAt,
                     planRewardAdEnabled = false,
@@ -978,23 +970,23 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 )
             }
             persistStoredState(_uiState.value)
-            checkGithubReleaseUpdate(resolvedGithubProjectUrl(githubProjectUrl))
+            checkGithubReleaseUpdate(githubProjectUrl)
             return Triple("", "", "")
         }
-        val planEnabled = data.optBoolean("plan_reward_ad_enabled")
-        val planAdUnitId = data.optString("plan_rewarded_ad_unit_id")
-        val planUserId = data.optString("plan_ssv_user_id")
-        val planCustomData = data.optString("plan_ssv_custom_data")
-        val pointsEnabled = data.optBoolean("points_reward_ad_enabled")
-        val pointsAdUnitId = data.optString("points_rewarded_ad_unit_id")
-        val pointsUserId = data.optString("points_ssv_user_id")
-        val pointsCustomData = data.optString("points_ssv_custom_data")
+        val planEnabled = data.getBoolean("plan_reward_ad_enabled")
+        val planAdUnitId = if (planEnabled) data.getString("plan_rewarded_ad_unit_id") else ""
+        val planUserId = if (planEnabled) data.getString("plan_ssv_user_id") else ""
+        val planCustomData = if (planEnabled) data.getString("plan_ssv_custom_data") else ""
+        val pointsEnabled = data.getBoolean("points_reward_ad_enabled")
+        val pointsAdUnitId = if (pointsEnabled) data.getString("points_rewarded_ad_unit_id") else ""
+        val pointsUserId = if (pointsEnabled) data.getString("points_ssv_user_id") else ""
+        val pointsCustomData = if (pointsEnabled) data.getString("points_ssv_custom_data") else ""
         _uiState.update {
             it.copy(
                 adEnabled = planEnabled || pointsEnabled,
-                paymentEnabled = data.optBoolean("payment_enabled", false),
-                appOpenAdEnabled = data.optBoolean("app_open_ad_enabled"),
-                appOpenAdUnitId = data.optString("app_open_ad_unit_id"),
+                paymentEnabled = paymentEnabled,
+                appOpenAdEnabled = appOpenEnabled,
+                appOpenAdUnitId = appOpenUnitId,
                 githubProjectUrl = githubProjectUrl,
                 configUpdatedAt = configUpdatedAt,
                 planRewardAdEnabled = planEnabled,
@@ -1004,7 +996,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             )
         }
         persistStoredState(_uiState.value)
-        checkGithubReleaseUpdate(resolvedGithubProjectUrl(githubProjectUrl))
+        checkGithubReleaseUpdate(githubProjectUrl)
         return if (scene == REWARD_SCENE_POINTS) {
             Triple(pointsAdUnitId, pointsUserId, pointsCustomData)
         } else {
@@ -1050,6 +1042,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         emitMessage("设置已保存。")
     }
 
+    fun saveRouteConfigYaml(value: String, geoipDir: String) {
+        updateAndPersist { it.copy(customRouteConfigYaml = value.trim(), geoipDir = geoipDir.trim()) }
+        emitMessage("分流配置已保存。")
+    }
+
     fun setIpv6Enabled(enabled: Boolean) {
         updateAndPersist { it.copy(vpnIpv6Enabled = enabled) }
     }
@@ -1084,8 +1081,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     fun syncAppearanceSettings() {
         val prefs = app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
-        val language = prefs.getString("app_language", _uiState.value.appLanguage).orEmpty()
-        val theme = prefs.getString("theme_mode", _uiState.value.themeMode).orEmpty()
+        val language = prefs.getString("app_language", _uiState.value.appLanguage)
+            ?: throw IllegalStateException("app_language preference is null")
+        val theme = prefs.getString("theme_mode", _uiState.value.themeMode)
+            ?: throw IllegalStateException("theme_mode preference is null")
         _uiState.update { current ->
             if (!current.loaded) {
                 current
@@ -1278,6 +1277,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             putExtra(XbClientVpnService.EXTRA_DNS_MODE, state.vpnDnsMode)
             putExtra(XbClientVpnService.EXTRA_VIRTUAL_DNS_POOL, state.virtualDnsPool)
             putExtra(XbClientVpnService.EXTRA_IPV6_ENABLED, state.vpnIpv6Enabled)
+            putExtra(XbClientVpnService.EXTRA_ROUTE_CONFIG_YAML, state.customRouteConfigYaml.ifBlank { state.routeConfigYaml })
+            putExtra(XbClientVpnService.EXTRA_GEOIP_DIR, state.geoipDir)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(intent)
@@ -1368,28 +1369,16 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (!_uiState.value.vpnRequested) {
             return@withContext -1
         }
-        // The app is excluded from its own VPN, so a direct socket would bypass the
-        // tunnel. Dial through the tunnel's loopback SOCKS endpoint instead so the
-        // sample reflects real tunnel latency (falls back to direct until it is known).
-        val proxy = vpnTunnelProxy()
-        // Use IP endpoints to avoid high-frequency DNS resolution pressure.
-        val targets = listOf(
-            InetSocketAddress("1.1.1.1", 443),
-            InetSocketAddress("8.8.8.8", 443)
-        )
-        for (target in targets) {
-            try {
-                val startMs = System.currentTimeMillis()
-                (if (proxy != null) Socket(proxy) else Socket()).use { socket ->
-                    socket.connect(target, 1200)
-                }
-                val latencyMs = System.currentTimeMillis() - startMs
-                return@withContext latencyMs.toInt()
-            } catch (_: Exception) {
-                continue
-            }
+        // The app is excluded from its own VPN, so the probe must go through the
+        // tunnel's loopback SOCKS endpoint.
+        val proxy = vpnTunnelProxy() ?: throw IllegalStateException("VPN tunnel SOCKS endpoint is not ready.")
+        val target = InetSocketAddress("1.1.1.1", 443)
+        val startMs = System.currentTimeMillis()
+        Socket(proxy).use { socket ->
+            socket.connect(target, 1200)
         }
-        -1
+        val latencyMs = System.currentTimeMillis() - startMs
+        latencyMs.toInt()
     }
 
     /** Resolves the tunnel's loopback SOCKS5 proxy published by the VPN service, if running. */
@@ -1410,18 +1399,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             if (node.protocol != "direct" && node.protocol != "block") {
                 val originalHost = testNode.getString("host")
                 val resolvedHost = XboardApi.resolveNodeHost(_uiState.value.nodeDns, originalHost)
-                if (resolvedHost != originalHost && testNode.optString("sni").isEmpty()) {
-                    testNode.put("sni", originalHost)
+                if (resolvedHost != originalHost && (!testNode.has("sni") || testNode.getString("sni").isBlank())) {
+                    throw IllegalStateException("节点解析为 IP 后缺少 sni：${testNode.getString("name")}")
                 }
                 testNode.put("host", resolvedHost)
-                if (testNode.has("server")) {
-                    testNode.put("server", resolvedHost)
-                }
-                if (testNode.has("address")) {
-                    testNode.put("address", resolvedHost)
-                }
             }
-            val (targetHost, targetPort, targetTls) = targetHostPort(_uiState.value.nodeTestTarget.trim().ifEmpty { DEFAULT_NODE_TEST_TARGET })
+            val (targetHost, targetPort, targetTls) = targetHostPort(_uiState.value.nodeTestTarget.trim())
             val result = JSONObject(
                 AerionCore.testNode(
                     JSONObject()
@@ -1432,13 +1415,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         .toString()
                 )
             )
-            if (result.optBoolean("ok")) {
-                "${result.optLong("latency_ms")} ms"
+            if (result.getBoolean("ok")) {
+                "${result.getLong("latency_ms")} ms"
             } else {
-                readableNodeTestError(result.optString("error", result.toString()))
+                readableNodeTestError(result.getString("error"))
             }
         } catch (error: Exception) {
-            readableNodeTestError(error.message.orEmpty())
+            readableNodeTestError(error.toString())
         }
     }
 
@@ -1465,136 +1448,75 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     private suspend fun loadStoredState() {
         val prefs = app.passVpnDataStore.data.first()
-        val hasDataStoreState = prefs[Keys.AUTH_DATA] != null ||
-            prefs[Keys.NODE_DNS] != null ||
-            prefs[Keys.ANYTLS_NODES] != null
-        val legacy = app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
-        val state = if (hasDataStoreState) {
-            XbClientUiState(
-                loaded = true,
-                authData = prefs[Keys.AUTH_DATA].orEmpty(),
-                subscribeToken = prefs[Keys.SUBSCRIBE_TOKEN].orEmpty(),
-                subscribeUrl = prefs[Keys.SUBSCRIBE_URL].orEmpty(),
-                subscriptionSummary = prefs[Keys.SUBSCRIPTION_SUMMARY].orEmpty(),
-                subscriptionBlockReason = prefs[Keys.SUBSCRIPTION_BLOCK_REASON].orEmpty(),
-                subscriptionTrafficUsedBytes = prefs[Keys.SUBSCRIPTION_TRAFFIC_USED_BYTES] ?: 0L,
-                subscriptionTrafficTotalBytes = prefs[Keys.SUBSCRIPTION_TRAFFIC_TOTAL_BYTES] ?: 0L,
-                nodesUpdatedAt = prefs[Keys.NODES_UPDATED_AT] ?: 0L,
-                userEmail = prefs[Keys.USER_EMAIL].orEmpty(),
-                balance = prefs[Keys.BALANCE] ?: 0,
-                commissionBalance = prefs[Keys.COMMISSION_BALANCE] ?: 0,
-                currencySymbol = prefs[Keys.CURRENCY_SYMBOL].orEmpty(),
-                currencyUnit = prefs[Keys.CURRENCY_UNIT].orEmpty(),
-                plans = cachedPlans(prefs[Keys.PLANS].orEmpty()),
-                anyTlsNodes = cachedNodes(prefs[Keys.ANYTLS_NODES].orEmpty()),
-                notices = cachedNotices(prefs[Keys.NOTICES].orEmpty()),
-                selectedNodeIndex = prefs[Keys.SELECTED_NODE_INDEX] ?: 0,
-                invites = cachedInvites(prefs[Keys.INVITES].orEmpty()),
-                inviteForce = prefs[Keys.INVITE_FORCE] ?: false,
-                inviteCommissionRate = prefs[Keys.INVITE_COMMISSION_RATE] ?: 0,
-                inviteCommissionBalance = prefs[Keys.INVITE_COMMISSION_BALANCE] ?: 0,
-                excludedApps = prefs[Keys.EXCLUDED_APPS].orEmpty(),
-                allowedApps = prefs[Keys.ALLOWED_APPS].orEmpty(),
-                appRuleMode = prefs[Keys.APP_RULE_MODE] ?: MODE_EXCLUDE,
-                nodeDns = prefs[Keys.NODE_DNS] ?: DEFAULT_NODE_DNS,
-                overseasDns = prefs[Keys.OVERSEAS_DNS] ?: DEFAULT_OVERSEAS_DNS,
-                directDns = prefs[Keys.DIRECT_DNS] ?: DEFAULT_DIRECT_DNS,
-                nodeTestTarget = (prefs[Keys.NODE_TEST_TARGET] ?: DEFAULT_NODE_TEST_TARGET).let { if (it == "cp.cloudflare.com") DEFAULT_NODE_TEST_TARGET else it },
-                vpnDnsMode = prefs[Keys.VPN_DNS_MODE] ?: DNS_MODE_VIRTUAL,
-                virtualDnsPool = prefs[Keys.VIRTUAL_DNS_POOL] ?: DEFAULT_VIRTUAL_DNS_POOL,
-                vpnIpv6Enabled = prefs[Keys.VPN_IPV6_ENABLED] ?: true,
-                vpnRequested = legacy.getBoolean("vpn_running", false),
-                adEnabled = prefs[Keys.AD_ENABLED] ?: false,
-                paymentEnabled = false,
-                planRewardAdEnabled = prefs[Keys.PLAN_REWARD_AD_ENABLED] ?: false,
-                planRewardedAdUnitId = prefs[Keys.PLAN_REWARDED_AD_UNIT_ID].orEmpty(),
-                pointsRewardAdEnabled = prefs[Keys.POINTS_REWARD_AD_ENABLED] ?: false,
-                pointsRewardedAdUnitId = prefs[Keys.POINTS_REWARDED_AD_UNIT_ID].orEmpty(),
-                appOpenAdEnabled = prefs[Keys.APP_OPEN_AD_ENABLED] ?: false,
-                appOpenAdUnitId = prefs[Keys.APP_OPEN_AD_UNIT_ID].orEmpty(),
-                adRewardLogs = cachedAdRewardLogs(prefs[Keys.AD_REWARD_LOGS].orEmpty()),
-                configUpdatedAt = prefs[Keys.CONFIG_UPDATED_AT] ?: 0L,
-                githubProjectUrl = prefs[Keys.GITHUB_PROJECT_URL].orEmpty(),
-                appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
-                themeMode = prefs[Keys.THEME_MODE].orEmpty(),
-                languageOnboardingDone = prefs[Keys.LANGUAGE_ONBOARDING_DONE] ?: false,
-                vpnDisclosureDone = prefs[Keys.VPN_DISCLOSURE_DONE] ?: false,
-                oauthProviders = cachedOAuthProviders(prefs[Keys.OAUTH_PROVIDERS].orEmpty()),
-                registerEmailVerifyEnabled = prefs[Keys.REGISTER_EMAIL_VERIFY_ENABLED] ?: false,
-                registerCaptchaEnabled = prefs[Keys.REGISTER_CAPTCHA_ENABLED] ?: false
-            )
-        } else {
-            XbClientUiState(
-                loaded = true,
-                authData = legacy.getString("auth_data", "").orEmpty(),
-                subscribeToken = legacy.getString("subscribe_token", "").orEmpty(),
-                subscribeUrl = legacy.getString("subscribe_url", "").orEmpty(),
-                subscriptionSummary = legacy.getString("subscription_summary", "").orEmpty(),
-                subscriptionBlockReason = legacy.getString("subscription_block_reason", "").orEmpty(),
-                subscriptionTrafficUsedBytes = legacy.getLong("subscription_traffic_used_bytes", 0L),
-                subscriptionTrafficTotalBytes = legacy.getLong("subscription_traffic_total_bytes", 0L),
-                nodesUpdatedAt = legacy.getLong("nodes_updated_at", 0L),
-                userEmail = legacy.getString("user_email", "").orEmpty(),
-                balance = legacy.getInt("balance", 0),
-                commissionBalance = legacy.getInt("commission_balance", 0),
-                currencySymbol = legacy.getString("currency_symbol", "").orEmpty(),
-                currencyUnit = legacy.getString("currency_unit", "").orEmpty(),
-                plans = cachedPlans(legacy.getString("plans", "").orEmpty()),
-                anyTlsNodes = cachedNodes(legacy.getString("anytls_nodes", "").orEmpty()),
-                notices = cachedNotices(legacy.getString("notices", "").orEmpty()),
-                selectedNodeIndex = legacy.getInt("selected_node_index", 0),
-                invites = cachedInvites(legacy.getString("invites", "").orEmpty()),
-                inviteForce = legacy.getBoolean("invite_force", false),
-                inviteCommissionRate = legacy.getInt("invite_commission_rate", 0),
-                inviteCommissionBalance = legacy.getInt("invite_commission_balance", 0),
-                excludedApps = legacy.getString("excluded_apps", "").orEmpty(),
-                allowedApps = legacy.getString("allowed_apps", "").orEmpty(),
-                appRuleMode = legacy.getString("app_rule_mode", if (legacy.getString("allowed_apps", "").orEmpty().isNotEmpty()) MODE_ALLOW else MODE_EXCLUDE).orEmpty(),
-                nodeDns = legacy.getString("node_dns", DEFAULT_NODE_DNS).orEmpty(),
-                overseasDns = legacy.getString("overseas_dns", DEFAULT_OVERSEAS_DNS).orEmpty(),
-                directDns = legacy.getString("direct_dns", DEFAULT_DIRECT_DNS).orEmpty(),
-                nodeTestTarget = legacy.getString("node_test_target", DEFAULT_NODE_TEST_TARGET).orEmpty().let { if (it == "cp.cloudflare.com") DEFAULT_NODE_TEST_TARGET else it },
-                vpnDnsMode = legacy.getString("vpn_dns_mode", DNS_MODE_VIRTUAL).orEmpty(),
-                virtualDnsPool = legacy.getString("virtual_dns_pool", DEFAULT_VIRTUAL_DNS_POOL).orEmpty(),
-                vpnIpv6Enabled = legacy.getBoolean("vpn_ipv6_enabled", true),
-                vpnRequested = legacy.getBoolean("vpn_running", false),
-                adEnabled = legacy.getBoolean("ad_enabled", false),
-                paymentEnabled = false,
-                planRewardAdEnabled = legacy.getBoolean("plan_reward_ad_enabled", false),
-                planRewardedAdUnitId = legacy.getString("plan_rewarded_ad_unit_id", "").orEmpty(),
-                pointsRewardAdEnabled = legacy.getBoolean("points_reward_ad_enabled", false),
-                pointsRewardedAdUnitId = legacy.getString("points_rewarded_ad_unit_id", "").orEmpty(),
-                appOpenAdEnabled = legacy.getBoolean("app_open_ad_enabled", false),
-                appOpenAdUnitId = legacy.getString("app_open_ad_unit_id", "").orEmpty(),
-                adRewardLogs = cachedAdRewardLogs(legacy.getString("ad_reward_logs", "").orEmpty()),
-                configUpdatedAt = legacy.getLong("config_updated_at", 0L),
-                githubProjectUrl = legacy.getString("github_project_url", "").orEmpty(),
-                appLanguage = legacy.getString("app_language", "").orEmpty(),
-                themeMode = legacy.getString("theme_mode", "").orEmpty(),
-                languageOnboardingDone = legacy.getBoolean("language_onboarding_done", false),
-                vpnDisclosureDone = legacy.getBoolean("vpn_disclosure_done", false),
-                oauthProviders = cachedOAuthProviders(legacy.getString("oauth_providers", "").orEmpty()),
-                registerEmailVerifyEnabled = legacy.getBoolean("register_email_verify_enabled", false),
-                registerCaptchaEnabled = legacy.getBoolean("register_captcha_enabled", false)
-            )
-        }
+        val state = XbClientUiState(
+            loaded = true,
+            authData = prefs[Keys.AUTH_DATA].orEmpty(),
+            subscribeToken = prefs[Keys.SUBSCRIBE_TOKEN].orEmpty(),
+            subscribeUrl = prefs[Keys.SUBSCRIBE_URL].orEmpty(),
+            subscriptionSummary = prefs[Keys.SUBSCRIPTION_SUMMARY].orEmpty(),
+            subscriptionBlockReason = prefs[Keys.SUBSCRIPTION_BLOCK_REASON].orEmpty(),
+            subscriptionTrafficUsedBytes = prefs[Keys.SUBSCRIPTION_TRAFFIC_USED_BYTES] ?: 0L,
+            subscriptionTrafficTotalBytes = prefs[Keys.SUBSCRIPTION_TRAFFIC_TOTAL_BYTES] ?: 0L,
+            nodesUpdatedAt = prefs[Keys.NODES_UPDATED_AT] ?: 0L,
+            userEmail = prefs[Keys.USER_EMAIL].orEmpty(),
+            balance = prefs[Keys.BALANCE] ?: 0,
+            commissionBalance = prefs[Keys.COMMISSION_BALANCE] ?: 0,
+            currencySymbol = prefs[Keys.CURRENCY_SYMBOL].orEmpty(),
+            currencyUnit = prefs[Keys.CURRENCY_UNIT].orEmpty(),
+            plans = emptyList(),
+            anyTlsNodes = emptyList(),
+            notices = emptyList(),
+            selectedNodeIndex = prefs[Keys.SELECTED_NODE_INDEX] ?: 0,
+            invites = emptyList(),
+            inviteForce = prefs[Keys.INVITE_FORCE] ?: false,
+            inviteCommissionRate = prefs[Keys.INVITE_COMMISSION_RATE] ?: 0,
+            inviteCommissionBalance = prefs[Keys.INVITE_COMMISSION_BALANCE] ?: 0,
+            excludedApps = prefs[Keys.EXCLUDED_APPS].orEmpty(),
+            allowedApps = prefs[Keys.ALLOWED_APPS].orEmpty(),
+            appRuleMode = prefs[Keys.APP_RULE_MODE] ?: MODE_EXCLUDE,
+            nodeDns = prefs[Keys.NODE_DNS] ?: DEFAULT_NODE_DNS,
+            overseasDns = prefs[Keys.OVERSEAS_DNS] ?: DEFAULT_OVERSEAS_DNS,
+            directDns = prefs[Keys.DIRECT_DNS] ?: DEFAULT_DIRECT_DNS,
+            nodeTestTarget = prefs[Keys.NODE_TEST_TARGET] ?: DEFAULT_NODE_TEST_TARGET,
+            vpnDnsMode = prefs[Keys.VPN_DNS_MODE] ?: DNS_MODE_OVER_TCP,
+            virtualDnsPool = prefs[Keys.VIRTUAL_DNS_POOL] ?: DEFAULT_VIRTUAL_DNS_POOL,
+            vpnIpv6Enabled = prefs[Keys.VPN_IPV6_ENABLED] ?: true,
+            routeConfigYaml = prefs[Keys.ROUTE_CONFIG_YAML].orEmpty(),
+            customRouteConfigYaml = prefs[Keys.CUSTOM_ROUTE_CONFIG_YAML].orEmpty(),
+            geoipDir = prefs[Keys.GEOIP_DIR].orEmpty(),
+            routeRuleCount = prefs[Keys.ROUTE_RULE_COUNT] ?: 0,
+            routeRulesPreview = prefs[Keys.ROUTE_RULES_PREVIEW].orEmpty().lines().filter { it.isNotBlank() },
+            vpnRequested = prefs[Keys.VPN_RUNNING] ?: false,
+            adEnabled = prefs[Keys.AD_ENABLED] ?: false,
+            paymentEnabled = false,
+            planRewardAdEnabled = prefs[Keys.PLAN_REWARD_AD_ENABLED] ?: false,
+            planRewardedAdUnitId = prefs[Keys.PLAN_REWARDED_AD_UNIT_ID].orEmpty(),
+            pointsRewardAdEnabled = prefs[Keys.POINTS_REWARD_AD_ENABLED] ?: false,
+            pointsRewardedAdUnitId = prefs[Keys.POINTS_REWARDED_AD_UNIT_ID].orEmpty(),
+            appOpenAdEnabled = prefs[Keys.APP_OPEN_AD_ENABLED] ?: false,
+            appOpenAdUnitId = prefs[Keys.APP_OPEN_AD_UNIT_ID].orEmpty(),
+            adRewardLogs = emptyList(),
+            configUpdatedAt = prefs[Keys.CONFIG_UPDATED_AT] ?: 0L,
+            githubProjectUrl = prefs[Keys.GITHUB_PROJECT_URL].orEmpty(),
+            appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
+            themeMode = prefs[Keys.THEME_MODE].orEmpty(),
+            languageOnboardingDone = prefs[Keys.LANGUAGE_ONBOARDING_DONE] ?: false,
+            vpnDisclosureDone = prefs[Keys.VPN_DISCLOSURE_DONE] ?: false,
+            oauthProviders = emptyList(),
+            registerEmailVerifyEnabled = prefs[Keys.REGISTER_EMAIL_VERIFY_ENABLED] ?: false,
+            registerCaptchaEnabled = prefs[Keys.REGISTER_CAPTCHA_ENABLED] ?: false
+        )
+        val runtimePrefs = app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
         if (state.vpnRequested) {
-            vpnBaseRxBytes = legacy.getLong("vpn_base_rx_bytes", currentUidRxBytes())
-            vpnBaseTxBytes = legacy.getLong("vpn_base_tx_bytes", currentUidTxBytes())
+            vpnBaseRxBytes = runtimePrefs.getLong("vpn_base_rx_bytes", currentUidRxBytes())
+            vpnBaseTxBytes = runtimePrefs.getLong("vpn_base_tx_bytes", currentUidTxBytes())
         }
         _uiState.value = state.copy(
             selectedNodeIndex = state.selectedNodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0)),
-            vpnConnectedAt = if (state.vpnRequested) {
-                legacy.getLong("vpn_connected_at", 0L).takeIf { it > 0L } ?: System.currentTimeMillis()
-            } else {
-                0L
-            },
+            vpnConnectedAt = if (state.vpnRequested) runtimePrefs.getLong("vpn_connected_at", 0L) else 0L,
             vpnSessionRxBytes = if (state.vpnRequested) (currentUidRxBytes() - vpnBaseRxBytes).coerceAtLeast(0L) else 0L,
             vpnSessionTxBytes = if (state.vpnRequested) (currentUidTxBytes() - vpnBaseTxBytes).coerceAtLeast(0L) else 0L
         )
-        if (!hasDataStoreState) {
-            persistStoredState(_uiState.value)
-        }
         pendingNodeSwitchConnect?.let { connectAfterSelect ->
             pendingNodeSwitchConnect = null
             requestNodeSwitchDialog(connectAfterSelect)
@@ -1644,11 +1566,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.COMMISSION_BALANCE] = state.commissionBalance
             prefs[Keys.CURRENCY_SYMBOL] = state.currencySymbol
             prefs[Keys.CURRENCY_UNIT] = state.currencyUnit
-            prefs[Keys.PLANS] = plansJson(state.plans)
-            prefs[Keys.ANYTLS_NODES] = nodesJson(state.anyTlsNodes)
-            prefs[Keys.NOTICES] = noticesJson(state.notices)
             prefs[Keys.SELECTED_NODE_INDEX] = state.selectedNodeIndex
-            prefs[Keys.INVITES] = invitesJson(state.invites)
             prefs[Keys.INVITE_FORCE] = state.inviteForce
             prefs[Keys.INVITE_COMMISSION_RATE] = state.inviteCommissionRate
             prefs[Keys.INVITE_COMMISSION_BALANCE] = state.inviteCommissionBalance
@@ -1662,6 +1580,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.VPN_DNS_MODE] = state.vpnDnsMode
             prefs[Keys.VIRTUAL_DNS_POOL] = state.virtualDnsPool
             prefs[Keys.VPN_IPV6_ENABLED] = state.vpnIpv6Enabled
+            prefs[Keys.ROUTE_CONFIG_YAML] = state.routeConfigYaml
+            prefs[Keys.CUSTOM_ROUTE_CONFIG_YAML] = state.customRouteConfigYaml
+            prefs[Keys.GEOIP_DIR] = state.geoipDir
+            prefs[Keys.ROUTE_RULE_COUNT] = state.routeRuleCount
+            prefs[Keys.ROUTE_RULES_PREVIEW] = state.routeRulesPreview.joinToString("\n")
             prefs[Keys.VPN_RUNNING] = state.vpnRequested
             prefs[Keys.AD_ENABLED] = state.adEnabled
             prefs[Keys.PAYMENT_ENABLED] = state.paymentEnabled
@@ -1671,14 +1594,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.POINTS_REWARDED_AD_UNIT_ID] = state.pointsRewardedAdUnitId
             prefs[Keys.APP_OPEN_AD_ENABLED] = state.appOpenAdEnabled
             prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
-            prefs[Keys.AD_REWARD_LOGS] = adRewardLogsJson(state.adRewardLogs)
             prefs[Keys.CONFIG_UPDATED_AT] = state.configUpdatedAt
             prefs[Keys.GITHUB_PROJECT_URL] = state.githubProjectUrl
             prefs[Keys.APP_LANGUAGE] = state.appLanguage
             prefs[Keys.THEME_MODE] = state.themeMode
             prefs[Keys.LANGUAGE_ONBOARDING_DONE] = state.languageOnboardingDone
             prefs[Keys.VPN_DISCLOSURE_DONE] = state.vpnDisclosureDone
-            prefs[Keys.OAUTH_PROVIDERS] = oauthProvidersJson(state.oauthProviders)
             prefs[Keys.REGISTER_EMAIL_VERIFY_ENABLED] = state.registerEmailVerifyEnabled
             prefs[Keys.REGISTER_CAPTCHA_ENABLED] = state.registerCaptchaEnabled
         }
@@ -1696,11 +1617,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putInt("commission_balance", state.commissionBalance)
             .putString("currency_symbol", state.currencySymbol)
             .putString("currency_unit", state.currencyUnit)
-            .putString("plans", plansJson(state.plans))
-            .putString("anytls_nodes", nodesJson(state.anyTlsNodes))
-            .putString("notices", noticesJson(state.notices))
             .putInt("selected_node_index", state.selectedNodeIndex)
-            .putString("invites", invitesJson(state.invites))
             .putBoolean("invite_force", state.inviteForce)
             .putInt("invite_commission_rate", state.inviteCommissionRate)
             .putInt("invite_commission_balance", state.inviteCommissionBalance)
@@ -1714,6 +1631,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("vpn_dns_mode", state.vpnDnsMode)
             .putString("virtual_dns_pool", state.virtualDnsPool)
             .putBoolean("vpn_ipv6_enabled", state.vpnIpv6Enabled)
+            .putString("route_config_yaml", state.routeConfigYaml)
+            .putString("custom_route_config_yaml", state.customRouteConfigYaml)
+            .putString("geoip_dir", state.geoipDir)
+            .putInt("route_rule_count", state.routeRuleCount)
+            .putString("route_rules_preview", state.routeRulesPreview.joinToString("\n"))
             .putBoolean("vpn_running", state.vpnRequested)
             .putBoolean("ad_enabled", state.adEnabled)
             .putBoolean("payment_enabled", state.paymentEnabled)
@@ -1723,60 +1645,15 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("points_rewarded_ad_unit_id", state.pointsRewardedAdUnitId)
             .putBoolean("app_open_ad_enabled", state.appOpenAdEnabled)
             .putString("app_open_ad_unit_id", state.appOpenAdUnitId)
-            .putString("ad_reward_logs", adRewardLogsJson(state.adRewardLogs))
             .putLong("config_updated_at", state.configUpdatedAt)
             .putString("github_project_url", state.githubProjectUrl)
             .putString("app_language", state.appLanguage)
             .putString("theme_mode", state.themeMode)
             .putBoolean("language_onboarding_done", state.languageOnboardingDone)
             .putBoolean("vpn_disclosure_done", state.vpnDisclosureDone)
-            .putString("oauth_providers", oauthProvidersJson(state.oauthProviders))
             .putBoolean("register_email_verify_enabled", state.registerEmailVerifyEnabled)
             .putBoolean("register_captcha_enabled", state.registerCaptchaEnabled)
             .apply()
-    }
-
-    private fun cachedNodes(value: String): List<AnyTlsNode> =
-        if (value.isEmpty()) emptyList() else JSONArray(value).toAnyTlsNodeList()
-
-    private fun mergeXboardNodeTags(nodes: List<AnyTlsNode>): List<AnyTlsNode> {
-        val result = XboardApi.request("nodes", defaultApiUrl(), _uiState.value.authData, JSONObject())
-        val rows = extractDataArray(requireSuccessfulBody("节点标签同步", result))
-        val tagsById = HashMap<Int, List<String>>()
-        val tagsByTypedName = HashMap<String, List<String>>()
-        val tagsByName = HashMap<String, List<String>>()
-        for (index in 0 until rows.length()) {
-            val item = rows.getJSONObject(index)
-            val tags = nodeTags(item)
-            if (tags.isEmpty()) {
-                continue
-            }
-            val id = item.optInt("id")
-            if (id > 0) {
-                tagsById[id] = tags
-            }
-            val name = item.optString("name").trim()
-            val type = item.optString("type").lowercase(Locale.US)
-            if (name.isNotEmpty()) {
-                tagsByName[name] = tags
-                if (type.isNotEmpty()) {
-                    tagsByTypedName["$type|$name"] = tags
-                }
-            }
-        }
-        return nodes.map { node ->
-            val raw = JSONObject(node.rawJson)
-            val id = raw.optInt("id")
-            val name = node.name.trim()
-            val tags = node.tags.ifEmpty {
-                if (id > 0) tagsById[id].orEmpty() else emptyList()
-            }.ifEmpty {
-                tagsByTypedName["${node.protocol}|$name"].orEmpty()
-            }.ifEmpty {
-                tagsByName[name].orEmpty()
-            }
-            if (tags.isEmpty() || tags == node.tags) node else node.copy(tags = tags)
-        }
     }
 
     private fun nodesJson(nodes: List<AnyTlsNode>): String =
@@ -1794,90 +1671,16 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             }
         }.toString()
 
-    private fun cachedPlans(value: String): List<PlanItem> =
-        if (value.isEmpty()) emptyList() else JSONArray(value).toPlanItemList()
-
-    private fun plansJson(plans: List<PlanItem>): String =
-        JSONArray().also { array ->
-            for (plan in plans) {
-                val item = JSONObject()
-                    .put("id", plan.id)
-                    .put("name", plan.name)
-                    .put("content", plan.content)
-                    .put("transfer_enable", plan.transferEnable)
-                for (price in plan.prices) {
-                    item.put(price.field, price.amount)
-                }
-                array.put(item)
-            }
-        }.toString()
-
-    private fun cachedInvites(value: String): List<InviteItem> =
-        if (value.isEmpty()) emptyList() else JSONArray(value).toInviteItemList()
-
-    private fun invitesJson(invites: List<InviteItem>): String =
-        JSONArray().also { array ->
-            for (invite in invites) {
-                array.put(JSONObject().put("code", invite.code).put("status", invite.status))
-            }
-        }.toString()
-
-    private fun cachedAdRewardLogs(value: String): List<AdRewardLogItem> =
-        if (value.isEmpty()) emptyList() else JSONArray(value).toAdRewardLogItemList()
-
-    private fun adRewardLogsJson(logs: List<AdRewardLogItem>): String =
-        JSONArray().also { array ->
-            for (log in logs) {
-                array.put(
-                    JSONObject()
-                        .put("id", log.id)
-                        .put("scene", log.scene)
-                        .put("transaction_id", log.transactionId)
-                        .put("status", log.status)
-                        .put("error", log.error)
-                        .put("reward_content", log.rewardContent)
-                        .put("used_at", log.usedAt)
-                        .put("created_at", log.createdAt)
-                )
-            }
-        }.toString()
-
-    private fun cachedNotices(value: String): List<NoticeItem> =
-        if (value.isEmpty()) emptyList() else JSONArray(value).toNoticeItemList()
-
-    private fun noticesJson(notices: List<NoticeItem>): String =
-        JSONArray().also { array ->
-            for (notice in notices) {
-                array.put(
-                    JSONObject()
-                        .put("id", notice.id)
-                        .put("title", notice.title)
-                        .put("content", notice.content)
-                        .put("created_at", notice.createdAt)
-                )
-            }
-        }.toString()
-
-    private fun cachedOAuthProviders(value: String): List<OAuthProvider> =
-        if (value.isEmpty()) emptyList() else JSONArray(value).toOAuthProviderList()
-
-    private fun oauthProvidersJson(providers: List<OAuthProvider>): String =
-        JSONArray().also { array ->
-            for (provider in providers) {
-                array.put(JSONObject().put("driver", provider.driver).put("label", provider.label))
-            }
-        }.toString()
-
     private fun selectedAppPackages(state: XbClientUiState): String =
         if (state.appRuleMode == MODE_ALLOW) state.allowedApps else state.excludedApps
 
     private fun requireSuccessfulBody(title: String, result: JSONObject): JSONObject {
-        if (!result.optBoolean("ok")) {
+        if (!result.getBoolean("ok")) {
             throw IllegalStateException(resultError(result))
         }
-        val body = result.optJSONObject("body") ?: throw IllegalStateException("$title 响应不是 JSON。")
-        if (body.optString("status") == "fail") {
-            throw IllegalStateException(body.optString("message"))
+        val body = result.getJSONObject("body")
+        if (body.getString("status") == "fail") {
+            throw IllegalStateException(body.getString("message"))
         }
         return body
     }
@@ -1897,13 +1700,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private fun resolvedGithubProjectUrl(fromConfig: String): String =
-        fromConfig.trim().ifEmpty { BuildConfig.GITHUB_PROJECT_URL.trim() }
-
     private fun checkGithubReleaseUpdate(projectUrl: String) {
         val value = projectUrl.trim()
         if (value.isEmpty()) {
-            return
+            throw IllegalStateException("GitHub 项目地址为空。")
         }
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -1923,7 +1723,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     throw IllegalStateException("HTTP $status")
                 }
                 val release = JSONObject(text)
-                val latestVersion = release.optString("tag_name").ifBlank { release.optString("name") }
+                val latestVersion = release.getString("tag_name")
                 if (latestVersion.isEmpty()) {
                     throw IllegalStateException("GitHub Release 缺少版本号。")
                 }
@@ -1931,20 +1731,16 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 if (normalizeVersion(latestVersion) == normalizeVersion(currentVersion)) {
                     return@launch
                 }
-                val releaseUrl = release.optString("html_url").ifBlank { "https://github.com/$slug/releases/latest" }
-                val assets = release.optJSONArray("assets") ?: JSONArray()
-                var firstApkUrl = ""
+                val releaseUrl = release.getString("html_url")
+                val assets = release.getJSONArray("assets")
                 var abiApkUrl = ""
                 var universalApkUrl = ""
                 for (index in 0 until assets.length()) {
                     val asset = assets.getJSONObject(index)
-                    val name = asset.optString("name")
-                    val url = asset.optString("browser_download_url")
+                    val name = asset.getString("name")
+                    val url = asset.getString("browser_download_url")
                     if (!name.endsWith(".apk", ignoreCase = true)) {
                         continue
-                    }
-                    if (firstApkUrl.isEmpty()) {
-                        firstApkUrl = url
                     }
                     if (abiApkUrl.isEmpty() && Build.SUPPORTED_ABIS.any { name.contains(it, ignoreCase = true) }) {
                         abiApkUrl = url
@@ -1953,7 +1749,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         universalApkUrl = url
                     }
                 }
-                val downloadUrl = universalApkUrl.ifEmpty { abiApkUrl.ifEmpty { firstApkUrl } }
+                val downloadUrl = universalApkUrl.ifEmpty { abiApkUrl }
+                if (downloadUrl.isEmpty()) {
+                    throw IllegalStateException("GitHub Release 缺少 universal 或当前 ABI 的 APK 资源。")
+                }
                 _uiState.update {
                     it.copy(
                         updateAvailable = true,
@@ -2065,6 +1864,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val VPN_DNS_MODE = stringPreferencesKey("vpn_dns_mode")
         val VIRTUAL_DNS_POOL = stringPreferencesKey("virtual_dns_pool")
         val VPN_IPV6_ENABLED = booleanPreferencesKey("vpn_ipv6_enabled")
+        val ROUTE_CONFIG_YAML = stringPreferencesKey("route_config_yaml")
+        val CUSTOM_ROUTE_CONFIG_YAML = stringPreferencesKey("custom_route_config_yaml")
+        val GEOIP_DIR = stringPreferencesKey("geoip_dir")
+        val ROUTE_RULE_COUNT = intPreferencesKey("route_rule_count")
+        val ROUTE_RULES_PREVIEW = stringPreferencesKey("route_rules_preview")
         val VPN_RUNNING = booleanPreferencesKey("vpn_running")
         val AD_ENABLED = booleanPreferencesKey("ad_enabled")
         val PAYMENT_ENABLED = booleanPreferencesKey("payment_enabled")

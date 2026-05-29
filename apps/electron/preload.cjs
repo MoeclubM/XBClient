@@ -48,7 +48,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('backend-ready', listener)
   },
   onBackendError: (handler) => {
-    const listener = (_, message) => handler(String(message ?? ''))
+    const listener = (_, message) => {
+      if (typeof message !== 'string' || !message.trim()) throw new Error('backend-error message is required')
+      handler(message)
+    }
     ipcRenderer.on('backend-error', listener)
     return () => ipcRenderer.removeListener('backend-error', listener)
   },

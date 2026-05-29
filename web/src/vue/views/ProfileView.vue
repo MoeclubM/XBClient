@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { failureText } from '../../api/helpers'
 import { xboardRequest } from '../../api/xboard'
 import { formatMoney, numericValue, publicErrorText } from '../../format'
 import { enabled } from '../../reward'
@@ -21,17 +22,15 @@ const loading = ref(false)
 const copied = ref('')
 
 function inviteRows(value: unknown): InviteItem[] {
-  const data = Array.isArray(value)
-    ? value
-    : value && typeof value === 'object' && Array.isArray((value as Record<string, unknown>).codes)
-      ? (value as Record<string, unknown>).codes as unknown[]
-      : value && typeof value === 'object' && Array.isArray((value as Record<string, unknown>).codes_list)
-        ? (value as Record<string, unknown>).codes_list as unknown[]
-      : []
+  if (!value || typeof value !== 'object' || !Array.isArray((value as Record<string, unknown>).codes)) {
+    throw new Error('invite_fetch response missing codes array')
+  }
+  const data = (value as Record<string, unknown>).codes as unknown[]
   return data.map((row) => {
     const item = row as Record<string, unknown>
-    return { code: String(item.code ?? ''), status: numericValue(item.status) }
-  }).filter((item) => item.code)
+    if (typeof item.code !== 'string' || !item.code.trim()) throw new Error('invite code is required')
+    return { code: item.code, status: numericValue(item.status) }
+  })
 }
 
 async function loadProfile() {
@@ -44,25 +43,29 @@ async function loadProfile() {
       xboardRequest<XboardBody>('invite_fetch', { baseUrl: appState.baseUrl, authData: appState.authData }),
     ])
     if (!info.ok) {
-      error.value = info.body?.message ?? info.error ?? `HTTP ${info.status}`
+      error.value = failureText(info)
       return
     }
-    const data = info.body?.data && typeof info.body.data === 'object' ? info.body.data as Record<string, unknown> : {}
+    if (!info.body?.data || typeof info.body.data !== 'object') throw new Error('user_info response missing data')
+    const data = info.body.data as Record<string, unknown>
     store().setProfile({
       balance: numericValue(data.balance),
       commissionBalance: numericValue(data.commission_balance),
     })
-    if (config.ok && config.body?.data && typeof config.body.data === 'object') {
-      const configData = config.body.data as Record<string, unknown>
-      store().setProfile({
-        currencySymbol: String(configData.currency_symbol ?? configData.currency ?? '¥'),
-        currencyUnit: String(configData.currency_unit ?? configData.currency ?? ''),
-        inviteForce: enabled(configData.invite_force),
-        inviteCommissionRate: numericValue(configData.commission_rate),
-        inviteCommissionBalance: numericValue(configData.invite_commission_balance),
-      })
-    }
-    if (invites.ok) store().setInvites(inviteRows(invites.body?.data))
+    if (!config.ok) throw new Error(failureText(config))
+    if (!config.body?.data || typeof config.body.data !== 'object') throw new Error('user_config response missing data')
+    const configData = config.body.data as Record<string, unknown>
+    if (typeof configData.currency_symbol !== 'string') throw new Error('user_config currency_symbol is required')
+    if (typeof configData.currency_unit !== 'string') throw new Error('user_config currency_unit is required')
+    store().setProfile({
+      currencySymbol: configData.currency_symbol,
+      currencyUnit: configData.currency_unit,
+      inviteForce: enabled(configData.invite_force),
+      inviteCommissionRate: numericValue(configData.commission_rate),
+      inviteCommissionBalance: numericValue(configData.invite_commission_balance),
+    })
+    if (!invites.ok) throw new Error(failureText(invites))
+    store().setInvites(inviteRows(invites.body?.data))
   } catch (err) {
     error.value = publicErrorText(err)
   } finally {
@@ -73,7 +76,7 @@ async function loadProfile() {
 async function createInvite() {
   const response = await xboardRequest<XboardBody>('invite_save', { baseUrl: appState.baseUrl, authData: appState.authData })
   if (!response.ok) {
-    error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+    error.value = failureText(response)
     return
   }
   message.value = t('invite_generated')
@@ -107,7 +110,7 @@ onMounted(loadProfile)
     <div class="page-header">
       <div class="page-header-bar" />
       <div class="page-header-content">
-        <p class="muted">{{ appState.email || t('logged_out') }}</p>
+        <p class="muted">{{ appState.email }}</p>
         <h1>{{ t('nav_profile') }}</h1>
       </div>
       <div class="d-flex gap-2">
@@ -129,13 +132,13 @@ onMounted(loadProfile)
       <v-card class="panel-card">
         <v-card-text>
           <p class="text-h6 font-weight-bold">
-            {{ appState.email || t('status_logged_in') }}
+            {{ appState.email }}
           </p>
           <p class="muted mt-1">
-            {{ t('balance') }}：{{ formatMoney(appState.balance, appState.currencySymbol || '¥', appState.currencyUnit) }}
+            {{ t('balance') }}：{{ formatMoney(appState.balance, appState.currencySymbol, appState.currencyUnit) }}
           </p>
           <p class="muted">
-            {{ t('commission_balance') }}：{{ formatMoney(appState.commissionBalance, appState.currencySymbol || '¥', appState.currencyUnit) }}
+            {{ t('commission_balance') }}：{{ formatMoney(appState.commissionBalance, appState.currencySymbol, appState.currencyUnit) }}
           </p>
           <p v-if="appState.subscription.summary" class="muted mt-2">
             {{ appState.subscription.summary }}
@@ -158,7 +161,7 @@ onMounted(loadProfile)
           <p class="muted">
             {{ t('commission') }} {{ appState.inviteCommissionRate }}%
             <span v-if="appState.inviteCommissionBalance > 0">
-              · {{ formatMoney(appState.inviteCommissionBalance, appState.currencySymbol || '¥', appState.currencyUnit) }}
+              · {{ formatMoney(appState.inviteCommissionBalance, appState.currencySymbol, appState.currencyUnit) }}
             </span>
           </p>
           <div v-if="appState.invites.length" class="mt-3 stack">

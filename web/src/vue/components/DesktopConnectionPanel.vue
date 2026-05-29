@@ -22,15 +22,16 @@ const routingModes = [
 
 const connected = computed(() => Boolean(appState.vpn))
 const busy = computed(() => desktopConnectionBusy())
+const hasRouteConfig = computed(() => Boolean((appState.settings.routeConfigYaml || appState.routing.routeConfigYaml || '').trim()))
 const proxyToggleDisabled = computed(() =>
   appState.settings.tunEnabled
   || appState.settings.routingMode === 'direct'
-  || (appState.settings.routingMode === 'rule' && appState.routing.hasRules),
+  || (appState.settings.routingMode === 'rule' && hasRouteConfig.value),
 )
 const tunToggleDisabled = computed(() =>
   busy.value
   || appState.settings.routingMode === 'direct'
-  || (appState.settings.routingMode === 'rule' && appState.routing.hasRules),
+  || (appState.settings.routingMode === 'rule' && hasRouteConfig.value),
 )
 const tunNeedsElevation = computed(
   () => appState.settings.tunEnabled && appState.capabilities?.vpn && appState.capabilities.tun_elevated === false,

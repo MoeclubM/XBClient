@@ -31,7 +31,12 @@ static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
             .with_tag("XBClient")
             .with_max_level(log::LevelFilter::Info),
     );
-    let _ = rustls::crypto::ring::default_provider().install_default();
+    if rustls::crypto::ring::default_provider()
+        .install_default()
+        .is_err()
+    {
+        panic!("rustls crypto provider is already installed");
+    }
     Runtime::new().expect("create Aerion tokio runtime")
 });
 
@@ -70,6 +75,42 @@ pub extern "system" fn Java_moe_telecom_xbclient_AerionCore_testNode<'local>(
         call_string(env, &input, |value| {
             RUNTIME.block_on(test_node_from_json(&value))
         })
+    })
+    .resolve::<ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_moe_telecom_xbclient_AerionCore_startRoute<'local>(
+    mut env: EnvUnowned<'local>,
+    _object: JObject<'local>,
+    input: JString<'local>,
+) -> JString<'local> {
+    env.with_env(|env| -> JniResult<_> {
+        call_string(env, &input, |value| {
+            RUNTIME.block_on(start_route_from_json(&value))
+        })
+    })
+    .resolve::<ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_moe_telecom_xbclient_AerionCore_stopRoute<'local>(
+    mut env: EnvUnowned<'local>,
+    _object: JObject<'local>,
+    session_id: i64,
+) -> JString<'local> {
+    env.with_env(|env| -> JniResult<_> {
+        let output = match catch_unwind(AssertUnwindSafe(|| {
+            RUNTIME.block_on(stop_route(session_id as u64))
+        })) {
+            Ok(Ok(value)) => value,
+            Ok(Err(error)) => json!({"ok": false, "error": format_error_chain(&error)}).to_string(),
+            Err(payload) => {
+                json!({"ok": false, "error": format!("Rust panic: {}", panic_message(payload))})
+                    .to_string()
+            }
+        };
+        JString::from_str(env, output)
     })
     .resolve::<ThrowRuntimeExAndDefault>()
 }

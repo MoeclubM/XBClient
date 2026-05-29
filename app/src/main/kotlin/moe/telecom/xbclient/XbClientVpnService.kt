@@ -38,9 +38,12 @@ class XbClientVpnService : VpnService() {
     private var currentNodeDns = DEFAULT_NODE_DNS
     private var currentOverseasDns = DEFAULT_OVERSEAS_DNS
     private var currentDirectDns = DEFAULT_DIRECT_DNS
-    private var currentDnsMode = DNS_MODE_VIRTUAL
+    private var currentDnsMode = DNS_MODE_OVER_TCP
     private var currentVirtualDnsPool = DEFAULT_VIRTUAL_DNS_POOL
     private var currentIpv6Enabled = true
+    private var currentRouteConfigYaml = ""
+    private var currentGeoipDir = ""
+    private var currentRouteSessionId = 0L
     private var currentSocksAddr = ""
     private var tunInterface: ParcelFileDescriptor? = null
     private var connectivityManager: ConnectivityManager? = null
@@ -81,9 +84,11 @@ class XbClientVpnService : VpnService() {
                 val dnsMode = currentDnsMode
                 val virtualDnsPool = currentVirtualDnsPool
                 val ipv6Enabled = currentIpv6Enabled
+                val routeConfigYaml = currentRouteConfigYaml
+                val geoipDir = currentGeoipDir
                 serviceScope.launch {
                     try {
-                        startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, directDns, dnsMode, virtualDnsPool, ipv6Enabled)
+                        startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, directDns, dnsMode, virtualDnsPool, ipv6Enabled, routeConfigYaml, geoipDir)
                         startForegroundNotification(connectedNotificationText())
                         startStatsTicker()
                         publishVpnState(true)
@@ -107,7 +112,7 @@ class XbClientVpnService : VpnService() {
                         }
                         currentNodeIndex = (currentNodeIndex + 1) % nodes.length()
                         currentNodeJson = nodes.getJSONObject(currentNodeIndex).toString()
-                        startVpn(currentNodeJson, currentExcludedApps, currentAllowedApps, currentNodeDns, currentOverseasDns, currentDirectDns, currentDnsMode, currentVirtualDnsPool, currentIpv6Enabled)
+                        startVpn(currentNodeJson, currentExcludedApps, currentAllowedApps, currentNodeDns, currentOverseasDns, currentDirectDns, currentDnsMode, currentVirtualDnsPool, currentIpv6Enabled, currentRouteConfigYaml, currentGeoipDir)
                         startForegroundNotification(connectedNotificationText())
                         startStatsTicker()
                         publishVpnState(true)
@@ -122,17 +127,36 @@ class XbClientVpnService : VpnService() {
                 return START_STICKY
             }
             ACTION_START -> {
-                val nodeJson = intent.getStringExtra(EXTRA_NODE).orEmpty()
-                val nodesJson = intent.getStringExtra(EXTRA_NODES).orEmpty()
+                val nodeJson = intent.getStringExtra(EXTRA_NODE)
+                    ?: throw IllegalStateException("VPN start missing node")
+                val nodesJson = intent.getStringExtra(EXTRA_NODES)
+                    ?: throw IllegalStateException("VPN start missing nodes")
+                if (!intent.hasExtra(EXTRA_NODE_INDEX)) {
+                    throw IllegalStateException("VPN start missing node index")
+                }
                 val nodeIndex = intent.getIntExtra(EXTRA_NODE_INDEX, 0)
-                val excludedApps = intent.getStringExtra(EXTRA_EXCLUDED_APPS).orEmpty()
-                val allowedApps = intent.getStringExtra(EXTRA_ALLOWED_APPS).orEmpty()
-                val nodeDns = intent.getStringExtra(EXTRA_NODE_DNS) ?: DEFAULT_NODE_DNS
-                val overseasDns = intent.getStringExtra(EXTRA_OVERSEAS_DNS) ?: DEFAULT_OVERSEAS_DNS
-                val directDns = intent.getStringExtra(EXTRA_DIRECT_DNS) ?: DEFAULT_DIRECT_DNS
-                val dnsMode = intent.getStringExtra(EXTRA_DNS_MODE) ?: DNS_MODE_VIRTUAL
-                val virtualDnsPool = intent.getStringExtra(EXTRA_VIRTUAL_DNS_POOL) ?: DEFAULT_VIRTUAL_DNS_POOL
+                val excludedApps = intent.getStringExtra(EXTRA_EXCLUDED_APPS)
+                    ?: throw IllegalStateException("VPN start missing excluded apps")
+                val allowedApps = intent.getStringExtra(EXTRA_ALLOWED_APPS)
+                    ?: throw IllegalStateException("VPN start missing allowed apps")
+                val nodeDns = intent.getStringExtra(EXTRA_NODE_DNS)
+                    ?: throw IllegalStateException("VPN start missing node DNS")
+                val overseasDns = intent.getStringExtra(EXTRA_OVERSEAS_DNS)
+                    ?: throw IllegalStateException("VPN start missing overseas DNS")
+                val directDns = intent.getStringExtra(EXTRA_DIRECT_DNS)
+                    ?: throw IllegalStateException("VPN start missing direct DNS")
+                val dnsMode = intent.getStringExtra(EXTRA_DNS_MODE)
+                    ?: throw IllegalStateException("VPN start missing DNS mode")
+                val virtualDnsPool = intent.getStringExtra(EXTRA_VIRTUAL_DNS_POOL)
+                    ?: throw IllegalStateException("VPN start missing virtual DNS pool")
+                if (!intent.hasExtra(EXTRA_IPV6_ENABLED)) {
+                    throw IllegalStateException("VPN start missing IPv6 flag")
+                }
                 val ipv6Enabled = intent.getBooleanExtra(EXTRA_IPV6_ENABLED, true)
+                val routeConfigYaml = intent.getStringExtra(EXTRA_ROUTE_CONFIG_YAML)
+                    ?: throw IllegalStateException("VPN start missing route config")
+                val geoipDir = intent.getStringExtra(EXTRA_GEOIP_DIR)
+                    ?: throw IllegalStateException("VPN start missing geoip dir")
                 currentNodeJson = nodeJson
                 currentNodesJson = nodesJson
                 currentNodeIndex = nodeIndex
@@ -144,10 +168,12 @@ class XbClientVpnService : VpnService() {
                 currentDnsMode = dnsMode
                 currentVirtualDnsPool = virtualDnsPool
                 currentIpv6Enabled = ipv6Enabled
+                currentRouteConfigYaml = routeConfigYaml
+                currentGeoipDir = geoipDir
                 startForegroundNotification(getString(R.string.vpn_notification_connecting))
                 serviceScope.launch {
                     try {
-                        startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, directDns, dnsMode, virtualDnsPool, ipv6Enabled)
+                        startVpn(nodeJson, excludedApps, allowedApps, nodeDns, overseasDns, directDns, dnsMode, virtualDnsPool, ipv6Enabled, routeConfigYaml, geoipDir)
                         startForegroundNotification(connectedNotificationText())
                         startStatsTicker()
                         publishVpnState(true)
@@ -175,7 +201,7 @@ class XbClientVpnService : VpnService() {
         super.onDestroy()
     }
 
-    private fun startVpn(nodeJson: String?, excludedApps: String?, allowedApps: String?, nodeDns: String, overseasDns: String, directDns: String, dnsMode: String, virtualDnsPool: String, ipv6Enabled: Boolean) {
+    private fun startVpn(nodeJson: String?, excludedApps: String?, allowedApps: String?, nodeDns: String, overseasDns: String, directDns: String, dnsMode: String, virtualDnsPool: String, ipv6Enabled: Boolean, routeConfigYaml: String, geoipDir: String) {
         stopNativeVpn()
         val dnsAddress = XboardApi.dnsAddressForVpn(if (dnsMode == DNS_MODE_DIRECT) directDns else overseasDns)
         val builder = Builder()
@@ -193,6 +219,13 @@ class XbClientVpnService : VpnService() {
         }
         val systemDns = if (dnsMode == DNS_MODE_DIRECT) dnsAddress else PRIVATE_IPV4_DNS
         builder.addDnsServer(systemDns)
+        Log.i("XBClient", "VPN DNS config: mode=$dnsMode system_dns=$systemDns upstream_dns=$dnsAddress fake_pool=$virtualDnsPool ipv6=$ipv6Enabled route_rules=${routeConfigYaml.isNotBlank()}")
+        if (routeConfigYaml.isNotBlank() && dnsMode != DNS_MODE_VIRTUAL) {
+            Log.w("XBClient", "Clash rule routing is enabled with DNS mode $dnsMode; DOMAIN rules only keep hostnames reliably in Fake-IP mode.")
+        }
+        if (dnsMode == DNS_MODE_VIRTUAL && ipv6Enabled) {
+            Log.w("XBClient", "Fake-IP is enabled with IPv6; if Android browser DNS fails, disable IPv6 first because tun2proxy virtual DNS uses one fake address family.")
+        }
 
         if (!allowedApps.isNullOrBlank()) {
             if (!excludedApps.isNullOrBlank()) {
@@ -215,26 +248,41 @@ class XbClientVpnService : VpnService() {
         }
 
         val node = JSONObject(nodeJson ?: throw IllegalStateException("node_json is required"))
-        val protocol = node.optString("type", node.optString("protocol")).lowercase(Locale.US)
+        val protocol = node.getString("type").lowercase(Locale.US)
         if (protocol != "direct" && protocol != "block") {
             val originalHost = node.getString("host")
             val resolvedHost = XboardApi.resolveNodeHost(nodeDns, originalHost)
-            if (resolvedHost != originalHost && node.optString("sni").isEmpty()) {
-                node.put("sni", originalHost)
+            if (resolvedHost != originalHost && (!node.has("sni") || node.getString("sni").isBlank())) {
+                throw IllegalStateException("节点解析为 IP 后缺少 sni：${node.getString("name")}")
             }
             node.put("host", resolvedHost)
-            if (node.has("server")) {
-                node.put("server", resolvedHost)
-            }
-            if (node.has("address")) {
-                node.put("address", resolvedHost)
-            }
         }
         currentNodeJson = node.toString()
+        val tunnelNode = if (routeConfigYaml.isBlank()) {
+            node
+        } else {
+            val routeResult = JSONObject(AerionCore.startRoute(JSONObject()
+                .put("config_yaml", routeConfigYaml)
+                .put("selected_proxy", node.getString("name"))
+                .put("selected_node", node)
+                .put("geoip_dir", geoipDir.trim())
+                .toString()))
+            if (!routeResult.getBoolean("ok")) {
+                throw IllegalStateException(routeResult.toString())
+            }
+            currentRouteSessionId = routeResult.getLong("session_id")
+            val socksAddr = routeResult.getString("socks_addr")
+            val colon = socksAddr.lastIndexOf(':')
+            JSONObject()
+                .put("type", "socks5")
+                .put("name", "Clash Rules")
+                .put("host", socksAddr.substring(0, colon))
+                .put("port", socksAddr.substring(colon + 1).toInt())
+        }
         val tun: ParcelFileDescriptor = builder.establish() ?: throw IllegalStateException(getString(R.string.vpn_permission_denied))
         tunInterface = tun
         val request = JSONObject()
-            .put("node", node)
+            .put("node", tunnelNode)
             .put("tun_fd", tun.fd)
             .put("mtu", 1500)
             .put("dns", dnsMode)
@@ -242,11 +290,11 @@ class XbClientVpnService : VpnService() {
             .put("virtual_dns_pool", virtualDnsPool)
             .put("ipv6", ipv6Enabled)
         val result = JSONObject(AerionCore.startVpn(request.toString()))
-        if (!result.optBoolean("ok")) {
+        if (!result.getBoolean("ok")) {
             throw IllegalStateException(result.toString())
         }
         vpnSessionId = result.getLong("session_id")
-        currentSocksAddr = result.optString("socks_addr")
+        currentSocksAddr = result.getString("socks_addr")
         sessionBaseRxBytes = currentUidRxBytes()
         sessionBaseTxBytes = currentUidTxBytes()
         lastSampleRxBytes = sessionBaseRxBytes
@@ -266,14 +314,15 @@ class XbClientVpnService : VpnService() {
      */
     private fun registerUnderlyingNetworkTracking() {
         if (networkCallback != null) return
-        val manager = getSystemService(ConnectivityManager::class.java) ?: return
+        val manager = getSystemService(ConnectivityManager::class.java)
+            ?: throw IllegalStateException("connectivity manager is required")
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 setUnderlyingNetworks(arrayOf(network))
             }
 
             override fun onLost(network: Network) {
-                // Fall back to the system default until a new uplink appears.
+                // Clear the explicit underlying network until a new uplink appears.
                 setUnderlyingNetworks(null)
             }
         }
@@ -283,6 +332,7 @@ class XbClientVpnService : VpnService() {
             networkCallback = callback
         } catch (error: Throwable) {
             Log.e("XBClient", "register underlying network callback failed", error)
+            throw IllegalStateException("register underlying network callback failed", error)
         }
     }
 
@@ -294,6 +344,7 @@ class XbClientVpnService : VpnService() {
                 manager.unregisterNetworkCallback(callback)
             } catch (error: Throwable) {
                 Log.e("XBClient", "unregister underlying network callback failed", error)
+                throw IllegalStateException("unregister underlying network callback failed", error)
             }
         }
         networkCallback = null
@@ -315,8 +366,19 @@ class XbClientVpnService : VpnService() {
                 Log.i("XBClient", "VPN stopped: $result")
             } catch (error: Throwable) {
                 Log.e("XBClient", "stop VPN failed", error)
+                throw IllegalStateException("stop VPN failed", error)
             }
             vpnSessionId = 0L
+        }
+        if (currentRouteSessionId != 0L) {
+            try {
+                val result = AerionCore.stopRoute(currentRouteSessionId)
+                Log.i("XBClient", "route stopped: $result")
+            } catch (error: Throwable) {
+                Log.e("XBClient", "stop route failed", error)
+                throw IllegalStateException("stop route failed", error)
+            }
+            currentRouteSessionId = 0L
         }
         currentSocksAddr = ""
         sessionBaseRxBytes = 0L
@@ -394,9 +456,9 @@ class XbClientVpnService : VpnService() {
 
     private fun currentNodeName(): String {
         val node = JSONObject(currentNodeJson)
-        val host = node.optString("host")
-        val name = node.optString("name").trim()
-        if (name.isEmpty() || name == host || name == "$host:${node.optInt("port")}" || host.isNotEmpty() && name.contains(host)) {
+        val host = node.getString("host")
+        val name = node.getString("name").trim()
+        if (name.isEmpty() || name == host || name == "$host:${node.getInt("port")}" || host.isNotEmpty() && name.contains(host)) {
             return getString(R.string.node_default_name, currentNodeIndex + 1)
         }
         return name
@@ -467,12 +529,15 @@ class XbClientVpnService : VpnService() {
         const val EXTRA_DNS_MODE = "dns_mode"
         const val EXTRA_VIRTUAL_DNS_POOL = "virtual_dns_pool"
         const val EXTRA_IPV6_ENABLED = "ipv6_enabled"
+        const val EXTRA_ROUTE_CONFIG_YAML = "route_config_yaml"
+        const val EXTRA_GEOIP_DIR = "geoip_dir"
         const val EXTRA_RUNNING = "running"
         const val EXTRA_ERROR = "error"
         private const val DEFAULT_NODE_DNS = "https://dns.alidns.com/resolve"
         private const val DEFAULT_OVERSEAS_DNS = "https://cloudflare-dns.com/dns-query"
         private const val DEFAULT_DIRECT_DNS = "223.5.5.5"
         private const val DEFAULT_VIRTUAL_DNS_POOL = "198.18.0.0/15"
+        private const val DNS_MODE_OVER_TCP = "over_tcp"
         private const val DNS_MODE_VIRTUAL = "virtual"
         private const val DNS_MODE_DIRECT = "direct"
         private const val PRIVATE_IPV4_CLIENT = "172.19.0.1"
@@ -486,7 +551,7 @@ class XbClientVpnService : VpnService() {
 
         @JvmStatic
         fun protectSocketFd(fd: Int): Boolean {
-            val service = activeService ?: return true
+            val service = activeService ?: throw IllegalStateException("active VPN service is required to protect socket fd")
             return service.protect(fd)
         }
 

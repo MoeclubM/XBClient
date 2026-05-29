@@ -13,16 +13,16 @@ interface GuestConfigBody {
   message?: string
 }
 
-export async function syncGuestAuthConfig(baseUrl?: string): Promise<void> {
-  const url = baseUrl ?? useAppStore.getState().buildConfig?.default_api_url ?? useAppStore.getState().baseUrl
-  if (!url) throw new Error('API base URL is not configured')
-
-  const response = await xboardRequest<GuestConfigBody>('guest_config', { baseUrl: url })
+export async function syncGuestAuthConfig(baseUrl: string): Promise<void> {
+  const response = await xboardRequest<GuestConfigBody>('guest_config', { baseUrl })
   if (!response.ok) {
-    throw new Error(response.body?.message ?? response.error ?? `HTTP ${response.status}`)
+    if (response.body?.message) throw new Error(response.body.message)
+    if (response.error) throw new Error(response.error)
+    throw new Error('guest config failed response missing message or error')
   }
+  if (!response.body?.data) throw new Error('guest config response missing data')
 
-  const data = response.body?.data ?? {}
+  const data = response.body.data
   useAppStore.getState().setAuthConfig({
     oauthProviders: parseOAuthProviders(data.oauth_providers),
     inviteForce: enabled(data.is_invite_force),

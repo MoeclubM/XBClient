@@ -35,7 +35,9 @@ where
 pub(crate) fn on_log(level: &str, message: &str) {
     #[cfg(target_os = "android")]
     {
-        let _ = crate::android::on_log(level, message);
+        if let Err(error) = crate::android::on_log(level, message) {
+            log::error!("emit Android Aerion log failed: {error}");
+        }
     }
 
     if let Some(cb) = LOG_CALLBACK.lock().unwrap().as_ref() {
@@ -46,7 +48,9 @@ pub(crate) fn on_log(level: &str, message: &str) {
 pub(crate) fn on_event(event_json: &str) {
     #[cfg(target_os = "android")]
     {
-        let _ = crate::android::on_event(event_json);
+        if let Err(error) = crate::android::on_event(event_json) {
+            log::error!("emit Android Aerion event failed: {error}");
+        }
     }
 
     if let Some(cb) = EVENT_CALLBACK.lock().unwrap().as_ref() {
@@ -125,12 +129,12 @@ fn traffic_direction_name(direction: aerion::TrafficDirection) -> &'static str {
 struct StartVpnRequest {
     node: Value,
     tun_fd: Option<i32>,
-    mtu: Option<u16>,
-    dns: Option<String>,
+    mtu: u16,
+    dns: String,
     dns_addr: String,
-    virtual_dns_pool: Option<String>,
+    virtual_dns_pool: String,
     bypass: Option<Vec<String>>,
-    ipv6: Option<bool>,
+    ipv6: bool,
     tcp_timeout_secs: Option<u64>,
     udp_timeout_secs: Option<u64>,
     max_sessions: Option<usize>,
@@ -140,10 +144,10 @@ struct StartVpnRequest {
 #[derive(Deserialize)]
 struct TestNodeRequest {
     node: Value,
-    target_host: Option<String>,
-    target_port: Option<u16>,
-    target_tls: Option<bool>,
-    timeout_ms: Option<u64>,
+    target_host: String,
+    target_port: u16,
+    target_tls: bool,
+    timeout_ms: u64,
 }
 
 #[derive(Deserialize)]
@@ -165,7 +169,14 @@ static TEST_NODE_GUARD: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| tokio::sync:
 
 async fn stop_listener(task: JoinHandle<Result<()>>) {
     task.abort();
-    let _ = task.await;
+    if let Err(error) = task.await {
+        if !error.is_cancelled() {
+            on_log(
+                "error",
+                &format!("Aerion listener task join failed: {error}"),
+            );
+        }
+    }
 }
 
 async fn start_aerion_socks(
@@ -278,13 +289,14 @@ pub async fn test_node_from_json(input: &str) -> Result<String> {
     let _guard = TEST_NODE_GUARD.lock().await;
     let request: TestNodeRequest =
         serde_json::from_str(input).context("parse node test request")?;
-    let target_host = request
-        .target_host
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "cp.cloudflare.com".to_string());
-    let target_port = request.target_port.unwrap_or(80);
-    let target_tls = request.target_tls.unwrap_or(target_port == 443);
-    let timeout_duration = Duration::from_millis(request.timeout_ms.unwrap_or(15000));
+    ensure!(
+        !request.target_host.trim().is_empty(),
+        "node test target_host is required"
+    );
+    let target_host = request.target_host.trim().to_string();
+    let target_port = request.target_port;
+    let target_tls = request.target_tls;
+    let timeout_duration = Duration::from_millis(request.timeout_ms);
     let (socks_addr, mut task, _) = start_aerion_socks(request.node, false).await?;
     let result = timeout(timeout_duration, async {
         probe_via_socks(socks_addr, &target_host, target_port, target_tls).await
@@ -510,8 +522,9 @@ mod platform {
     pub async fn start(input: &str) -> Result<String> {
         let request: StartVpnRequest =
             serde_json::from_str(input).context("parse start VPN request")?;
-        let mtu = request.mtu.unwrap_or(1500);
-        let dns = match request.dns.as_deref().unwrap_or("over_tcp") {
+        let mtu = request.mtu;
+        let dns_name = request.dns.clone();
+        let dns = match dns_name.as_str() {
             "virtual" => TunDnsStrategy::Virtual,
             "direct" => TunDnsStrategy::Direct,
             "over_tcp" => TunDnsStrategy::OverTcp,
@@ -533,13 +546,11 @@ mod platform {
         tun_config.packet_information = false;
         tun_config.dns = dns;
         tun_config.dns_addr = dns_addr;
-        if let Some(virtual_dns_pool) = request.virtual_dns_pool {
-            tun_config.virtual_dns_pool = virtual_dns_pool;
-        }
+        tun_config.virtual_dns_pool = request.virtual_dns_pool;
         if let Some(bypass) = request.bypass {
             tun_config.bypass = bypass;
         }
-        tun_config.ipv6 = request.ipv6.unwrap_or(false);
+        tun_config.ipv6 = request.ipv6;
         if let Some(tcp_timeout_secs) = request.tcp_timeout_secs {
             tun_config.tcp_timeout_secs = tcp_timeout_secs;
         }
@@ -614,7 +625,7 @@ mod platform {
             "ok": true,
             "session_id": session_id,
             "mtu": mtu,
-            "dns": request.dns.unwrap_or_else(|| "over_tcp".to_string()),
+            "dns": dns_name,
             "dns_addr": dns_addr.to_string(),
             "virtual_dns_pool": virtual_dns_pool,
             // Loopback SOCKS5 endpoint that backs the TUN; the UI dials through it
@@ -662,8 +673,9 @@ mod platform {
     pub async fn start(input: &str) -> Result<String> {
         let request: StartVpnRequest =
             serde_json::from_str(input).context("parse start VPN request")?;
-        let mtu = request.mtu.unwrap_or(1500);
-        let dns = match request.dns.as_deref().unwrap_or("over_tcp") {
+        let mtu = request.mtu;
+        let dns_name = request.dns.clone();
+        let dns = match dns_name.as_str() {
             "virtual" => TunDnsStrategy::Virtual,
             "direct" => TunDnsStrategy::Direct,
             "over_tcp" => TunDnsStrategy::OverTcp,
@@ -679,13 +691,11 @@ mod platform {
         tun_config.packet_information = false;
         tun_config.dns = dns;
         tun_config.dns_addr = dns_addr;
-        if let Some(virtual_dns_pool) = request.virtual_dns_pool {
-            tun_config.virtual_dns_pool = virtual_dns_pool;
-        }
+        tun_config.virtual_dns_pool = request.virtual_dns_pool;
         if let Some(bypass) = request.bypass {
             tun_config.bypass = bypass;
         }
-        tun_config.ipv6 = request.ipv6.unwrap_or(false);
+        tun_config.ipv6 = request.ipv6;
         if let Some(tcp_timeout_secs) = request.tcp_timeout_secs {
             tun_config.tcp_timeout_secs = tcp_timeout_secs;
         }
@@ -764,7 +774,7 @@ mod platform {
             "ok": true,
             "session_id": session_id,
             "mtu": mtu,
-            "dns": request.dns.unwrap_or_else(|| "over_tcp".to_string()),
+            "dns": dns_name,
             "dns_addr": dns_addr.to_string(),
             "virtual_dns_pool": virtual_dns_pool,
             // Loopback SOCKS5 endpoint that backs the TUN; the UI dials through it
@@ -805,8 +815,7 @@ mod platform {
         bail!("VPN is not supported on this platform")
     }
 
-    pub async fn stop(session_id: u64) -> Result<String> {
-        let _ = session_id;
+    pub async fn stop(_session_id: u64) -> Result<String> {
         bail!("VPN is not supported on this platform")
     }
 }

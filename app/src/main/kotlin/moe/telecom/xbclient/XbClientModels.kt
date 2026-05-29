@@ -14,8 +14,8 @@ const val DEFAULT_OVERSEAS_DNS = "https://cloudflare-dns.com/dns-query"
 const val DEFAULT_DIRECT_DNS = "223.5.5.5"
 const val DEFAULT_VIRTUAL_DNS_POOL = "198.18.0.0/15"
 const val DEFAULT_NODE_TEST_TARGET = "https://cp.cloudflare.com"
-const val DNS_MODE_VIRTUAL = "virtual"
 const val DNS_MODE_OVER_TCP = "over_tcp"
+const val DNS_MODE_VIRTUAL = "virtual"
 const val DNS_MODE_DIRECT = "direct"
 const val REWARD_SCENE_PLAN = "plan"
 const val REWARD_SCENE_POINTS = "points"
@@ -46,10 +46,10 @@ data class AnyTlsNode(
     val tags: List<String>,
     val rawJson: String
 ) {
-    fun displayName(index: Int, fallback: String = "Node ${index + 1}"): String {
+    fun displayName(index: Int, defaultName: String = "Node ${index + 1}"): String {
         val trimmed = name.trim()
         if (trimmed.isEmpty() || trimmed == host || trimmed == "$host:$port" || host.isNotEmpty() && trimmed.contains(host)) {
-            return fallback
+            return defaultName
         }
         return trimmed
     }
@@ -57,17 +57,17 @@ data class AnyTlsNode(
     val protocolLabel: String
         get() = when (protocol) {
             "anytls" -> "AnyTLS"
-            "hysteria2", "hy2" -> "Hysteria2"
+            "hysteria2" -> "Hysteria2"
             "hysteria" -> "Hysteria"
-            "ss", "shadowsocks" -> "Shadowsocks"
+            "ss" -> "Shadowsocks"
             "vmess" -> "VMess"
             "vless" -> "VLESS"
             "trojan" -> "Trojan"
             "tuic" -> "TUIC"
-            "socks", "socks5" -> "SOCKS5"
-            "naive", "naive+https", "naive+quic" -> "Naive"
+            "socks5" -> "SOCKS5"
+            "naive" -> "Naive"
             "http" -> "HTTP"
-            "mieru", "mierus" -> "Mieru"
+            "mieru" -> "Mieru"
             "direct" -> "Direct"
             "block" -> "Block"
             else -> protocol.uppercase(Locale.US)
@@ -77,20 +77,14 @@ data class AnyTlsNode(
         get() = when (protocol) {
             "anytls",
             "hysteria2",
-            "hy2",
             "trojan",
             "vless",
             "vmess",
             "mieru",
-            "mierus",
             "ss",
-            "shadowsocks",
             "naive",
-            "naive+https",
-            "naive+quic",
             "tuic",
             "http",
-            "socks",
             "socks5",
             "direct",
             "block" -> true
@@ -146,24 +140,14 @@ data class NoticeItem(
 )
 
 fun JSONObject.toAnyTlsNode(): AnyTlsNode =
-    optString("type", optString("protocol", "anytls")).lowercase(Locale.US).let { rawProtocol ->
-        val protocol = when (rawProtocol) {
-            "hy2" -> "hysteria2"
-            "mierus" -> "mieru"
-            "naive+https", "naive+quic" -> "naive"
-            "shadowsocks" -> "ss"
-            "socks", "socks5h" -> "socks5"
-            "freedom" -> "direct"
-            "reject", "blackhole" -> "block"
-            else -> rawProtocol
-        }
+    getString("type").lowercase(Locale.US).let { rawProtocol ->
         AnyTlsNode(
-            protocol = protocol,
-            name = optString("name"),
-            host = optString("host", optString("server")),
-            port = optInt("port", optInt("server_port")),
+            protocol = rawProtocol,
+            name = getString("name").trim(),
+            host = getString("host").trim(),
+            port = getInt("port"),
             tags = nodeTags(this),
-            rawJson = normalizedNodeJson(protocol, rawProtocol)
+            rawJson = normalizedNodeJson(rawProtocol)
         )
     }
 
@@ -172,7 +156,7 @@ fun nodeTags(node: JSONObject): List<String> {
     when (val value = node.opt("tags")) {
         is JSONArray -> {
             for (index in 0 until value.length()) {
-                val tag = value.optString(index).trim()
+                val tag = value.getString(index).trim()
                 if (tag.isNotEmpty()) {
                     tags.add(tag)
                 }
@@ -181,42 +165,34 @@ fun nodeTags(node: JSONObject): List<String> {
         is String -> value.split(',', '|').map { it.trim() }.filterTo(tags) { it.isNotEmpty() }
     }
     for (key in arrayOf("tag", "label", "group")) {
-        val tag = node.optString(key).trim()
-        if (tag.isNotEmpty()) {
-            tags.add(tag)
+        if (node.has(key) && !node.isNull(key)) {
+            val tag = node.getString(key).trim()
+            if (tag.isNotEmpty()) {
+                tags.add(tag)
+            }
         }
     }
     return tags.distinct()
 }
 
-private fun JSONObject.normalizedNodeJson(protocol: String, rawProtocol: String): String {
+private fun JSONObject.normalizedNodeJson(protocol: String): String {
     val node = JSONObject(toString())
     if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
-        if (node.optString("host").isEmpty() && node.optString("server").isNotEmpty()) {
-            node.put("host", node.optString("server"))
-        }
         node.put("type", protocol)
-        if (rawProtocol == "naive+quic") {
-            node.put("quic", true)
-        }
-        if (protocol != "ss" && !node.has("insecure")) {
-            node.put("insecure", node.optBoolean("skip-cert-verify", false))
-        }
-        node.remove("skip-cert-verify")
     }
     return node.toString()
 }
 
 fun JSONObject.toInviteItem(): InviteItem =
     InviteItem(
-        code = optString("code"),
-        status = optInt("status")
+        code = getString("code"),
+        status = getInt("status")
     )
 
 fun JSONObject.toOAuthProvider(): OAuthProvider =
     OAuthProvider(
         driver = getString("driver"),
-        label = optString("label", getString("driver"))
+        label = getString("label")
     )
 
 fun JSONObject.toPlanItem(): PlanItem {
@@ -231,13 +207,16 @@ fun JSONObject.toPlanItem(): PlanItem {
         "reset_price" to "重置流量"
     )
     val prices = periodFields.mapNotNull { (field, label) ->
+        if (isNull(field)) {
+            return@mapNotNull null
+        }
         val amount = numericValue(opt(field)).toInt()
-        if (isNull(field) || amount <= 0) null else PlanPrice(field, label, amount)
+        if (amount <= 0) null else PlanPrice(field, label, amount)
     }
     return PlanItem(
         id = getInt("id"),
-        name = optString("name", "套餐 ${getInt("id")}"),
-        content = optString("content"),
+        name = getString("name"),
+        content = getString("content"),
         transferEnable = numericValue(opt("transfer_enable")),
         prices = prices
     )
@@ -259,11 +238,11 @@ fun JSONArray.toAdRewardLogItemList(): List<AdRewardLogItem> =
     List(length()) { index ->
         val item = getJSONObject(index)
         AdRewardLogItem(
-            id = item.optInt("id"),
-            scene = item.optString("scene"),
-            transactionId = item.optString("transaction_id"),
-            status = item.optString("status"),
-            error = item.optString("error"),
+            id = item.getInt("id"),
+            scene = item.getString("scene"),
+            transactionId = item.getString("transaction_id"),
+            status = item.getString("status"),
+            error = item.getString("error"),
             rewardContent = rewardContentText(item),
             usedAt = numericValue(item.opt("used_at")).toLong(),
             createdAt = numericValue(item.opt("created_at")).toLong()
@@ -273,65 +252,98 @@ fun JSONArray.toAdRewardLogItemList(): List<AdRewardLogItem> =
 fun JSONArray.toNoticeItemList(): List<NoticeItem> =
     List(length()) { index ->
         val item = getJSONObject(index)
+        val title = item.getString("title")
+        val content = item.getString("content")
+        if (title.isBlank() && content.isBlank()) {
+            throw IllegalStateException("公告缺少 title 或 content。")
+        }
         NoticeItem(
-            id = item.optInt("id"),
-            title = item.optString("title", item.optString("subject")),
-            content = item.optString("content", item.optString("message")),
+            id = item.getInt("id"),
+            title = title,
+            content = content,
             createdAt = numericValue(item.opt("created_at")).toLong()
         )
-    }.filter { it.title.isNotBlank() || it.content.isNotBlank() }
+    }
 
 fun rewardContentText(item: JSONObject): String {
-    for (key in arrayOf("reward_content", "reward_text", "reward_description", "description")) {
-        val text = item.optString(key)
+    if (item.has("reward_content") && !item.isNull("reward_content")) {
+        val text = item.getString("reward_content")
         if (text.isNotBlank()) {
             return text
         }
     }
-    val rewards = item.optJSONObject("rewards") ?: item.optJSONObject("rewards_given")
-    if (rewards != null) {
+    val rewardValue = item.opt("rewards")
+    if (rewardValue is JSONObject) {
+        val rewards = rewardValue
         val parts = mutableListOf<String>()
-        val balance = numericValue(rewards.opt("balance"))
-        if (balance > 0.0) {
-            parts.add("余额 " + String.format(Locale.US, "%.2f", balance / 100.0).trimEnd('0').trimEnd('.'))
+        if (!rewards.isNull("balance")) {
+            val balance = numericValue(rewards.opt("balance"))
+            if (balance > 0.0) {
+                parts.add("余额 " + String.format(Locale.US, "%.2f", balance / 100.0).trimEnd('0').trimEnd('.'))
+            }
         }
-        val transfer = numericValue(rewards.opt("transfer_enable"))
-        if (transfer > 0.0) {
-            parts.add("流量 ${formatTrafficBytes(transfer)}")
+        if (!rewards.isNull("transfer_enable")) {
+            val transfer = numericValue(rewards.opt("transfer_enable"))
+            if (transfer > 0.0) {
+                parts.add("流量 ${formatTrafficBytes(transfer)}")
+            }
         }
-        val deviceLimit = numericValue(rewards.opt("device_limit")).toInt()
-        if (deviceLimit > 0) {
-            parts.add("设备数 +$deviceLimit")
+        if (!rewards.isNull("device_limit")) {
+            val deviceLimit = numericValue(rewards.opt("device_limit")).toInt()
+            if (deviceLimit > 0) {
+                parts.add("设备数 +$deviceLimit")
+            }
         }
-        if (rewards.optBoolean("reset_package") || numericValue(rewards.opt("reset_package")) > 0.0) {
-            parts.add("重置流量")
+        if (!rewards.isNull("reset_package")) {
+            val resetPackage = rewards.get("reset_package")
+            if (when (resetPackage) {
+                    is Boolean -> resetPackage
+                    else -> numericValue(resetPackage) > 0.0
+                }
+            ) {
+                parts.add("重置流量")
+            }
         }
-        val planId = numericValue(rewards.opt("plan_id")).toInt()
-        if (planId > 0) {
-            parts.add("套餐 #$planId")
+        if (!rewards.isNull("plan_id")) {
+            val planId = numericValue(rewards.opt("plan_id")).toInt()
+            if (planId > 0) {
+                parts.add("套餐 #$planId")
+            }
         }
-        val planValidityDays = numericValue(rewards.opt("plan_validity_days")).toInt()
-        if (planValidityDays > 0) {
-            parts.add("套餐有效期 $planValidityDays 天")
+        if (!rewards.isNull("plan_validity_days")) {
+            val planValidityDays = numericValue(rewards.opt("plan_validity_days")).toInt()
+            if (planValidityDays > 0) {
+                parts.add("套餐有效期 $planValidityDays 天")
+            }
         }
-        val expireDays = numericValue(rewards.opt("expire_days")).toInt()
-        if (expireDays > 0) {
-            parts.add("有效期 +$expireDays 天")
+        if (!rewards.isNull("expire_days")) {
+            val expireDays = numericValue(rewards.opt("expire_days")).toInt()
+            if (expireDays > 0) {
+                parts.add("有效期 +$expireDays 天")
+            }
+        }
+        if (parts.isEmpty()) {
+            throw IllegalStateException("广告奖励记录 rewards 为空。")
         }
         return parts.joinToString(" · ")
     }
-    return ""
+    throw IllegalStateException("广告奖励记录缺少 reward_content 或 rewards。")
 }
 
 fun resultError(result: JSONObject): String {
-    val body = result.optJSONObject("body")
-    if (body != null && body.optString("message").isNotEmpty()) {
-        return body.optString("message")
+    val bodyValue = result.opt("body")
+    if (bodyValue != null && bodyValue != JSONObject.NULL) {
+        if (bodyValue !is JSONObject) {
+            throw IllegalStateException("错误响应 body 必须是对象：$result")
+        }
+        if (bodyValue.has("message") && bodyValue.getString("message").isNotEmpty()) {
+            return bodyValue.getString("message")
+        }
     }
-    if (result.optString("error").isNotEmpty()) {
-        return result.optString("error")
+    if (result.has("error") && result.getString("error").isNotEmpty()) {
+        return result.getString("error")
     }
-    return result.toString()
+    throw IllegalStateException("错误响应缺少 message 或 error：$result")
 }
 
 fun extractDataArray(body: JSONObject): JSONArray {
@@ -339,44 +351,20 @@ fun extractDataArray(body: JSONObject): JSONArray {
     if (data is JSONArray) {
         return data
     }
-    if (data is JSONObject) {
-        directArray(data)?.let { return it }
-        for (key in arrayOf("data", "invite_codes", "codes", "list", "items", "notices")) {
-            val nested = data.optJSONObject(key)
-            if (nested != null) {
-                directArray(nested)?.let { return it }
-            }
-        }
-        val values = JSONArray()
-        val keys = data.keys()
-        while (keys.hasNext()) {
-            val value = data.opt(keys.next())
-            if (value is JSONObject && (value.has("code") || value.has("title") || value.has("content"))) {
-                values.put(value)
-            }
-        }
-        if (values.length() > 0) {
-            return values
-        }
-    }
     throw IllegalStateException("数据不是列表。")
 }
 
-private fun directArray(data: JSONObject): JSONArray? {
-    for (key in arrayOf("data", "invite_codes", "codes", "list", "items", "notices")) {
-        val array = data.optJSONArray(key)
-        if (array != null) {
-            return array
-        }
-    }
-    return null
-}
-
 fun subscriptionSummary(data: JSONObject): String {
-    val used = numericValue(data.opt("u")) + numericValue(data.opt("d"))
-    val total = numericValue(data.opt("transfer_enable"))
-    val planName = data.optJSONObject("plan")?.optString("name").orEmpty()
-    val expire = numericValue(data.opt("expired_at")).toLong()
+    val used = numericValue(data.get("u")) + numericValue(data.get("d"))
+    val total = numericValue(data.get("transfer_enable"))
+    val planValue = data.opt("plan")
+    val plan = when (planValue) {
+        null, JSONObject.NULL -> null
+        is JSONObject -> planValue
+        else -> throw IllegalStateException("订阅套餐 plan 必须是对象。")
+    }
+    val planName = if (plan == null) "" else plan.getString("name")
+    val expire = numericValue(data.get("expired_at")).toLong()
     val lines = ArrayList<String>()
     if (planName.isNotEmpty()) {
         lines.add(planName)
@@ -391,16 +379,22 @@ fun subscriptionSummary(data: JSONObject): String {
 }
 
 fun subscriptionBlockReason(data: JSONObject): String {
-    val planId = numericValue(data.opt("plan_id")).toInt()
-    if (planId <= 0 && data.optJSONObject("plan") == null) {
+    val planId = numericValue(data.get("plan_id")).toInt()
+    val planValue = data.opt("plan")
+    val hasPlan = when (planValue) {
+        null, JSONObject.NULL -> false
+        is JSONObject -> true
+        else -> throw IllegalStateException("订阅套餐 plan 必须是对象。")
+    }
+    if (planId <= 0 && !hasPlan) {
         return SUBSCRIPTION_BLOCK_NO_PLAN
     }
-    val expiredAt = numericValue(data.opt("expired_at")).toLong()
+    val expiredAt = numericValue(data.get("expired_at")).toLong()
     if (!data.isNull("expired_at") && expiredAt <= System.currentTimeMillis() / 1000L) {
         return SUBSCRIPTION_BLOCK_EXPIRED
     }
-    val total = numericValue(data.opt("transfer_enable"))
-    if (total <= 0.0 || numericValue(data.opt("u")) + numericValue(data.opt("d")) >= total) {
+    val total = numericValue(data.get("transfer_enable"))
+    if (total <= 0.0 || numericValue(data.get("u")) + numericValue(data.get("d")) >= total) {
         return SUBSCRIPTION_BLOCK_TRAFFIC
     }
     return ""
@@ -434,9 +428,10 @@ fun readableNodeTestError(error: String): String {
 }
 
 fun numericValue(value: Any?): Double = when (value) {
-    is Number -> value.toDouble()
-    is String -> value.toDoubleOrNull() ?: 0.0
-    else -> 0.0
+    null, JSONObject.NULL -> throw IllegalStateException("numeric value is required")
+    is Number -> value.toDouble().also { require(it.isFinite()) { "numeric value is not finite" } }
+    is String -> value.toDoubleOrNull() ?: throw IllegalStateException("numeric value is invalid: $value")
+    else -> throw IllegalStateException("numeric value has unsupported type: ${value.javaClass.name}")
 }
 
 fun formatTrafficGb(value: Double): String = if (value >= 1024.0) {

@@ -12,10 +12,10 @@ import { t } from '../state'
 const props = defineProps<{ title: string }>()
 
 const maximized = ref(false)
-const isMac = typeof window !== 'undefined' && window.electronAPI?.getDesktopPlatform() === 'darwin'
+const isMac = window.electronAPI.getDesktopPlatform() === 'darwin'
 let cleanupMaximized: (() => void) | null = null
 
-const displayTitle = computed(() => props.title.trim() || 'XBClient')
+const displayTitle = computed(() => props.title.trim())
 
 onMounted(async () => {
   maximized.value = await isWindowMaximized()

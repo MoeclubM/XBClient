@@ -1,14 +1,14 @@
-use anyhow::{anyhow, bail, Context, Result};
 use aerion_core::{set_event_callback, set_log_callback};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::HashMap;
-use std::net::IpAddr;
 use std::io::Write;
+use std::net::IpAddr;
+use std::sync::Mutex;
 use std::time::Duration;
 use tokio::io::{self, AsyncBufReadExt, BufReader};
-use std::sync::Mutex;
 
 mod subscription;
 mod system_proxy;
@@ -24,12 +24,10 @@ static HTTP_CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
 static OUTPUT_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 fn emit_line(value: &Value) {
-    let Ok(guard) = OUTPUT_LOCK.lock() else {
-        return;
-    };
+    let guard = OUTPUT_LOCK.lock().expect("lock stdout writer");
     let mut out = std::io::stdout().lock();
-    let _ = writeln!(out, "{}", value);
-    let _ = out.flush();
+    writeln!(out, "{}", value).expect("write RPC line to stdout");
+    out.flush().expect("flush RPC stdout");
     drop(guard);
 }
 
@@ -115,7 +113,8 @@ fn platform_name() -> &'static str {
 }
 
 fn required_env(name: &str) -> Result<String> {
-    let value = std::env::var(name).unwrap_or_default();
+    let value =
+        std::env::var(name).with_context(|| format!("{name} is required in build config"))?;
     let value = value.trim();
     if value.is_empty() {
         bail!("{name} is required in build config")
@@ -159,8 +158,7 @@ async fn resolve_node_host(params: ResolveNodeHostRequest) -> Result<String> {
     }
 
     for record_type in ["A", "AAAA"] {
-        let mut url = reqwest::Url::parse(resolver)
-            .with_context(|| "parse dns resolver URL")?;
+        let mut url = reqwest::Url::parse(resolver).with_context(|| "parse dns resolver URL")?;
         url.query_pairs_mut()
             .append_pair("name", host)
             .append_pair("type", record_type);
@@ -243,11 +241,8 @@ async fn xboard_request(params: RpcParamsForXboardRequest) -> Result<XboardRespo
     let status = response.status().as_u16();
     let text = response.text().await.context("read xboard response")?;
 
-    let parsed = if text.is_empty() {
-        Value::Null
-    } else {
-        serde_json::from_str(&text).unwrap_or(Value::String(text))
-    };
+    ensure!(!text.is_empty(), "xboard JSON response body is empty");
+    let parsed = serde_json::from_str(&text).context("parse xboard JSON response")?;
 
     let ok = (200..300).contains(&status);
     Ok(XboardResponse {
@@ -264,7 +259,8 @@ async fn subscription_fetch(params: &Value) -> Result<Value> {
         url: String,
         flag: String,
     }
-    let input: SubscriptionReq = serde_json::from_value(params.clone()).context("parse subscription_fetch args")?;
+    let input: SubscriptionReq =
+        serde_json::from_value(params.clone()).context("parse subscription_fetch args")?;
     let v = subscription::fetch(&HTTP_CLIENT, &input.url, &input.flag).await?;
     Ok(v)
 }
@@ -274,8 +270,8 @@ async fn aerion_test_node(params: &Value) -> Result<Value> {
     struct TestNodeParams {
         request: Value,
     }
-    let input: TestNodeParams = serde_json::from_value(params.clone())
-        .context("parse aerion_test_node args")?;
+    let input: TestNodeParams =
+        serde_json::from_value(params.clone()).context("parse aerion_test_node args")?;
     let json_str = serde_json::to_string(&input.request)?;
     let output = aerion_core::test_node_from_json(&json_str)
         .await
@@ -297,14 +293,14 @@ async fn aerion_start_socks(params: &Value) -> Result<Value> {
     struct StartSocksParams {
         node: Value,
     }
-    let input: StartSocksParams = serde_json::from_value(params.clone())
-        .context("parse aerion_start_socks args")?;
+    let input: StartSocksParams =
+        serde_json::from_value(params.clone()).context("parse aerion_start_socks args")?;
     let wrapped = serde_json::json!({ "node": input.node });
     let input_str = serde_json::to_string(&wrapped)?;
     let output = aerion_core::start_socks_from_json(&input_str)
         .await
         .map_err(|e| anyhow!(e.to_string()))?;
-    Ok(serde_json::from_str(&output).unwrap_or(Value::Null))
+    serde_json::from_str(&output).context("parse aerion_start_socks response")
 }
 
 async fn aerion_start_vpn(params: &Value) -> Result<Value> {
@@ -312,19 +308,18 @@ async fn aerion_start_vpn(params: &Value) -> Result<Value> {
     let output = aerion_core::start_vpn_from_json(&input)
         .await
         .map_err(|e| anyhow!(e.to_string()))?;
-    Ok(serde_json::from_str(&output).unwrap_or(Value::Null))
+    serde_json::from_str(&output).context("parse aerion_start_vpn response")
 }
 
 async fn aerion_stop_vpn(params: &Value) -> Result<Value> {
     let session_id = params
         .get("sessionId")
-        .or_else(|| params.get("session_id"))
         .and_then(|v| v.as_u64())
         .ok_or_else(|| anyhow!("aerion_stop_vpn missing sessionId"))?;
     let output = aerion_core::stop_vpn(session_id)
         .await
         .map_err(|e| anyhow!(e.to_string()))?;
-    Ok(serde_json::from_str(&output).unwrap_or(Value::Null))
+    serde_json::from_str(&output).context("parse aerion_stop_vpn response")
 }
 
 async fn aerion_start_route(params: &Value) -> Result<Value> {
@@ -332,30 +327,27 @@ async fn aerion_start_route(params: &Value) -> Result<Value> {
     let output = aerion_core::start_route_from_json(&input)
         .await
         .map_err(|e| anyhow!(e.to_string()))?;
-    Ok(serde_json::from_str(&output).unwrap_or(Value::Null))
+    serde_json::from_str(&output).context("parse aerion_start_route response")
 }
 
 async fn aerion_stop_route(params: &Value) -> Result<Value> {
     let session_id = params
         .get("sessionId")
-        .or_else(|| params.get("session_id"))
         .and_then(|v| v.as_u64())
         .ok_or_else(|| anyhow!("aerion_stop_route missing sessionId"))?;
     let output = aerion_core::stop_route(session_id)
         .await
         .map_err(|e| anyhow!(e.to_string()))?;
-    Ok(serde_json::from_str(&output).unwrap_or(Value::Null))
+    serde_json::from_str(&output).context("parse aerion_stop_route response")
 }
 
 async fn aerion_stop(params: &Value) -> Result<Value> {
-    // Accept both camelCase and snake_case, to be compatible with invoke payloads.
     let session_id = params
         .get("sessionId")
-        .or_else(|| params.get("session_id"))
         .and_then(|v| v.as_u64())
         .ok_or_else(|| anyhow!("aerion_stop missing sessionId"))?;
     let output = aerion_core::stop_socks(session_id).await?;
-    Ok(serde_json::from_str(&output).unwrap_or(Value::Null))
+    serde_json::from_str(&output).context("parse aerion_stop response")
 }
 
 async fn system_proxy_set(params: &Value) -> Result<()> {
@@ -364,8 +356,8 @@ async fn system_proxy_set(params: &Value) -> Result<()> {
         host: String,
         port: u16,
     }
-    let input: SystemProxySetParams = serde_json::from_value(params.clone())
-        .context("parse system_proxy_set args")?;
+    let input: SystemProxySetParams =
+        serde_json::from_value(params.clone()).context("parse system_proxy_set args")?;
     system_proxy::set_socks(&input.host, input.port).context("system proxy set")?;
     Ok(())
 }
@@ -392,7 +384,9 @@ fn emit_rpc_response(id: u64, out: Result<RpcResponseOk, anyhow::Error>) {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let _ = rustls::crypto::ring::default_provider().install_default();
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|_| anyhow!("rustls crypto provider is already installed"))?;
     let mut stdin = BufReader::new(io::stdin());
     let mut lines = String::new();
 
@@ -426,74 +420,143 @@ async fn main() -> Result<()> {
 
         let req: RpcRequest = match serde_json::from_str(text) {
             Ok(v) => v,
-            Err(_) => continue,
+            Err(error) => {
+                emit_line(&json!({
+                    "type": "log",
+                    "level": "error",
+                    "message": format!("invalid RPC request JSON: {error}")
+                }));
+                continue;
+            }
         };
 
         let out: Result<RpcResponseOk, anyhow::Error> = match req.method.as_str() {
             "runtime_capabilities" => {
                 let caps = runtime_capabilities();
-                Ok(RpcResponseOk { id: req.id, ok: true, result: serde_json::to_value(caps)? })
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: serde_json::to_value(caps)?,
+                })
             }
             "runtime_config" => {
                 let cfg = runtime_config()?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: serde_json::to_value(cfg)? })
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: serde_json::to_value(cfg)?,
+                })
             }
             "resolve_node_host" => {
                 let params: ResolveNodeHostRequest = serde_json::from_value(req.params)?;
                 let resolved = resolve_node_host(params).await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: serde_json::to_value(resolved)? })
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: serde_json::to_value(resolved)?,
+                })
             }
             "xboard_request" => {
                 let params: RpcParamsForXboardRequest = serde_json::from_value(req.params)?;
                 let resp = xboard_request(params).await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: serde_json::to_value(resp)? })
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: serde_json::to_value(resp)?,
+                })
             }
             "subscription_fetch" => {
                 let resp = subscription_fetch(&req.params).await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: resp,
+                })
             }
             "aerion_test_node" => {
                 let params = req.params.clone();
-                let resp = spawn_aerion_value(async move { aerion_test_node(&params).await }).await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
+                let resp =
+                    spawn_aerion_value(async move { aerion_test_node(&params).await }).await?;
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: resp,
+                })
             }
             "aerion_start_socks" => {
                 let params = req.params.clone();
-                let resp = spawn_aerion_value(async move { aerion_start_socks(&params).await }).await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
+                let resp =
+                    spawn_aerion_value(async move { aerion_start_socks(&params).await }).await?;
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: resp,
+                })
             }
             "aerion_start_route" => {
                 let params = req.params.clone();
-                let resp = spawn_aerion_value(async move { aerion_start_route(&params).await }).await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
+                let resp =
+                    spawn_aerion_value(async move { aerion_start_route(&params).await }).await?;
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: resp,
+                })
             }
             "aerion_start_vpn" => {
                 let params = req.params.clone();
-                let resp = spawn_aerion_value(async move { aerion_start_vpn(&params).await }).await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
+                let resp =
+                    spawn_aerion_value(async move { aerion_start_vpn(&params).await }).await?;
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: resp,
+                })
             }
             "aerion_stop_vpn" => {
                 let params = req.params.clone();
-                let resp = spawn_aerion_value(async move { aerion_stop_vpn(&params).await }).await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
+                let resp =
+                    spawn_aerion_value(async move { aerion_stop_vpn(&params).await }).await?;
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: resp,
+                })
             }
             "aerion_stop" => {
                 let params = req.params.clone();
                 let resp = spawn_aerion_value(async move { aerion_stop(&params).await }).await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: resp,
+                })
             }
             "aerion_stop_route" => {
                 let params = req.params.clone();
-                let resp = spawn_aerion_value(async move { aerion_stop_route(&params).await }).await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: resp })
+                let resp =
+                    spawn_aerion_value(async move { aerion_stop_route(&params).await }).await?;
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: resp,
+                })
             }
             "system_proxy_set" => {
                 system_proxy_set(&req.params).await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: json!(null) })
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: json!(null),
+                })
             }
             "system_proxy_clear" => {
                 system_proxy_clear().await?;
-                Ok(RpcResponseOk { id: req.id, ok: true, result: json!(null) })
+                Ok(RpcResponseOk {
+                    id: req.id,
+                    ok: true,
+                    result: json!(null),
+                })
             }
             other => bail!("unsupported method: {other}"),
         };
@@ -503,4 +566,3 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-

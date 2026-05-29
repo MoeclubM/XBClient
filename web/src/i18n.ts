@@ -56,12 +56,13 @@ export const TRANSLATIONS = {
     section_traffic_rules: '分流规则',
     page_traffic_rules_title: '分流规则',
     page_traffic_rules_subtitle: '来自 Clash/Mihomo 订阅的路由规则，在「规则」模式下生效。',
-    traffic_rules_none: '当前订阅未包含 rules，规则模式将退化为全局代理。',
+    traffic_rules_none: '当前订阅未包含 rules，规则模式需要手动填写分流配置。',
     traffic_rules_count_suffix: '条规则',
     traffic_rules_groups_suffix: '个策略组',
     traffic_rules_providers_suffix: '个规则集',
     traffic_rules_more_suffix: '条规则未显示',
     traffic_rules_hint: '规则随订阅自动同步。GEOIP/GEOSITE 规则需在设置中配置 geoip 数据目录（每国一个 .txt CIDR 列表）。',
+    traffic_rules_config_label: 'Clash/Mihomo 分流配置',
     geoip_dir: 'GEOIP 数据目录',
     geoip_dir_help: '可选。用于 GEOIP,CN 等规则，目录下放置 cn.txt 等文件。',
     routing_rules_missing: '订阅中无可用路由规则。',
@@ -195,6 +196,7 @@ export const TRANSLATIONS = {
     dns_fields_required: 'DNS、测试目标与地址池不能为空。',
     settings_saved: '设置已保存。',
     common_save_settings: '保存设置',
+    common_clear_selection: '清空',
     setting_reset_onboarding: '重新初始化应用',
     action_select_apps: '选择应用',
     dns_virtual_pool_help: '虚拟 DNS 模式下的 Fake-IP 地址池。',
@@ -260,12 +262,13 @@ export const TRANSLATIONS = {
     section_traffic_rules: 'Routing Rules',
     page_traffic_rules_title: 'Routing Rules',
     page_traffic_rules_subtitle: 'Clash/Mihomo subscription rules applied in Rule routing mode.',
-    traffic_rules_none: 'This subscription has no rules; Rule mode falls back to global proxy.',
+    traffic_rules_none: 'This subscription has no rules; Rule mode requires a manual routing config.',
     traffic_rules_count_suffix: 'rules',
     traffic_rules_groups_suffix: 'proxy groups',
     traffic_rules_providers_suffix: 'rule providers',
     traffic_rules_more_suffix: 'more rules not shown',
     traffic_rules_hint: 'Rules sync with the subscription. For GEOIP/GEOSITE rules, set a geoip data directory in Settings (one .txt CIDR list per country code).',
+    traffic_rules_config_label: 'Clash/Mihomo routing config',
     geoip_dir: 'GEOIP data directory',
     geoip_dir_help: 'Optional. For GEOIP,CN-style rules; place cn.txt and similar files in this folder.',
     routing_rules_missing: 'No routing rules in subscription.',
@@ -399,6 +402,7 @@ export const TRANSLATIONS = {
     dns_fields_required: 'DNS, test target and address pool cannot be empty.',
     settings_saved: 'Settings saved.',
     common_save_settings: 'Save Settings',
+    common_clear_selection: 'Clear',
     setting_reset_onboarding: 'Reinitialize App',
     action_select_apps: 'Select Apps',
     dns_virtual_pool_help: 'Fake-IP address pool for virtual DNS mode.',
@@ -867,7 +871,10 @@ export type TranslationKey = keyof typeof TRANSLATIONS['zh-CN']
 export function translate(key: TranslationKey, appLanguage: string): string {
   const lang = appLanguage === 'system'
     ? (navigator.language.startsWith('zh') ? 'zh-CN' : 'en')
-    : (appLanguage || 'zh-CN')
-  const dict = (TRANSLATIONS[lang as keyof typeof TRANSLATIONS] || TRANSLATIONS['zh-CN']) as Partial<Record<TranslationKey, string>>
-  return dict[key] || TRANSLATIONS['zh-CN'][key] || String(key)
+    : appLanguage
+  const dict = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] as Partial<Record<TranslationKey, string>> | undefined
+  if (!dict) throw new Error(`unsupported language: ${lang}`)
+  const text = dict[key]
+  if (!text) throw new Error(`missing translation ${lang}.${key}`)
+  return text
 }

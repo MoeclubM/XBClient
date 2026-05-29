@@ -64,7 +64,6 @@ const ACTIONS = {
   telegram_bot: { method: 'GET', path: '/api/v1/user/telegram/getBotInfo', auth: true },
   knowledge: { method: 'GET', path: '/api/v1/user/knowledge/fetch', auth: true, query: ['id', 'language', 'keyword'] },
   stripe_public_key: { method: 'POST', path: '/api/v1/user/comm/getStripePublicKey', auth: true },
-  nodes: { method: 'GET', path: '/api/v1/user/server/fetch', auth: true },
   admob_reward_config: { method: 'GET', path: '/api/v1/admob/user/config', auth: true },
   xbclient_plan_payment: { method: 'POST', path: '/api/v1/admob/user/plan-payment', auth: true },
   xbclient_reward_history: { method: 'GET', path: '/api/v1/admob/user/reward-history', auth: true },
@@ -86,7 +85,7 @@ export async function xboardRequest<T = unknown>(
     const params = options.params ?? {}
     const result = await subscriptionFetch(
       paramValue(params, 'subscribe_url', true),
-      subscriptionFlag(paramValue(params, 'flag', false) || 'meta'),
+      subscriptionFlag(paramValue(params, 'flag', true)),
     )
     return {
       ok: result.ok,
@@ -121,12 +120,12 @@ export async function xboardRequest<T = unknown>(
 }
 
 export interface SubscriptionRouting {
-  has_rules?: boolean
-  rule_count?: number
-  proxy_group_count?: number
-  rule_provider_count?: number
-  rules_preview?: string[]
-  route_config_yaml?: string | null
+  has_rules: boolean
+  rule_count: number
+  proxy_group_count: number
+  rule_provider_count: number
+  rules_preview: string[]
+  route_config_yaml: string | null
 }
 
 export interface SubscriptionResult {
@@ -135,7 +134,6 @@ export interface SubscriptionResult {
   format?: string
   flag?: string
   subscription_userinfo?: string | null
-  nodes?: unknown[]
   routing?: SubscriptionRouting
   error?: string
   body?: string
@@ -160,10 +158,10 @@ export interface TestNodeResult {
 
 export interface TestNodeRequest {
   node: unknown
-  target_host?: string
-  target_port?: number
-  target_tls?: boolean
-  timeout_ms?: number
+  target_host: string
+  target_port: number
+  target_tls: boolean
+  timeout_ms: number
 }
 
 export async function aerionTestNode(request: TestNodeRequest): Promise<TestNodeResult> {
@@ -184,6 +182,8 @@ export interface RouteStartRequest {
   config_yaml: string
   geoip_dir?: string
   global_proxy?: string
+  selected_proxy?: string
+  selected_node?: unknown
 }
 
 export async function aerionStartRoute(request: RouteStartRequest): Promise<SocksHandle & { rule_count?: number; outbound_tags?: string[] }> {
@@ -209,11 +209,11 @@ export interface VpnHandle {
 
 export interface VpnStartRequest {
   node: unknown
-  mtu?: number
-  dns?: string
+  mtu: number
+  dns: string
   dns_addr: string
-  virtual_dns_pool?: string
-  ipv6?: boolean
+  virtual_dns_pool: string
+  ipv6: boolean
 }
 
 export async function aerionStartVpn(request: VpnStartRequest): Promise<VpnHandle> {
@@ -257,5 +257,6 @@ function paramValue(params: Record<string, unknown>, key: string, required: bool
 }
 
 function subscriptionFlag(value: string): 'meta' | 'sing-box' {
-  return value === 'sing-box' ? 'sing-box' : 'meta'
+  if (value === 'meta' || value === 'sing-box') return value
+  throw new Error(`unsupported subscription flag: ${value}`)
 }

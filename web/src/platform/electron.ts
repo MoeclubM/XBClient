@@ -34,7 +34,7 @@ export async function openExternal(url: string): Promise<void> {
   await assertElectronAPI().openExternal(url)
 }
 
-export async function openInAppBrowser(url: string, title = 'Browser'): Promise<void> {
+export async function openInAppBrowser(url: string, title: string): Promise<void> {
   await assertElectronAPI().openInAppBrowser(url, title)
 }
 
@@ -47,13 +47,11 @@ export async function autostartSetEnabled(value: boolean, silent = false): Promi
 }
 
 export function launchedSilent(): boolean {
-  if (!window.electronAPI?.launchedSilent) return false
-  return window.electronAPI.launchedSilent()
+  return assertElectronAPI().launchedSilent()
 }
 
 export async function hideMainWindow(): Promise<void> {
-  if (!window.electronAPI?.hideMainWindow) return
-  await window.electronAPI.hideMainWindow()
+  await assertElectronAPI().hideMainWindow()
 }
 
 export async function minimizeWindow(): Promise<void> {
@@ -99,4 +97,3 @@ export function onTrayStateFromMain(
 ): () => void {
   return assertElectronAPI().onTrayStateFromMain(handler)
 }
-

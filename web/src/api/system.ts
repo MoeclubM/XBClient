@@ -51,11 +51,11 @@ export function onOAuthCallback(handler: (url: string) => void): () => void {
   return electronOnOAuthCallback(handler)
 }
 
-export async function resolveNodeHost(dnsUrl: string, host: string, userAgent = ''): Promise<string> {
+export async function resolveNodeHost(dnsUrl: string, host: string, userAgent: string): Promise<string> {
   return invoke('resolve_node_host', { dnsUrl, host, userAgent })
 }
 
-export async function resolveAppNode(node: AppNode, dnsUrl: string, userAgent = ''): Promise<unknown> {
+export async function resolveAppNode(node: AppNode, dnsUrl: string, userAgent: string): Promise<unknown> {
   const resolvedHost = await resolveNodeHost(dnsUrl, rawNodeHost(node), userAgent)
   return aerionNodeWithResolvedHost(node, resolvedHost)
 }
@@ -97,7 +97,7 @@ export async function openExternal(url: string): Promise<void> {
   }
 }
 
-export async function openInAppBrowser(url: string, title = 'Browser'): Promise<void> {
+export async function openInAppBrowser(url: string, title: string): Promise<void> {
   if (!isDesktopShell()) throw new Error('openInAppBrowser requires supported Electron desktop shell')
   try {
     await openInAppBrowserDesktop(url, title)

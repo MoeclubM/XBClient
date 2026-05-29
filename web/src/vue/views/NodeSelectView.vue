@@ -28,19 +28,21 @@ const testingBusy = ref(false)
 async function runNodeTest(node: AppNode, index: number) {
   store().setNodeLoading(index)
   const target = targetHostPort(appState.settings.nodeTestTarget)
+  if (!appState.buildConfig?.user_agent) throw new Error('XBCLIENT_USER_AGENT is required in build config')
   const result = await aerionTestNode({
-    node: await resolveAppNode(node, appState.settings.nodeDns, appState.buildConfig?.user_agent ?? ''),
+    node: await resolveAppNode(node, appState.settings.nodeDns, appState.buildConfig.user_agent),
     target_host: target.host,
     target_port: target.port,
     target_tls: target.tls,
     timeout_ms: NODE_TEST_TIMEOUT_MS,
   })
-  store().setNodeResult(
-    index,
-    result.ok
-      ? { latencyMs: result.latency_ms ?? result.first_latency_ms }
-      : { testError: readableNodeTestError(result.error ?? '', appState.settings.appLanguage) },
-  )
+  if (result.ok) {
+    if (typeof result.latency_ms !== 'number') throw new Error('node test success missing latency_ms')
+    store().setNodeResult(index, { latencyMs: result.latency_ms })
+  } else {
+    if (!result.error) throw new Error('node test failed without error')
+    store().setNodeResult(index, { testError: readableNodeTestError(result.error, appState.settings.appLanguage) })
+  }
 }
 
 async function testOne(node: AppNode, index: number) {

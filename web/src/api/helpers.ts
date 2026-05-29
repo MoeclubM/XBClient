@@ -4,44 +4,38 @@ export type Row = Record<string, unknown>
 
 export function dataRows(value: unknown): Row[] {
   if (Array.isArray(value)) return value as Row[]
-  if (value && typeof value === 'object') {
-    const object = value as Row
-    for (const key of ['data', 'list', 'items', 'sessions', 'tickets', 'logs', 'codes', 'records']) {
-      if (Array.isArray(object[key])) return object[key] as Row[]
-      if (object[key] && typeof object[key] === 'object') {
-        const nested = object[key] as Row
-        for (const nestedKey of ['data', 'list', 'items', 'sessions', 'tickets', 'logs', 'codes', 'records']) {
-          if (Array.isArray(nested[nestedKey])) return nested[nestedKey] as Row[]
-        }
-      }
-    }
-  }
-  return []
+  throw new Error('Xboard response data must be an array')
 }
 
-export function field(row: Row, keys: string[]): string {
-  for (const key of keys) {
-    const value = row[key]
-    if (value !== undefined && value !== null && String(value).trim()) return String(value)
-  }
-  return ''
+export function field(row: Row, key: string): string {
+  const value = row[key]
+  if (typeof value !== 'string' && typeof value !== 'number') throw new Error(`Xboard row field ${key} is required`)
+  return String(value)
 }
 
 export function rowId(row: Row): string {
-  return field(row, ['id', 'session_id', 'trade_no', 'ticket_id', 'uuid'])
+  return field(row, 'id')
 }
 
 export function failureText(response: { ok: boolean; status: number; body?: { message?: string; status?: string }; error?: string }): string {
-  if (!response.ok) return response.body?.message ?? response.error ?? `HTTP ${response.status}`
-  if (response.body?.status === 'fail') return response.body.message ?? 'Request failed'
+  if (!response.ok) {
+    if (response.body?.message) return response.body.message
+    if (response.error) return response.error
+    throw new Error('Xboard failed response missing message or error')
+  }
+  if (response.body?.status === 'fail') {
+    if (!response.body.message) throw new Error('Xboard response status=fail missing message')
+    return response.body.message
+  }
   return ''
 }
 
 export function parseOAuthProviders(value: unknown): OAuthProvider[] {
   return dataRows(value)
-    .map((item) => ({
-      driver: field(item, ['driver', 'name', 'type']),
-      label: field(item, ['label', 'name', 'driver', 'type']),
-    }))
-    .filter((item) => item.driver)
+    .map((item) => {
+      const driver = field(item, 'driver')
+      const label = field(item, 'label')
+      if (!driver || !label) throw new Error('oauth provider missing driver or label')
+      return { driver, label }
+    })
 }

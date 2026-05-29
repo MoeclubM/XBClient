@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { syncGuestAuthConfig } from '../../api/guestConfig'
+import { failureText } from '../../api/helpers'
 import { onOAuthCallback, openInAppBrowser, takeOAuthCallback } from '../../api/system'
 import { normalizeBaseUrl, xboardRequest } from '../../api/xboard'
 import { publicErrorText } from '../../format'
@@ -40,8 +41,14 @@ const verifySending = ref(false)
 const tokenLoading = ref(false)
 const oauthConfirm = ref<{ token: string; provider: string; email: string } | null>(null)
 
-const baseUrl = computed(() => appState.buildConfig?.default_api_url ?? appState.baseUrl)
-const appName = computed(() => appState.buildConfig?.app_name || 'XBClient')
+const baseUrl = computed(() => {
+  if (!appState.buildConfig?.default_api_url) throw new Error('XBCLIENT_DEFAULT_API_URL is required in build config')
+  return appState.buildConfig.default_api_url
+})
+const appName = computed(() => {
+  if (!appState.buildConfig?.app_name) throw new Error('XBCLIENT_APP_NAME is required in build config')
+  return appState.buildConfig.app_name
+})
 const oauthCallbackSupported = computed(() => appState.capabilities?.oauth_callback === true)
 
 let unlistenOAuth: (() => void) | null = null
@@ -99,7 +106,7 @@ async function submit() {
     }
     const response = await xboardRequest<AuthBody>(mode.value, { baseUrl: baseUrl.value, params })
     if (!response.ok) {
-      error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+      error.value = failureText(response)
       return
     }
     const authData = response.body?.data?.auth_data
@@ -135,7 +142,7 @@ async function forgotPassword() {
       params: { email: accountEmail },
     })
     if (!response.ok) {
-      error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+      error.value = failureText(response)
       return
     }
     message.value = response.body?.message ?? t('forgot_password_sent')
@@ -160,7 +167,7 @@ async function sendEmailVerify() {
     }
     const response = await xboardRequest<{ message?: string }>('send_email_verify', { baseUrl: baseUrl.value, params })
     if (!response.ok) {
-      error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+      error.value = failureText(response)
       return
     }
     message.value = response.body?.message ?? t('email_verify_sent')
@@ -182,7 +189,7 @@ async function openOAuth(provider: OAuthProvider) {
   url.searchParams.set('client', 'app')
   url.searchParams.set('app_scheme', appState.buildConfig.oauth_callback_scheme)
   if (mode.value === 'register' && inviteCode.value.trim()) url.searchParams.set('invite_code', inviteCode.value.trim())
-  await openInAppBrowser(url.toString(), `${provider.label || provider.driver} OAuth`)
+  await openInAppBrowser(url.toString(), `${provider.label} OAuth`)
   message.value = t('oauth_opened_waiting_callback')
 }
 
@@ -211,17 +218,20 @@ async function checkOAuthCallback() {
     message.value = oauthSuccess
     return
   }
-  const confirmToken = uri.searchParams.get('oauth_confirm_token') ?? ''
+  const confirmToken = uri.searchParams.get('oauth_confirm_token')
   if (confirmToken) {
+    const provider = uri.searchParams.get('oauth_provider')
+    const accountEmail = uri.searchParams.get('oauth_email')
+    if (!provider || !accountEmail) throw new Error('OAuth confirm callback missing provider or email')
     mode.value = 'register'
     oauthConfirm.value = {
       token: confirmToken,
-      provider: uri.searchParams.get('oauth_provider') ?? '',
-      email: uri.searchParams.get('oauth_email') ?? '',
+      provider,
+      email: accountEmail,
     }
     return
   }
-  const verify = uri.searchParams.get('verify') || uri.searchParams.get('token') || ''
+  const verify = uri.searchParams.get('verify')
   if (verify) await loginWithVerify(verify)
 }
 
@@ -239,10 +249,11 @@ async function confirmOAuthRegister() {
       params: { token: oauthConfirm.value.token },
     })
     if (!response.ok) {
-      error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+      error.value = failureText(response)
       return
     }
-    await loginWithVerify(verifyFromCallback(response.body?.data ?? ''))
+    if (typeof response.body?.data !== 'string' || !response.body.data.trim()) throw new Error('OAuth confirm response missing data')
+    await loginWithVerify(verifyFromCallback(response.body.data))
   } catch (err) {
     error.value = publicErrorText(err)
   } finally {
@@ -256,15 +267,17 @@ async function loginWithVerify(verify: string) {
     params: { verify: verifyFromCallback(verify) },
   })
   if (!response.ok) {
-    error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+    error.value = failureText(response)
     return
   }
-  const authData = response.body?.data?.auth_data
+  const data = response.body?.data
+  const authData = data?.auth_data
   if (!authData) {
     error.value = t('oauth_login_missing')
     return
   }
-  await finishLogin(authData, response.body?.data?.email ?? email.value.trim())
+  if (!data?.email) throw new Error('token login response missing email')
+  await finishLogin(authData, data.email)
 }
 
 async function finishLogin(authData: string, accountEmail: string) {
@@ -381,11 +394,11 @@ async function finishLogin(authData: string, accountEmail: string) {
               block
               @click="startOAuth(provider)"
             >
-              {{ mode === 'login' ? t('oauth_login') : t('oauth_register') }} · {{ provider.label || provider.driver }}
+              {{ mode === 'login' ? t('oauth_login') : t('oauth_register') }} · {{ provider.label }}
             </v-btn>
           </div>
           <v-alert v-if="oauthConfirm" color="primary" variant="tonal" density="compact" class="mt-3">
-            {{ t('oauth_confirm_register') }} · {{ oauthConfirm.provider || 'OAuth' }}{{ oauthConfirm.email ? `：${oauthConfirm.email}` : '' }}
+            {{ t('oauth_confirm_register') }} · {{ oauthConfirm.provider }}：{{ oauthConfirm.email }}
             <v-btn class="ml-2" size="small" :loading="tokenLoading" @click="confirmOAuthRegister">
               {{ t('confirm') }}
             </v-btn>

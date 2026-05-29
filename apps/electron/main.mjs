@@ -26,6 +26,8 @@ let backendProc = null
 let backendNextId = 1
 const backendPending = new Map()
 let quitRequested = false
+let quitCleanupStarted = false
+let quitCleanupComplete = false
 let viteProc = null
 let pendingOAuthUrl = null
 const oauthBrowserWindows = new Set()
@@ -48,13 +50,16 @@ const trayState = {
     nodeDns: '',
     overseasDns: '',
     directDns: '',
-    vpnDnsMode: 'virtual',
+    vpnDnsMode: 'over_tcp',
     virtualDnsPool: '',
     vpnIpv6Enabled: false,
     routingMode: 'rule',
     tunEnabled: true,
     systemProxyEnabled: false,
+    routeConfigYaml: '',
+    geoipDir: '',
   },
+  routingRouteConfigYaml: '',
   userAgent: '',
 }
 
@@ -86,14 +91,10 @@ function configFileCandidates() {
 }
 
 function readLocalProperties() {
-  try {
-    for (const file of configFileCandidates()) {
-      if (fs.existsSync(file)) return parsePropertiesFile(file)
-    }
-    return {}
-  } catch {
-    return {}
+  for (const file of configFileCandidates()) {
+    if (fs.existsSync(file)) return parsePropertiesFile(file)
   }
+  return {}
 }
 
 function oauthScheme() {
@@ -168,7 +169,7 @@ function backendReleaseBinaryPath() {
 }
 
 function desktopRuntimeConfig() {
-  const env = buildBackendEnv()
+  const env = validateBackendEnv()
   return {
     app_name: env.XBCLIENT_APP_NAME,
     default_api_url: env.XBCLIENT_DEFAULT_API_URL,
@@ -250,9 +251,7 @@ function validateBackendEnv() {
 function backendStart() {
   if (backendProc) {
     backendProc.removeAllListeners()
-    try {
-      backendProc.kill()
-    } catch {}
+    backendProc.kill()
     backendProc = null
   }
   const env = validateBackendEnv()
@@ -329,12 +328,15 @@ function backendStart() {
         if (!pending) return
         backendPending.delete(msg.id)
         if (msg.ok) pending.resolve(msg.result)
-        else pending.reject(new Error(msg.error || 'backend error'))
+        else {
+          if (typeof msg.error !== 'string' || !msg.error.trim()) throw new Error('backend error response missing error')
+          pending.reject(new Error(msg.error))
+        }
         return
       }
       console.warn('Unknown backend message', msg)
-    } catch {
-      console.debug('Non-json backend output:', text.slice(0, 200))
+    } catch (err) {
+      throw err
     }
   })
 
@@ -363,17 +365,20 @@ async function ensureBackendRunning() {
 
 async function waitBackendReady() {
   const deadline = Date.now() + 120_000
+  let lastError = null
   while (Date.now() < deadline) {
     if (!backendProc?.stdin && Date.now() - lastBackendStartAt > 1000) backendStart()
     try {
       await backendInvoke('runtime_capabilities', {})
       return
-    } catch {
+    } catch (err) {
+      lastError = err
       await new Promise((resolve) => setTimeout(resolve, 200))
     }
   }
   const detail = backendStderr.trim() ? `\n${backendStderr.trim().slice(-2000)}` : ''
-  throw new Error(`electron-backend 启动超时${detail}`)
+  const cause = lastError ? `\n最后一次错误：${lastError.message}` : ''
+  throw new Error(`electron-backend 启动超时${cause}${detail}`)
 }
 
 function backendInvoke(method, params, timeoutMs = 120_000) {
@@ -430,12 +435,14 @@ function startViteDevServer() {
     viteProc.on('error', reject)
 
     const deadline = Date.now() + 60_000
+    let lastError = null
     const tick = () => {
       fetch('http://127.0.0.1:5173/')
         .then(() => resolve())
-        .catch(() => {
+        .catch((err) => {
+          lastError = err
           if (Date.now() > deadline) {
-            reject(new Error('Vite dev server did not start on http://127.0.0.1:5173'))
+            reject(new Error(`Vite dev server did not start on http://127.0.0.1:5173: ${lastError.message}`))
             return
           }
           setTimeout(tick, 500)
@@ -454,19 +461,22 @@ function webIndexHtml() {
 
 function appIconPath() {
   const packaged = path.join(process.resourcesPath, 'icon.png')
-  if (isPackaged && fs.existsSync(packaged)) return packaged
+  if (isPackaged) {
+    if (!fs.existsSync(packaged)) throw new Error(`packaged icon missing: ${packaged}`)
+    return packaged
+  }
   const built = path.join(__dirname, 'build', 'icon.png')
   if (fs.existsSync(built)) return built
   const logo = path.join(repoRoot, 'web/public/logo.png')
   if (fs.existsSync(logo)) return logo
-  return ''
+  throw new Error(`development icon missing: ${built}`)
 }
 
 function loadAppIcon() {
   const file = appIconPath()
-  if (!file) return nativeImage.createEmpty()
   const image = nativeImage.createFromPath(file)
-  return image.isEmpty() ? nativeImage.createEmpty() : image
+  if (image.isEmpty()) throw new Error(`icon cannot be loaded: ${file}`)
+  return image
 }
 
 function createMainWindow() {
@@ -480,7 +490,7 @@ function createMainWindow() {
     show: !startHidden,
     frame: false,
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : {}),
-    ...(icon.isEmpty() ? {} : { icon }),
+    icon,
     webPreferences: {
       preload: path.resolve(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -521,7 +531,7 @@ function createMainWindow() {
 function setupAutoLaunch(appName, silent = false) {
   const args = silent ? ['--silent'] : []
   return new AutoLaunch({
-    name: appName || 'XBClient',
+    name: appName,
     path: app.getPath('exe'),
     args,
     isHidden: silent,
@@ -530,70 +540,7 @@ function setupAutoLaunch(appName, silent = false) {
 
 function createTrayIcon() {
   const icon = loadAppIcon()
-  if (!icon.isEmpty()) {
-    return icon.resize({ width: 16, height: 16 })
-  }
-
-  const width = 16
-  const height = 16
-  const r = 0x38
-  const g = 0xbd
-  const b = 0xf8
-  const a = 0xff
-
-  const rowSize = width * 4
-  const pixelDataSize = rowSize * height
-  const fileHeaderSize = 14
-  const infoHeaderSize = 40
-  const fileSize = fileHeaderSize + infoHeaderSize + pixelDataSize
-
-  const buffer = Buffer.alloc(fileSize)
-  let offset = 0
-
-  buffer.writeUInt8(0x42, offset++)
-  buffer.writeUInt8(0x4d, offset++)
-  buffer.writeUInt32LE(fileSize, offset)
-  offset += 4
-  buffer.writeUInt16LE(0, offset)
-  offset += 2
-  buffer.writeUInt16LE(0, offset)
-  offset += 2
-  buffer.writeUInt32LE(fileHeaderSize + infoHeaderSize, offset)
-  offset += 4
-
-  buffer.writeUInt32LE(infoHeaderSize, offset)
-  offset += 4
-  buffer.writeInt32LE(width, offset)
-  offset += 4
-  buffer.writeInt32LE(height, offset)
-  offset += 4
-  buffer.writeUInt16LE(1, offset)
-  offset += 2
-  buffer.writeUInt16LE(32, offset)
-  offset += 2
-  buffer.writeUInt32LE(0, offset)
-  offset += 4
-  buffer.writeUInt32LE(pixelDataSize, offset)
-  offset += 4
-  buffer.writeInt32LE(2835, offset)
-  offset += 4
-  buffer.writeInt32LE(2835, offset)
-  offset += 4
-  buffer.writeUInt32LE(0, offset)
-  offset += 4
-  buffer.writeUInt32LE(0, offset)
-  offset += 4
-
-  for (let y = height - 1; y >= 0; y--) {
-    for (let x = 0; x < width; x++) {
-      buffer.writeUInt8(b, offset++)
-      buffer.writeUInt8(g, offset++)
-      buffer.writeUInt8(r, offset++)
-      buffer.writeUInt8(a, offset++)
-    }
-  }
-
-  return nativeImage.createFromBuffer(buffer, 'image/bmp')
+  return icon.resize({ width: 16, height: 16 })
 }
 
 function parseSocksAddr(addr) {
@@ -615,11 +562,9 @@ function dnsAddressForVpn(value) {
 
 function aerionNodeWithResolvedHost(rawJson, resolvedHost) {
   const raw = JSON.parse(rawJson)
-  const originalHost = String(raw.host ?? raw.server ?? '')
-  if (resolvedHost !== originalHost && !String(raw.sni ?? '').trim()) raw.sni = originalHost
+  const originalHost = String(raw.host)
+  if (resolvedHost !== originalHost && !String(raw.sni ?? '').trim()) throw new Error(`node ${String(raw.name)} resolved to IP without sni`)
   raw.host = resolvedHost
-  if (raw.server !== undefined) raw.server = resolvedHost
-  if (raw.address !== undefined) raw.address = resolvedHost
   return raw
 }
 
@@ -642,40 +587,39 @@ function pushTrayStateToWeb(patch) {
 }
 
 function applyTraySnapshot(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object') return
-  trayState.nodes = Array.isArray(snapshot.nodes) ? snapshot.nodes : []
-  trayState.selectedNodeIndex = Number.isFinite(snapshot.selectedNodeIndex) ? snapshot.selectedNodeIndex : 0
+  if (!snapshot || typeof snapshot !== 'object') throw new Error('tray snapshot is required')
+  if (!Array.isArray(snapshot.nodes)) throw new Error('tray snapshot nodes is required')
+  if (!Number.isFinite(snapshot.selectedNodeIndex)) throw new Error('tray snapshot selectedNodeIndex is required')
+  if (!('vpn' in snapshot)) throw new Error('tray snapshot vpn is required')
+  if (!snapshot.settings || typeof snapshot.settings !== 'object') throw new Error('tray snapshot settings is required')
+  if (typeof snapshot.useVpn !== 'boolean') throw new Error('tray snapshot useVpn is required')
+  if (!['rule', 'global', 'direct'].includes(snapshot.routingMode)) throw new Error('tray snapshot routingMode is invalid')
+  if (typeof snapshot.userAgent !== 'string' || !snapshot.userAgent.trim()) throw new Error('tray snapshot userAgent is required')
+  trayState.nodes = snapshot.nodes
+  trayState.selectedNodeIndex = snapshot.selectedNodeIndex
   trayState.vpn =
-    snapshot.vpn && typeof snapshot.vpn.sessionId === 'number'
+    snapshot.vpn !== null
       ? {
           sessionId: snapshot.vpn.sessionId,
-          socksAddr: String(snapshot.vpn.socksAddr ?? ''),
-          nodeIndex: Number(snapshot.vpn.nodeIndex ?? 0),
+          socksAddr: snapshot.vpn.socksAddr,
+          nodeIndex: snapshot.vpn.nodeIndex,
+          routeMode: snapshot.vpn.routeMode === true,
         }
       : null
   trayState.systemProxyOn = Boolean(snapshot.systemProxyOn)
-  trayState.useVpn = snapshot.useVpn !== false
-  trayState.routingMode = 'rule'
-  if (snapshot.settings && typeof snapshot.settings === 'object') {
-    Object.assign(trayState.settings, snapshot.settings)
-    if (snapshot.settings.routingMode === 'global' || snapshot.settings.routingMode === 'direct') {
-      trayState.routingMode = snapshot.settings.routingMode
-    }
-    if (typeof snapshot.settings.tunEnabled === 'boolean') {
-      trayState.useVpn = snapshot.settings.tunEnabled
-    }
-  }
-  if (snapshot.routingMode === 'global' || snapshot.routingMode === 'direct') {
-    trayState.routingMode = snapshot.routingMode
-  }
-  trayState.userAgent = String(snapshot.userAgent ?? '')
-  activeVpnSessionId = trayState.vpn?.sessionId ?? null
+  trayState.useVpn = snapshot.useVpn
+  trayState.routingMode = snapshot.routingMode
+  Object.assign(trayState.settings, snapshot.settings)
+  if (typeof snapshot.routingRouteConfigYaml !== 'string') throw new Error('tray snapshot routingRouteConfigYaml is required')
+  trayState.routingRouteConfigYaml = snapshot.routingRouteConfigYaml
+  trayState.userAgent = snapshot.userAgent
+  activeVpnSessionId = trayState.vpn && !trayState.vpn.routeMode && trayState.useVpn ? trayState.vpn.sessionId : null
   rebuildTrayMenu()
 }
 
 async function trayResolveNode(node) {
   const raw = JSON.parse(node.rawJson)
-  const host = String(raw.host ?? raw.server ?? node.host)
+  const host = String(raw.host)
   const resolvedHost = await backendInvoke('resolve_node_host', {
     dnsUrl: trayState.settings.nodeDns,
     host,
@@ -686,7 +630,13 @@ async function trayResolveNode(node) {
 
 async function trayDisconnect() {
   if (!trayState.vpn) return
-  if (trayState.useVpn) {
+  if (trayState.vpn.routeMode) {
+    await backendInvoke('aerion_stop_route', { sessionId: trayState.vpn.sessionId })
+    if (trayState.systemProxyOn) {
+      await backendInvoke('system_proxy_clear', {})
+      trayState.systemProxyOn = false
+    }
+  } else if (trayState.useVpn) {
     await backendInvoke('aerion_stop_vpn', { sessionId: trayState.vpn.sessionId })
     activeVpnSessionId = null
   } else {
@@ -700,12 +650,30 @@ async function trayDisconnect() {
   pushTrayStateToWeb({ vpn: null, systemProxyOn: trayState.systemProxyOn })
 }
 
+function trayRouteConfigYaml() {
+  const manual = trayState.settings.routeConfigYaml.trim()
+  if (manual) return manual
+  return trayState.routingRouteConfigYaml.trim()
+}
+
 async function trayConnect(index) {
   if (trayState.routingMode === 'direct') return
   const node = trayState.nodes[index]
   if (!node?.connectSupported) throw new Error('当前节点协议不支持连接')
   const resolved = await trayResolveNode(node)
-  if (trayState.useVpn) {
+  const routeConfigYaml = trayRouteConfigYaml()
+  if (trayState.routingMode === 'rule' && routeConfigYaml) {
+    const handle = await backendInvoke('aerion_start_route', {
+      config_yaml: routeConfigYaml,
+      geoip_dir: trayState.settings.geoipDir.trim(),
+      selected_proxy: node.name,
+      selected_node: resolved,
+    })
+    trayState.vpn = { sessionId: handle.session_id, socksAddr: handle.socks_addr, nodeIndex: index, routeMode: true }
+    const parsed = parseSocksAddr(handle.socks_addr)
+    await backendInvoke('system_proxy_set', { host: parsed.host, port: parsed.port })
+    trayState.systemProxyOn = true
+  } else if (trayState.useVpn) {
     const dnsMode = trayState.settings.vpnDnsMode
     const dnsSource = dnsMode === 'direct' ? trayState.settings.directDns : trayState.settings.overseasDns
     const handle = await backendInvoke('aerion_start_vpn', {
@@ -716,11 +684,11 @@ async function trayConnect(index) {
       virtual_dns_pool: trayState.settings.virtualDnsPool,
       ipv6: trayState.settings.vpnIpv6Enabled,
     })
-    trayState.vpn = { sessionId: handle.session_id, socksAddr: '', nodeIndex: index }
+    trayState.vpn = { sessionId: handle.session_id, socksAddr: '', nodeIndex: index, routeMode: false }
     activeVpnSessionId = handle.session_id
   } else {
     const handle = await backendInvoke('aerion_start_socks', { node: resolved })
-    trayState.vpn = { sessionId: handle.session_id, socksAddr: handle.socks_addr, nodeIndex: index }
+    trayState.vpn = { sessionId: handle.session_id, socksAddr: handle.socks_addr, nodeIndex: index, routeMode: false }
     if (trayState.systemProxyOn) {
       const parsed = parseSocksAddr(handle.socks_addr)
       await backendInvoke('system_proxy_set', { host: parsed.host, port: parsed.port })
@@ -729,7 +697,7 @@ async function trayConnect(index) {
   trayState.selectedNodeIndex = index
   pushTrayStateToWeb({
     selectedNodeIndex: index,
-    vpn: trayState.vpn,
+    vpn: trayState.vpn && { ...trayState.vpn, uploadBytes: 0, downloadBytes: 0 },
     systemProxyOn: trayState.systemProxyOn,
   })
 }
@@ -740,14 +708,20 @@ async function traySetRoutingMode(mode) {
   rebuildTrayMenu()
   try {
     if (!backendIsReady) await waitBackendReady()
-    const wasDirect = trayState.routingMode === 'direct'
+    const previousMode = trayState.routingMode
+    const wasDirect = previousMode === 'direct'
     trayState.routingMode = mode
     pushTrayStateToWeb({ settings: { routingMode: mode } })
     if (mode === 'direct') {
       if (trayState.vpn) await trayDisconnect()
       return
     }
-    if (wasDirect || !trayState.vpn) await trayConnect(trayState.selectedNodeIndex)
+    if (trayState.vpn && (trayState.vpn.routeMode || mode === 'rule' || previousMode === 'rule')) {
+      await trayDisconnect()
+      await trayConnect(trayState.selectedNodeIndex)
+    } else if (wasDirect || !trayState.vpn) {
+      await trayConnect(trayState.selectedNodeIndex)
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     dialog.showErrorBox('路由模式', message)
@@ -818,7 +792,7 @@ async function trayToggleSystemProxy() {
 
 async function traySelectNode(index) {
   if (trayBusy) return
-  if (index < 0 || index >= trayState.nodes.length) return
+  if (index < 0 || index >= trayState.nodes.length) throw new Error(`节点索引越界：${index}`)
   const node = trayState.nodes[index]
   if (!node.connectSupported) {
     dialog.showErrorBox('选择节点', '当前节点协议不支持连接')
@@ -930,7 +904,7 @@ function rebuildTrayMenu() {
   )
 
   trayInstance.setContextMenu(Menu.buildFromTemplate(template))
-  const status = [routingLabels[trayState.routingMode] || '规则', connected ? '已连接' : '未连接', nodeName]
+  const status = [routingLabels[trayState.routingMode], connected ? '已连接' : '未连接', nodeName]
   if (trayState.useVpn) status.push('TUN')
   if (trayState.systemProxyOn) status.push('系统代理')
   trayInstance.setToolTip(`${app.getName()} · ${status.join(' · ')}`)
@@ -963,12 +937,13 @@ function startHttpHandlers() {
   ipcMain.handle('electron-get-runtime-capabilities', () => desktopRuntimeCapabilities())
   ipcMain.handle('electron-open-external', (_, { url }) => shell.openExternal(url))
   ipcMain.handle('electron-open-inapp-browser', (_, { url, title }) => {
+    if (typeof title !== 'string' || !title.trim()) throw new Error('in-app browser title is required')
     const win = new BrowserWindow({
       width: 1024,
       height: 720,
       minWidth: 720,
       minHeight: 520,
-      title: title || 'Browser',
+      title,
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
@@ -1017,7 +992,10 @@ function startHttpHandlers() {
     return mainWindow.isMaximized()
   })
 
-  ipcMain.handle('electron-autostart-is-enabled', async () => autoLauncherInstance?.isEnabled() ?? false)
+  ipcMain.handle('electron-autostart-is-enabled', async () => {
+    if (!autoLauncherInstance) throw new Error('auto launcher is not initialized')
+    return autoLauncherInstance.isEnabled()
+  })
   ipcMain.handle('electron-autostart-set-enabled', async (_, { value, silent }) => {
     autoLauncherInstance = setupAutoLaunch(app.getName(), Boolean(silent))
     if (value) await autoLauncherInstance.enable()
@@ -1059,8 +1037,8 @@ async function startBackendInBackground() {
 
 if (instanceLock) {
   app.whenReady().then(async () => {
-    const localProps = readLocalProperties()
-    const appName = process.env.XBCLIENT_APP_NAME || localProps['xbclient.appName'] || 'XBClient'
+    const env = validateBackendEnv()
+    const appName = env.XBCLIENT_APP_NAME
     app.setName(appName)
     if (!ELECTRON_SUPPORTED_PLATFORMS.has(process.platform)) {
       await dialog.showMessageBox({
@@ -1094,14 +1072,36 @@ if (instanceLock) {
     if (process.platform !== 'darwin') app.quit()
   })
 
-  app.on('before-quit', () => {
+  app.on('before-quit', (event) => {
     quitRequested = true
-    if (activeVpnSessionId != null) {
-      const stopCmd = trayState.useVpn ? 'aerion_stop_vpn' : 'aerion_stop'
-      backendInvoke(stopCmd, { sessionId: activeVpnSessionId }).catch(() => {})
+    if (quitCleanupComplete) return
+    event.preventDefault()
+    if (quitCleanupStarted) return
+    quitCleanupStarted = true
+    const cleanupTasks = []
+    if (trayState.vpn) {
+      const stopCmd = trayState.vpn.routeMode ? 'aerion_stop_route' : trayState.useVpn ? 'aerion_stop_vpn' : 'aerion_stop'
+      cleanupTasks.push(backendInvoke(stopCmd, { sessionId: trayState.vpn.sessionId }))
+      trayState.vpn = null
+      activeVpnSessionId = null
+    } else if (activeVpnSessionId != null) {
+      cleanupTasks.push(backendInvoke('aerion_stop_vpn', { sessionId: activeVpnSessionId }))
       activeVpnSessionId = null
     }
-    if (trayState.systemProxyOn) backendInvoke('system_proxy_clear', {}).catch(() => {})
+    if (trayState.systemProxyOn) {
+      cleanupTasks.push(backendInvoke('system_proxy_clear', {}))
+    }
+    Promise.all(cleanupTasks)
+      .then(() => {
+        quitCleanupComplete = true
+        app.quit()
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error('[before-quit]', message)
+        dialog.showErrorBox('退出清理失败', message)
+        app.exit(1)
+      })
   })
 
   process.on('exit', () => {

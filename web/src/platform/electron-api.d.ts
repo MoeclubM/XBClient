@@ -27,7 +27,7 @@ export interface ElectronAPI {
   }>
   getRuntimeCapabilities: () => Promise<ElectronRuntimeCapabilities>
   openExternal: (url: string) => Promise<boolean>
-  openInAppBrowser: (url: string, title?: string) => Promise<boolean>
+  openInAppBrowser: (url: string, title: string) => Promise<boolean>
   takeOAuthCallback: () => Promise<string | null>
   onOAuthCallback: (handler: (url: string) => void) => () => void
   onAeronEvent: (handler: (payload: string) => void) => () => void

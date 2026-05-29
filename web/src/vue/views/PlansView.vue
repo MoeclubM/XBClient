@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { failureText } from '../../api/helpers'
 import { openInAppBrowser } from '../../api/system'
 import { xboardRequest } from '../../api/xboard'
 import { formatMoney, formatTrafficGb, numericValue, publicErrorText } from '../../format'
@@ -34,11 +35,7 @@ const error = ref('')
 
 function rows(value: unknown): RawPlan[] {
   if (Array.isArray(value)) return value as RawPlan[]
-  if (value && typeof value === 'object') {
-    const object = value as Record<string, unknown>
-    for (const key of ['data', 'plans', 'list', 'items']) if (Array.isArray(object[key])) return object[key] as RawPlan[]
-  }
-  return []
+  throw new Error('plan_fetch response data must be an array')
 }
 
 function parsePlan(raw: RawPlan): PlanItem {
@@ -53,12 +50,13 @@ function parsePlan(raw: RawPlan): PlanItem {
     ['reset_price', t('price_reset')],
   ]
   const prices: PlanPrice[] = priceFields
+    .filter(([field]) => raw[field] !== undefined && raw[field] !== null)
     .map(([field, label]) => ({ field: String(field), label, amount: numericValue(raw[field]) }))
     .filter((item) => item.amount > 0)
   return {
     id: numericValue(raw.id),
-    name: String(raw.name ?? ''),
-    content: String(raw.content ?? '').replace(/<[^>]+>/g, ''),
+    name: typeof raw.name === 'string' ? raw.name : (() => { throw new Error('plan name is required') })(),
+    content: typeof raw.content === 'string' ? raw.content.replace(/<[^>]+>/g, '') : (() => { throw new Error('plan content is required') })(),
     transferEnable: numericValue(raw.transfer_enable),
     prices,
   }
@@ -75,17 +73,23 @@ async function loadPlans() {
       xboardRequest<XboardBody>('user_info', { baseUrl: appState.baseUrl, authData: appState.authData }),
     ])
     if (!plans.ok) {
-      error.value = plans.body?.message ?? plans.error ?? `HTTP ${plans.status}`
+      error.value = failureText(plans)
       return
     }
+    if (!config.ok) throw new Error(failureText(config))
+    if (!userInfo.ok) throw new Error(failureText(userInfo))
     store().setPlans(rows(plans.body?.data).map(parsePlan).filter((plan) => plan.id > 0))
-    const configData = config.body?.data && typeof config.body.data === 'object' ? config.body.data as Record<string, unknown> : {}
-    const data = userInfo.body?.data && typeof userInfo.body.data === 'object' ? userInfo.body.data as Record<string, unknown> : {}
+    if (!config.body?.data || typeof config.body.data !== 'object') throw new Error('user_config response missing data')
+    if (!userInfo.body?.data || typeof userInfo.body.data !== 'object') throw new Error('user_info response missing data')
+    const configData = config.body.data as Record<string, unknown>
+    const data = userInfo.body.data as Record<string, unknown>
+    if (typeof configData.currency_symbol !== 'string') throw new Error('user_config currency_symbol is required')
+    if (typeof configData.currency_unit !== 'string') throw new Error('user_config currency_unit is required')
     store().setProfile({
       balance: numericValue(data.balance),
       commissionBalance: numericValue(data.commission_balance),
-      currencySymbol: String(configData.currency_symbol ?? configData.currency ?? '¥'),
-      currencyUnit: String(configData.currency_unit ?? configData.currency ?? ''),
+      currencySymbol: configData.currency_symbol,
+      currencyUnit: configData.currency_unit,
     })
     await loadClientConfig()
   } catch (err) {
@@ -98,14 +102,13 @@ async function loadPlans() {
 async function loadClientConfig() {
   store().setRewardLogs([])
   const response = await xboardRequest<XboardBody>('admob_reward_config', { baseUrl: appState.baseUrl, authData: appState.authData })
-  if (response.ok && response.body?.data && typeof response.body.data === 'object') {
-    const data = response.body.data as Record<string, unknown>
-    store().setProfile({ paymentEnabled: enabled(data.payment_enabled) })
-    const github = String(data.github_project_url ?? '')
-    if (github) store().setAdmobConfig({ githubProjectUrl: github })
-    return
+  if (!response.ok) throw new Error(failureText(response))
+  if (!response.body?.data || typeof response.body.data !== 'object') throw new Error('admob_reward_config response missing data')
+  const data = response.body.data as Record<string, unknown>
+  store().setProfile({ paymentEnabled: enabled(data.payment_enabled) })
+  if (typeof data.github_project_url === 'string' && data.github_project_url) {
+    store().setAdmobConfig({ githubProjectUrl: data.github_project_url })
   }
-  store().setProfile({ paymentEnabled: true })
 }
 
 async function buy(plan: PlanItem, price: PlanPrice) {
@@ -116,7 +119,7 @@ async function buy(plan: PlanItem, price: PlanPrice) {
       params: { redirect: `/#/plan/${plan.id}?period=${price.field}` },
     })
     if (!response.ok || !response.body?.data) {
-      error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+      error.value = !response.ok ? failureText(response) : 'quick_login_url response missing data'
       return
     }
     await openInAppBrowser(response.body.data, plan.name)
@@ -129,7 +132,7 @@ async function buy(plan: PlanItem, price: PlanPrice) {
     params: { plan_id: plan.id, period: price.field },
   })
   if (!response.ok || !response.body?.data) {
-    error.value = response.body?.message ?? response.error ?? `HTTP ${response.status}`
+    error.value = !response.ok ? failureText(response) : 'order_save response missing data'
     return
   }
   const tradeNo = response.body.data
@@ -139,7 +142,7 @@ async function buy(plan: PlanItem, price: PlanPrice) {
     params: { trade_no: tradeNo },
   })
   if (!checkout.ok || checkout.body?.type !== -1) {
-    error.value = checkout.body?.message ?? checkout.error ?? `HTTP ${checkout.status}`
+    error.value = !checkout.ok ? failureText(checkout) : 'order_checkout response type is not paid'
     return
   }
   message.value = t('balance_pay_success')
@@ -148,7 +151,7 @@ async function buy(plan: PlanItem, price: PlanPrice) {
 
 function planPriceText(plan: PlanItem): string {
   if (!plan.prices.length) return t('plan_price_unset')
-  return plan.prices.map((p) => `${p.label} ${formatMoney(p.amount, appState.currencySymbol || '¥', appState.currencyUnit)}`).join(' · ')
+  return plan.prices.map((p) => `${p.label} ${formatMoney(p.amount, appState.currencySymbol, appState.currencyUnit)}`).join(' · ')
 }
 
 onMounted(loadPlans)
@@ -160,7 +163,7 @@ onMounted(loadPlans)
     <div class="page-header">
       <div class="page-header-bar" />
       <div class="page-header-content">
-        <p class="muted">{{ formatMoney(appState.balance, appState.currencySymbol || '¥', appState.currencyUnit) }}</p>
+        <p class="muted">{{ formatMoney(appState.balance, appState.currencySymbol, appState.currencyUnit) }}</p>
         <h1>{{ t('nav_plans') }}</h1>
       </div>
       <v-btn variant="outlined" :loading="loading" @click="loadPlans">
@@ -195,7 +198,7 @@ onMounted(loadPlans)
               block
               @click="buy(plan, price)"
             >
-              {{ price.label }} {{ formatMoney(price.amount, appState.currencySymbol || '¥', appState.currencyUnit) }}
+              {{ price.label }} {{ formatMoney(price.amount, appState.currencySymbol, appState.currencyUnit) }}
             </v-btn>
           </div>
           <div v-if="appState.paymentEnabled && plan.prices.length" class="price-grid mt-4">
@@ -206,7 +209,7 @@ onMounted(loadPlans)
               @click="buy(plan, price)"
             >
               <span>{{ price.label }}</span>
-              <strong>{{ formatMoney(price.amount, appState.currencySymbol || '¥', appState.currencyUnit) }}</strong>
+              <strong>{{ formatMoney(price.amount, appState.currencySymbol, appState.currencyUnit) }}</strong>
             </button>
           </div>
         </v-card-text>

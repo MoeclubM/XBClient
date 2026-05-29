@@ -87,11 +87,7 @@ fn gsettings_set(schema: &str, key: &str, value: &str) -> Result<()> {
 pub fn set_socks(host: &str, port: u16) -> Result<()> {
     gsettings_set("org.gnome.system.proxy", "mode", "manual")?;
     gsettings_set("org.gnome.system.proxy.socks", "host", host)?;
-    gsettings_set(
-        "org.gnome.system.proxy.socks",
-        "port",
-        &port.to_string(),
-    )?;
+    gsettings_set("org.gnome.system.proxy.socks", "port", &port.to_string())?;
     Ok(())
 }
 

@@ -17,7 +17,10 @@ let cleanupZoom: (() => void) | null = null
 let cleanupTraySync: (() => void) | null = null
 
 const showNav = computed(() => Boolean(appState.authData) && !route.meta.hideNav)
-const appName = computed(() => appState.buildConfig?.app_name || 'XBClient')
+const appName = computed(() => {
+  if (!appState.buildConfig?.app_name) throw new Error('XBCLIENT_APP_NAME is required in build config')
+  return appState.buildConfig.app_name
+})
 
 const themeName = computed(() => {
   if (appState.settings.themeMode === 'light' || appState.settings.themeMode === 'dark') return appState.settings.themeMode
@@ -83,7 +86,7 @@ onUnmounted(() => {
 
 <template>
   <v-app class="liquid-app" :class="{ 'desktop-app': isDesktop }">
-    <div v-if="!ready && isDesktop" class="desktop-frame">
+    <div v-if="!ready && isDesktop && appState.buildConfig" class="desktop-frame">
       <DesktopTitleBar :title="appName" />
       <div class="desktop-shell desktop-shell--boot">
         <aside class="desktop-sidebar">

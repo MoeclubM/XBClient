@@ -56,6 +56,7 @@ export interface AppSettings {
   virtualDnsPool: string
   vpnIpv6Enabled: boolean
   geoipDir: string
+  routeConfigYaml: string
   appRuleMode: 'exclude' | 'allow'
   excludedApps: string
   allowedApps: string
@@ -258,6 +259,7 @@ const initialState: AppState = {
     virtualDnsPool: DEFAULT_VIRTUAL_DNS_POOL,
     vpnIpv6Enabled: true,
     geoipDir: '',
+    routeConfigYaml: '',
     appRuleMode: 'exclude',
     excludedApps: '',
     allowedApps: '',

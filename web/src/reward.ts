@@ -3,16 +3,18 @@ import { translate, type TranslationKey } from './i18n'
 import type { AdRewardLogItem } from './store'
 
 export function enabled(value: unknown): boolean {
-  return value === true || value === 1 || value === '1' || value === 'true'
+  if (value === true || value === 1 || value === '1' || value === 'true') return true
+  if (value === false || value === 0 || value === '0' || value === 'false') return false
+  throw new Error(`boolean flag has invalid value: ${String(value)}`)
 }
 
 export function parseRewardLogs(value: unknown, appLanguage = 'zh-CN'): AdRewardLogItem[] {
   return rewardRows(value).map((row) => ({
     id: Math.round(numericValue(row.id)),
-    scene: String(row.scene ?? ''),
-    transactionId: String(row.transaction_id ?? ''),
-    status: String(row.status ?? ''),
-    error: String(row.error ?? ''),
+    scene: requiredText(row, 'scene'),
+    transactionId: requiredText(row, 'transaction_id'),
+    status: requiredText(row, 'status'),
+    error: requiredText(row, 'error'),
     rewardContent: rewardContentText(row, appLanguage),
     usedAt: Math.round(numericValue(row.used_at)),
     createdAt: Math.round(numericValue(row.created_at)),
@@ -22,48 +24,60 @@ export function parseRewardLogs(value: unknown, appLanguage = 'zh-CN'): AdReward
 export function rewardStatusText(status: string, appLanguage = 'zh-CN'): string {
   if (status === 'credited') return translate('reward_status_credited', appLanguage)
   if (status === 'failed') return translate('reward_status_failed', appLanguage)
-  return translate('reward_status_pending', appLanguage)
+  if (status === 'pending') return translate('reward_status_pending', appLanguage)
+  throw new Error(`reward status is invalid: ${status}`)
 }
 
 function rewardRows(value: unknown): Array<Record<string, unknown>> {
   if (Array.isArray(value)) return value as Array<Record<string, unknown>>
-  if (value && typeof value === 'object') {
-    const object = value as Record<string, unknown>
-    for (const key of ['data', 'list', 'items', 'logs']) {
-      if (Array.isArray(object[key])) return object[key] as Array<Record<string, unknown>>
-      if (object[key] && typeof object[key] === 'object') {
-        const nested = object[key] as Record<string, unknown>
-        for (const nestedKey of ['data', 'list', 'items', 'logs']) {
-          if (Array.isArray(nested[nestedKey])) return nested[nestedKey] as Array<Record<string, unknown>>
-        }
-      }
-    }
-  }
-  return []
+  throw new Error('reward history response data must be an array')
 }
 
 function rewardContentText(item: Record<string, unknown>, appLanguage: string): string {
-  for (const key of ['reward_content', 'reward_text', 'reward_description', 'description']) {
-    const text = String(item[key] ?? '').trim()
+  if (item.reward_content !== undefined && item.reward_content !== null) {
+    if (typeof item.reward_content !== 'string') throw new Error('reward log reward_content must be a string')
+    const text = item.reward_content.trim()
     if (text) return text
   }
-  const rewards = (item.rewards ?? item.rewards_given) as Record<string, unknown> | undefined
-  if (!rewards || typeof rewards !== 'object') return ''
+  const rewards = item.rewards as Record<string, unknown> | undefined
+  if (!rewards || typeof rewards !== 'object') throw new Error('reward log missing reward_content or rewards')
   const parts: string[] = []
-  const balance = numericValue(rewards.balance)
-  if (balance > 0) parts.push(`${label('reward_balance', appLanguage)} ${trimNumber(balance / 100)}`)
-  const transfer = numericValue(rewards.transfer_enable)
-  if (transfer > 0) parts.push(`${label('reward_transfer', appLanguage)} ${formatTrafficBytes(transfer)}`)
-  const deviceLimit = Math.round(numericValue(rewards.device_limit))
-  if (deviceLimit > 0) parts.push(`${label('reward_device_limit', appLanguage)} +${deviceLimit}`)
-  if (enabled(rewards.reset_package) || numericValue(rewards.reset_package) > 0) parts.push(label('reward_reset_package', appLanguage))
-  const planId = Math.round(numericValue(rewards.plan_id))
-  if (planId > 0) parts.push(`${label('reward_plan', appLanguage)} #${planId}`)
-  const planValidityDays = Math.round(numericValue(rewards.plan_validity_days))
-  if (planValidityDays > 0) parts.push(`${label('reward_plan_validity', appLanguage)} ${planValidityDays} ${label('days_suffix', appLanguage)}`)
-  const expireDays = Math.round(numericValue(rewards.expire_days))
-  if (expireDays > 0) parts.push(`${label('reward_expire', appLanguage)} +${expireDays} ${label('days_suffix', appLanguage)}`)
+  if (rewards.balance !== undefined && rewards.balance !== null) {
+    const balance = numericValue(rewards.balance)
+    if (balance > 0) parts.push(`${label('reward_balance', appLanguage)} ${trimNumber(balance / 100)}`)
+  }
+  if (rewards.transfer_enable !== undefined && rewards.transfer_enable !== null) {
+    const transfer = numericValue(rewards.transfer_enable)
+    if (transfer > 0) parts.push(`${label('reward_transfer', appLanguage)} ${formatTrafficBytes(transfer)}`)
+  }
+  if (rewards.device_limit !== undefined && rewards.device_limit !== null) {
+    const deviceLimit = Math.round(numericValue(rewards.device_limit))
+    if (deviceLimit > 0) parts.push(`${label('reward_device_limit', appLanguage)} +${deviceLimit}`)
+  }
+  if (rewards.reset_package !== undefined && rewards.reset_package !== null) {
+    const resetPackage = rewards.reset_package
+    if (typeof resetPackage === 'boolean' ? resetPackage : numericValue(resetPackage) > 0) parts.push(label('reward_reset_package', appLanguage))
+  }
+  if (rewards.plan_id !== undefined && rewards.plan_id !== null) {
+    const planId = Math.round(numericValue(rewards.plan_id))
+    if (planId > 0) parts.push(`${label('reward_plan', appLanguage)} #${planId}`)
+  }
+  if (rewards.plan_validity_days !== undefined && rewards.plan_validity_days !== null) {
+    const planValidityDays = Math.round(numericValue(rewards.plan_validity_days))
+    if (planValidityDays > 0) parts.push(`${label('reward_plan_validity', appLanguage)} ${planValidityDays} ${label('days_suffix', appLanguage)}`)
+  }
+  if (rewards.expire_days !== undefined && rewards.expire_days !== null) {
+    const expireDays = Math.round(numericValue(rewards.expire_days))
+    if (expireDays > 0) parts.push(`${label('reward_expire', appLanguage)} +${expireDays} ${label('days_suffix', appLanguage)}`)
+  }
+  if (!parts.length) throw new Error('reward log rewards is empty')
   return parts.join(' · ')
+}
+
+function requiredText(item: Record<string, unknown>, key: string): string {
+  const value = item[key]
+  if (typeof value !== 'string') throw new Error(`reward log missing ${key}`)
+  return value
 }
 
 function label(key: TranslationKey, appLanguage: string): string {

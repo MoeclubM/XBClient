@@ -2,8 +2,6 @@ package moe.telecom.xbclient
 
 import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -47,23 +45,10 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 class AppOpenAdActivity : ComponentActivity() {
-    private val handler = Handler(Looper.getMainLooper())
     private var appOpenAd: AppOpenAd? = null
     private var adShowing = false
     private var nextOpened = false
     private var appOpenLoadStarted = false
-    private val configTimeoutRunnable = Runnable {
-        if (!appOpenLoadStarted && !nextOpened) {
-            Log.w(TAG, "App open config fetch timed out.")
-            openMainActivity()
-        }
-    }
-    private val adLoadTimeoutRunnable = Runnable {
-        if (!adShowing && !nextOpened) {
-            Log.w(TAG, "App open ad load timed out.")
-            openMainActivity()
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,80 +57,61 @@ class AppOpenAdActivity : ComponentActivity() {
             LaunchBrandScreen()
         }
         val prefs = getSharedPreferences(XBCLIENT_PREFS, MODE_PRIVATE)
-        if (prefs.getString("auth_data", "").orEmpty().isEmpty() || !prefs.getBoolean("language_onboarding_done", false) || !prefs.getBoolean("vpn_disclosure_done", false)) {
+        val authData = prefs.getString("auth_data", null) ?: ""
+        if (authData.isEmpty() || !prefs.getBoolean("language_onboarding_done", false) || !prefs.getBoolean("vpn_disclosure_done", false)) {
             openAuthActivity()
             return
         }
-        val cachedEnabled = prefs.getBoolean("app_open_ad_enabled", false)
-        val cachedUnitId = prefs.getString("app_open_ad_unit_id", "").orEmpty()
-        handler.postDelayed(configTimeoutRunnable, APP_OPEN_CONFIG_TIMEOUT_MS)
-        if (cachedEnabled && cachedUnitId.isNotEmpty()) {
-            startAppOpenAdLoad(cachedUnitId)
-        }
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val config = fetchAppOpenAdConfig(prefs.getString("auth_data", "").orEmpty())
+                val config = fetchAppOpenAdConfig(authData)
                 runOnUiThread {
-                    handler.removeCallbacks(configTimeoutRunnable)
-                    if (config == null) {
-                        if (!appOpenLoadStarted) {
-                            openMainActivity()
-                        }
-                        return@runOnUiThread
-                    }
                     val (enabled, unitId) = config
                     prefs.edit()
                         .putBoolean("app_open_ad_enabled", enabled)
                         .putString("app_open_ad_unit_id", unitId)
                         .apply()
-                    if (!enabled || unitId.isEmpty()) {
+                    if (!enabled) {
                         if (!appOpenLoadStarted) {
                             openMainActivity()
                         }
                         return@runOnUiThread
                     }
+                    if (unitId.isEmpty()) throw IllegalStateException("App open ad enabled but unit id is empty.")
                     startAppOpenAdLoad(unitId)
                 }
             } catch (error: Exception) {
                 Log.w(TAG, "App open config request failed.", error)
                 runOnUiThread {
-                    handler.removeCallbacks(configTimeoutRunnable)
-                    if (!appOpenLoadStarted) {
-                        openMainActivity()
-                    }
+                    throw error
                 }
             }
         }
     }
 
     override fun onDestroy() {
-        handler.removeCallbacks(configTimeoutRunnable)
-        handler.removeCallbacks(adLoadTimeoutRunnable)
         appOpenAd = null
         super.onDestroy()
     }
 
-    private fun fetchAppOpenAdConfig(authData: String): Pair<Boolean, String>? {
+    private fun fetchAppOpenAdConfig(authData: String): Pair<Boolean, String> {
         val result = XboardApi.request("admob_reward_config", apiUrl(), authData, JSONObject())
-        if (!result.optBoolean("ok")) {
-            return null
+        if (!result.getBoolean("ok")) {
+            throw IllegalStateException(result.getString("error"))
         }
-        val body = result.optJSONObject("body") ?: return null
-        if (body.optString("status") == "fail") {
-            return null
+        val body = result.getJSONObject("body")
+        if (body.getString("status") == "fail") {
+            throw IllegalStateException(body.getString("message"))
         }
-        val data = body.optJSONObject("data") ?: return null
-        return data.optBoolean("app_open_ad_enabled") to data.optString("app_open_ad_unit_id")
+        val data = body.getJSONObject("data")
+        return data.getBoolean("app_open_ad_enabled") to data.getString("app_open_ad_unit_id")
     }
 
     private fun startAppOpenAdLoad(adUnitId: String) {
-        if (appOpenLoadStarted || nextOpened || isFinishing || adUnitId.isEmpty()) {
+        if (appOpenLoadStarted || nextOpened || isFinishing) {
             return
         }
         appOpenLoadStarted = true
-        handler.removeCallbacks(configTimeoutRunnable)
-        handler.removeCallbacks(adLoadTimeoutRunnable)
-        handler.postDelayed(adLoadTimeoutRunnable, APP_OPEN_AD_LOAD_TIMEOUT_MS)
         lifecycleScope.launch(Dispatchers.IO) {
             MobileAds.initialize(
                 this@AppOpenAdActivity,
@@ -168,29 +134,26 @@ class AppOpenAdActivity : ComponentActivity() {
                             if (nextOpened || isFinishing) {
                                 return@runOnUiThread
                             }
-                            handler.removeCallbacks(adLoadTimeoutRunnable)
                             appOpenAd = ad
                             showAppOpenAd()
                         }
                     }
 
                     override fun onAdFailedToLoad(adError: LoadAdError) {
-                        Log.w(TAG, "App open ad failed to load: $adError")
-                        runOnUiThread { openMainActivity() }
+                        throw IllegalStateException("App open ad failed to load: $adError")
                     }
                 }
             )
         } catch (error: Exception) {
             Log.w(TAG, "App open ad load crashed.", error)
-            openMainActivity()
+            throw error
         }
     }
 
     private fun showAppOpenAd() {
         val ad = appOpenAd
         if (ad == null) {
-            openMainActivity()
-            return
+            throw IllegalStateException("App open ad is not loaded.")
         }
         ad.setImmersiveMode(false)
         ad.adEventCallback = object : AppOpenAdEventCallback {
@@ -199,8 +162,7 @@ class AppOpenAdActivity : ComponentActivity() {
             }
 
             override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
-                Log.w(TAG, "App open ad failed to show: $fullScreenContentError")
-                runOnUiThread { openMainActivity() }
+                throw IllegalStateException("App open ad failed to show: $fullScreenContentError")
             }
         }
         adShowing = true
@@ -225,8 +187,6 @@ class AppOpenAdActivity : ComponentActivity() {
             return
         }
         nextOpened = true
-        handler.removeCallbacks(configTimeoutRunnable)
-        handler.removeCallbacks(adLoadTimeoutRunnable)
         startActivity(
             Intent(this, activityClass)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -236,8 +196,6 @@ class AppOpenAdActivity : ComponentActivity() {
 
     companion object {
         private const val TAG = "XBClientAds"
-        private const val APP_OPEN_CONFIG_TIMEOUT_MS = 10_000L
-        private const val APP_OPEN_AD_LOAD_TIMEOUT_MS = 12_000L
     }
 }
 

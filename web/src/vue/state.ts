@@ -55,7 +55,7 @@ export async function bootstrapApp(): Promise<void> {
   }
 
   if (isDesktopShell() && (launchedSilent() || store().settings.silentStart)) {
-    await hideMainWindow().catch(() => {})
+    await hideMainWindow()
   }
 
   if (isDesktopConnectionShell() && store().authData) {
@@ -63,12 +63,7 @@ export async function bootstrapApp(): Promise<void> {
     if (message) console.error('desktop connection sync failed', message)
   }
 
-  try {
-    await syncGuestAuthConfig(config.default_api_url)
-  } catch (error) {
-    if (!session?.authData) throw error
-    console.error('guest auth config sync failed', error)
-  }
+  await syncGuestAuthConfig(config.default_api_url)
 }
 
 export function applyDocumentTheme(): void {

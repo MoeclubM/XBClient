@@ -24,12 +24,9 @@ export function dnsAddressForVpn(value: string): string {
 
 export interface RawNode {
   type?: unknown
-  protocol?: unknown
   name?: unknown
   host?: unknown
-  server?: unknown
   port?: unknown
-  server_port?: unknown
   tags?: unknown
   tag?: unknown
   label?: unknown
@@ -55,70 +52,24 @@ const CONNECT_SUPPORTED = new Set([
 ])
 
 export function toAppNode(raw: RawNode): AppNode {
-  const rawProtocol = String(raw.type ?? raw.protocol ?? 'unknown').toLowerCase()
-  const protocol = canonicalProtocol(rawProtocol)
-  const host = String(raw.host ?? raw.server ?? '')
-  const port = Number(raw.port ?? raw.server_port ?? 0)
+  if (typeof raw.type !== 'string' || !raw.type.trim()) throw new Error('XBClient 节点缺少 type。')
+  if (typeof raw.host !== 'string' || !raw.host.trim()) throw new Error('XBClient 节点缺少 host。')
+  if (typeof raw.name !== 'string' || !raw.name.trim()) throw new Error('XBClient 节点缺少 name。')
+  const port = Number(raw.port)
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error('XBClient 节点 port 无效。')
+  const protocol = raw.type.trim().toLowerCase()
+  const host = raw.host.trim()
   const normalized: RawNode = { ...raw, type: protocol, host }
-  if (rawProtocol === 'naive+quic') normalized.quic = true
-  if (protocol !== 'ss' && normalized.insecure === undefined) {
-    normalized.insecure = Boolean(raw['skip-cert-verify'])
-  }
-  delete normalized['skip-cert-verify']
   return {
     protocol,
     protocolLabel: protocolLabel(protocol),
-    name: String(raw.name ?? raw.tag ?? '').trim() || `${host}:${port}`,
+    name: raw.name.trim(),
     host,
     port,
     tags: nodeTags(raw),
     connectSupported: CONNECT_SUPPORTED.has(protocol),
     rawJson: JSON.stringify(normalized),
   }
-}
-
-export function mergeNodeLists(...lists: AppNode[][]): AppNode[] {
-  const seen = new Set<string>()
-  const result: AppNode[] = []
-  for (const node of lists.flat()) {
-    const key = `${node.protocol}|${node.host}|${node.port}|${node.name}`
-    if (!seen.has(key)) {
-      seen.add(key)
-      result.push(node)
-    }
-  }
-  return result
-}
-
-export function mergeXboardNodeTags(nodes: AppNode[], rows: RawNode[]): AppNode[] {
-  const tagsById = new Map<number, string[]>()
-  const tagsByTypedName = new Map<string, string[]>()
-  const tagsByName = new Map<string, string[]>()
-  for (const row of rows) {
-    const tags = nodeTags(row)
-    if (tags.length === 0) continue
-    const id = Number(row.id ?? 0)
-    if (id > 0) tagsById.set(id, tags)
-    const name = String(row.name ?? '').trim()
-    const type = canonicalProtocol(String(row.type ?? row.protocol ?? '').toLowerCase())
-    if (name) {
-      tagsByName.set(name, tags)
-      if (type) tagsByTypedName.set(`${type}|${name}`, tags)
-    }
-  }
-  return nodes.map((node) => {
-    const raw = JSON.parse(node.rawJson) as RawNode
-    const id = Number(raw.id ?? 0)
-    const tags =
-      node.tags.length > 0
-        ? node.tags
-        : id > 0
-          ? tagsById.get(id) ?? []
-          : tagsByTypedName.get(`${node.protocol}|${node.name.trim()}`) ??
-            tagsByName.get(node.name.trim()) ??
-            []
-    return tags.length === 0 || tags === node.tags ? node : { ...node, tags }
-  })
 }
 
 export function displayNodeName(node: AppNode, index: number): string {
@@ -131,20 +82,16 @@ export function displayNodeName(node: AppNode, index: number): string {
 
 export function rawNodeHost(node: AppNode): string {
   const raw = JSON.parse(node.rawJson) as RawNode
-  return String(raw.host ?? raw.server ?? node.host)
+  return String(raw.host)
 }
 
 export function aerionNodeWithResolvedHost(node: AppNode, resolvedHost: string): RawNode {
   const raw = JSON.parse(node.rawJson) as RawNode
-  const originalHost = String(raw.host ?? raw.server ?? node.host)
+  const originalHost = String(raw.host)
   if (resolvedHost !== originalHost && !String(raw.sni ?? '').trim()) {
-    raw.sni = originalHost
+    throw new Error(`节点 ${node.name} 解析为 IP 后缺少 sni。`)
   }
   raw.host = resolvedHost
-  if (raw.server !== undefined) {
-    raw.server = resolvedHost
-  }
-  if (raw.address !== undefined) raw.address = resolvedHost
   return raw
 }
 
@@ -194,30 +141,6 @@ export function readableNodeTestError(error: string, appLanguage = 'zh-CN'): str
     return `${translate('node_test_failed_prefix', appLanguage)}：${translate('node_test_timeout', appLanguage)}`
   }
   return `${translate('node_test_failed_prefix', appLanguage)}：${error}`
-}
-
-function canonicalProtocol(rawProtocol: string): string {
-  switch (rawProtocol) {
-    case 'hy2':
-      return 'hysteria2'
-    case 'mierus':
-      return 'mieru'
-    case 'naive+https':
-    case 'naive+quic':
-      return 'naive'
-    case 'shadowsocks':
-      return 'ss'
-    case 'socks':
-    case 'socks5h':
-      return 'socks5'
-    case 'freedom':
-      return 'direct'
-    case 'reject':
-    case 'blackhole':
-      return 'block'
-    default:
-      return rawProtocol || 'unknown'
-  }
 }
 
 function protocolLabel(protocol: string): string {
@@ -274,12 +197,9 @@ function nodeTags(node: RawNode): string[] {
 }
 
 export function rawNodeRows(value: unknown): RawNode[] {
-  if (Array.isArray(value)) return value as RawNode[]
   if (value && typeof value === 'object') {
     const object = value as Record<string, unknown>
-    for (const key of ['nodes', 'data', 'list', 'items']) {
-      if (Array.isArray(object[key])) return object[key] as RawNode[]
-    }
+    if (Array.isArray(object.nodes)) return object.nodes as RawNode[]
   }
-  return []
+  throw new Error('XBClient 节点响应缺少 data.nodes 数组。')
 }

@@ -1,10 +1,15 @@
 export function numericValue(value: unknown): number {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  if (value === undefined || value === null) throw new Error('numeric value is required')
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new Error('numeric value is not finite')
+    return value
+  }
   if (typeof value === 'string') {
     const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : 0
+    if (!Number.isFinite(parsed)) throw new Error(`numeric value is invalid: ${value}`)
+    return parsed
   }
-  return 0
+  throw new Error(`numeric value has unsupported type: ${typeof value}`)
 }
 
 export function formatMoney(amountCents: number, symbol: string, unit: string): string {
@@ -44,13 +49,13 @@ export function formatDuration(durationMs: number): string {
   return `${pad(m)}:${pad(s)}`
 }
 
-export function publicErrorText(value: unknown, fallback = 'Operation failed'): string {
+export function publicErrorText(value: unknown, defaultMessage = 'Operation failed'): string {
   const raw = value instanceof Error ? value.message : String(value ?? '')
   const text = raw
     .replace(/not allowed to open url .*/i, 'Unable to open link')
     .replace(/https?:\/\/[^\s"'<>，。)]+/gi, 'service address')
     .trim()
-  return text || fallback
+  return text || defaultMessage
 }
 
 function pad(value: number): string {

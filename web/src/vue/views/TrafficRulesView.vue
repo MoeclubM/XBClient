@@ -1,11 +1,25 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { appState, t } from '../state'
+import { appState, persistSettings, t } from '../state'
 
 const router = useRouter()
 
 const routing = computed(() => appState.routing)
+const routeConfigYaml = ref(appState.settings.routeConfigYaml)
+
+watch(() => appState.settings.routeConfigYaml, () => {
+  routeConfigYaml.value = appState.settings.routeConfigYaml
+})
+
+async function saveRouteConfig() {
+  await persistSettings({ routeConfigYaml: routeConfigYaml.value.trim() })
+}
+
+async function clearRouteConfig() {
+  routeConfigYaml.value = ''
+  await persistSettings({ routeConfigYaml: '' })
+}
 </script>
 
 <template>
@@ -41,6 +55,18 @@ const routing = computed(() => appState.routing)
           </p>
 
           <p class="muted mt-4">{{ t('traffic_rules_hint') }}</p>
+          <v-textarea
+            v-model="routeConfigYaml"
+            class="mt-4"
+            :label="t('traffic_rules_config_label')"
+            variant="outlined"
+            rows="10"
+            auto-grow
+          />
+          <div class="d-flex gap-2 mt-3">
+            <v-btn color="primary" @click="saveRouteConfig">{{ t('common_save_settings') }}</v-btn>
+            <v-btn variant="outlined" @click="clearRouteConfig">{{ t('common_clear_selection') }}</v-btn>
+          </div>
         </v-card-text>
       </v-card>
     </div>

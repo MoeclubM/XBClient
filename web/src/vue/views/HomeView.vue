@@ -46,17 +46,16 @@ onMounted(async () => {
       const data = JSON.parse(payload) as {
         type?: string
         wrapper_session_id?: number
-        session_id?: number
         upload_bytes?: number
         download_bytes?: number
       }
       if (data.type !== 'traffic_recorded') return
-      const sessionId = data.wrapper_session_id ?? data.session_id
+      const sessionId = data.wrapper_session_id
       if (typeof sessionId !== 'number' || appState.vpn?.sessionId !== sessionId) return
       store().updateVpnTraffic(
         sessionId,
-        Number(data.upload_bytes ?? 0),
-        Number(data.download_bytes ?? 0),
+        Number(data.upload_bytes),
+        Number(data.download_bytes),
       )
     } catch (err) {
       console.error('parse Aerion event failed', err)
@@ -115,7 +114,8 @@ async function toggleConnection(index = selectedNodeIndex.value) {
   connectingIndex.value = index
   error.value = ''
   try {
-    const resolved = await resolveAppNode(node, appState.settings.nodeDns, appState.buildConfig?.user_agent ?? '')
+    if (!appState.buildConfig?.user_agent) throw new Error('XBCLIENT_USER_AGENT is required in build config')
+    const resolved = await resolveAppNode(node, appState.settings.nodeDns, appState.buildConfig.user_agent)
     if (useTun) {
       const dnsMode = appState.settings.vpnDnsMode
       const dns_addr = dnsAddressForVpn(

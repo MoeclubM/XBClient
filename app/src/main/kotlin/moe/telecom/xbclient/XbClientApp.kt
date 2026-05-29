@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
-import android.os.Build
 import android.os.Message
 import android.text.TextUtils
 import android.view.View
@@ -377,9 +376,6 @@ private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
                     settings.domStorageEnabled = true
                     settings.javaScriptCanOpenWindowsAutomatically = true
                     settings.setSupportMultipleWindows(true)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                    }
                     settings.userAgentString = webUserAgent
                     webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
@@ -398,9 +394,6 @@ private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
                                 settings.domStorageEnabled = true
                                 settings.javaScriptCanOpenWindowsAutomatically = true
                                 settings.userAgentString = webUserAgent
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                                    settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                                }
                                 webViewClient = object : WebViewClient() {
                                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                                         if (handleOAuthWebUrl(request.url, viewModel)) {
@@ -773,7 +766,7 @@ private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel
                 if (state.oauthConfirmToken.isNotEmpty()) {
                     Spacer(Modifier.height(14.dp))
                     Text(
-                        stringResource(R.string.auth_oauth_confirm_message, state.oauthConfirmProvider.ifEmpty { "OAuth" }, state.oauthConfirmEmail),
+                        stringResource(R.string.auth_oauth_confirm_message, state.oauthConfirmProvider, state.oauthConfirmEmail),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(8.dp))
@@ -1836,7 +1829,7 @@ private fun RewardAdSection(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                log.rewardContent.ifBlank { rewardStatusText(log.status) },
+                                log.rewardContent,
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Spacer(Modifier.height(2.dp))
@@ -1874,7 +1867,7 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
     val context = LocalContext.current
     Section(stringResource(R.string.section_account)) {
         Panel {
-            Text(state.userEmail.ifEmpty { stringResource(R.string.status_logged_in) }, style = MaterialTheme.typography.titleLarge)
+            Text(state.userEmail, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(10.dp))
             Text(
                 stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)),
@@ -1971,6 +1964,8 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     var vpnDnsMode by rememberSaveable(state.vpnDnsMode) { mutableStateOf(state.vpnDnsMode) }
     var virtualDnsPool by rememberSaveable(state.virtualDnsPool) { mutableStateOf(state.virtualDnsPool) }
     var nodeTestTarget by rememberSaveable(state.nodeTestTarget) { mutableStateOf(state.nodeTestTarget) }
+    var customRouteConfigYaml by rememberSaveable(state.customRouteConfigYaml, state.routeConfigYaml) { mutableStateOf(state.customRouteConfigYaml.ifBlank { state.routeConfigYaml }) }
+    var geoipDir by rememberSaveable(state.geoipDir) { mutableStateOf(state.geoipDir) }
     Section(stringResource(R.string.section_appearance)) {
         Panel {
             LanguageChooser(state.appLanguage, viewModel)
@@ -2008,6 +2003,47 @@ private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel)
                     Text(stringResource(R.string.action_select_apps))
                 }
                 OutlinedButton(onClick = viewModel::clearSelectedApps, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.common_clear_selection))
+                }
+            }
+        }
+    }
+    Section(stringResource(R.string.section_traffic_rules)) {
+        Panel {
+            Text(
+                if (state.customRouteConfigYaml.isNotBlank()) stringResource(R.string.traffic_rules_custom_enabled)
+                else if (state.routeRuleCount > 0) stringResource(R.string.traffic_rules_count, state.routeRuleCount)
+                else stringResource(R.string.traffic_rules_none),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (state.routeRulesPreview.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                for (rule in state.routeRulesPreview.take(6)) {
+                    Text(rule, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = customRouteConfigYaml,
+                onValueChange = { customRouteConfigYaml = it },
+                label = { Text(stringResource(R.string.traffic_rules_config_label)) },
+                minLines = 6,
+                maxLines = 12,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(value = geoipDir, onValueChange = { geoipDir = it }, label = { Text(stringResource(R.string.geoip_dir_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(6.dp))
+            Text(stringResource(R.string.traffic_rules_config_help), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { viewModel.saveRouteConfigYaml(customRouteConfigYaml, geoipDir) }, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.common_save_settings))
+                }
+                OutlinedButton(onClick = {
+                    customRouteConfigYaml = ""
+                    viewModel.saveRouteConfigYaml("", geoipDir)
+                }, modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.common_clear_selection))
                 }
             }

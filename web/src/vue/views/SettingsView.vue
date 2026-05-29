@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { getVersion } from '../../platform/electron'
 import { isDesktopShell } from '../../platform/shell'
 import { autostartSetEnabled, openInAppBrowser, parseSocksAddr, systemProxyClear, systemProxySet } from '../../api/system'
-import { publicErrorText } from '../../format'
 import { appState, persistSettings, t } from '../state'
 import AppearanceControls from '../components/AppearanceControls.vue'
 
@@ -33,10 +32,7 @@ watch(() => appState.settings, (s) => {
 }, { deep: true })
 
 onMounted(async () => {
-  appVersion.value = await getVersion().catch((err) => {
-    error.value = publicErrorText(err)
-    return ''
-  })
+  appVersion.value = await getVersion()
 })
 
 async function toggleProxy(value: boolean) {
@@ -295,8 +291,8 @@ const dnsModeOptions = [
       <p class="section-label">{{ t('about') }}</p>
       <v-card class="panel-card">
         <v-card-text>
-          <p class="text-h6 font-weight-bold">{{ appState.buildConfig?.app_name || 'XBClient' }}</p>
-          <p class="muted">{{ t('app_version') }} {{ appVersion || '-' }}</p>
+          <p class="text-h6 font-weight-bold">{{ appState.buildConfig?.app_name }}</p>
+          <p class="muted">{{ t('app_version') }} {{ appVersion }}</p>
           <div class="d-flex flex-wrap gap-2 mt-3">
             <v-btn
               v-if="appState.githubProjectUrl"
