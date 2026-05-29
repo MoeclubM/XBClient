@@ -21,4 +21,4 @@ windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Network
 
 [patch.crates-io]
 socks5-impl = { path = "../third_party/socks5-impl" }
-
+tun2proxy = { path = "../third_party/tun2proxy" }

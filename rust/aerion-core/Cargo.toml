@@ -27,3 +27,4 @@ android_logger = "0.15.1"
 
 [patch.crates-io]
 socks5-impl = { path = "../third_party/socks5-impl" }
+tun2proxy = { path = "../third_party/tun2proxy" }

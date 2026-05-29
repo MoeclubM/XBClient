@@ -40,7 +40,7 @@ class XbClientVpnService : VpnService() {
     private var currentDirectDns = DEFAULT_DIRECT_DNS
     private var currentDnsMode = DNS_MODE_OVER_TCP
     private var currentVirtualDnsPool = DEFAULT_VIRTUAL_DNS_POOL
-    private var currentIpv6Enabled = false
+    private var currentIpv6Enabled = true
     private var currentRouteConfigYaml = ""
     private var currentGeoipDir = ""
     private var currentRouteSessionId = 0L
@@ -152,7 +152,7 @@ class XbClientVpnService : VpnService() {
                 if (!intent.hasExtra(EXTRA_IPV6_ENABLED)) {
                     throw IllegalStateException("VPN start missing IPv6 flag")
                 }
-                val ipv6Enabled = intent.getBooleanExtra(EXTRA_IPV6_ENABLED, false)
+                val ipv6Enabled = intent.getBooleanExtra(EXTRA_IPV6_ENABLED, true)
                 val routeConfigYaml = intent.getStringExtra(EXTRA_ROUTE_CONFIG_YAML)
                     ?: throw IllegalStateException("VPN start missing route config")
                 val geoipDir = intent.getStringExtra(EXTRA_GEOIP_DIR)
@@ -219,14 +219,13 @@ class XbClientVpnService : VpnService() {
         }
         val systemDns = if (dnsMode == DNS_MODE_DIRECT) dnsAddress else PRIVATE_IPV4_DNS
         builder.addDnsServer(systemDns)
+        if (ipv6Enabled && dnsMode != DNS_MODE_DIRECT) {
+            builder.addDnsServer(PRIVATE_IPV6_DNS)
+        }
         Log.i("XBClient", "VPN DNS config: mode=$dnsMode system_dns=$systemDns upstream_dns=$dnsAddress fake_pool=$virtualDnsPool ipv6=$ipv6Enabled route_rules=${routeConfigYaml.isNotBlank()}")
         if (routeConfigYaml.isNotBlank() && dnsMode != DNS_MODE_VIRTUAL) {
             Log.w("XBClient", "Clash rule routing is enabled with DNS mode $dnsMode; DOMAIN rules only keep hostnames reliably in Fake-IP mode.")
         }
-        if (dnsMode == DNS_MODE_VIRTUAL && ipv6Enabled) {
-            throw IllegalStateException("Fake-IP DNS mode does not support IPv6; disable IPv6 or use TCP forwarding DNS mode.")
-        }
-
         if (!allowedApps.isNullOrBlank()) {
             if (!excludedApps.isNullOrBlank()) {
                 throw IllegalStateException("Allowed applications and disallowed applications are mutually exclusive")
@@ -543,6 +542,7 @@ class XbClientVpnService : VpnService() {
         private const val PRIVATE_IPV4_CLIENT = "172.19.0.1"
         private const val PRIVATE_IPV4_DNS = "172.19.0.2"
         private const val PRIVATE_IPV6_CLIENT = "fdfe:dcba:9876::1"
+        private const val PRIVATE_IPV6_DNS = "fdfe:dcba:9876::2"
         private const val CHANNEL_ID = "xbclient_vpn"
         private const val NOTIFICATION_ID = 1
         private const val PREFS = "xbclient"

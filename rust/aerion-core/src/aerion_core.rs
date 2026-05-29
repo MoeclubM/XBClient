@@ -141,14 +141,6 @@ struct StartVpnRequest {
     exit_on_fatal_error: Option<bool>,
 }
 
-fn ensure_supported_vpn_dns(request: &StartVpnRequest) -> Result<()> {
-    ensure!(
-        request.dns != "virtual" || !request.ipv6,
-        "Aerion TUN Fake-IP DNS uses one virtual DNS address family; disable IPv6 or use over_tcp DNS"
-    );
-    Ok(())
-}
-
 #[derive(Deserialize)]
 struct TestNodeRequest {
     node: Value,
@@ -530,7 +522,6 @@ mod platform {
     pub async fn start(input: &str) -> Result<String> {
         let request: StartVpnRequest =
             serde_json::from_str(input).context("parse start VPN request")?;
-        ensure_supported_vpn_dns(&request)?;
         let mtu = request.mtu;
         let dns_name = request.dns.clone();
         let dns = match dns_name.as_str() {
@@ -682,7 +673,6 @@ mod platform {
     pub async fn start(input: &str) -> Result<String> {
         let request: StartVpnRequest =
             serde_json::from_str(input).context("parse start VPN request")?;
-        ensure_supported_vpn_dns(&request)?;
         let mtu = request.mtu;
         let dns_name = request.dns.clone();
         let dns = match dns_name.as_str() {
