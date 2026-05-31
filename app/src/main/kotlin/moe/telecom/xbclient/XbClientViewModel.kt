@@ -965,7 +965,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 )
             }
             persistStoredState(_uiState.value)
-            checkGithubReleaseUpdate(githubProjectUrl)
+            if (githubProjectUrl.isNotBlank()) {
+                checkGithubReleaseUpdate(githubProjectUrl)
+            }
             return Triple("", "", "")
         }
         val planEnabled = data.getBoolean("plan_reward_ad_enabled")
@@ -989,7 +991,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             )
         }
         persistStoredState(_uiState.value)
-        checkGithubReleaseUpdate(githubProjectUrl)
+        if (githubProjectUrl.isNotBlank()) {
+            checkGithubReleaseUpdate(githubProjectUrl)
+        }
         return if (scene == REWARD_SCENE_POINTS) {
             Triple(pointsAdUnitId, pointsUserId, pointsCustomData)
         } else {
