@@ -101,8 +101,6 @@ data class XbClientUiState(
     val planRewardedAdUnitId: String = "",
     val pointsRewardAdEnabled: Boolean = false,
     val pointsRewardedAdUnitId: String = "",
-    val appOpenAdEnabled: Boolean = false,
-    val appOpenAdUnitId: String = "",
     val adRewardLogs: List<AdRewardLogItem> = emptyList(),
     val adRewardLogsLoading: Boolean = false,
     val configUpdatedAt: Long = 0L,
@@ -498,8 +496,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             planRewardedAdUnitId = current.planRewardedAdUnitId,
             pointsRewardAdEnabled = current.pointsRewardAdEnabled,
             pointsRewardedAdUnitId = current.pointsRewardedAdUnitId,
-            appOpenAdEnabled = current.appOpenAdEnabled,
-            appOpenAdUnitId = current.appOpenAdUnitId,
             configUpdatedAt = current.configUpdatedAt,
             githubProjectUrl = current.githubProjectUrl,
             appLanguage = current.appLanguage,
@@ -948,19 +944,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val data = body.getJSONObject("data")
         val githubProjectUrl = data.getString("github_project_url")
         val paymentEnabled = data.getBoolean("payment_enabled")
-        val appOpenEnabled = data.getBoolean("app_open_ad_enabled")
-        val appOpenUnitId = data.getString("app_open_ad_unit_id")
-        if (appOpenEnabled && appOpenUnitId.isBlank()) {
-            throw IllegalStateException("开屏广告已启用但缺少广告位。")
-        }
         val configUpdatedAt = System.currentTimeMillis()
         if (!data.getBoolean("ad_enabled")) {
             _uiState.update {
                 it.copy(
                     adEnabled = false,
                     paymentEnabled = paymentEnabled,
-                    appOpenAdEnabled = appOpenEnabled,
-                    appOpenAdUnitId = appOpenUnitId,
                     githubProjectUrl = githubProjectUrl,
                     configUpdatedAt = configUpdatedAt,
                     planRewardAdEnabled = false,
@@ -985,8 +974,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             it.copy(
                 adEnabled = planEnabled || pointsEnabled,
                 paymentEnabled = paymentEnabled,
-                appOpenAdEnabled = appOpenEnabled,
-                appOpenAdUnitId = appOpenUnitId,
                 githubProjectUrl = githubProjectUrl,
                 configUpdatedAt = configUpdatedAt,
                 planRewardAdEnabled = planEnabled,
@@ -1009,8 +996,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             it.copy(
                 adEnabled = false,
                 paymentEnabled = false,
-                appOpenAdEnabled = false,
-                appOpenAdUnitId = "",
                 planRewardAdEnabled = false,
                 planRewardedAdUnitId = "",
                 pointsRewardAdEnabled = false,
@@ -1493,8 +1478,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             planRewardedAdUnitId = prefs[Keys.PLAN_REWARDED_AD_UNIT_ID].orEmpty(),
             pointsRewardAdEnabled = prefs[Keys.POINTS_REWARD_AD_ENABLED] ?: false,
             pointsRewardedAdUnitId = prefs[Keys.POINTS_REWARDED_AD_UNIT_ID].orEmpty(),
-            appOpenAdEnabled = prefs[Keys.APP_OPEN_AD_ENABLED] ?: false,
-            appOpenAdUnitId = prefs[Keys.APP_OPEN_AD_UNIT_ID].orEmpty(),
             adRewardLogs = emptyList(),
             configUpdatedAt = prefs[Keys.CONFIG_UPDATED_AT] ?: 0L,
             githubProjectUrl = prefs[Keys.GITHUB_PROJECT_URL].orEmpty(),
@@ -1592,8 +1575,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.PLAN_REWARDED_AD_UNIT_ID] = state.planRewardedAdUnitId
             prefs[Keys.POINTS_REWARD_AD_ENABLED] = state.pointsRewardAdEnabled
             prefs[Keys.POINTS_REWARDED_AD_UNIT_ID] = state.pointsRewardedAdUnitId
-            prefs[Keys.APP_OPEN_AD_ENABLED] = state.appOpenAdEnabled
-            prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
             prefs[Keys.CONFIG_UPDATED_AT] = state.configUpdatedAt
             prefs[Keys.GITHUB_PROJECT_URL] = state.githubProjectUrl
             prefs[Keys.APP_LANGUAGE] = state.appLanguage
@@ -1643,8 +1624,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("plan_rewarded_ad_unit_id", state.planRewardedAdUnitId)
             .putBoolean("points_reward_ad_enabled", state.pointsRewardAdEnabled)
             .putString("points_rewarded_ad_unit_id", state.pointsRewardedAdUnitId)
-            .putBoolean("app_open_ad_enabled", state.appOpenAdEnabled)
-            .putString("app_open_ad_unit_id", state.appOpenAdUnitId)
             .putLong("config_updated_at", state.configUpdatedAt)
             .putString("github_project_url", state.githubProjectUrl)
             .putString("app_language", state.appLanguage)
@@ -1876,8 +1855,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val PLAN_REWARDED_AD_UNIT_ID = stringPreferencesKey("plan_rewarded_ad_unit_id")
         val POINTS_REWARD_AD_ENABLED = booleanPreferencesKey("points_reward_ad_enabled")
         val POINTS_REWARDED_AD_UNIT_ID = stringPreferencesKey("points_rewarded_ad_unit_id")
-        val APP_OPEN_AD_ENABLED = booleanPreferencesKey("app_open_ad_enabled")
-        val APP_OPEN_AD_UNIT_ID = stringPreferencesKey("app_open_ad_unit_id")
         val AD_REWARD_LOGS = stringPreferencesKey("ad_reward_logs")
         val CONFIG_UPDATED_AT = longPreferencesKey("config_updated_at")
         val GITHUB_PROJECT_URL = stringPreferencesKey("github_project_url")

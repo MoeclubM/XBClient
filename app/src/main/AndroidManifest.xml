@@ -24,15 +24,6 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
         <activity
-            android:name=".AppOpenAdActivity"
-            android:enableOnBackInvokedCallback="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <activity
             android:name=".AuthActivity"
             android:enableOnBackInvokedCallback="true"
             android:exported="true">
@@ -48,7 +39,12 @@
         <activity
             android:name=".MainActivity"
             android:enableOnBackInvokedCallback="true"
-            android:exported="false" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

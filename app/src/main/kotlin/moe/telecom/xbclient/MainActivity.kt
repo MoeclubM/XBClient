@@ -11,6 +11,7 @@ import android.graphics.Color
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -41,6 +42,8 @@ class MainActivity : ComponentActivity() {
     private var receiverRegistered = false
     private val rewardedAds = mutableMapOf<String, RewardedAd>()
     private val rewardedAdLoading = mutableSetOf<String>()
+    private val pendingRewardedLoads = mutableSetOf<String>()
+    private var adsInitialized = false
     private var pendingRewardUserId = ""
     private var pendingRewardCustomData = ""
     private var pendingRewardAdUnitId = ""
@@ -80,12 +83,7 @@ class MainActivity : ComponentActivity() {
         ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        lifecycleScope.launch(Dispatchers.IO) {
-            MobileAds.initialize(
-                this@MainActivity,
-                InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID).build()
-            )
-        }
+        initializeAds()
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.events.collect { event ->
@@ -192,8 +190,41 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // The Google Mobile Ads SDK rejects load() calls issued before initialization completes,
+    // which previously left every ad silently failing to load. Initialize once and only load
+    // ads after the SDK reports ready; loads requested in the meantime are queued and flushed.
+    private fun initializeAds() {
+        if (MobileAds.isInitialized) {
+            onAdsInitialized()
+            return
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                MobileAds.initialize(
+                    this@MainActivity,
+                    InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID).build()
+                ) {
+                    runOnUiThread { onAdsInitialized() }
+                }
+            } catch (error: Exception) {
+                Log.w(TAG, "MobileAds initialization failed.", error)
+            }
+        }
+    }
+
+    private fun onAdsInitialized() {
+        adsInitialized = true
+        val pending = pendingRewardedLoads.toList()
+        pendingRewardedLoads.clear()
+        pending.forEach { loadRewardedAd(it) }
+    }
+
     private fun loadRewardedAd(adUnitId: String) {
         if (rewardedAdLoading.contains(adUnitId) || rewardedAds.containsKey(adUnitId)) {
+            return
+        }
+        if (!adsInitialized) {
+            pendingRewardedLoads.add(adUnitId)
             return
         }
         rewardedAdLoading.add(adUnitId)
@@ -280,5 +311,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val ACTION_SELECT_NODE = "moe.telecom.xbclient.action.SELECT_NODE"
+        private const val TAG = "XBClientAds"
     }
 }
