@@ -244,6 +244,7 @@ class MainActivity : ComponentActivity() {
 
                 override fun onAdFailedToLoad(adError: LoadAdError) {
                     runOnUiThread {
+                        Log.w(TAG, "Rewarded ad failed to load: $adError")
                         rewardedAds.remove(adUnitId)
                         rewardedAdLoading.remove(adUnitId)
                         if (pendingRewardShow && pendingRewardAdUnitId == adUnitId) {
@@ -282,6 +283,7 @@ class MainActivity : ComponentActivity() {
 
             override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
                 runOnUiThread {
+                    Log.w(TAG, "Rewarded ad failed to show: $fullScreenContentError")
                     rewardedAds.remove(adUnitId)
                     loadRewardedAd(adUnitId)
                 }

@@ -162,7 +162,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             loadInstalledApps()
             refreshOAuthProviders()
             val state = _uiState.value
-            checkGithubReleaseUpdate(state.githubProjectUrl)
+            if (state.githubProjectUrl.isNotBlank()) {
+                checkGithubReleaseUpdate(state.githubProjectUrl)
+            }
             if (state.authData.isNotEmpty()) {
                 showDailyNoticeDialog(state.notices)
                 refreshSubscriptionAndNodes(force = true)
@@ -713,7 +715,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
-            loadRewardConfig(authData)
+            try {
+                loadRewardConfig(authData)
+            } catch (error: Exception) {
+                emitMessage("广告配置加载失败：${error.message}")
+            }
         }
     }
 
