@@ -112,13 +112,15 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleRelease --build-cache --stacktrace
+          mv app/build/outputs/apk/release/app-arm64-v8a-release.apk \
+            "app/build/outputs/apk/release/app-arm64-v8a-release-${GITHUB_RUN_ID}.apk"
 
       - name: Upload beta Android APK
         uses: actions/upload-artifact@v7
         with:
-          name: xbclient-beta-android-${{ github.run_number }}
+          name: xbclient-beta-android-${{ github.run_id }}
           archive: false
-          path: app/build/outputs/apk/release/app-arm64-v8a-release.apk
+          path: app/build/outputs/apk/release/app-arm64-v8a-release-${{ github.run_id }}.apk
           if-no-files-found: error
 
   windows-beta:
@@ -164,13 +166,16 @@ jobs:
           pnpm --filter xbclient-electron dist:win
           # Remove portable build so the upload glob resolves to exactly one file (required by upload-artifact@v7 + archive:false)
           find apps/electron/dist -type f -name '*-portable-*.exe' -delete || true
+          installer="$(find apps/electron/dist -maxdepth 1 -type f -name '*-win-x64.exe' -print -quit)"
+          test -n "$installer"
+          mv "$installer" "${installer%.exe}-${GITHUB_RUN_ID}.exe"
 
       - name: Upload beta Windows installer
         uses: actions/upload-artifact@v7
         with:
-          name: xbclient-beta-windows-${{ github.run_number }}
+          name: xbclient-beta-windows-${{ github.run_id }}
           archive: false
-          path: apps/electron/dist/*-win-x64.exe
+          path: apps/electron/dist/*-win-x64-${{ github.run_id }}.exe
           if-no-files-found: error
 
   linux-beta:
@@ -231,11 +236,14 @@ jobs:
         run: |
           pnpm install --frozen-lockfile=false
           pnpm --filter xbclient-electron dist:linux:deb
+          deb="$(find apps/electron/dist -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$deb"
+          mv "$deb" "${deb%.deb}-${GITHUB_RUN_ID}.deb"
 
       - name: Upload beta Linux deb
         uses: actions/upload-artifact@v7
         with:
-          name: xbclient-beta-linux-${{ matrix.arch }}-${{ github.run_number }}
+          name: xbclient-beta-linux-${{ matrix.arch }}-${{ github.run_id }}
           archive: false
-          path: apps/electron/dist/*.deb
+          path: apps/electron/dist/*-${{ github.run_id }}.deb
           if-no-files-found: error

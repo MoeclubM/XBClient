@@ -109,21 +109,25 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleRelease :app:bundleRelease --build-cache --stacktrace
+          mv app/build/outputs/apk/release/app-arm64-v8a-release.apk \
+            "app/build/outputs/apk/release/app-arm64-v8a-release-${GITHUB_RUN_ID}.apk"
+          mv app/build/outputs/bundle/release/app-release.aab \
+            "app/build/outputs/bundle/release/app-release-${GITHUB_RUN_ID}.aab"
 
       - name: Upload release Android APK
         uses: actions/upload-artifact@v7
         with:
-          name: xbclient-release-android-${{ github.ref_name }}
+          name: xbclient-release-android-${{ github.ref_name }}-${{ github.run_id }}
           archive: false
-          path: app/build/outputs/apk/release/app-arm64-v8a-release.apk
+          path: app/build/outputs/apk/release/app-arm64-v8a-release-${{ github.run_id }}.apk
           if-no-files-found: error
 
       - name: Upload release Android AAB
         uses: actions/upload-artifact@v7
         with:
-          name: xbclient-release-android-aab-${{ github.ref_name }}
+          name: xbclient-release-android-aab-${{ github.ref_name }}-${{ github.run_id }}
           archive: false
-          path: app/build/outputs/bundle/release/app-release.aab
+          path: app/build/outputs/bundle/release/app-release-${{ github.run_id }}.aab
           if-no-files-found: error
 
       - name: Publish GitHub release
@@ -131,8 +135,8 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            app/build/outputs/apk/release/app-arm64-v8a-release.apk
-            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/apk/release/app-arm64-v8a-release-${{ github.run_id }}.apk
+            app/build/outputs/bundle/release/app-release-${{ github.run_id }}.aab
           generate_release_notes: true
 
   windows-electron-release:
@@ -177,6 +181,22 @@ jobs:
           pnpm install --frozen-lockfile=false
           pnpm --filter xbclient-electron dist:win
           rm -f apps/electron/dist/*portable*.exe
+          installer="$(find apps/electron/dist -maxdepth 1 -type f -name '*-win-x64.exe' -print -quit)"
+          test -n "$installer"
+          renamed="${installer%.exe}-${GITHUB_RUN_ID}.exe"
+          old_name="$(basename "$installer")"
+          new_name="$(basename "$renamed")"
+          mv "$installer" "$renamed"
+          if [ -f "$installer.blockmap" ]; then
+            mv "$installer.blockmap" "$renamed.blockmap"
+          fi
+          python - "$old_name" "$new_name" <<'PY'
+          import sys
+          from pathlib import Path
+          latest = Path("apps/electron/dist/latest.yml")
+          old_name, new_name = sys.argv[1], sys.argv[2]
+          latest.write_text(latest.read_text(encoding="utf-8").replace(old_name, new_name), encoding="utf-8")
+          PY
 
       - name: Publish desktop assets to GitHub release
         if: startsWith(github.ref, 'refs/tags/')
@@ -185,7 +205,7 @@ jobs:
           files: |
             apps/electron/dist/latest.yml
             apps/electron/dist/*.blockmap
-            apps/electron/dist/*-win-x64.exe
+            apps/electron/dist/*-win-x64-${{ github.run_id }}.exe
 
   linux-electron-release:
     name: Linux Electron release deb (${{ matrix.arch }})
@@ -245,17 +265,20 @@ jobs:
         run: |
           pnpm install --frozen-lockfile=false
           pnpm --filter xbclient-electron dist:linux:deb
+          deb="$(find apps/electron/dist -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$deb"
+          mv "$deb" "${deb%.deb}-${GITHUB_RUN_ID}.deb"
 
       - name: Upload release Linux deb
         uses: actions/upload-artifact@v7
         with:
-          name: xbclient-release-linux-${{ matrix.arch }}-${{ github.ref_name }}
+          name: xbclient-release-linux-${{ matrix.arch }}-${{ github.ref_name }}-${{ github.run_id }}
           archive: false
-          path: apps/electron/dist/*.deb
+          path: apps/electron/dist/*-${{ github.run_id }}.deb
           if-no-files-found: error
 
       - name: Publish Linux deb to GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
-          files: apps/electron/dist/*.deb
+          files: apps/electron/dist/*-${{ github.run_id }}.deb
