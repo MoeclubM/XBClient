@@ -1457,7 +1457,6 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        val connectionStateText = stringResource(id = if (state.vpnRequested) R.string.status_connected else R.string.status_disconnected)
         val connectionActionText = stringResource(
             id = when {
                 state.vpnStarting -> R.string.status_connecting
@@ -1465,16 +1464,6 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                 else -> R.string.action_connect
             }
         )
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
-            AnimatedContent(
-                targetState = connectionStateText,
-                transitionSpec = { contentTransition() },
-                label = "connection-state",
-            ) { text ->
-                Text(text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Spacer(Modifier.height(20.dp))
         Button(
             onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
             enabled = !state.vpnStarting,

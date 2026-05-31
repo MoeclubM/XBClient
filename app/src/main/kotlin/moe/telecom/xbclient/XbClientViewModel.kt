@@ -38,6 +38,7 @@ import java.net.Socket
 
 private val Context.passVpnDataStore by preferencesDataStore(name = XBCLIENT_PREFS)
 private const val NODE_AUTO_REFRESH_INTERVAL_MS = 30L * 60L * 1000L
+private const val NODE_TEST_TIMEOUT_MS = 8000L
 
 data class XbClientUiState(
     val loaded: Boolean = false,
@@ -1407,6 +1408,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         .put("target_host", targetHost)
                         .put("target_port", targetPort)
                         .put("target_tls", targetTls)
+                        .put("timeout_ms", NODE_TEST_TIMEOUT_MS)
                         .toString()
                 )
             )

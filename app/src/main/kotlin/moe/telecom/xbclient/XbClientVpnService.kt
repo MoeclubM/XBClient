@@ -192,13 +192,16 @@ class XbClientVpnService : VpnService() {
     }
 
     override fun onDestroy() {
-        serviceScope.cancel()
-        vpnDispatcher.close()
-        stopCurrentVpn()
-        if (activeService === this) {
-            activeService = null
+        try {
+            stopCurrentVpn()
+        } finally {
+            serviceScope.cancel()
+            vpnDispatcher.close()
+            if (activeService === this) {
+                activeService = null
+            }
+            super.onDestroy()
         }
-        super.onDestroy()
     }
 
     private fun startVpn(nodeJson: String?, excludedApps: String?, allowedApps: String?, nodeDns: String, overseasDns: String, directDns: String, dnsMode: String, virtualDnsPool: String, ipv6Enabled: Boolean, routeConfigYaml: String, geoipDir: String) {
