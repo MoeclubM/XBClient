@@ -32,6 +32,7 @@ export interface RawNode {
   label?: unknown
   group?: unknown
   sni?: unknown
+  tls?: unknown
   [key: string]: unknown
 }
 
@@ -60,6 +61,10 @@ export function toAppNode(raw: RawNode): AppNode {
   const protocol = raw.type.trim().toLowerCase()
   const host = raw.host.trim()
   const normalized: RawNode = { ...raw, type: protocol, host }
+  const tls = raw.tls as Record<string, unknown> | undefined
+  if (!String(normalized.sni ?? '').trim() && tls && typeof tls.server_name === 'string' && tls.server_name.trim()) {
+    normalized.sni = tls.server_name.trim()
+  }
   return {
     protocol,
     protocolLabel: protocolLabel(protocol),
@@ -89,7 +94,7 @@ export function aerionNodeWithResolvedHost(node: AppNode, resolvedHost: string):
   const raw = JSON.parse(node.rawJson) as RawNode
   const originalHost = String(raw.host)
   if (resolvedHost !== originalHost && !String(raw.sni ?? '').trim()) {
-    throw new Error(`节点 ${node.name} 解析为 IP 后缺少 sni。`)
+    raw.sni = originalHost
   }
   raw.host = resolvedHost
   return raw

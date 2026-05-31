@@ -37,12 +37,14 @@ const NAV_ITEMS = [
   { path: '/nodes', icon: '◎', label: () => t('nav_nodes') },
   { path: '/plans', icon: '◫', label: () => t('nav_plans') },
   { path: '/profile', icon: '◉', label: () => t('nav_profile') },
+  { path: '/services', icon: '✦', label: () => t('nav_services') },
   { path: '/settings', icon: '⚙', label: () => t('nav_settings') },
 ]
 
 const activeNavIndex = computed(() => {
   const idx = NAV_ITEMS.findIndex((item) => {
     if (item.path === '/settings') return route.path.startsWith('/settings')
+    if (item.path === '/services') return ['/services', '/tickets', '/promotion', '/traffic'].includes(route.path)
     if (item.path === '/nodes') return route.path === '/nodes'
     return route.path === item.path
   })
@@ -60,6 +62,7 @@ const navPillStyle = computed(() => {
 
 function navActive(itemPath: string): boolean {
   if (itemPath === '/settings') return route.path.startsWith('/settings')
+  if (itemPath === '/services') return ['/services', '/tickets', '/promotion', '/traffic'].includes(route.path)
   if (itemPath === '/nodes') return route.path === '/nodes'
   return route.path === itemPath
 }

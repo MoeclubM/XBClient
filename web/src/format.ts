@@ -40,6 +40,12 @@ export function formatUnixDate(seconds: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
+export function formatUnixDateTime(seconds: number): string {
+  if (seconds <= 0) return ''
+  const d = new Date(seconds * 1000)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export function formatDuration(durationMs: number): string {
   const seconds = Math.floor(durationMs / 1000)
   const h = Math.floor(seconds / 3600)

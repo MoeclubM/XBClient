@@ -260,6 +260,9 @@ function formatUnixTime(value: number): string {
             :model-value="progressPercent"
             bg-color="surface-container-high"
           />
+          <v-btn variant="tonal" color="primary" class="mt-4" @click="router.push('/traffic')">
+            {{ t('nav_traffic_logs') }}
+          </v-btn>
         </v-card-text>
       </v-card>
     </div>

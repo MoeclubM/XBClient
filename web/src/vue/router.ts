@@ -10,6 +10,9 @@ import AppRulesView from './views/AppRulesView.vue'
 import TrafficRulesView from './views/TrafficRulesView.vue'
 import LicensesView from './views/LicensesView.vue'
 import TicketsView from './views/TicketsView.vue'
+import ServicesView from './views/ServicesView.vue'
+import PromotionView from './views/PromotionView.vue'
+import TrafficLogsView from './views/TrafficLogsView.vue'
 
 export const router = createRouter({
   history: createWebHashHistory(),
@@ -21,7 +24,10 @@ export const router = createRouter({
     { path: '/home/nodes', redirect: '/nodes' },
     { path: '/plans', component: PlansView, meta: { auth: true } },
     { path: '/profile', component: ProfileView, meta: { auth: true } },
+    { path: '/services', component: ServicesView, meta: { auth: true } },
     { path: '/tickets', component: TicketsView, meta: { auth: true } },
+    { path: '/promotion', component: PromotionView, meta: { auth: true } },
+    { path: '/traffic', component: TrafficLogsView, meta: { auth: true } },
     { path: '/settings', component: SettingsView, meta: { auth: true } },
     { path: '/settings/app-rules', component: AppRulesView, meta: { auth: true, hideNav: true } },
     { path: '/settings/traffic-rules', component: TrafficRulesView, meta: { auth: true, hideNav: true } },

@@ -146,6 +146,9 @@ onMounted(loadProfile)
           <v-btn color="primary" block class="mt-4" @click="router.push('/settings')">
             {{ t('settings_button') }}
           </v-btn>
+          <v-btn variant="tonal" block class="mt-2" @click="router.push('/services')">
+            {{ t('service_center') }}
+          </v-btn>
           <v-btn variant="outlined" block class="mt-2" @click="logout">
             {{ t('logout') }}
           </v-btn>
@@ -180,6 +183,9 @@ onMounted(loadProfile)
           <p v-else class="muted mt-2">{{ t('invites_empty') }}</p>
           <v-btn color="primary" block class="mt-4" :loading="loading" @click="createInvite">
             {{ t('invite_generate') }}
+          </v-btn>
+          <v-btn variant="tonal" block class="mt-2" @click="router.push('/promotion')">
+            {{ t('nav_promotion') }}
           </v-btn>
         </v-card-text>
       </v-card>

@@ -835,6 +835,46 @@ button {
   gap: 14px;
 }
 
+.ticket-message--me {
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--outline-variant));
+  background: color-mix(in srgb, var(--primary-container) 28%, var(--surface-container-high));
+}
+
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 14px;
+}
+
+.service-card {
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.service-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--outline-variant)) !important;
+  transform: translateY(-1px);
+}
+
+.service-card__icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 14px;
+  border-radius: 16px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.service-card h2 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  font-weight: 760;
+}
+
 @media (max-width: 720px) {
   .tickets-grid {
     grid-template-columns: 1fr;

@@ -5,7 +5,7 @@ import { applyDesktopConnection, isDesktopConnectionShell } from '../desktop/con
 import { hideMainWindow, launchedSilent } from '../platform/electron'
 import { isDesktopShell } from '../platform/shell'
 import { useAppStore, type AppSettings } from '../store'
-import { loadSession, loadSettings, saveSettings } from '../store/persist'
+import { loadSession, loadSettings, loadSubscriptionCache, saveSettings } from '../store/persist'
 import { translate, type TranslationKey } from '../i18n'
 
 type LegacyState = ReturnType<typeof useAppStore.getState>
@@ -35,7 +35,15 @@ export async function bootstrapApp(): Promise<void> {
   store().setBuildConfig(config)
 
   const session = await loadSession()
-  if (session) store().setSession({ ...session, baseUrl: config.default_api_url })
+  if (session) {
+    store().setSession({ ...session, baseUrl: config.default_api_url })
+    const cache = await loadSubscriptionCache(session.authData)
+    if (cache) {
+      store().setSubscribe({ subscribeUrl: cache.subscribeUrl, nodes: cache.nodes })
+      store().setSubscriptionState(cache.subscription)
+      store().setRouting(cache.routing)
+    }
+  }
 
   const persisted = await loadSettings()
   if (Object.keys(persisted).length > 0) store().setSettings(persisted)

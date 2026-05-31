@@ -52,7 +52,7 @@ const ACTIONS = {
   gift_card_types: { method: 'GET', path: '/api/v1/user/gift-card/types', auth: true },
   invite_fetch: { method: 'GET', path: '/api/v1/user/invite/fetch', auth: true },
   invite_save: { method: 'GET', path: '/api/v1/user/invite/save', auth: true },
-  invite_details: { method: 'GET', path: '/api/v1/user/invite/details', auth: true },
+  invite_details: { method: 'GET', path: '/api/v1/user/invite/details', auth: true, query: ['current', 'page_size'] },
   tickets: { method: 'GET', path: '/api/v1/user/ticket/fetch', auth: true, query: ['id'] },
   ticket_save: { method: 'POST', path: '/api/v1/user/ticket/save', auth: true },
   ticket_reply: { method: 'POST', path: '/api/v1/user/ticket/reply', auth: true },

@@ -177,6 +177,12 @@ fun nodeTags(node: JSONObject): List<String> {
 
 private fun JSONObject.normalizedNodeJson(protocol: String): String {
     val node = JSONObject(toString())
+    if ((!node.has("sni") || node.optString("sni").isBlank()) && node.opt("tls") is JSONObject) {
+        val tls = node.getJSONObject("tls")
+        if (!tls.isNull("server_name") && tls.getString("server_name").isNotBlank()) {
+            node.put("sni", tls.getString("server_name").trim())
+        }
+    }
     if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
         node.put("type", protocol)
     }

@@ -252,7 +252,7 @@ class XbClientVpnService : VpnService() {
             val originalHost = node.getString("host")
             val resolvedHost = XboardApi.resolveNodeHost(nodeDns, originalHost)
             if (resolvedHost != originalHost && (!node.has("sni") || node.getString("sni").isBlank())) {
-                throw IllegalStateException("节点解析为 IP 后缺少 sni：${node.getString("name")}")
+                node.put("sni", originalHost)
             }
             node.put("host", resolvedHost)
         }

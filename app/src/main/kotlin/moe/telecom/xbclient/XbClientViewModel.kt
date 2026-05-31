@@ -1395,7 +1395,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val originalHost = testNode.getString("host")
                 val resolvedHost = XboardApi.resolveNodeHost(_uiState.value.nodeDns, originalHost)
                 if (resolvedHost != originalHost && (!testNode.has("sni") || testNode.getString("sni").isBlank())) {
-                    throw IllegalStateException("节点解析为 IP 后缺少 sni：${testNode.getString("name")}")
+                    testNode.put("sni", originalHost)
                 }
                 testNode.put("host", resolvedHost)
             }
@@ -1459,7 +1459,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             currencySymbol = prefs[Keys.CURRENCY_SYMBOL].orEmpty(),
             currencyUnit = prefs[Keys.CURRENCY_UNIT].orEmpty(),
             plans = emptyList(),
-            anyTlsNodes = emptyList(),
+            anyTlsNodes = prefs[Keys.ANYTLS_NODES]?.let { JSONArray(it).toAnyTlsNodeList() } ?: emptyList(),
             notices = emptyList(),
             selectedNodeIndex = prefs[Keys.SELECTED_NODE_INDEX] ?: 0,
             invites = emptyList(),
@@ -1559,6 +1559,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.COMMISSION_BALANCE] = state.commissionBalance
             prefs[Keys.CURRENCY_SYMBOL] = state.currencySymbol
             prefs[Keys.CURRENCY_UNIT] = state.currencyUnit
+            prefs[Keys.ANYTLS_NODES] = nodesJson(state.anyTlsNodes)
             prefs[Keys.SELECTED_NODE_INDEX] = state.selectedNodeIndex
             prefs[Keys.INVITE_FORCE] = state.inviteForce
             prefs[Keys.INVITE_COMMISSION_RATE] = state.inviteCommissionRate
@@ -1608,6 +1609,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putInt("commission_balance", state.commissionBalance)
             .putString("currency_symbol", state.currencySymbol)
             .putString("currency_unit", state.currencyUnit)
+            .putString("anytls_nodes", nodesJson(state.anyTlsNodes))
             .putInt("selected_node_index", state.selectedNodeIndex)
             .putBoolean("invite_force", state.inviteForce)
             .putInt("invite_commission_rate", state.inviteCommissionRate)

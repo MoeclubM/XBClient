@@ -3,6 +3,7 @@ import { formatTrafficBytes, formatUnixDate, numericValue } from './format'
 import { translate, type TranslationKey } from './i18n'
 import { rawNodeRows, toAppNode } from './nodes'
 import { useAppStore, type AppNode, type NoticeItem, type SubscriptionState } from './store'
+import { saveSubscriptionCache } from './store/persist'
 
 interface XboardBody {
   data?: unknown
@@ -104,8 +105,16 @@ export async function syncSubscription(): Promise<string | null> {
   if (!xbclientNodes.ok) return responseError(xbclientNodes)
   list = rawNodeRows(xbclientNodes.body?.data).map(toAppNode)
 
+  const nextSubscription = subscriptionState(data, language)
   state.setSubscribe({ subscribeUrl: url, nodes: list })
-  state.setSubscriptionState(subscriptionState(data, language))
+  state.setSubscriptionState(nextSubscription)
+  await saveSubscriptionCache({
+    authData: state.authData,
+    subscribeUrl: url,
+    nodes: list,
+    subscription: nextSubscription,
+    routing: useAppStore.getState().routing,
+  })
 
   const noticeResponse = await xboardRequest<NoticeFetchBody>('notices', { baseUrl: state.baseUrl, authData: state.authData })
   if (!noticeResponse.ok) return responseError(noticeResponse)
