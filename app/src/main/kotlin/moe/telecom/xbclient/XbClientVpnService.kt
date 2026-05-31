@@ -554,7 +554,11 @@ class XbClientVpnService : VpnService() {
 
         @JvmStatic
         fun protectSocketFd(fd: Int): Boolean {
-            val service = activeService ?: throw IllegalStateException("active VPN service is required to protect socket fd")
+            val service = activeService
+            if (service == null) {
+                Log.d("XBClient", "skip Android VPN socket protection without active VPN service")
+                return true
+            }
             return service.protect(fd)
         }
 

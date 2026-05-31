@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.net.TrafficStats
 import android.os.Build
+import android.util.Log
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -1365,16 +1366,21 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (!_uiState.value.vpnRequested) {
             return@withContext -1
         }
-        // The app is excluded from its own VPN, so the probe must go through the
-        // tunnel's loopback SOCKS endpoint.
-        val proxy = vpnTunnelProxy() ?: throw IllegalStateException("VPN tunnel SOCKS endpoint is not ready.")
-        val target = InetSocketAddress("1.1.1.1", 443)
-        val startMs = System.currentTimeMillis()
-        Socket(proxy).use { socket ->
-            socket.connect(target, 1200)
+        try {
+            // The app is excluded from its own VPN, so the probe must go through the
+            // tunnel's loopback SOCKS endpoint.
+            val proxy = vpnTunnelProxy() ?: throw IllegalStateException("VPN tunnel SOCKS endpoint is not ready.")
+            val target = InetSocketAddress("1.1.1.1", 443)
+            val startMs = System.currentTimeMillis()
+            Socket(proxy).use { socket ->
+                socket.connect(target, 1200)
+            }
+            val latencyMs = System.currentTimeMillis() - startMs
+            latencyMs.toInt()
+        } catch (error: Exception) {
+            Log.w("XBClient", "VPN latency probe failed", error)
+            -1
         }
-        val latencyMs = System.currentTimeMillis() - startMs
-        latencyMs.toInt()
     }
 
     /** Resolves the tunnel's loopback SOCKS5 proxy published by the VPN service, if running. */
