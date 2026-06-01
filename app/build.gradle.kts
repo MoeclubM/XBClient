@@ -252,7 +252,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0")
-    implementation("com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:1.0.1")
+    implementation("com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:1.1.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.yaml:snakeyaml:2.5")
 }

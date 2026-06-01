@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
     private val rewardedAdLoading = mutableSetOf<String>()
     private val pendingRewardedLoads = mutableSetOf<String>()
     private var adsInitialized = false
+    private var adsInitializing = false
     private var pendingRewardUserId = ""
     private var pendingRewardCustomData = ""
     private var pendingRewardAdUnitId = ""
@@ -83,7 +84,6 @@ class MainActivity : ComponentActivity() {
         ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        initializeAds()
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.events.collect { event ->
@@ -194,10 +194,14 @@ class MainActivity : ComponentActivity() {
     // which previously left every ad silently failing to load. Initialize once and only load
     // ads after the SDK reports ready; loads requested in the meantime are queued and flushed.
     private fun initializeAds() {
+        if (adsInitialized || adsInitializing) {
+            return
+        }
         if (MobileAds.isInitialized) {
             onAdsInitialized()
             return
         }
+        adsInitializing = true
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 MobileAds.initialize(
@@ -207,13 +211,17 @@ class MainActivity : ComponentActivity() {
                     runOnUiThread { onAdsInitialized() }
                 }
             } catch (error: Exception) {
-                Log.w(TAG, "MobileAds initialization failed.", error)
+                runOnUiThread {
+                    adsInitializing = false
+                    Log.w(TAG, "MobileAds initialization failed.", error)
+                }
             }
         }
     }
 
     private fun onAdsInitialized() {
         adsInitialized = true
+        adsInitializing = false
         val pending = pendingRewardedLoads.toList()
         pendingRewardedLoads.clear()
         pending.forEach { loadRewardedAd(it) }
@@ -225,6 +233,7 @@ class MainActivity : ComponentActivity() {
         }
         if (!adsInitialized) {
             pendingRewardedLoads.add(adUnitId)
+            initializeAds()
             return
         }
         rewardedAdLoading.add(adUnitId)
