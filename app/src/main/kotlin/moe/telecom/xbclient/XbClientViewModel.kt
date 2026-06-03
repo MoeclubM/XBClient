@@ -283,8 +283,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     authMode = AuthMode.LOGIN,
                     screen = PassScreen.NODES,
                     authData = data.getString("auth_data"),
-                    subscribeToken = data.getString("token"),
-                    subscribeUrl = data.getString("subscribe_url")
+                    subscribeToken = data.optString("token"),
+                    subscribeUrl = data.optString("subscribe_url")
                 )
                 _uiState.value = next
                 persistStoredState(next)
@@ -317,8 +317,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     authMode = AuthMode.LOGIN,
                     screen = PassScreen.NODES,
                     authData = data.getString("auth_data"),
-                    subscribeToken = data.getString("token"),
-                    subscribeUrl = data.getString("subscribe_url")
+                    subscribeToken = data.optString("token"),
+                    subscribeUrl = data.optString("subscribe_url")
                 )
                 _uiState.value = next
                 persistStoredState(next)
@@ -530,7 +530,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val subscribeResult = XboardApi.request("user_subscribe", defaultApiUrl(), current.authData, JSONObject())
                 val subscribeBody = requireSuccessfulBody("订阅同步", subscribeResult)
                 val data = subscribeBody.getJSONObject("data")
-                val subscribeUrl = data.getString("subscribe_url")
+                val subscribeUrl = data.optString("subscribe_url")
                 val blockReason = subscriptionBlockReason(data)
                 var subscriptionRouteConfigYaml = ""
                 var subscriptionRouteRuleCount = 0
@@ -569,7 +569,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val selectedIndex = _uiState.value.selectedNodeIndex.coerceIn(0, (nodes.size - 1).coerceAtLeast(0))
                 val firstConnectableIndex = nodes.indexOfFirst { it.connectSupported }
                 val next = _uiState.value.copy(
-                    subscribeToken = data.getString("token"),
+                    subscribeToken = data.optString("token"),
                     subscribeUrl = subscribeUrl,
                     subscriptionSummary = subscriptionSummary(data),
                     subscriptionBlockReason = blockReason,
@@ -912,7 +912,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     authMode = AuthMode.LOGIN,
                     screen = PassScreen.NODES,
                     authData = data.getString("auth_data"),
-                    subscribeToken = data.getString("token"),
+                    subscribeToken = data.optString("token"),
                     oauthConfirmToken = "",
                     oauthConfirmProvider = "",
                     oauthConfirmEmail = ""
@@ -946,9 +946,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             throw IllegalStateException(resultError(result))
         }
         val body = result.getJSONObject("body")
-        if (body.getString("status") == "fail") {
-            throw IllegalStateException(body.getString("message"))
-        }
+        body.requireNotXboardFail()
         val data = body.getJSONObject("data")
         val githubProjectUrl = data.getString("github_project_url")
         val paymentEnabled = data.getBoolean("payment_enabled")
@@ -1678,9 +1676,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             throw IllegalStateException(resultError(result))
         }
         val body = result.getJSONObject("body")
-        if (body.getString("status") == "fail") {
-            throw IllegalStateException(body.getString("message"))
-        }
+        body.requireNotXboardFail()
         return body
     }
 

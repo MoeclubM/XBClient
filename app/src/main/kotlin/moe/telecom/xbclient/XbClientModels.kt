@@ -336,14 +336,21 @@ fun rewardContentText(item: JSONObject): String {
     throw IllegalStateException("广告奖励记录缺少 reward_content 或 rewards。")
 }
 
+fun JSONObject.requireNotXboardFail() {
+    if (optString("status") == "fail") {
+        throw IllegalStateException(optString("message").ifEmpty { "请求失败" })
+    }
+}
+
 fun resultError(result: JSONObject): String {
     val bodyValue = result.opt("body")
     if (bodyValue != null && bodyValue != JSONObject.NULL) {
         if (bodyValue !is JSONObject) {
             throw IllegalStateException("错误响应 body 必须是对象：$result")
         }
-        if (bodyValue.has("message") && bodyValue.getString("message").isNotEmpty()) {
-            return bodyValue.getString("message")
+        val message = bodyValue.optString("message")
+        if (message.isNotEmpty()) {
+            return message
         }
     }
     if (result.has("error") && result.getString("error").isNotEmpty()) {

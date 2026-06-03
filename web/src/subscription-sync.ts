@@ -70,8 +70,7 @@ export async function syncSubscription(): Promise<string | null> {
 
   if (!sub.body?.data || typeof sub.body.data !== 'object') throw new Error('订阅同步响应缺少 data。')
   const data = sub.body.data as Record<string, unknown>
-  if (typeof data.subscribe_url !== 'string') throw new Error('订阅同步响应缺少 subscribe_url。')
-  const url = data.subscribe_url
+  const url = typeof data.subscribe_url === 'string' ? data.subscribe_url : ''
   let list: AppNode[] = []
   let metaSubscription: Awaited<ReturnType<typeof subscriptionFetch>> | null = null
   if (url) {
