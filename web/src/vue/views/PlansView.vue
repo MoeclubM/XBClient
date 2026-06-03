@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { failureText } from '../../api/helpers'
 import { openInAppBrowser } from '../../api/system'
-import { xboardRequest } from '../../api/xboard'
+import { xboardRequest, type XboardBody } from '../../api/xboard'
 import { formatMoney, formatTrafficGb, numericValue, publicErrorText } from '../../format'
 import { enabled } from '../../reward'
 import { appState, store, t } from '../state'
@@ -21,12 +21,6 @@ interface RawPlan {
   three_year_price?: number
   onetime_price?: number
   reset_price?: number
-}
-
-interface XboardBody {
-  data?: unknown
-  message?: string
-  status?: string
 }
 
 const loading = ref(false)

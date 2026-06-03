@@ -8,9 +8,3 @@ export function isDesktopShell(): boolean {
   if (!isElectronShell()) return false
   return window.electronAPI.isSupportedDesktop()
 }
-
-/** 移动浏览器或 WebView（Android 等）；不会加载 electronAPI。 */
-export function isMobileShell(): boolean {
-  if (typeof navigator === 'undefined') return false
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-}

@@ -1,14 +1,10 @@
-import { subscriptionFetch, xboardRequest } from './api/xboard'
+import { failureText } from './api/helpers'
+import { subscriptionFetch, xboardRequest, type XboardBody } from './api/xboard'
 import { formatTrafficBytes, formatUnixDate, numericValue } from './format'
 import { translate, type TranslationKey } from './i18n'
 import { rawNodeRows, toAppNode } from './nodes'
 import { useAppStore, type AppNode, type NoticeItem, type SubscriptionState } from './store'
 import { saveSubscriptionCache } from './store/persist'
-
-interface XboardBody {
-  data?: unknown
-  message?: string
-}
 
 interface NoticeFetchBody {
   data?: Array<{ id?: unknown; title?: unknown; content?: unknown; created_at?: unknown }>
@@ -16,12 +12,6 @@ interface NoticeFetchBody {
 
 function t(key: TranslationKey, language: string): string {
   return translate(key, language)
-}
-
-function responseError(response: { status: number; error?: string; body?: XboardBody }): string {
-  if (response.body?.message) return response.body.message
-  if (response.error) return response.error
-  throw new Error('Xboard failed response missing message or error')
 }
 
 function parseNotices(body: NoticeFetchBody | undefined): NoticeItem[] {
@@ -76,7 +66,7 @@ export async function syncSubscription(): Promise<string | null> {
   const state = useAppStore.getState()
   const language = state.settings.appLanguage
   const sub = await xboardRequest<XboardBody>('user_subscribe', { baseUrl: state.baseUrl, authData: state.authData })
-  if (!sub.ok) return responseError(sub)
+  if (!sub.ok) return failureText(sub)
 
   if (!sub.body?.data || typeof sub.body.data !== 'object') throw new Error('订阅同步响应缺少 data。')
   const data = sub.body.data as Record<string, unknown>
@@ -102,7 +92,7 @@ export async function syncSubscription(): Promise<string | null> {
     })
   }
   const xbclientNodes = await xboardRequest<XboardBody>('xbclient_nodes', { baseUrl: state.baseUrl, authData: state.authData })
-  if (!xbclientNodes.ok) return responseError(xbclientNodes)
+  if (!xbclientNodes.ok) return failureText(xbclientNodes)
   list = rawNodeRows(xbclientNodes.body?.data).map(toAppNode)
 
   const nextSubscription = subscriptionState(data, language)
@@ -117,7 +107,7 @@ export async function syncSubscription(): Promise<string | null> {
   })
 
   const noticeResponse = await xboardRequest<NoticeFetchBody>('notices', { baseUrl: state.baseUrl, authData: state.authData })
-  if (!noticeResponse.ok) return responseError(noticeResponse)
+  if (!noticeResponse.ok) return failureText(noticeResponse)
   state.setNotices(parseNotices(noticeResponse.body))
   return null
 }

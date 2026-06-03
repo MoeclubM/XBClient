@@ -9,6 +9,13 @@ export interface XboardResponse<T = unknown> {
   error?: string
 }
 
+export type XboardBody<T = unknown> = {
+  data?: T
+  message?: string
+  status?: string
+  total?: number
+}
+
 interface ActionDef {
   method: 'GET' | 'POST'
   path: string | ((params: Record<string, unknown>) => string)

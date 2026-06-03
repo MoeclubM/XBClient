@@ -24,6 +24,8 @@ apps/*/src-tauri/gen/schemas/
 # Node / Web
 node_modules/
 web/dist/
+apps/electron/build/electron-builder.generated.yml
+apps/electron/resources/config/local.properties
 
 # IDE
 .idea/

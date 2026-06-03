@@ -1,15 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { failureText } from '../../api/helpers'
-import { xboardRequest } from '../../api/xboard'
+import { xboardRequest, type XboardBody } from '../../api/xboard'
 import { formatTrafficBytes, formatUnixDateTime, numericValue, publicErrorText } from '../../format'
 import { appState, t } from '../state'
-
-interface XboardBody {
-  data?: unknown
-  message?: string
-  status?: string
-}
 
 interface TrafficLog {
   download: number

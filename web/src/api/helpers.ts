@@ -1,4 +1,5 @@
-import type { OAuthProvider } from '../store'
+import { numericValue } from '../format'
+import type { InviteItem, OAuthProvider } from '../store'
 
 export type Row = Record<string, unknown>
 
@@ -17,17 +18,28 @@ export function rowId(row: Row): string {
   return field(row, 'id')
 }
 
-export function failureText(response: { ok: boolean; status: number; body?: { message?: string; status?: string }; error?: string }): string {
+export function failureText(response: { ok: boolean; status: number; body?: unknown; error?: string }): string {
+  const body = response.body as { message?: string; status?: string } | undefined
   if (!response.ok) {
-    if (response.body?.message) return response.body.message
+    if (body?.message) return body.message
     if (response.error) return response.error
     throw new Error('Xboard failed response missing message or error')
   }
-  if (response.body?.status === 'fail') {
-    if (!response.body.message) throw new Error('Xboard response status=fail missing message')
-    return response.body.message
+  if (body?.status === 'fail') {
+    if (!body.message) throw new Error('Xboard response status=fail missing message')
+    return body.message
   }
   return ''
+}
+
+export function parseInviteRows(value: unknown): InviteItem[] {
+  if (!value || typeof value !== 'object') throw new Error('invite_fetch response missing data')
+  const data = value as Row
+  if (!Array.isArray(data.codes)) throw new Error('invite_fetch response missing codes array')
+  return (data.codes as Row[]).map((item) => ({
+    code: field(item, 'code'),
+    status: Math.round(numericValue(item.status)),
+  }))
 }
 
 export function parseOAuthProviders(value: unknown): OAuthProvider[] {

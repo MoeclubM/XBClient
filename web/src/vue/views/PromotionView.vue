@@ -1,18 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { failureText, field } from '../../api/helpers'
-import { xboardRequest } from '../../api/xboard'
+import { failureText, field, parseInviteRows } from '../../api/helpers'
+import { xboardRequest, type XboardBody } from '../../api/xboard'
 import { formatMoney, formatUnixDateTime, numericValue, publicErrorText } from '../../format'
 import { enabled } from '../../reward'
-import type { InviteItem } from '../../store'
 import { appState, store, t } from '../state'
-
-interface XboardBody {
-  data?: unknown
-  message?: string
-  status?: string
-  total?: number
-}
 
 interface InviteDetail {
   id: number
@@ -32,14 +24,6 @@ const current = ref(1)
 const pageSize = 10
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
-
-function inviteRows(value: unknown): InviteItem[] {
-  const data = value as Record<string, unknown>
-  return (data.codes as Array<Record<string, unknown>>).map((item) => ({
-    code: field(item, 'code'),
-    status: Math.round(numericValue(item.status)),
-  }))
-}
 
 function applyInviteStats(value: unknown) {
   const data = value as Record<string, unknown>
@@ -87,7 +71,7 @@ async function loadPromotion(page = current.value) {
       inviteCommissionRate: Math.round(numericValue(configData.commission_rate)),
       inviteCommissionBalance: Math.round(numericValue(configData.invite_commission_balance)),
     })
-    store().setInvites(inviteRows(invites.body.data))
+    store().setInvites(parseInviteRows(invites.body.data))
     applyInviteStats(invites.body.data)
     details.value = detailRows(inviteDetails.body.data)
     total.value = Math.round(numericValue(inviteDetails.body.total))
