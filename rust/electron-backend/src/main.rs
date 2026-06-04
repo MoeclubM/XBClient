@@ -275,7 +275,7 @@ async fn aerion_test_node(params: &Value) -> Result<Value> {
     let json_str = serde_json::to_string(&input.request)?;
     let output = aerion_core::test_node_from_json(&json_str)
         .await
-        .map_err(|e| anyhow!(e.to_string()))?;
+        .context("test Aerion node")?;
     serde_json::from_str(&output).context("parse aerion_test_node response")
 }
 
@@ -299,7 +299,7 @@ async fn aerion_start_socks(params: &Value) -> Result<Value> {
     let input_str = serde_json::to_string(&wrapped)?;
     let output = aerion_core::start_socks_from_json(&input_str)
         .await
-        .map_err(|e| anyhow!(e.to_string()))?;
+        .context("start Aerion SOCKS")?;
     serde_json::from_str(&output).context("parse aerion_start_socks response")
 }
 
@@ -307,7 +307,7 @@ async fn aerion_start_vpn(params: &Value) -> Result<Value> {
     let input = serde_json::to_string(params)?;
     let output = aerion_core::start_vpn_from_json(&input)
         .await
-        .map_err(|e| anyhow!(e.to_string()))?;
+        .context("start Aerion VPN")?;
     serde_json::from_str(&output).context("parse aerion_start_vpn response")
 }
 
@@ -318,7 +318,7 @@ async fn aerion_stop_vpn(params: &Value) -> Result<Value> {
         .ok_or_else(|| anyhow!("aerion_stop_vpn missing sessionId"))?;
     let output = aerion_core::stop_vpn(session_id)
         .await
-        .map_err(|e| anyhow!(e.to_string()))?;
+        .context("stop Aerion VPN")?;
     serde_json::from_str(&output).context("parse aerion_stop_vpn response")
 }
 
@@ -326,7 +326,7 @@ async fn aerion_start_route(params: &Value) -> Result<Value> {
     let input = serde_json::to_string(params)?;
     let output = aerion_core::start_route_from_json(&input)
         .await
-        .map_err(|e| anyhow!(e.to_string()))?;
+        .context("start Aerion route")?;
     serde_json::from_str(&output).context("parse aerion_start_route response")
 }
 
@@ -337,7 +337,7 @@ async fn aerion_stop_route(params: &Value) -> Result<Value> {
         .ok_or_else(|| anyhow!("aerion_stop_route missing sessionId"))?;
     let output = aerion_core::stop_route(session_id)
         .await
-        .map_err(|e| anyhow!(e.to_string()))?;
+        .context("stop Aerion route")?;
     serde_json::from_str(&output).context("parse aerion_stop_route response")
 }
 
@@ -377,7 +377,7 @@ fn emit_rpc_response(id: u64, out: Result<RpcResponseOk, anyhow::Error>) {
             }
         }
         Err(error) => {
-            emit_line(&json!({ "id": id, "ok": false, "error": error.to_string() }));
+            emit_line(&json!({ "id": id, "ok": false, "error": format!("{error:#}") }));
         }
     }
 }
@@ -430,136 +430,140 @@ async fn main() -> Result<()> {
             }
         };
 
-        let out: Result<RpcResponseOk, anyhow::Error> = match req.method.as_str() {
-            "runtime_capabilities" => {
-                let caps = runtime_capabilities();
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: serde_json::to_value(caps)?,
-                })
+        let out: Result<RpcResponseOk, anyhow::Error> = (async {
+            match req.method.as_str() {
+                "runtime_capabilities" => {
+                    let caps = runtime_capabilities();
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: serde_json::to_value(caps)?,
+                    })
+                }
+                "runtime_config" => {
+                    let cfg = runtime_config()?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: serde_json::to_value(cfg)?,
+                    })
+                }
+                "resolve_node_host" => {
+                    let params: ResolveNodeHostRequest = serde_json::from_value(req.params)?;
+                    let resolved = resolve_node_host(params).await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: serde_json::to_value(resolved)?,
+                    })
+                }
+                "xboard_request" => {
+                    let params: RpcParamsForXboardRequest = serde_json::from_value(req.params)?;
+                    let resp = xboard_request(params).await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: serde_json::to_value(resp)?,
+                    })
+                }
+                "subscription_fetch" => {
+                    let resp = subscription_fetch(&req.params).await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: resp,
+                    })
+                }
+                "aerion_test_node" => {
+                    let params = req.params.clone();
+                    let resp =
+                        spawn_aerion_value(async move { aerion_test_node(&params).await }).await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: resp,
+                    })
+                }
+                "aerion_start_socks" => {
+                    let params = req.params.clone();
+                    let resp = spawn_aerion_value(async move { aerion_start_socks(&params).await })
+                        .await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: resp,
+                    })
+                }
+                "aerion_start_route" => {
+                    let params = req.params.clone();
+                    let resp = spawn_aerion_value(async move { aerion_start_route(&params).await })
+                        .await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: resp,
+                    })
+                }
+                "aerion_start_vpn" => {
+                    let params = req.params.clone();
+                    let resp =
+                        spawn_aerion_value(async move { aerion_start_vpn(&params).await }).await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: resp,
+                    })
+                }
+                "aerion_stop_vpn" => {
+                    let params = req.params.clone();
+                    let resp =
+                        spawn_aerion_value(async move { aerion_stop_vpn(&params).await }).await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: resp,
+                    })
+                }
+                "aerion_stop" => {
+                    let params = req.params.clone();
+                    let resp =
+                        spawn_aerion_value(async move { aerion_stop(&params).await }).await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: resp,
+                    })
+                }
+                "aerion_stop_route" => {
+                    let params = req.params.clone();
+                    let resp =
+                        spawn_aerion_value(async move { aerion_stop_route(&params).await }).await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: resp,
+                    })
+                }
+                "system_proxy_set" => {
+                    system_proxy_set(&req.params).await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: json!(null),
+                    })
+                }
+                "system_proxy_clear" => {
+                    system_proxy_clear().await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: json!(null),
+                    })
+                }
+                other => bail!("unsupported method: {other}"),
             }
-            "runtime_config" => {
-                let cfg = runtime_config()?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: serde_json::to_value(cfg)?,
-                })
-            }
-            "resolve_node_host" => {
-                let params: ResolveNodeHostRequest = serde_json::from_value(req.params)?;
-                let resolved = resolve_node_host(params).await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: serde_json::to_value(resolved)?,
-                })
-            }
-            "xboard_request" => {
-                let params: RpcParamsForXboardRequest = serde_json::from_value(req.params)?;
-                let resp = xboard_request(params).await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: serde_json::to_value(resp)?,
-                })
-            }
-            "subscription_fetch" => {
-                let resp = subscription_fetch(&req.params).await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: resp,
-                })
-            }
-            "aerion_test_node" => {
-                let params = req.params.clone();
-                let resp =
-                    spawn_aerion_value(async move { aerion_test_node(&params).await }).await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: resp,
-                })
-            }
-            "aerion_start_socks" => {
-                let params = req.params.clone();
-                let resp =
-                    spawn_aerion_value(async move { aerion_start_socks(&params).await }).await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: resp,
-                })
-            }
-            "aerion_start_route" => {
-                let params = req.params.clone();
-                let resp =
-                    spawn_aerion_value(async move { aerion_start_route(&params).await }).await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: resp,
-                })
-            }
-            "aerion_start_vpn" => {
-                let params = req.params.clone();
-                let resp =
-                    spawn_aerion_value(async move { aerion_start_vpn(&params).await }).await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: resp,
-                })
-            }
-            "aerion_stop_vpn" => {
-                let params = req.params.clone();
-                let resp =
-                    spawn_aerion_value(async move { aerion_stop_vpn(&params).await }).await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: resp,
-                })
-            }
-            "aerion_stop" => {
-                let params = req.params.clone();
-                let resp = spawn_aerion_value(async move { aerion_stop(&params).await }).await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: resp,
-                })
-            }
-            "aerion_stop_route" => {
-                let params = req.params.clone();
-                let resp =
-                    spawn_aerion_value(async move { aerion_stop_route(&params).await }).await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: resp,
-                })
-            }
-            "system_proxy_set" => {
-                system_proxy_set(&req.params).await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: json!(null),
-                })
-            }
-            "system_proxy_clear" => {
-                system_proxy_clear().await?;
-                Ok(RpcResponseOk {
-                    id: req.id,
-                    ok: true,
-                    result: json!(null),
-                })
-            }
-            other => bail!("unsupported method: {other}"),
-        };
+        })
+        .await;
 
         emit_rpc_response(req.id, out);
     }
