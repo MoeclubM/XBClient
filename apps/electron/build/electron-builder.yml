@@ -22,6 +22,8 @@ extraResources:
     to: bin
     filter:
       - xbclient-electron-backend*
+  - from: ../../rust/aerion-core/assets/route
+    to: route
   - from: resources/config
     to: config
     filter:

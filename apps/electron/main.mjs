@@ -168,6 +168,13 @@ function backendReleaseBinaryPath() {
   return path.resolve(repoRoot, 'rust/electron-backend/target/release', backendBinaryName())
 }
 
+function routeAssetsDir() {
+  if (isPackaged) {
+    return path.join(process.resourcesPath, 'route')
+  }
+  return path.resolve(repoRoot, 'rust/aerion-core/assets/route')
+}
+
 function desktopRuntimeConfig() {
   const env = validateBackendEnv()
   return {
@@ -233,6 +240,7 @@ function buildBackendEnv() {
   if (defaultApiUrl) env.XBCLIENT_DEFAULT_API_URL = defaultApiUrl
   if (userAgent) env.XBCLIENT_USER_AGENT = userAgent
   if (oauthCallbackScheme) env.XBCLIENT_OAUTH_CALLBACK_SCHEME = oauthCallbackScheme
+  env.XBCLIENT_ROUTE_ASSETS_DIR = routeAssetsDir()
   return env
 }
 

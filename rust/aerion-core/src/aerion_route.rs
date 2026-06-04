@@ -10,6 +10,7 @@ use once_cell::sync::Lazy;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::env;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Mutex as StdMutex;
@@ -38,6 +39,7 @@ struct RouteSession {
 static NEXT_ROUTE_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 static ROUTE_SESSIONS: Lazy<StdMutex<HashMap<u64, RouteSession>>> =
     Lazy::new(|| StdMutex::new(HashMap::new()));
+const ROUTE_ASSETS_DIR_ENV: &str = "XBCLIENT_ROUTE_ASSETS_DIR";
 
 fn ephemeral_loopback() -> SocketAddr {
     SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)
@@ -174,6 +176,20 @@ fn ensure_geoip_baseline(config: &mut MihomoConfig) {
         .insert(insert_at, "GEOIP,CN,DIRECT,no-resolve".to_string());
 }
 
+fn route_assets_dir(geoip_dir: Option<&str>) -> Option<PathBuf> {
+    geoip_dir
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            env::var(ROUTE_ASSETS_DIR_ENV)
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from)
+        })
+}
+
 pub async fn start_route_from_json(input: &str) -> Result<String> {
     let request: StartRouteRequest =
         serde_json::from_str(input).context("parse start route request")?;
@@ -182,13 +198,14 @@ pub async fn start_route_from_json(input: &str) -> Result<String> {
         "route config_yaml is empty"
     );
     let mut config = parse_mihomo_config(&request.config_yaml)?;
-    if let Some(proxy) = request
+    let global_proxy = if let Some(proxy) = request
         .global_proxy
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
         apply_global_proxy(&mut config, proxy);
+        true
     } else if let Some(proxy) = request
         .selected_proxy
         .as_deref()
@@ -196,14 +213,12 @@ pub async fn start_route_from_json(input: &str) -> Result<String> {
         .filter(|value| !value.is_empty())
     {
         apply_selected_proxy(&mut config, proxy)?;
-    }
-    let assets_dir = request
-        .geoip_dir
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from);
-    if assets_dir.is_some() {
+        false
+    } else {
+        false
+    };
+    let assets_dir = route_assets_dir(request.geoip_dir.as_deref());
+    if assets_dir.is_some() && !global_proxy {
         ensure_geoip_baseline(&mut config);
     }
     ensure!(!config.rules.is_empty(), "mihomo route config has no rules");
@@ -279,4 +294,38 @@ pub fn inspect_route_config_yaml(text: &str) -> Result<String> {
         "has_rules": !config.rules.is_empty(),
     })
     .to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compiles_geoip_cn_with_bundled_route_assets() -> Result<()> {
+        let config = parse_mihomo_config(
+            r#"
+proxies: []
+rules:
+  - GEOIP,CN,DIRECT,no-resolve
+  - MATCH,DIRECT
+"#,
+        )?;
+        let assets = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/route");
+        config.route_table_with_assets(Some(&assets))?;
+        Ok(())
+    }
+
+    #[test]
+    fn global_proxy_does_not_add_cn_baseline() -> Result<()> {
+        let mut config = parse_mihomo_config(
+            r#"
+proxies: []
+rules:
+  - MATCH,DIRECT
+"#,
+        )?;
+        apply_global_proxy(&mut config, "proxy");
+        assert_eq!(config.rules, vec!["MATCH,proxy"]);
+        Ok(())
+    }
 }
