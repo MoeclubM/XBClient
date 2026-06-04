@@ -45,9 +45,12 @@ class XbClientVpnService : VpnService() {
     private var currentGeoipDir = ""
     private var currentRouteSessionId = 0L
     private var currentSocksAddr = ""
+    @Volatile
     private var tunInterface: ParcelFileDescriptor? = null
     private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    @Volatile
+    private var underlyingNetwork: Network? = null
     private var notificationChannelReady = false
     private var sessionBaseRxBytes = 0L
     private var sessionBaseTxBytes = 0L
@@ -249,6 +252,8 @@ class XbClientVpnService : VpnService() {
             }
         }
 
+        registerUnderlyingNetworkTracking()
+
         val node = JSONObject(nodeJson ?: throw IllegalStateException("node_json is required"))
         val protocol = node.getString("type").lowercase(Locale.US)
         if (protocol != "direct" && protocol != "block") {
@@ -283,6 +288,7 @@ class XbClientVpnService : VpnService() {
         }
         val tun: ParcelFileDescriptor = builder.establish() ?: throw IllegalStateException(getString(R.string.vpn_permission_denied))
         tunInterface = tun
+        setUnderlyingNetworks(arrayOf(underlyingNetwork ?: throw IllegalStateException("active underlying network is required")))
         val request = JSONObject()
             .put("node", tunnelNode)
             .put("tun_fd", tun.fd)
@@ -302,7 +308,6 @@ class XbClientVpnService : VpnService() {
         lastSampleRxBytes = sessionBaseRxBytes
         lastSampleTxBytes = sessionBaseTxBytes
         lastSampleAtMs = System.currentTimeMillis()
-        registerUnderlyingNetworkTracking()
         Log.i("XBClient", "VPN started: $result")
     }
 
@@ -318,14 +323,21 @@ class XbClientVpnService : VpnService() {
         if (networkCallback != null) return
         val manager = getSystemService(ConnectivityManager::class.java)
             ?: throw IllegalStateException("connectivity manager is required")
+        val activeNetwork = manager.activeNetwork
+            ?: throw IllegalStateException("active underlying network is required")
+        underlyingNetwork = activeNetwork
+        setUnderlyingNetworks(arrayOf(activeNetwork))
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
+                underlyingNetwork = network
                 setUnderlyingNetworks(arrayOf(network))
             }
 
             override fun onLost(network: Network) {
-                // Clear the explicit underlying network until a new uplink appears.
-                setUnderlyingNetworks(null)
+                if (underlyingNetwork == network) {
+                    underlyingNetwork = manager.activeNetwork
+                    setUnderlyingNetworks(underlyingNetwork?.let { arrayOf(it) })
+                }
             }
         }
         try {
@@ -351,6 +363,7 @@ class XbClientVpnService : VpnService() {
         }
         networkCallback = null
         connectivityManager = null
+        underlyingNetwork = null
     }
 
     private fun stopCurrentVpn(error: String = "") {
@@ -559,7 +572,19 @@ class XbClientVpnService : VpnService() {
                 Log.d("XBClient", "skip Android VPN socket protection without active VPN service")
                 return true
             }
-            return service.protect(fd)
+            if (service.tunInterface == null) {
+                Log.d("XBClient", "skip Android VPN socket protection without active tunnel")
+                return true
+            }
+            if (!service.protect(fd)) {
+                return false
+            }
+            val network = service.underlyingNetwork
+                ?: throw IllegalStateException("Android VPN underlying network is not available for socket fd $fd")
+            ParcelFileDescriptor.fromFd(fd).use { descriptor ->
+                network.bindSocket(descriptor.fileDescriptor)
+            }
+            return true
         }
 
         @JvmStatic
