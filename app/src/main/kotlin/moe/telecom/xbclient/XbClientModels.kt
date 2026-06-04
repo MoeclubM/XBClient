@@ -141,10 +141,11 @@ data class NoticeItem(
 
 fun JSONObject.toAnyTlsNode(): AnyTlsNode =
     getString("type").lowercase(Locale.US).let { rawProtocol ->
+        val host = normalizeNodeHost(getString("host"))
         AnyTlsNode(
             protocol = rawProtocol,
             name = getString("name").trim(),
-            host = getString("host").trim(),
+            host = host,
             port = getInt("port"),
             tags = nodeTags(this),
             rawJson = normalizedNodeJson(rawProtocol)
@@ -177,6 +178,7 @@ fun nodeTags(node: JSONObject): List<String> {
 
 private fun JSONObject.normalizedNodeJson(protocol: String): String {
     val node = JSONObject(toString())
+    node.put("host", normalizeNodeHost(node.getString("host")))
     if ((!node.has("sni") || node.optString("sni").isBlank()) && node.opt("tls") is JSONObject) {
         val tls = node.getJSONObject("tls")
         if (!tls.isNull("server_name") && tls.getString("server_name").isNotBlank()) {
@@ -187,6 +189,16 @@ private fun JSONObject.normalizedNodeJson(protocol: String): String {
         node.put("type", protocol)
     }
     return node.toString()
+}
+
+fun normalizeNodeHost(value: String): String {
+    val host = value.trim()
+    val inner = if (host.length > 2 && host.first() == '[' && host.last() == ']') {
+        host.substring(1, host.length - 1)
+    } else {
+        ""
+    }
+    return if (inner.contains(":")) inner else host
 }
 
 fun JSONObject.toInviteItem(): InviteItem =

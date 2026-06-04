@@ -91,8 +91,9 @@ object XboardApi {
 
 
     fun resolveNodeHost(dns: String, host: String): String {
-        if (host.matches(Regex("^[0-9.]+$")) || host.contains(":")) {
-            return host
+        val nodeHost = normalizeNodeHost(host)
+        if (nodeHost.matches(Regex("^[0-9.]+$")) || nodeHost.matches(Regex("^[0-9A-Fa-f:.]+$")) && nodeHost.contains(":")) {
+            return nodeHost
         }
         val resolver = dns.trim()
         if (!resolver.startsWith("http://") && !resolver.startsWith("https://")) {
@@ -101,7 +102,7 @@ object XboardApi {
         for (type in arrayOf("A", "AAAA")) {
             val url = Uri.parse(resolver)
                 .buildUpon()
-                .appendQueryParameter("name", host)
+                .appendQueryParameter("name", nodeHost)
                 .appendQueryParameter("type", type)
                 .build()
                 .toString()
@@ -137,7 +138,7 @@ object XboardApi {
     }
 
     fun dnsAddressForVpn(value: String): String {
-        val dns = value.trim()
+        val dns = normalizeNodeHost(value)
         if (dns.matches(Regex("^[0-9.]+$")) || dns.matches(Regex("^[0-9A-Fa-f:.]+$")) && dns.contains(":")) {
             return dns
         }
