@@ -11,7 +11,7 @@ use aerion::{
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 
 pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionProxyConfig> {
@@ -51,7 +51,7 @@ fn anytls_config(node: &Value, listen: SocketAddr) -> Result<ClientConfig> {
         listen,
         server_port: node_port(node, &["port"])?,
         password: node_string(node, &["password"])?,
-        sni: node_optional_string(node, &["sni"]).unwrap_or_else(|| server_host.clone()),
+        sni: node_sni(node, tls, &server_host),
         server_host: server_host.clone(),
         insecure: tls_bool(node, tls, &["insecure"], false)?,
         ca_cert_paths: tls_ca_cert_paths(tls)?,
@@ -82,7 +82,7 @@ fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientC
         listen,
         server_port: node_port(node, &["port"])?,
         password: node_string(node, &["password"])?,
-        sni: node_optional_string(node, &["sni"]).unwrap_or_else(|| server_host.clone()),
+        sni: node_sni(node, tls, &server_host),
         server_host: server_host.clone(),
         insecure: tls_bool(node, tls, &["insecure"], false)?,
         certificate_fingerprint: tls
@@ -115,7 +115,7 @@ fn trojan_config(node: &Value, listen: SocketAddr) -> Result<TrojanClientConfig>
         listen,
         server_port: node_port(node, &["port"])?,
         password: node_string(node, &["password"])?,
-        sni: node_optional_string(node, &["sni"]).unwrap_or_else(|| server_host.clone()),
+        sni: node_sni(node, tls, &server_host),
         server_host,
         insecure: tls_bool(node, tls, &["insecure"], false)?,
         ca_cert_paths: tls_ca_cert_paths(tls)?,
@@ -143,7 +143,7 @@ fn vless_config(node: &Value, listen: SocketAddr) -> Result<VlessClientConfig> {
         server_port: node_port(node, &["port"])?,
         user_id: node_string(node, &["uuid"])?,
         tls: tls_enabled,
-        sni: node_optional_string(node, &["sni"]).unwrap_or_else(|| server_host.clone()),
+        sni: node_sni(node, tls, &server_host),
         server_host,
         insecure: if tls_enabled {
             tls_bool(node, tls, &["insecure"], false)?
@@ -187,7 +187,7 @@ fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
         packet_encoding,
         udp: node_bool(node, &["udp"], false)?,
         tls,
-        sni: node_optional_string(node, &["sni"]).unwrap_or_else(|| server_host.clone()),
+        sni: node_sni(node, tls_options, &server_host),
         server_host,
         insecure: if tls {
             tls_options
@@ -255,7 +255,7 @@ fn naive_config(node: &Value, listen: SocketAddr) -> Result<NaiveClientConfig> {
         server_port: server_port as u16,
         username: node_optional_string(node, &["username"]).unwrap_or_default(),
         password: node_optional_string(node, &["password"]).unwrap_or_default(),
-        sni: node_optional_string(node, &["sni"]).unwrap_or(server_host),
+        sni: node_sni(node, tls, &server_host),
         insecure: tls_bool(node, tls, &["insecure"], false)?,
         ca_cert_paths: tls_ca_cert_paths(tls)?,
         ca_certificates: tls_ca_certificates(tls)?,
@@ -292,7 +292,7 @@ fn tuic_config(node: &Value, listen: SocketAddr) -> Result<TuicClientConfig> {
         server_port: node_port(node, &["port"])?,
         uuid: node_string(node, &["uuid"])?,
         password: node_string(node, &["password"])?,
-        sni: node_optional_string(node, &["sni"]).unwrap_or_else(|| server_host.clone()),
+        sni: node_sni(node, tls, &server_host),
         server_host,
         insecure: tls_bool(node, tls, &["insecure"], false)?,
         ca_cert_paths: tls_ca_cert_paths(tls)?,
@@ -364,7 +364,7 @@ fn http_proxy_config(node: &Value, listen: SocketAddr) -> Result<HttpProxyClient
         username: node_optional_string(node, &["username"]).unwrap_or_default(),
         password: node_optional_string(node, &["password"]).unwrap_or_default(),
         tls: tls_enabled,
-        sni: node_optional_string(node, &["sni"]).unwrap_or(server_host),
+        sni: node_sni(node, tls, &server_host),
         insecure: if tls_enabled {
             tls_bool(node, tls, &["insecure"], false)?
         } else {
@@ -534,6 +534,30 @@ fn node_string(node: &Value, keys: &[&str]) -> Result<String> {
 
 fn node_optional_string(node: &Value, keys: &[&str]) -> Option<String> {
     field(node, keys).and_then(value_to_string)
+}
+
+fn node_sni(node: &Value, tls: Option<&Map<String, Value>>, server_host: &str) -> String {
+    let values = [
+        node_optional_string(node, &["sni"]),
+        node_optional_string(node, &["server_name"]),
+        node_optional_string(node, &["servername"]),
+        tls.and_then(|opts| map_string(opts, &["server_name"])),
+        tls.and_then(|opts| map_string(opts, &["servername"])),
+    ];
+    values
+        .into_iter()
+        .flatten()
+        .find(|value| !is_ip_literal(value))
+        .unwrap_or_else(|| server_host.to_string())
+}
+
+fn is_ip_literal(value: &str) -> bool {
+    let value = value.trim();
+    let host = value
+        .strip_prefix('[')
+        .and_then(|inner| inner.strip_suffix(']'))
+        .unwrap_or(value);
+    host.parse::<IpAddr>().is_ok()
 }
 
 fn map_string(map: &Map<String, Value>, keys: &[&str]) -> Option<String> {
@@ -1284,6 +1308,44 @@ mod tests {
             vec![PathBuf::from("ca.pem"), PathBuf::from("backup-ca.pem")]
         );
         assert_eq!(config.ca_certificates, vec!["naive-inline-ca"]);
+        Ok(())
+    }
+
+    #[test]
+    fn ignores_ip_literal_sni_when_server_name_is_available() -> Result<()> {
+        let anytls = serde_json::json!({
+            "type": "anytls",
+            "host": "2001:db8::1",
+            "port": 443,
+            "password": "secret",
+            "sni": "[2001:db8::1]",
+            "server_name": "edge.example.com"
+        });
+        let AerionProxyConfig::AnyTls(config) =
+            node_to_proxy_config(&anytls, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected AnyTLS config")
+        };
+        assert_eq!(config.server_host, "2001:db8::1");
+        assert_eq!(config.sni, "edge.example.com");
+
+        let hysteria2 = serde_json::json!({
+            "type": "hysteria2",
+            "host": "2001:db8::2",
+            "port": 443,
+            "password": "secret",
+            "sni": "2001:db8::2",
+            "tls": {
+                "server_name": "hy2.example.com"
+            }
+        });
+        let AerionProxyConfig::Hysteria2(config) =
+            node_to_proxy_config(&hysteria2, "127.0.0.1:1081".parse()?)?
+        else {
+            bail!("expected Hysteria2 config")
+        };
+        assert_eq!(config.server_host, "2001:db8::2");
+        assert_eq!(config.sni, "hy2.example.com");
         Ok(())
     }
 

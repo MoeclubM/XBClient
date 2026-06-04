@@ -92,7 +92,7 @@ object XboardApi {
 
     fun resolveNodeHost(dns: String, host: String): String {
         val nodeHost = normalizeNodeHost(host)
-        if (nodeHost.matches(Regex("^[0-9.]+$")) || nodeHost.matches(Regex("^[0-9A-Fa-f:.]+$")) && nodeHost.contains(":")) {
+        if (isIpLiteral(nodeHost)) {
             return nodeHost
         }
         val resolver = dns.trim()
@@ -139,7 +139,7 @@ object XboardApi {
 
     fun dnsAddressForVpn(value: String): String {
         val dns = normalizeNodeHost(value)
-        if (dns.matches(Regex("^[0-9.]+$")) || dns.matches(Regex("^[0-9A-Fa-f:.]+$")) && dns.contains(":")) {
+        if (isIpLiteral(dns)) {
             return dns
         }
         val lower = dns.lowercase()

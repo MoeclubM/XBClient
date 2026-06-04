@@ -178,11 +178,24 @@ fun nodeTags(node: JSONObject): List<String> {
 
 private fun JSONObject.normalizedNodeJson(protocol: String): String {
     val node = JSONObject(toString())
-    node.put("host", normalizeNodeHost(node.getString("host")))
-    if ((!node.has("sni") || node.optString("sni").isBlank()) && node.opt("tls") is JSONObject) {
-        val tls = node.getJSONObject("tls")
-        if (!tls.isNull("server_name") && tls.getString("server_name").isNotBlank()) {
-            node.put("sni", tls.getString("server_name").trim())
+    val host = normalizeNodeHost(node.getString("host"))
+    node.put("host", host)
+    val currentSni = normalizeNodeHost(node.optString("sni"))
+    if (currentSni.isBlank() || isIpLiteral(currentSni)) {
+        val sni = listOf("server_name", "servername").firstNotNullOfOrNull { key ->
+            node.optString(key).trim().takeIf { it.isNotEmpty() && !isIpLiteral(it) }
+        } ?: if (node.opt("tls") is JSONObject) {
+            val tls = node.getJSONObject("tls")
+            listOf("server_name", "servername").firstNotNullOfOrNull { key ->
+                tls.optString(key).trim().takeIf { it.isNotEmpty() && !isIpLiteral(it) }
+            }
+        } else {
+            null
+        }
+        if (sni != null) {
+            node.put("sni", sni)
+        } else if (currentSni.isNotBlank()) {
+            node.remove("sni")
         }
     }
     if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
@@ -199,6 +212,11 @@ fun normalizeNodeHost(value: String): String {
         ""
     }
     return if (inner.contains(":")) inner else host
+}
+
+fun isIpLiteral(value: String): Boolean {
+    val host = normalizeNodeHost(value)
+    return host.matches(Regex("^[0-9.]+$")) || host.matches(Regex("^[0-9A-Fa-f:.]+$")) && host.contains(":")
 }
 
 fun JSONObject.toInviteItem(): InviteItem =

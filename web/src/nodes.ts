@@ -32,6 +32,8 @@ export interface RawNode {
   label?: unknown
   group?: unknown
   sni?: unknown
+  server_name?: unknown
+  servername?: unknown
   tls?: unknown
   [key: string]: unknown
 }
@@ -59,11 +61,19 @@ export function toAppNode(raw: RawNode): AppNode {
   const port = Number(raw.port)
   if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error('XBClient 节点 port 无效。')
   const protocol = raw.type.trim().toLowerCase()
-  const host = raw.host.trim()
+  const host = normalizeNodeHost(raw.host)
   const normalized: RawNode = { ...raw, type: protocol, host }
   const tls = raw.tls as Record<string, unknown> | undefined
-  if (!String(normalized.sni ?? '').trim() && tls && typeof tls.server_name === 'string' && tls.server_name.trim()) {
-    normalized.sni = tls.server_name.trim()
+  const currentSni = normalizeNodeHost(String(normalized.sni ?? ''))
+  if (!currentSni || isIpLiteral(currentSni)) {
+    const sni = [
+      String(raw.server_name ?? '').trim(),
+      String(raw.servername ?? '').trim(),
+      tls && typeof tls.server_name === 'string' ? tls.server_name.trim() : '',
+      tls && typeof tls.servername === 'string' ? tls.servername.trim() : '',
+    ].find((value) => value && !isIpLiteral(value))
+    if (sni) normalized.sni = sni
+    else if (currentSni) delete normalized.sni
   }
   return {
     protocol,
@@ -87,12 +97,12 @@ export function displayNodeName(node: AppNode, index: number): string {
 
 export function rawNodeHost(node: AppNode): string {
   const raw = JSON.parse(node.rawJson) as RawNode
-  return String(raw.host)
+  return normalizeNodeHost(String(raw.host))
 }
 
 export function aerionNodeWithResolvedHost(node: AppNode, resolvedHost: string): RawNode {
   const raw = JSON.parse(node.rawJson) as RawNode
-  const originalHost = String(raw.host)
+  const originalHost = normalizeNodeHost(String(raw.host))
   if (resolvedHost !== originalHost && !String(raw.sni ?? '').trim()) {
     raw.sni = originalHost
   }
@@ -207,4 +217,15 @@ export function rawNodeRows(value: unknown): RawNode[] {
     if (Array.isArray(object.nodes)) return object.nodes as RawNode[]
   }
   throw new Error('XBClient 节点响应缺少 data.nodes 数组。')
+}
+
+function normalizeNodeHost(value: string): string {
+  const host = value.trim()
+  const inner = host.length > 2 && host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : ''
+  return inner.includes(':') ? inner : host
+}
+
+function isIpLiteral(value: string): boolean {
+  const host = normalizeNodeHost(value)
+  return /^[0-9.]+$/.test(host) || (/^[0-9A-Fa-f:.]+$/.test(host) && host.includes(':'))
 }
