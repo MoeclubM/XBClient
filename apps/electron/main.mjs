@@ -610,8 +610,10 @@ function applyTraySnapshot(snapshot) {
       ? {
           sessionId: snapshot.vpn.sessionId,
           socksAddr: snapshot.vpn.socksAddr,
+          tunSocksAddr: snapshot.vpn.tunSocksAddr,
           nodeIndex: snapshot.vpn.nodeIndex,
           routeMode: snapshot.vpn.routeMode === true,
+          routingMode: snapshot.vpn.routingMode,
         }
       : null
   trayState.systemProxyOn = Boolean(snapshot.systemProxyOn)
@@ -621,7 +623,7 @@ function applyTraySnapshot(snapshot) {
   if (typeof snapshot.routingRouteConfigYaml !== 'string') throw new Error('tray snapshot routingRouteConfigYaml is required')
   trayState.routingRouteConfigYaml = snapshot.routingRouteConfigYaml
   trayState.userAgent = snapshot.userAgent
-  activeVpnSessionId = trayState.vpn && !trayState.vpn.routeMode && trayState.useVpn ? trayState.vpn.sessionId : null
+  activeVpnSessionId = trayState.vpn && !trayState.vpn.routeMode && !trayState.vpn.socksAddr ? trayState.vpn.sessionId : null
   rebuildTrayMenu()
 }
 
@@ -638,21 +640,18 @@ async function trayResolveNode(node) {
 
 async function trayDisconnect() {
   if (!trayState.vpn) return
+  const useTun = !trayState.vpn.routeMode && !trayState.vpn.socksAddr
   if (trayState.vpn.routeMode) {
     await backendInvoke('aerion_stop_route', { sessionId: trayState.vpn.sessionId })
-    if (trayState.systemProxyOn) {
-      await backendInvoke('system_proxy_clear', {})
-      trayState.systemProxyOn = false
-    }
-  } else if (trayState.useVpn) {
+  } else if (useTun) {
     await backendInvoke('aerion_stop_vpn', { sessionId: trayState.vpn.sessionId })
     activeVpnSessionId = null
   } else {
     await backendInvoke('aerion_stop', { sessionId: trayState.vpn.sessionId })
-    if (trayState.systemProxyOn) {
-      await backendInvoke('system_proxy_clear', {})
-      trayState.systemProxyOn = false
-    }
+  }
+  if (trayState.systemProxyOn) {
+    await backendInvoke('system_proxy_clear', {})
+    trayState.systemProxyOn = false
   }
   trayState.vpn = null
   pushTrayStateToWeb({ vpn: null, systemProxyOn: trayState.systemProxyOn })
@@ -664,23 +663,50 @@ function trayRouteConfigYaml() {
   return trayState.routingRouteConfigYaml.trim()
 }
 
+async function trayApplySessionSystemProxy() {
+  const socksAddr = trayState.vpn?.socksAddr || trayState.vpn?.tunSocksAddr || ''
+  if (trayState.settings.systemProxyEnabled) {
+    if (!socksAddr) throw new Error('当前会话缺少可用于系统代理的本地 SOCKS 地址')
+    const parsed = parseSocksAddr(socksAddr)
+    await backendInvoke('system_proxy_set', { host: parsed.host, port: parsed.port })
+    trayState.systemProxyOn = true
+  } else if (trayState.systemProxyOn) {
+    await backendInvoke('system_proxy_clear', {})
+    trayState.systemProxyOn = false
+  }
+}
+
 async function trayConnect(index) {
-  if (trayState.routingMode === 'direct') return
-  const node = trayState.nodes[index]
-  if (!node?.connectSupported) throw new Error('当前节点协议不支持连接')
-  const resolved = await trayResolveNode(node)
   const routeConfigYaml = trayRouteConfigYaml()
-  if (trayState.routingMode === 'rule' && routeConfigYaml) {
+  const useRuleRouting =
+    !trayState.useVpn
+    && trayState.settings.systemProxyEnabled
+    && trayState.routingMode === 'rule'
+    && Boolean(routeConfigYaml)
+  if (!trayState.useVpn && !trayState.settings.systemProxyEnabled) return
+
+  const node = trayState.nodes[index]
+  let resolved = { type: 'direct', name: 'DIRECT' }
+  if (trayState.routingMode !== 'direct') {
+    if (!node?.connectSupported) throw new Error('当前节点协议不支持连接')
+    resolved = await trayResolveNode(node)
+  }
+
+  if (useRuleRouting) {
     const handle = await backendInvoke('aerion_start_route', {
       config_yaml: routeConfigYaml,
       geoip_dir: trayState.settings.geoipDir.trim(),
       selected_proxy: node.name,
       selected_node: resolved,
     })
-    trayState.vpn = { sessionId: handle.session_id, socksAddr: handle.socks_addr, nodeIndex: index, routeMode: true }
-    const parsed = parseSocksAddr(handle.socks_addr)
-    await backendInvoke('system_proxy_set', { host: parsed.host, port: parsed.port })
-    trayState.systemProxyOn = true
+    trayState.vpn = {
+      sessionId: handle.session_id,
+      socksAddr: handle.socks_addr,
+      nodeIndex: index,
+      routeMode: true,
+      routingMode: trayState.routingMode,
+    }
+    await trayApplySessionSystemProxy()
   } else if (trayState.useVpn) {
     const dnsMode = trayState.settings.vpnDnsMode
     const dnsSource = dnsMode === 'direct' ? trayState.settings.directDns : trayState.settings.overseasDns
@@ -692,15 +718,26 @@ async function trayConnect(index) {
       virtual_dns_pool: trayState.settings.virtualDnsPool,
       ipv6: trayState.settings.vpnIpv6Enabled,
     })
-    trayState.vpn = { sessionId: handle.session_id, socksAddr: '', nodeIndex: index, routeMode: false }
-    activeVpnSessionId = handle.session_id
-  } else {
-    const handle = await backendInvoke('aerion_start_socks', { node: resolved })
-    trayState.vpn = { sessionId: handle.session_id, socksAddr: handle.socks_addr, nodeIndex: index, routeMode: false }
-    if (trayState.systemProxyOn) {
-      const parsed = parseSocksAddr(handle.socks_addr)
-      await backendInvoke('system_proxy_set', { host: parsed.host, port: parsed.port })
+    trayState.vpn = {
+      sessionId: handle.session_id,
+      socksAddr: '',
+      tunSocksAddr: handle.socks_addr,
+      nodeIndex: index,
+      routeMode: false,
+      routingMode: trayState.routingMode,
     }
+    activeVpnSessionId = handle.session_id
+    await trayApplySessionSystemProxy()
+  } else if (trayState.settings.systemProxyEnabled) {
+    const handle = await backendInvoke('aerion_start_socks', { node: resolved })
+    trayState.vpn = {
+      sessionId: handle.session_id,
+      socksAddr: handle.socks_addr,
+      nodeIndex: index,
+      routeMode: false,
+      routingMode: trayState.routingMode,
+    }
+    await trayApplySessionSystemProxy()
   }
   trayState.selectedNodeIndex = index
   pushTrayStateToWeb({
@@ -710,6 +747,66 @@ async function trayConnect(index) {
   })
 }
 
+async function trayApplyConnection() {
+  const index = trayState.selectedNodeIndex
+  const routeConfigYaml = trayRouteConfigYaml()
+  const useRuleRouting =
+    !trayState.useVpn
+    && trayState.settings.systemProxyEnabled
+    && trayState.routingMode === 'rule'
+    && Boolean(routeConfigYaml)
+  const wantTun = trayState.useVpn
+  const wantSocks = !wantTun && trayState.settings.systemProxyEnabled && !useRuleRouting
+  const session = trayState.vpn
+  const tunSession = session && !session.socksAddr && !session.routeMode
+  const routeSession = session?.routeMode === true
+  const socksSession = session && Boolean(session.socksAddr) && !session.routeMode
+  const modeChanged = session?.routingMode !== trayState.routingMode
+
+  if (useRuleRouting) {
+    if (tunSession || socksSession) await trayDisconnect()
+    if (!routeSession || session?.nodeIndex !== index || modeChanged) {
+      if (session) await trayDisconnect()
+      await trayConnect(index)
+    } else if (!trayState.systemProxyOn && session.socksAddr) {
+      await trayApplySessionSystemProxy()
+      pushTrayStateToWeb({ systemProxyOn: trayState.systemProxyOn })
+    }
+    return
+  }
+
+  if (routeSession) await trayDisconnect()
+
+  if (wantTun) {
+    if (socksSession || routeSession) await trayDisconnect()
+    if (!tunSession || session?.nodeIndex !== index || modeChanged) {
+      if (session) await trayDisconnect()
+      await trayConnect(index)
+    } else {
+      await trayApplySessionSystemProxy()
+      pushTrayStateToWeb({ systemProxyOn: trayState.systemProxyOn })
+    }
+    return
+  }
+
+  if (tunSession || routeSession) await trayDisconnect()
+  if (wantSocks) {
+    if (!socksSession || session?.nodeIndex !== index || modeChanged) {
+      if (session) await trayDisconnect()
+      await trayConnect(index)
+    } else if (!trayState.systemProxyOn && session.socksAddr) {
+      await trayApplySessionSystemProxy()
+      pushTrayStateToWeb({ systemProxyOn: trayState.systemProxyOn })
+    }
+  } else if (session) {
+    await trayDisconnect()
+  } else if (trayState.systemProxyOn) {
+    await backendInvoke('system_proxy_clear', {})
+    trayState.systemProxyOn = false
+    pushTrayStateToWeb({ systemProxyOn: false })
+  }
+}
+
 async function traySetRoutingMode(mode) {
   if (trayBusy) return
   trayBusy = true
@@ -717,19 +814,10 @@ async function traySetRoutingMode(mode) {
   try {
     if (!backendIsReady) await waitBackendReady()
     const previousMode = trayState.routingMode
-    const wasDirect = previousMode === 'direct'
     trayState.routingMode = mode
+    trayState.settings.routingMode = mode
     pushTrayStateToWeb({ settings: { routingMode: mode } })
-    if (mode === 'direct') {
-      if (trayState.vpn) await trayDisconnect()
-      return
-    }
-    if (trayState.vpn && (trayState.vpn.routeMode || mode === 'rule' || previousMode === 'rule')) {
-      await trayDisconnect()
-      await trayConnect(trayState.selectedNodeIndex)
-    } else if (wasDirect || !trayState.vpn) {
-      await trayConnect(trayState.selectedNodeIndex)
-    }
+    if (previousMode !== mode) await trayApplyConnection()
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     dialog.showErrorBox('路由模式', message)
@@ -747,19 +835,9 @@ async function trayToggleVpn() {
   try {
     if (!backendIsReady) await waitBackendReady()
     trayState.useVpn = !trayState.useVpn
+    trayState.settings.tunEnabled = trayState.useVpn
     pushTrayStateToWeb({ settings: { tunEnabled: trayState.useVpn } })
-    if (trayState.routingMode === 'direct') return
-    if (!trayState.useVpn) {
-      if (trayState.vpn && !trayState.vpn.socksAddr) await trayDisconnect()
-      return
-    }
-    if (trayState.vpn?.socksAddr) {
-      await trayDisconnect()
-      await trayConnect(trayState.selectedNodeIndex)
-      return
-    }
-    if (trayState.vpn) await trayDisconnect()
-    else await trayConnect(trayState.selectedNodeIndex)
+    await trayApplyConnection()
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     dialog.showErrorBox('TUN 模式', message)
@@ -776,18 +854,9 @@ async function trayToggleSystemProxy() {
   rebuildTrayMenu()
   try {
     if (!backendIsReady) await waitBackendReady()
-    if (trayState.systemProxyOn) {
-      await backendInvoke('system_proxy_clear', {})
-      trayState.systemProxyOn = false
-      pushTrayStateToWeb({ systemProxyOn: false, settings: { systemProxyEnabled: false } })
-    } else {
-      const socksAddr = trayState.vpn?.socksAddr
-      if (!socksAddr) throw new Error('请先关闭 TUN 并建立 SOCKS 会话，或连接后带有本地 SOCKS 地址')
-      const parsed = parseSocksAddr(socksAddr)
-      await backendInvoke('system_proxy_set', { host: parsed.host, port: parsed.port })
-      trayState.systemProxyOn = true
-      pushTrayStateToWeb({ systemProxyOn: true, settings: { systemProxyEnabled: true } })
-    }
+    trayState.settings.systemProxyEnabled = !trayState.settings.systemProxyEnabled
+    pushTrayStateToWeb({ settings: { systemProxyEnabled: trayState.settings.systemProxyEnabled } })
+    await trayApplyConnection()
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     dialog.showErrorBox('系统代理', message)
@@ -839,7 +908,6 @@ function rebuildTrayMenu() {
   const currentNode = trayState.nodes[trayState.selectedNodeIndex]
   const nodeName = currentNode ? trayNodeLabel(currentNode, trayState.selectedNodeIndex) : '无节点'
   const proxySupported = trayDesktopProxySupported()
-  const proxySocksReady = Boolean(trayState.vpn?.socksAddr)
   const routingLabels = { rule: '规则', global: '全局', direct: '直连' }
 
   const template = [
@@ -861,7 +929,7 @@ function rebuildTrayMenu() {
       label: 'TUN 模式',
       type: 'checkbox',
       checked: trayState.useVpn,
-      enabled: !trayBusy && trayState.routingMode !== 'direct',
+      enabled: !trayBusy,
       click: () => {
         void trayToggleVpn()
       },
@@ -872,8 +940,8 @@ function rebuildTrayMenu() {
     template.push({
       label: '系统代理',
       type: 'checkbox',
-      checked: trayState.systemProxyOn,
-      enabled: !trayBusy && !trayState.useVpn && trayState.routingMode !== 'direct' && (!trayState.systemProxyOn ? proxySocksReady : true),
+      checked: trayState.settings.systemProxyEnabled,
+      enabled: !trayBusy,
       click: () => {
         void trayToggleSystemProxy()
       },

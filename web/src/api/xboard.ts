@@ -208,6 +208,7 @@ export async function aerionStop(sessionId: number): Promise<{ ok: boolean; sess
 export interface VpnHandle {
   ok: boolean
   session_id: number
+  socks_addr?: string
   mtu?: number
   dns?: string
   dns_addr?: string

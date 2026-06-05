@@ -17,8 +17,10 @@ export interface TrayStateSnapshot {
   vpn: {
     sessionId: number
     socksAddr: string
+    tunSocksAddr?: string
     nodeIndex: number
     routeMode?: boolean
+    routingMode?: 'rule' | 'global' | 'direct'
   } | null
   systemProxyOn: boolean
   useVpn: boolean
@@ -46,10 +48,12 @@ export interface TrayStatePushFromMain {
   vpn?: {
     sessionId: number
     socksAddr: string
+    tunSocksAddr?: string
     nodeIndex: number
     uploadBytes: number
     downloadBytes: number
     routeMode?: boolean
+    routingMode?: 'rule' | 'global' | 'direct'
   } | null
   systemProxyOn?: boolean
 }
@@ -72,8 +76,10 @@ function buildTraySnapshot(): TrayStateSnapshot {
       ? {
           sessionId: state.vpn.sessionId,
           socksAddr: state.vpn.socksAddr,
+          tunSocksAddr: state.vpn.tunSocksAddr,
           nodeIndex: state.vpn.nodeIndex,
           routeMode: state.vpn.routeMode,
+          routingMode: state.vpn.routingMode,
         }
       : null,
     systemProxyOn: state.systemProxyActive,
@@ -113,10 +119,12 @@ function applyTrayPush(patch: TrayStatePushFromMain): void {
       store.setVpn({
         sessionId: patch.vpn.sessionId,
         socksAddr: patch.vpn.socksAddr,
+        tunSocksAddr: patch.vpn.tunSocksAddr,
         nodeIndex: patch.vpn.nodeIndex,
         uploadBytes: patch.vpn.uploadBytes,
         downloadBytes: patch.vpn.downloadBytes,
         routeMode: patch.vpn.routeMode,
+        routingMode: patch.vpn.routingMode,
       })
       void reportVpnSession(patch.vpn.sessionId)
     } else {

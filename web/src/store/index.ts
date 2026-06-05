@@ -24,10 +24,12 @@ export interface AppNode {
 export interface VpnSession {
   sessionId: number
   socksAddr: string
+  tunSocksAddr?: string
   nodeIndex: number
   uploadBytes: number
   downloadBytes: number
   routeMode?: boolean
+  routingMode?: RoutingMode
 }
 
 export interface RouteRoutingState {
