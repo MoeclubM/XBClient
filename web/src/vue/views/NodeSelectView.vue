@@ -145,41 +145,54 @@ async function selectNode(index: number) {
 
     <!-- Node List -->
     <div v-if="!appState.subscription.blockReason && appState.nodes.length > 0" class="node-list">
-      <div
+      <v-card
         v-for="(node, index) in appState.nodes"
         :key="`${node.name}-${index}`"
-        class="node-row"
-        :class="{ active: index === selectedNodeIndex }"
+        class="panel-card"
+        :variant="index === selectedNodeIndex ? 'tonal' : 'elevated'"
+        :color="index === selectedNodeIndex ? 'primary' : undefined"
+        @click="selectNode(index)"
       >
-        <button
-          class="node-pick flex-grow-1"
-          :disabled="!node.connectSupported"
-          @click="selectNode(index)"
-        >
-          <span>
-            <strong>
-              <span v-if="index === selectedNodeIndex" class="text-primary font-weight-bold">✓ </span>
-              {{ displayNodeName(node, index) }}
-            </strong>
-            <small>{{ node.protocolLabel }} · {{ node.host }}{{ node.connectSupported ? '' : ` · ${t('unsupported_protocol')}` }}</small>
-          </span>
-        </button>
-        <span class="node-actions">
-          <small v-if="node.latencyMs">{{ node.latencyMs }} ms</small>
-          <small v-else-if="node._testing" class="text-medium-emphasis">{{ t('node_testing') }}</small>
-          <small v-else-if="node.testError" class="text-error">{{ node.testError }}</small>
-          <v-btn
-            v-if="nodeTestAvailable && node.connectSupported"
-            size="small"
-            variant="tonal"
-            :loading="node._testing"
-            :disabled="testingAll || testingBusy || node._testing"
-            @click.stop="testOne(node, index)"
-          >
-            {{ t('node_test') }}
-          </v-btn>
-        </span>
-      </div>
+        <v-card-text>
+          <div class="d-flex align-start justify-space-between gap-2">
+            <div class="flex-grow-1 min-width-0">
+              <p class="font-weight-bold mb-1">
+                <span v-if="index === selectedNodeIndex">✓ </span>
+                {{ displayNodeName(node, index) }}
+              </p>
+              <p class="text-caption text-medium-emphasis mb-0">
+                {{ node.protocolLabel }}{{ node.connectSupported ? '' : ` · ${t('unsupported_protocol')}` }}
+              </p>
+              <div v-if="node.tags.length" class="d-flex flex-wrap gap-1 mt-2">
+              <v-chip
+                v-for="tag in node.tags"
+                :key="tag"
+                size="x-small"
+                color="secondary"
+                variant="tonal"
+              >
+                {{ tag }}
+              </v-chip>
+              </div>
+            </div>
+            <div class="text-right">
+              <p v-if="node.latencyMs" class="text-caption mb-2">{{ node.latencyMs }} ms</p>
+              <p v-else-if="node._testing" class="text-caption text-medium-emphasis mb-2">{{ t('node_testing') }}</p>
+              <p v-else-if="node.testError" class="text-caption text-error mb-2">{{ node.testError }}</p>
+              <v-btn
+                v-if="nodeTestAvailable && node.connectSupported"
+                size="small"
+                variant="tonal"
+                :loading="node._testing"
+                :disabled="testingAll || testingBusy || node._testing"
+                @click.stop="testOne(node, index)"
+              >
+                {{ t('node_test') }}
+              </v-btn>
+            </div>
+          </div>
+        </v-card-text>
+      </v-card>
     </div>
   </section>
 </template>

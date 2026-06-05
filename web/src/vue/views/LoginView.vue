@@ -328,13 +328,12 @@ async function finishLogin(authData: string, accountEmail: string) {
 
 <template>
   <main class="auth-shell" :class="{ 'auth-shell--desktop': isDesktop }">
-    <div class="auth-atmosphere" aria-hidden="true" />
     <form class="auth-layout" @submit.prevent="submit">
       <header class="auth-top">
         <AppearanceControls />
       </header>
 
-      <section class="auth-hero glass-panel">
+      <section class="auth-hero panel-card">
         <div class="auth-logo-wrap">
           <img class="auth-logo" src="/logo.png" :alt="appName">
         </div>
@@ -345,9 +344,9 @@ async function finishLogin(authData: string, accountEmail: string) {
         </div>
       </section>
 
-      <v-card class="auth-form-card glass-panel">
+      <v-card class="auth-form-card panel-card">
         <v-card-text>
-          <v-btn-toggle v-model="mode" class="liquid-toggle mb-4" mandatory rounded="pill" divided>
+          <v-btn-toggle v-model="mode" class="mb-4" mandatory rounded="pill" divided>
             <v-btn value="login" @click="switchMode('login')">{{ t('login') }}</v-btn>
             <v-btn value="register" @click="switchMode('register')">{{ t('register') }}</v-btn>
           </v-btn-toggle>
@@ -433,7 +432,7 @@ async function finishLogin(authData: string, accountEmail: string) {
 
       <v-card
         v-if="oauthCallbackSupported && (appState.oauthProviders.length || oauthConfirm || configLoading)"
-        class="auth-oauth-card glass-panel"
+        class="auth-oauth-card panel-card"
       >
         <v-card-text>
           <div class="auth-oauth-head">

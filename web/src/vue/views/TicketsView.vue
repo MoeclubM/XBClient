@@ -212,62 +212,70 @@ onMounted(loadTickets)
       </v-card>
     </div>
 
-    <div class="tickets-grid">
-      <v-card class="panel-card">
-        <v-card-text>
-          <p class="section-label">{{ t('ticket_list') }}</p>
-          <div
-            v-for="ticket in tickets"
-            :key="ticket.id"
-            class="node-row mb-2"
-            :class="{ active: selectedTicket && selectedTicket.id === ticket.id }"
-            @click="selectTicket(ticket)"
-          >
-            <span>
-              <strong>{{ ticket.subject }}</strong>
-              <small>
+    <v-row>
+      <v-col cols="12" md="5">
+        <p class="section-label">{{ t('ticket_list') }}</p>
+        <v-card class="panel-card">
+          <v-list lines="two" density="comfortable">
+            <v-list-item
+              v-for="ticket in tickets"
+              :key="ticket.id"
+              :active="Boolean(selectedTicket && selectedTicket.id === ticket.id)"
+              active-color="primary"
+              @click="selectTicket(ticket)"
+            >
+              <v-list-item-title>{{ ticket.subject }}</v-list-item-title>
+              <v-list-item-subtitle>
                 {{ ticketStatusText(ticket.status) }} · {{ ticketLevelText(ticket.level) }} · {{ formatUnixDateTime(ticket.updatedAt) }}
-              </small>
-            </span>
-          </div>
-          <p v-if="!loading && !tickets.length" class="muted pa-3">{{ t('tickets_empty') }}</p>
-        </v-card-text>
-      </v-card>
+              </v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+          <v-card-text v-if="!loading && !tickets.length">
+            <p class="muted">{{ t('tickets_empty') }}</p>
+          </v-card-text>
+        </v-card>
+      </v-col>
 
-      <v-card class="panel-card">
-        <v-card-text>
-          <div class="section-row mb-3">
-            <p class="section-label mb-0">
-              {{ selectedTicket ? selectedTicket.subject : t('ticket_detail') }}
-            </p>
-            <v-btn
-              v-if="selectedTicket && !ticketClosed"
-              variant="outlined"
-              size="small"
-              @click="closeTicket"
-            >
-              {{ t('ticket_close') }}
-            </v-btn>
-          </div>
-          <div class="stack">
-            <div
-              v-for="row in detailRows"
-              :key="row.id"
-              class="glass-chip"
-              :class="{ 'ticket-message--me': row.isMe }"
-            >
-              <strong>{{ row.isMe ? t('ticket_sender_me') : t('ticket_sender_support') }}</strong>
-              <span class="preline">{{ row.message }}</span>
-              <small>{{ formatUnixDateTime(row.createdAt) }}</small>
+      <v-col cols="12" md="7">
+        <div class="section-row mb-3">
+          <p class="section-label mb-0">
+            {{ selectedTicket ? selectedTicket.subject : t('ticket_detail') }}
+          </p>
+          <v-btn
+            v-if="selectedTicket && !ticketClosed"
+            variant="outlined"
+            size="small"
+            @click="closeTicket"
+          >
+            {{ t('ticket_close') }}
+          </v-btn>
+        </div>
+        <v-card class="panel-card">
+          <v-card-text>
+            <div class="stack">
+              <v-card
+                v-for="row in detailRows"
+                :key="row.id"
+                :color="row.isMe ? 'primary' : undefined"
+                :variant="row.isMe ? 'tonal' : 'outlined'"
+              >
+                <v-card-text>
+                  <div class="d-flex align-center justify-space-between gap-2 mb-2">
+                    <strong>{{ row.isMe ? t('ticket_sender_me') : t('ticket_sender_support') }}</strong>
+                    <span class="text-caption text-medium-emphasis">{{ formatUnixDateTime(row.createdAt) }}</span>
+                  </div>
+                  <p class="preline mb-0">{{ row.message }}</p>
+                </v-card-text>
+              </v-card>
             </div>
-          </div>
-          <div v-if="selectedTicket && !ticketClosed" class="mt-4">
-            <v-textarea v-model="reply" :label="t('ticket_reply')" rows="3" variant="outlined" />
-            <v-btn color="primary" block class="mt-2" @click="replyTicket">{{ t('ticket_send') }}</v-btn>
-          </div>
-          <p v-else-if="selectedTicket" class="muted mt-4">{{ t('ticket_closed_no_reply') }}</p>
-        </v-card-text>
-      </v-card>
-    </div>
+            <div v-if="selectedTicket && !ticketClosed" class="mt-4">
+              <v-textarea v-model="reply" :label="t('ticket_reply')" rows="3" variant="outlined" />
+              <v-btn color="primary" block class="mt-2" @click="replyTicket">{{ t('ticket_send') }}</v-btn>
+            </div>
+            <p v-else-if="selectedTicket" class="muted mt-4">{{ t('ticket_closed_no_reply') }}</p>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
   </section>
 </template>

@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { openExternal } from '../../api/system'
 import { t } from '../state'
+
+const router = useRouter()
 
 const items = [
   ['XBClient', 'https://github.com/MoeclubM/XBClient'],
@@ -15,6 +18,7 @@ const items = [
 <template>
   <section class="liquid-page">
     <div class="page-header">
+      <v-btn variant="text" size="small" @click="router.push('/settings')">‹</v-btn>
       <div class="page-header-bar subtitle" />
       <div class="page-header-content">
         <p class="muted">{{ t('open_source') }}</p>

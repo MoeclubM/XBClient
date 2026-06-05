@@ -197,14 +197,18 @@ function formatUnixTime(value: number): string {
       <v-card class="panel-card connection-card">
         <v-card-text>
           <h2>{{ appState.vpn ? t('status_connected') : t('status_disconnected') }}</h2>
-          <button
-            class="liquid-orb mt-4"
-            :class="{ connected: appState.vpn }"
+          <v-btn
+            class="mt-4"
+            color="primary"
+            rounded="pill"
+            size="large"
+            block
+            :variant="appState.vpn ? 'tonal' : 'flat'"
             :disabled="connectingIndex !== null || (!appState.vpn && Boolean(selectedNode && !selectedNode.connectSupported))"
             @click="toggleConnection()"
           >
             {{ connectingIndex !== null ? t('action_connecting') : appState.vpn ? t('action_disconnect') : t('action_connect') }}
-          </button>
+          </v-btn>
           <p v-if="selectedNode && !selectedNode.connectSupported" class="text-error mt-2 text-caption">
             {{ t('unsupported_protocol') }}
           </p>

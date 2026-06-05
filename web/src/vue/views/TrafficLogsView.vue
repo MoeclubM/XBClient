@@ -80,18 +80,20 @@ onMounted(loadLogs)
       <v-card class="panel-card">
         <v-card-text>
           <div class="stack">
-            <div v-for="log in logs" :key="`${log.recordedAt}-${log.upload}-${log.download}`" class="glass-chip">
-              <div class="row-chip">
-                <span>
-                  <strong>{{ formatTrafficBytes((log.upload + log.download) * log.rate) }}</strong>
-                  <small>{{ formatUnixDateTime(log.recordedAt) }} · x{{ log.rate }}</small>
-                </span>
-                <span class="glass-badge">{{ formatTrafficBytes(log.upload + log.download) }}</span>
-              </div>
-              <p class="muted">
-                ↑ {{ formatTrafficBytes(log.upload) }} · ↓ {{ formatTrafficBytes(log.download) }}
-              </p>
-            </div>
+            <v-card v-for="log in logs" :key="`${log.recordedAt}-${log.upload}-${log.download}`" variant="outlined">
+              <v-card-text>
+                <div class="d-flex align-center justify-space-between gap-2">
+                  <div>
+                    <p class="font-weight-bold mb-1">{{ formatTrafficBytes((log.upload + log.download) * log.rate) }}</p>
+                    <p class="text-caption text-medium-emphasis mb-0">{{ formatUnixDateTime(log.recordedAt) }} · x{{ log.rate }}</p>
+                  </div>
+                  <v-chip color="primary" variant="tonal">{{ formatTrafficBytes(log.upload + log.download) }}</v-chip>
+                </div>
+                <p class="muted mt-2">
+                  ↑ {{ formatTrafficBytes(log.upload) }} · ↓ {{ formatTrafficBytes(log.download) }}
+                </p>
+              </v-card-text>
+            </v-card>
           </div>
           <p v-if="!loading && !logs.length" class="muted">{{ t('traffic_logs_empty') }}</p>
         </v-card-text>

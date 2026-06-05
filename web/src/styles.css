@@ -204,26 +204,11 @@ button {
   margin: 0;
 }
 
-/* Cards — solid Material 3 surface, no glass */
-.glass-card,
-.glass-panel,
-.glass-button,
+/* Cards — solid Material 3 surface */
 .liquid-bottom-nav {
   border: 1px solid var(--outline-variant) !important;
   background: var(--surface-container) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
-}
-
-.glass-panel {
-  border-radius: 24px !important;
-}
-
-.glass-button {
-  color: var(--on-background) !important;
-}
-
-.glass-button.danger {
-  color: var(--error) !important;
 }
 
 /* Auth */
@@ -238,25 +223,6 @@ button {
   padding: calc(1.25rem + env(safe-area-inset-top, 0px)) clamp(1rem, 4vw, 2.5rem)
     calc(1.5rem + env(safe-area-inset-bottom, 0px));
   overflow: hidden auto;
-}
-
-.auth-atmosphere {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 80% 55% at 12% -8%, color-mix(in srgb, var(--primary) 28%, transparent), transparent 58%),
-    radial-gradient(ellipse 70% 50% at 100% 0%, color-mix(in srgb, var(--tertiary) 18%, transparent), transparent 52%),
-    radial-gradient(ellipse 60% 45% at 50% 110%, color-mix(in srgb, var(--primary-container) 42%, transparent), transparent 60%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-container-high) 55%, transparent), var(--background));
-}
-
-.auth-shell--desktop .auth-atmosphere {
-  background:
-    radial-gradient(ellipse 55% 70% at 0% 50%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 62%),
-    radial-gradient(ellipse 45% 55% at 100% 20%, color-mix(in srgb, var(--tertiary) 14%, transparent), transparent 58%),
-    linear-gradient(105deg, color-mix(in srgb, var(--surface-container-high) 40%, transparent), var(--background) 48%);
 }
 
 .auth-layout {
@@ -406,18 +372,6 @@ button {
   color: var(--on-surface-variant);
 }
 
-/* Toggle */
-.liquid-toggle {
-  width: 100%;
-  padding: 4px;
-  border-radius: 999px !important;
-  background: var(--surface-container-high) !important;
-}
-
-.liquid-toggle .v-btn {
-  flex: 1;
-}
-
 .text-button {
   border: 0;
   background: transparent;
@@ -435,43 +389,11 @@ button {
   text-align: center;
 }
 
-.connection-card h2,
-.profile-balance h2 {
+.connection-card h2 {
   margin: 0;
   font-size: 2rem;
   font-weight: 760;
   letter-spacing: -0.03em;
-}
-
-/* Connect/Disconnect button — matching Kotlin Button style */
-.liquid-orb {
-  position: relative;
-  width: 100%;
-  max-width: 320px;
-  height: 52px;
-  border: none;
-  border-radius: 999px;
-  background: var(--primary);
-  color: var(--on-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background-color 160ms ease, opacity 160ms ease;
-}
-
-.liquid-orb:active {
-  opacity: 0.88;
-}
-
-.liquid-orb:disabled {
-  cursor: not-allowed;
-  opacity: 0.56;
-}
-
-.liquid-orb.connected {
-  background: var(--primary-container);
-  color: var(--on-primary-container);
 }
 
 /* Metric / info cells — matching Kotlin InfoCell */
@@ -505,77 +427,9 @@ button {
   color: var(--on-background);
 }
 
-/* Chips / badges */
-.glass-chip {
-  border: 1px solid var(--outline-variant);
-  border-radius: 18px;
-  background: var(--surface-container-high);
-  display: grid;
-  gap: 4px;
-  padding: 12px;
-  color: var(--on-surface-variant);
-}
-
-.glass-chip strong {
-  color: var(--on-background);
-}
-
-.row-chip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.glass-badge {
-  border-radius: 999px;
-  background: var(--secondary-container);
-  color: var(--on-secondary-container);
-  padding: 6px 12px;
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-/* Price tiles */
-.price-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  width: 100%;
-}
-
 .plans-grid {
   display: grid;
   gap: 12px;
-}
-
-.price-tile {
-  display: grid;
-  gap: 6px;
-  width: 100%;
-  padding: 12px;
-  border: 1px solid var(--outline-variant);
-  border-radius: 18px;
-  background: var(--surface-container-high);
-  color: var(--on-background);
-  text-align: left;
-  cursor: pointer;
-}
-
-.price-tile span {
-  color: var(--on-surface-variant);
-}
-
-/* Tag chips — matching Kotlin Surface with secondaryContainer */
-.tag-chip {
-  display: inline-block;
-  border-radius: 999px;
-  background: var(--secondary-container);
-  color: var(--on-secondary-container);
-  padding: 4px 8px;
-  font-size: 0.68rem;
-  font-weight: 600;
-  margin-right: 6px;
-  margin-bottom: 4px;
 }
 
 /* Node list & rows */
@@ -586,92 +440,9 @@ button {
   width: 100%;
 }
 
-.node-list .node-row {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-}
-
-.node-list .node-pick {
-  padding: 0;
-  width: 100%;
-}
-
-.node-list .node-actions {
-  padding: 0;
-  width: 100%;
-  justify-content: space-between;
-}
-
 .desktop-app .liquid-main--desktop .liquid-page:has(.node-list) {
   width: 100%;
   max-width: none;
-}
-
-.node-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  min-width: 0;
-  padding: 14px;
-  border: 1px solid var(--outline-variant);
-  border-radius: 18px;
-  background: var(--surface-container);
-  color: var(--on-background);
-  text-align: left;
-  cursor: pointer;
-  overflow: hidden;
-  transition: background-color 180ms ease, border-color 180ms ease;
-}
-
-.node-row-action {
-  padding: 0;
-}
-
-.node-pick {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  padding: 14px;
-}
-
-.node-pick:disabled {
-  cursor: not-allowed;
-}
-
-.node-row span:first-child,
-.node-pick span:first-child {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.node-row strong,
-.node-row small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.node-row.active {
-  border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary-container) 34%, transparent);
-}
-
-.node-row:disabled {
-  cursor: not-allowed;
-  opacity: 0.58;
-}
-
-.node-actions {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 6px;
-  padding-right: 8px;
 }
 
 /* Bottom navigation — pill style matching Kotlin */
@@ -822,17 +593,9 @@ button {
     flex-wrap: wrap;
   }
 
-  .metric-grid,
-  .price-grid {
+  .metric-grid {
     grid-template-columns: 1fr;
   }
-}
-
-/* Tickets */
-.tickets-grid {
-  display: grid;
-  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.4fr);
-  gap: 14px;
 }
 
 .ticket-message--me {
@@ -856,29 +619,10 @@ button {
   transform: translateY(-1px);
 }
 
-.service-card__icon {
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  margin-bottom: 14px;
-  border-radius: 16px;
-  background: var(--primary-container);
-  color: var(--on-primary-container);
-  font-size: 1.35rem;
-  font-weight: 800;
-}
-
 .service-card h2 {
   margin: 0 0 6px;
   font-size: 1.15rem;
   font-weight: 760;
-}
-
-@media (max-width: 720px) {
-  .tickets-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Verify row */
@@ -891,16 +635,6 @@ button {
 
 .verify-button {
   min-height: 48px !important;
-}
-
-.row-chip > span:first-child {
-  display: grid;
-  gap: 2px;
-}
-
-.row-chip small {
-  color: var(--on-surface-variant);
-  font-size: 0.72rem;
 }
 
 @media (max-width: 560px) {

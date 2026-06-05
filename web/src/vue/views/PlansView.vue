@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { failureText } from '../../api/helpers'
+import { failureText, parseUserCurrencyConfig } from '../../api/helpers'
 import { openInAppBrowser } from '../../api/system'
 import { xboardRequest, type XboardBody } from '../../api/xboard'
 import { formatMoney, formatTrafficGb, numericValue, publicErrorText } from '../../format'
@@ -73,17 +73,14 @@ async function loadPlans() {
     if (!config.ok) throw new Error(failureText(config))
     if (!userInfo.ok) throw new Error(failureText(userInfo))
     store().setPlans(rows(plans.body?.data).map(parsePlan).filter((plan) => plan.id > 0))
-    if (!config.body?.data || typeof config.body.data !== 'object') throw new Error('user_config response missing data')
     if (!userInfo.body?.data || typeof userInfo.body.data !== 'object') throw new Error('user_info response missing data')
-    const configData = config.body.data as Record<string, unknown>
+    const currency = parseUserCurrencyConfig(config.body.data)
     const data = userInfo.body.data as Record<string, unknown>
-    if (typeof configData.currency_symbol !== 'string') throw new Error('user_config currency_symbol is required')
-    if (typeof configData.currency !== 'string') throw new Error('user_config currency is required')
     store().setProfile({
       balance: numericValue(data.balance),
       commissionBalance: numericValue(data.commission_balance),
-      currencySymbol: configData.currency_symbol,
-      currencyUnit: configData.currency,
+      currencySymbol: currency.currencySymbol,
+      currencyUnit: currency.currencyUnit,
     })
     await loadClientConfig()
   } catch (err) {
@@ -191,7 +188,7 @@ onMounted(loadPlans)
                 {{ t('plan_traffic') }} {{ formatTrafficGb(plan.transferEnable) }}
               </p>
             </div>
-            <span class="glass-badge">{{ planPriceText(plan) }}</span>
+            <v-chip color="primary" variant="tonal">{{ planPriceText(plan) }}</v-chip>
           </div>
           <p v-if="plan.content && !plan.content.startsWith('[') && !plan.content.startsWith('{')" class="muted mt-3 preline">
             {{ plan.content }}
@@ -207,17 +204,14 @@ onMounted(loadPlans)
               {{ price.label }} {{ formatMoney(price.amount, appState.currencySymbol, appState.currencyUnit) }}
             </v-btn>
           </div>
-          <div v-if="appState.paymentEnabled && plan.prices.length" class="price-grid mt-4">
-            <button
-              v-for="price in plan.prices"
-              :key="price.field"
-              class="price-tile"
-              @click="buy(plan, price)"
-            >
-              <span>{{ price.label }}</span>
-              <strong>{{ formatMoney(price.amount, appState.currencySymbol, appState.currencyUnit) }}</strong>
-            </button>
-          </div>
+          <v-row v-if="appState.paymentEnabled && plan.prices.length" class="mt-2">
+            <v-col v-for="price in plan.prices" :key="price.field" cols="12" sm="6">
+              <v-btn variant="outlined" block class="justify-space-between" @click="buy(plan, price)">
+                <span>{{ price.label }}</span>
+                <strong>{{ formatMoney(price.amount, appState.currencySymbol, appState.currencyUnit) }}</strong>
+              </v-btn>
+            </v-col>
+          </v-row>
         </v-card-text>
       </v-card>
       <v-card v-if="!loading && !appState.plans.length" class="panel-card">

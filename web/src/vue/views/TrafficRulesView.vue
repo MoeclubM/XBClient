@@ -23,14 +23,15 @@ async function clearRouteConfig() {
 </script>
 
 <template>
-  <div class="page-shell">
-    <header class="page-header">
-      <button class="back-btn" type="button" @click="router.back()">‹</button>
-      <div>
+  <section class="liquid-page">
+    <div class="page-header">
+      <v-btn variant="text" size="small" @click="router.push('/settings')">‹</v-btn>
+      <div class="page-header-bar subtitle" />
+      <div class="page-header-content">
         <h1>{{ t('page_traffic_rules_title') }}</h1>
         <p class="muted">{{ t('page_traffic_rules_subtitle') }}</p>
       </div>
-    </header>
+    </div>
 
     <div class="page-section">
       <p class="section-label">{{ t('section_traffic_rules') }}</p>
@@ -45,11 +46,11 @@ async function clearRouteConfig() {
           </div>
           <p v-else class="muted">{{ t('traffic_rules_none') }}</p>
 
-          <ul v-if="routing.rulesPreview.length" class="rules-preview mt-4">
-            <li v-for="(rule, index) in routing.rulesPreview" :key="`${index}-${rule}`">
-              <code>{{ rule }}</code>
-            </li>
-          </ul>
+          <v-list v-if="routing.rulesPreview.length" class="mt-4" density="compact" lines="one">
+            <v-list-item v-for="(rule, index) in routing.rulesPreview" :key="`${index}-${rule}`">
+              <code class="text-body-2">{{ rule }}</code>
+            </v-list-item>
+          </v-list>
           <p v-if="routing.ruleCount > routing.rulesPreview.length" class="muted mt-2">
             {{ routing.ruleCount - routing.rulesPreview.length }} {{ t('traffic_rules_more_suffix') }}
           </p>
@@ -70,24 +71,5 @@ async function clearRouteConfig() {
         </v-card-text>
       </v-card>
     </div>
-  </div>
+  </section>
 </template>
-
-<style scoped>
-.rules-preview {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 0.5rem;
-}
-
-.rules-preview code {
-  display: block;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  background: rgba(var(--v-theme-on-surface), 0.06);
-  font-size: 0.85rem;
-  word-break: break-all;
-}
-</style>

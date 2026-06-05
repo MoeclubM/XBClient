@@ -29,8 +29,8 @@ const serviceItems = [
         @click="router.push(item.path)"
       >
         <v-card-text>
-          <div class="service-card__icon">{{ item.icon }}</div>
-          <h2>{{ item.title() }}</h2>
+          <v-avatar color="primary" variant="tonal" class="mb-4">{{ item.icon }}</v-avatar>
+          <h2 class="text-h6">{{ item.title() }}</h2>
           <p class="muted">{{ item.desc() }}</p>
           <v-btn color="primary" variant="tonal" class="mt-4">
             {{ t('open_link') }}

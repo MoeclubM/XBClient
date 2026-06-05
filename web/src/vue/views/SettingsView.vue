@@ -116,7 +116,7 @@ const dnsModeOptions = [
             </div>
             <AppearanceControls />
           </div>
-          <v-btn class="mt-4" variant="outlined" block @click="router.push('/login')">
+          <v-btn v-if="!isDesktop" class="mt-4" variant="outlined" block @click="router.push('/login')">
             {{ t('setting_reset_onboarding') }}
           </v-btn>
         </v-card-text>
@@ -195,7 +195,7 @@ const dnsModeOptions = [
           <p class="text-body-2 font-weight-bold mt-4 mb-1">{{ t('dns_mode') }}</p>
           <v-btn-toggle
             v-model="vpnDnsMode"
-            class="liquid-toggle mt-1"
+            class="mt-1"
             mandatory
             rounded="pill"
             divided

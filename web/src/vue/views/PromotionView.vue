@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { failureText, field, parseInviteRows } from '../../api/helpers'
+import { failureText, field, parseInviteRows, parseUserCurrencyConfig } from '../../api/helpers'
 import { xboardRequest, type XboardBody } from '../../api/xboard'
 import { formatMoney, formatUnixDateTime, numericValue, publicErrorText } from '../../format'
 import { appState, store, t } from '../state'
@@ -60,13 +60,7 @@ async function loadPromotion(page = current.value) {
     if (!invites.ok) throw new Error(failureText(invites))
     if (!inviteDetails.ok) throw new Error(failureText(inviteDetails))
 
-    const configData = config.body.data as Record<string, unknown>
-    if (typeof configData.currency_symbol !== 'string') throw new Error('user_config currency_symbol is required')
-    if (typeof configData.currency !== 'string') throw new Error('user_config currency is required')
-    store().setProfile({
-      currencySymbol: configData.currency_symbol,
-      currencyUnit: configData.currency,
-    })
+    store().setProfile(parseUserCurrencyConfig(config.body.data))
     store().setInvites(parseInviteRows(invites.body.data))
     applyInviteStats(invites.body.data)
     details.value = detailRows(inviteDetails.body.data)
@@ -154,18 +148,18 @@ onMounted(() => loadPromotion())
     <div class="page-section">
       <p class="section-label">{{ t('invites_title') }}</p>
       <v-card class="panel-card">
-        <v-card-text>
-          <div class="stack">
-            <div v-for="invite in appState.invites" :key="invite.code" class="row-chip glass-chip">
-              <span>
-                <strong>{{ invite.code }}</strong>
-                <small>{{ invite.status === 0 ? t('unused') : t('used') }}</small>
-              </span>
+        <v-list v-if="appState.invites.length" lines="two">
+          <v-list-item v-for="invite in appState.invites" :key="invite.code">
+            <v-list-item-title>{{ invite.code }}</v-list-item-title>
+            <v-list-item-subtitle>{{ invite.status === 0 ? t('unused') : t('used') }}</v-list-item-subtitle>
+            <template #append>
               <v-btn size="small" variant="tonal" @click="copyCode(invite.code)">
                 {{ copied === invite.code ? t('copied') : t('copy') }}
               </v-btn>
-            </div>
-          </div>
+            </template>
+          </v-list-item>
+        </v-list>
+        <v-card-text>
           <p v-if="!loading && !appState.invites.length" class="muted">{{ t('invites_empty') }}</p>
           <div class="d-flex flex-wrap gap-2 mt-4">
             <v-btn color="primary" :loading="loading" @click="createInvite">
@@ -188,20 +182,22 @@ onMounted(() => loadPromotion())
       <v-card class="panel-card">
         <v-card-text>
           <div class="stack">
-            <div v-for="detail in details" :key="detail.id" class="glass-chip">
-              <div class="row-chip">
-                <span>
-                  <strong>{{ detail.tradeNo }}</strong>
-                  <small>{{ formatUnixDateTime(detail.createdAt) }}</small>
-                </span>
-                <span class="glass-badge">
+            <v-card v-for="detail in details" :key="detail.id" variant="outlined">
+              <v-card-text>
+                <div class="d-flex align-center justify-space-between gap-2">
+                  <div>
+                    <p class="font-weight-bold mb-1">{{ detail.tradeNo }}</p>
+                    <p class="text-caption text-medium-emphasis mb-0">{{ formatUnixDateTime(detail.createdAt) }}</p>
+                  </div>
+                  <v-chip color="primary" variant="tonal">
                   {{ formatMoney(detail.getAmount, appState.currencySymbol, appState.currencyUnit) }}
-                </span>
-              </div>
-              <p class="muted">
-                {{ t('order_amount') }} {{ formatMoney(detail.orderAmount, appState.currencySymbol, appState.currencyUnit) }}
-              </p>
-            </div>
+                  </v-chip>
+                </div>
+                <p class="muted mt-2">
+                  {{ t('order_amount') }} {{ formatMoney(detail.orderAmount, appState.currencySymbol, appState.currencyUnit) }}
+                </p>
+              </v-card-text>
+            </v-card>
           </div>
           <p v-if="!loading && !details.length" class="muted">{{ t('promotion_orders_empty') }}</p>
           <div v-if="totalPages > 1" class="d-flex justify-center mt-4">

@@ -78,7 +78,7 @@ async function onProxyToggle(value: boolean | null) {
           </h2>
           <v-btn-toggle
             :model-value="appState.settings.routingMode"
-            class="liquid-toggle routing-toggle"
+            class="routing-toggle"
             mandatory
             rounded="pill"
             divided

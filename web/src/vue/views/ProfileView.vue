@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { failureText } from '../../api/helpers'
+import { failureText, parseUserCurrencyConfig } from '../../api/helpers'
 import { xboardRequest, type XboardBody } from '../../api/xboard'
 import { formatMoney, numericValue, publicErrorText } from '../../format'
 import { clearSession } from '../../store/persist'
@@ -28,13 +28,10 @@ async function loadProfile() {
       commissionBalance: numericValue(data.commission_balance),
     })
     if (!config.ok) throw new Error(failureText(config))
-    if (!config.body?.data || typeof config.body.data !== 'object') throw new Error('user_config response missing data')
-    const configData = config.body.data as Record<string, unknown>
-    if (typeof configData.currency_symbol !== 'string') throw new Error('user_config currency_symbol is required')
-    if (typeof configData.currency !== 'string') throw new Error('user_config currency is required')
+    const currency = parseUserCurrencyConfig(config.body.data)
     store().setProfile({
-      currencySymbol: configData.currency_symbol,
-      currencyUnit: configData.currency,
+      currencySymbol: currency.currencySymbol,
+      currencyUnit: currency.currencyUnit,
       inviteCommissionRate: numericValue(data.commission_rate),
       inviteCommissionBalance: numericValue(data.commission_balance),
     })
@@ -64,7 +61,7 @@ onMounted(loadProfile)
         <v-btn variant="outlined" size="small" @click="router.push('/settings')">
           {{ t('settings_button') }}
         </v-btn>
-        <v-btn variant="outlined" size="small" class="glass-button danger" @click="logout">
+        <v-btn variant="outlined" color="error" size="small" @click="logout">
           {{ t('logout') }}
         </v-btn>
       </div>

@@ -113,7 +113,7 @@ onUnmounted(() => {
     </main>
 
     <main v-else-if="bootstrapError" class="startup-view">
-      <v-card class="glass-panel pa-5" max-width="560">
+      <v-card class="panel-card pa-5" max-width="560">
         <p class="text-error font-weight-bold mb-0">{{ t('bootstrap_config_missing') }}：{{ bootstrapError }}</p>
       </v-card>
     </main>

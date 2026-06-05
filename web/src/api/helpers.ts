@@ -51,3 +51,12 @@ export function parseOAuthProviders(value: unknown): OAuthProvider[] {
       return { driver, label }
     })
 }
+
+export function parseUserCurrencyConfig(value: unknown): { currencySymbol: string; currencyUnit: string } {
+  if (!value || typeof value !== 'object') throw new Error('user_config response missing data')
+  const data = value as Row
+  if (typeof data.currency_symbol !== 'string') throw new Error('user_config currency_symbol is required')
+  const unit = data.currency ?? data.currency_unit
+  if (typeof unit !== 'string') throw new Error('user_config currency is required')
+  return { currencySymbol: data.currency_symbol, currencyUnit: unit }
+}
