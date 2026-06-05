@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { syncGuestAuthConfig } from '../../api/guestConfig'
 import { failureText } from '../../api/helpers'
 import { onOAuthCallback, openInAppBrowser, takeOAuthCallback } from '../../api/system'
-import { normalizeBaseUrl, xboardRequest } from '../../api/xboard'
+import { normalizeBaseUrl, xboardRequest, type XboardBody } from '../../api/xboard'
 import { publicErrorText } from '../../format'
 import { saveSession } from '../../store/persist'
 import { isDesktopShell } from '../../platform/shell'
@@ -15,7 +15,7 @@ import AppearanceControls from '../components/AppearanceControls.vue'
 type AuthMode = 'login' | 'register'
 
 interface AuthBody {
-  data?: { auth_data?: string; email?: string }
+  data?: { auth_data?: string; token?: string }
   message?: string
 }
 
@@ -37,6 +37,7 @@ const error = ref('')
 const loading = ref(false)
 const configLoading = ref(false)
 const forgotLoading = ref(false)
+const resetMode = ref(false)
 const verifySending = ref(false)
 const tokenLoading = ref(false)
 const oauthConfirm = ref<{ token: string; provider: string; email: string } | null>(null)
@@ -89,8 +90,28 @@ async function refreshGuestConfig() {
 
 function switchMode(next: AuthMode) {
   mode.value = next
+  resetMode.value = false
   message.value = ''
   error.value = ''
+}
+
+function putCaptchaParam(params: Record<string, string>) {
+  const token = captcha.value.trim()
+  if (!token) return
+  const type = appState.registerCaptchaType.trim()
+  if (type === 'turnstile') {
+    params.turnstile_token = token
+    return
+  }
+  if (type === 'recaptcha-v3') {
+    params.recaptcha_v3_token = token
+    return
+  }
+  if (type === 'recaptcha') {
+    params.recaptcha_data = token
+    return
+  }
+  throw new Error(`unsupported captcha_type: ${type}`)
 }
 
 async function submit() {
@@ -102,7 +123,7 @@ async function submit() {
     if (mode.value === 'register') {
       if (inviteCode.value.trim()) params.invite_code = inviteCode.value.trim()
       if (emailCode.value.trim()) params.email_code = emailCode.value.trim()
-      if (captcha.value.trim()) params.recaptcha_data = captcha.value.trim()
+      putCaptchaParam(params)
     }
     const response = await xboardRequest<AuthBody>(mode.value, { baseUrl: baseUrl.value, params })
     if (!response.ok) {
@@ -133,19 +154,32 @@ async function forgotPassword() {
     error.value = t('email_required')
     return
   }
+  if (!resetMode.value) {
+    resetMode.value = true
+    error.value = ''
+    message.value = ''
+    return
+  }
   forgotLoading.value = true
   error.value = ''
   message.value = ''
   try {
     const response = await xboardRequest<{ message?: string }>('forget_password', {
       baseUrl: baseUrl.value,
-      params: { email: accountEmail },
+      params: {
+        email: accountEmail,
+        password: password.value,
+        email_code: emailCode.value.trim(),
+      },
     })
     if (!response.ok) {
       error.value = failureText(response)
       return
     }
-    message.value = response.body?.message ?? t('forgot_password_sent')
+    resetMode.value = false
+    password.value = ''
+    emailCode.value = ''
+    message.value = t('forgot_password_sent')
   } catch (err) {
     error.value = publicErrorText(err, t('forgot_password_failed'))
   } finally {
@@ -158,13 +192,8 @@ async function sendEmailVerify() {
   error.value = ''
   message.value = ''
   try {
-    const token = captcha.value.trim()
     const params: Record<string, string> = { email: email.value.trim() }
-    if (token) {
-      params.recaptcha_data = token
-      params.recaptcha_v3_token = token
-      params.cf_turnstile_response = token
-    }
+    putCaptchaParam(params)
     const response = await xboardRequest<{ message?: string }>('send_email_verify', { baseUrl: baseUrl.value, params })
     if (!response.ok) {
       error.value = failureText(response)
@@ -276,8 +305,18 @@ async function loginWithVerify(verify: string) {
     error.value = t('oauth_login_missing')
     return
   }
-  if (!data?.email) throw new Error('token login response missing email')
-  await finishLogin(authData, data.email)
+  const info = await xboardRequest<XboardBody>('user_info', {
+    baseUrl: baseUrl.value,
+    authData,
+  })
+  if (!info.ok) {
+    error.value = failureText(info)
+    return
+  }
+  if (!info.body?.data || typeof info.body.data !== 'object') throw new Error('user_info response missing data')
+  const user = info.body.data as Record<string, unknown>
+  if (typeof user.email !== 'string' || !user.email.trim()) throw new Error('user_info response missing email')
+  await finishLogin(authData, user.email)
 }
 
 async function finishLogin(authData: string, accountEmail: string) {
@@ -330,7 +369,7 @@ async function finishLogin(authData: string, accountEmail: string) {
             density="comfortable"
             class="mt-2"
           >
-            <template v-if="mode === 'login'" #append-inner>
+            <template v-if="mode === 'login' && !resetMode" #append-inner>
               <button class="text-button" type="button" @click="forgotPassword">
                 {{ forgotLoading ? t('refreshing') : t('forgot_password') }}
               </button>
@@ -345,31 +384,46 @@ async function finishLogin(authData: string, accountEmail: string) {
               density="comfortable"
               class="mt-2"
             />
+          </template>
+          <v-text-field
+            v-if="appState.registerCaptchaEnabled && (mode === 'register' || resetMode)"
+            v-model="captcha"
+            :label="t('captcha_token')"
+            variant="outlined"
+            density="comfortable"
+            class="mt-2"
+          />
+          <div
+            v-if="(mode === 'register' && appState.registerEmailVerifyEnabled) || (mode === 'login' && resetMode)"
+            class="verify-row mt-2"
+          >
             <v-text-field
-              v-if="appState.registerCaptchaEnabled"
-              v-model="captcha"
-              :label="t('captcha_token')"
+              v-model="emailCode"
+              :label="t('email_code')"
               variant="outlined"
               density="comfortable"
-              class="mt-2"
             />
-            <div v-if="appState.registerEmailVerifyEnabled" class="verify-row mt-2">
-              <v-text-field
-                v-model="emailCode"
-                :label="t('email_code')"
-                variant="outlined"
-                density="comfortable"
-              />
-              <v-btn
-                class="verify-button"
-                variant="outlined"
-                :loading="verifySending"
-                @click="sendEmailVerify"
-              >
-                {{ t('send_email_verify') }}
-              </v-btn>
-            </div>
-          </template>
+            <v-btn
+              class="verify-button"
+              variant="outlined"
+              :loading="verifySending"
+              type="button"
+              @click="sendEmailVerify"
+            >
+              {{ t('send_email_verify') }}
+            </v-btn>
+          </div>
+          <v-btn
+            v-if="mode === 'login' && resetMode"
+            class="mt-3"
+            block
+            variant="tonal"
+            type="button"
+            :loading="forgotLoading"
+            @click="forgotPassword"
+          >
+            {{ t('forgot_password') }}
+          </v-btn>
 
           <v-btn class="mt-4" block color="primary" size="large" type="submit" :loading="loading">
             {{ mode === 'login' ? t('login') : t('register') }}

@@ -103,6 +103,8 @@ data class XbClientUiState(
     val planRewardedAdUnitId: String = "",
     val pointsRewardAdEnabled: Boolean = false,
     val pointsRewardedAdUnitId: String = "",
+    val appOpenAdEnabled: Boolean = false,
+    val appOpenAdUnitId: String = "",
     val adRewardLogs: List<AdRewardLogItem> = emptyList(),
     val adRewardLogsLoading: Boolean = false,
     val configUpdatedAt: Long = 0L,
@@ -118,6 +120,7 @@ data class XbClientUiState(
     val oauthProviders: List<OAuthProvider> = emptyList(),
     val registerEmailVerifyEnabled: Boolean = false,
     val registerCaptchaEnabled: Boolean = false,
+    val registerCaptchaType: String = "",
     val oauthConfirmToken: String = "",
     val oauthConfirmProvider: String = "",
     val oauthConfirmEmail: String = "",
@@ -362,7 +365,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         oauthProviders = providers,
                         inviteForce = data.getInt("is_invite_force") == 1,
                         registerEmailVerifyEnabled = data.getInt("is_email_verify") == 1,
-                        registerCaptchaEnabled = data.getInt("is_captcha") == 1
+                        registerCaptchaEnabled = data.getInt("is_captcha") == 1,
+                        registerCaptchaType = data.getString("captcha_type")
                     )
                 }
                 persistStoredState(_uiState.value)
@@ -500,6 +504,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             planRewardedAdUnitId = current.planRewardedAdUnitId,
             pointsRewardAdEnabled = current.pointsRewardAdEnabled,
             pointsRewardedAdUnitId = current.pointsRewardedAdUnitId,
+            appOpenAdEnabled = current.appOpenAdEnabled,
+            appOpenAdUnitId = current.appOpenAdUnitId,
             configUpdatedAt = current.configUpdatedAt,
             githubProjectUrl = current.githubProjectUrl,
             appLanguage = current.appLanguage,
@@ -508,7 +514,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             vpnDisclosureDone = current.vpnDisclosureDone,
             oauthProviders = current.oauthProviders,
             registerEmailVerifyEnabled = current.registerEmailVerifyEnabled,
-            registerCaptchaEnabled = current.registerCaptchaEnabled
+            registerCaptchaEnabled = current.registerCaptchaEnabled,
+            registerCaptchaType = current.registerCaptchaType
         )
         _uiState.value = next
         persistState(next)
@@ -950,12 +957,16 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val data = body.getJSONObject("data")
         val githubProjectUrl = data.getString("github_project_url")
         val paymentEnabled = data.getBoolean("payment_enabled")
+        val appOpenEnabled = data.getBoolean("app_open_ad_enabled")
+        val appOpenAdUnitId = if (appOpenEnabled) data.getString("app_open_ad_unit_id") else ""
         val configUpdatedAt = System.currentTimeMillis()
         if (!data.getBoolean("ad_enabled")) {
             _uiState.update {
                 it.copy(
                     adEnabled = false,
                     paymentEnabled = paymentEnabled,
+                    appOpenAdEnabled = appOpenEnabled,
+                    appOpenAdUnitId = appOpenAdUnitId,
                     githubProjectUrl = githubProjectUrl,
                     configUpdatedAt = configUpdatedAt,
                     planRewardAdEnabled = false,
@@ -982,6 +993,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             it.copy(
                 adEnabled = planEnabled || pointsEnabled,
                 paymentEnabled = paymentEnabled,
+                appOpenAdEnabled = appOpenEnabled,
+                appOpenAdUnitId = appOpenAdUnitId,
                 githubProjectUrl = githubProjectUrl,
                 configUpdatedAt = configUpdatedAt,
                 planRewardAdEnabled = planEnabled,
@@ -1006,6 +1019,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             it.copy(
                 adEnabled = false,
                 paymentEnabled = false,
+                appOpenAdEnabled = false,
+                appOpenAdUnitId = "",
                 planRewardAdEnabled = false,
                 planRewardedAdUnitId = "",
                 pointsRewardAdEnabled = false,
@@ -1494,6 +1509,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             planRewardedAdUnitId = prefs[Keys.PLAN_REWARDED_AD_UNIT_ID].orEmpty(),
             pointsRewardAdEnabled = prefs[Keys.POINTS_REWARD_AD_ENABLED] ?: false,
             pointsRewardedAdUnitId = prefs[Keys.POINTS_REWARDED_AD_UNIT_ID].orEmpty(),
+            appOpenAdEnabled = prefs[Keys.APP_OPEN_AD_ENABLED] ?: false,
+            appOpenAdUnitId = prefs[Keys.APP_OPEN_AD_UNIT_ID].orEmpty(),
             adRewardLogs = emptyList(),
             configUpdatedAt = prefs[Keys.CONFIG_UPDATED_AT] ?: 0L,
             githubProjectUrl = prefs[Keys.GITHUB_PROJECT_URL].orEmpty(),
@@ -1503,7 +1520,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             vpnDisclosureDone = prefs[Keys.VPN_DISCLOSURE_DONE] ?: false,
             oauthProviders = emptyList(),
             registerEmailVerifyEnabled = prefs[Keys.REGISTER_EMAIL_VERIFY_ENABLED] ?: false,
-            registerCaptchaEnabled = prefs[Keys.REGISTER_CAPTCHA_ENABLED] ?: false
+            registerCaptchaEnabled = prefs[Keys.REGISTER_CAPTCHA_ENABLED] ?: false,
+            registerCaptchaType = prefs[Keys.REGISTER_CAPTCHA_TYPE].orEmpty()
         )
         val runtimePrefs = app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
         if (state.vpnRequested) {
@@ -1592,6 +1610,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.PLAN_REWARDED_AD_UNIT_ID] = state.planRewardedAdUnitId
             prefs[Keys.POINTS_REWARD_AD_ENABLED] = state.pointsRewardAdEnabled
             prefs[Keys.POINTS_REWARDED_AD_UNIT_ID] = state.pointsRewardedAdUnitId
+            prefs[Keys.APP_OPEN_AD_ENABLED] = state.appOpenAdEnabled
+            prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
             prefs[Keys.CONFIG_UPDATED_AT] = state.configUpdatedAt
             prefs[Keys.GITHUB_PROJECT_URL] = state.githubProjectUrl
             prefs[Keys.APP_LANGUAGE] = state.appLanguage
@@ -1600,6 +1620,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.VPN_DISCLOSURE_DONE] = state.vpnDisclosureDone
             prefs[Keys.REGISTER_EMAIL_VERIFY_ENABLED] = state.registerEmailVerifyEnabled
             prefs[Keys.REGISTER_CAPTCHA_ENABLED] = state.registerCaptchaEnabled
+            prefs[Keys.REGISTER_CAPTCHA_TYPE] = state.registerCaptchaType
         }
         app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
             .putString("auth_data", state.authData)
@@ -1642,6 +1663,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("plan_rewarded_ad_unit_id", state.planRewardedAdUnitId)
             .putBoolean("points_reward_ad_enabled", state.pointsRewardAdEnabled)
             .putString("points_rewarded_ad_unit_id", state.pointsRewardedAdUnitId)
+            .putBoolean("app_open_ad_enabled", state.appOpenAdEnabled)
+            .putString("app_open_ad_unit_id", state.appOpenAdUnitId)
             .putLong("config_updated_at", state.configUpdatedAt)
             .putString("github_project_url", state.githubProjectUrl)
             .putString("app_language", state.appLanguage)
@@ -1650,6 +1673,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putBoolean("vpn_disclosure_done", state.vpnDisclosureDone)
             .putBoolean("register_email_verify_enabled", state.registerEmailVerifyEnabled)
             .putBoolean("register_captcha_enabled", state.registerCaptchaEnabled)
+            .putString("register_captcha_type", state.registerCaptchaType)
             .apply()
     }
 
@@ -1689,9 +1713,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private fun putCaptcha(params: JSONObject, captcha: String) {
         val token = captcha.trim()
         if (token.isNotEmpty()) {
-            params.put("recaptcha_data", token)
-            params.put("recaptcha_v3_token", token)
-            params.put("cf_turnstile_response", token)
+            when (val type = _uiState.value.registerCaptchaType.trim()) {
+                "turnstile" -> params.put("turnstile_token", token)
+                "recaptcha-v3" -> params.put("recaptcha_v3_token", token)
+                "recaptcha" -> params.put("recaptcha_data", token)
+                else -> throw IllegalStateException("不支持的验证码类型：$type")
+            }
         }
     }
 
@@ -1871,6 +1898,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val PLAN_REWARDED_AD_UNIT_ID = stringPreferencesKey("plan_rewarded_ad_unit_id")
         val POINTS_REWARD_AD_ENABLED = booleanPreferencesKey("points_reward_ad_enabled")
         val POINTS_REWARDED_AD_UNIT_ID = stringPreferencesKey("points_rewarded_ad_unit_id")
+        val APP_OPEN_AD_ENABLED = booleanPreferencesKey("app_open_ad_enabled")
+        val APP_OPEN_AD_UNIT_ID = stringPreferencesKey("app_open_ad_unit_id")
         val AD_REWARD_LOGS = stringPreferencesKey("ad_reward_logs")
         val CONFIG_UPDATED_AT = longPreferencesKey("config_updated_at")
         val GITHUB_PROJECT_URL = stringPreferencesKey("github_project_url")
@@ -1881,5 +1910,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val OAUTH_PROVIDERS = stringPreferencesKey("oauth_providers")
         val REGISTER_EMAIL_VERIFY_ENABLED = booleanPreferencesKey("register_email_verify_enabled")
         val REGISTER_CAPTCHA_ENABLED = booleanPreferencesKey("register_captcha_enabled")
+        val REGISTER_CAPTCHA_TYPE = stringPreferencesKey("register_captcha_type")
     }
 }

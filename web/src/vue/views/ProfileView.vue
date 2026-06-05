@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { failureText } from '../../api/helpers'
 import { xboardRequest, type XboardBody } from '../../api/xboard'
 import { formatMoney, numericValue, publicErrorText } from '../../format'
-import { enabled } from '../../reward'
 import { clearSession } from '../../store/persist'
 import { appState, store, t } from '../state'
 
@@ -32,13 +31,12 @@ async function loadProfile() {
     if (!config.body?.data || typeof config.body.data !== 'object') throw new Error('user_config response missing data')
     const configData = config.body.data as Record<string, unknown>
     if (typeof configData.currency_symbol !== 'string') throw new Error('user_config currency_symbol is required')
-    if (typeof configData.currency_unit !== 'string') throw new Error('user_config currency_unit is required')
+    if (typeof configData.currency !== 'string') throw new Error('user_config currency is required')
     store().setProfile({
       currencySymbol: configData.currency_symbol,
-      currencyUnit: configData.currency_unit,
-      inviteForce: enabled(configData.invite_force),
-      inviteCommissionRate: numericValue(configData.commission_rate),
-      inviteCommissionBalance: numericValue(configData.invite_commission_balance),
+      currencyUnit: configData.currency,
+      inviteCommissionRate: numericValue(data.commission_rate),
+      inviteCommissionBalance: numericValue(data.commission_balance),
     })
   } catch (err) {
     error.value = publicErrorText(err)

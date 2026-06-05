@@ -3,7 +3,6 @@ import { computed, onMounted, ref } from 'vue'
 import { failureText, field, parseInviteRows } from '../../api/helpers'
 import { xboardRequest, type XboardBody } from '../../api/xboard'
 import { formatMoney, formatUnixDateTime, numericValue, publicErrorText } from '../../format'
-import { enabled } from '../../reward'
 import { appState, store, t } from '../state'
 
 interface InviteDetail {
@@ -63,13 +62,10 @@ async function loadPromotion(page = current.value) {
 
     const configData = config.body.data as Record<string, unknown>
     if (typeof configData.currency_symbol !== 'string') throw new Error('user_config currency_symbol is required')
-    if (typeof configData.currency_unit !== 'string') throw new Error('user_config currency_unit is required')
+    if (typeof configData.currency !== 'string') throw new Error('user_config currency is required')
     store().setProfile({
       currencySymbol: configData.currency_symbol,
-      currencyUnit: configData.currency_unit,
-      inviteForce: enabled(configData.invite_force),
-      inviteCommissionRate: Math.round(numericValue(configData.commission_rate)),
-      inviteCommissionBalance: Math.round(numericValue(configData.invite_commission_balance)),
+      currencyUnit: configData.currency,
     })
     store().setInvites(parseInviteRows(invites.body.data))
     applyInviteStats(invites.body.data)

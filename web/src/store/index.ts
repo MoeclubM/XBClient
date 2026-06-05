@@ -150,6 +150,7 @@ interface AppState {
   oauthProviders: OAuthProvider[]
   registerEmailVerifyEnabled: boolean
   registerCaptchaEnabled: boolean
+  registerCaptchaType: string
   adRewardLogs: AdRewardLogItem[]
   plans: PlanItem[]
   invites: InviteItem[]
@@ -197,6 +198,7 @@ interface AppState {
     | 'inviteForce'
     | 'registerEmailVerifyEnabled'
     | 'registerCaptchaEnabled'
+    | 'registerCaptchaType'
   >>): void
   setRewardLogs(logs: AdRewardLogItem[]): void
   setPlans(plans: PlanItem[]): void
@@ -291,6 +293,7 @@ const initialState: AppState = {
   oauthProviders: [],
   registerEmailVerifyEnabled: false,
   registerCaptchaEnabled: false,
+  registerCaptchaType: '',
   adRewardLogs: [],
   plans: [],
   invites: [],
@@ -365,6 +368,7 @@ const initialState: AppState = {
       oauthProviders: [],
       registerEmailVerifyEnabled: false,
       registerCaptchaEnabled: false,
+      registerCaptchaType: '',
       adRewardLogs: [],
       plans: [],
       invites: [],

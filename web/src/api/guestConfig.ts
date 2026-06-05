@@ -9,6 +9,7 @@ interface GuestConfigBody {
     is_invite_force?: number | boolean | string
     is_email_verify?: number | boolean | string
     is_captcha?: number | boolean | string
+    captcha_type?: unknown
   }
   message?: string
 }
@@ -28,5 +29,6 @@ export async function syncGuestAuthConfig(baseUrl: string): Promise<void> {
     inviteForce: enabled(data.is_invite_force),
     registerEmailVerifyEnabled: enabled(data.is_email_verify),
     registerCaptchaEnabled: enabled(data.is_captcha),
+    registerCaptchaType: typeof data.captcha_type === 'string' ? data.captcha_type : (() => { throw new Error('guest config captcha_type is required') })(),
   })
 }

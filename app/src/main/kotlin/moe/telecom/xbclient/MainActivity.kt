@@ -23,6 +23,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.libraries.ads.mobile.sdk.MobileAds
+import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAd
+import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdEventCallback
 import com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback
 import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
 import com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError
@@ -43,6 +45,12 @@ class MainActivity : ComponentActivity() {
     private val rewardedAds = mutableMapOf<String, RewardedAd>()
     private val rewardedAdLoading = mutableSetOf<String>()
     private val pendingRewardedLoads = mutableSetOf<String>()
+    private var appOpenAd: AppOpenAd? = null
+    private var appOpenAdUnitId = ""
+    private var appOpenAdLoading = false
+    private var pendingAppOpenAdUnitId = ""
+    private var pendingAppOpenShow = false
+    private var appOpenShownThisLaunch = false
     private var adsInitialized = false
     private var adsInitializing = false
     private var pendingRewardUserId = ""
@@ -117,6 +125,9 @@ class MainActivity : ComponentActivity() {
                     }
                     if (state.isLoggedIn && state.pointsRewardAdEnabled && state.pointsRewardedAdUnitId.isNotEmpty()) {
                         loadRewardedAd(state.pointsRewardedAdUnitId)
+                    }
+                    if (state.isLoggedIn && state.appOpenAdEnabled && state.appOpenAdUnitId.isNotEmpty()) {
+                        showAppOpenAd(state.appOpenAdUnitId)
                     }
                 }
             }
@@ -225,6 +236,78 @@ class MainActivity : ComponentActivity() {
         val pending = pendingRewardedLoads.toList()
         pendingRewardedLoads.clear()
         pending.forEach { loadRewardedAd(it) }
+        val pendingAppOpen = pendingAppOpenAdUnitId
+        if (pendingAppOpen.isNotEmpty()) {
+            pendingAppOpenAdUnitId = ""
+            loadAppOpenAd(pendingAppOpen)
+        }
+    }
+
+    private fun loadAppOpenAd(adUnitId: String) {
+        if (appOpenAdLoading || (appOpenAd != null && appOpenAdUnitId == adUnitId)) {
+            return
+        }
+        if (!adsInitialized) {
+            pendingAppOpenAdUnitId = adUnitId
+            initializeAds()
+            return
+        }
+        appOpenAdLoading = true
+        appOpenAdUnitId = adUnitId
+        AppOpenAd.load(
+            AdRequest.Builder(adUnitId).build(),
+            object : AdLoadCallback<AppOpenAd> {
+                override fun onAdLoaded(ad: AppOpenAd) {
+                    runOnUiThread {
+                        appOpenAd = ad
+                        appOpenAdLoading = false
+                        if (pendingAppOpenShow && !appOpenShownThisLaunch) {
+                            pendingAppOpenShow = false
+                            showAppOpenAd(adUnitId)
+                        }
+                    }
+                }
+
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    runOnUiThread {
+                        Log.w(TAG, "App open ad failed to load: $adError")
+                        appOpenAd = null
+                        appOpenAdLoading = false
+                        pendingAppOpenShow = false
+                    }
+                }
+            }
+        )
+    }
+
+    private fun showAppOpenAd(adUnitId: String) {
+        if (appOpenShownThisLaunch) {
+            return
+        }
+        val ad = appOpenAd
+        if (ad == null || appOpenAdUnitId != adUnitId) {
+            pendingAppOpenShow = true
+            loadAppOpenAd(adUnitId)
+            return
+        }
+        appOpenShownThisLaunch = true
+        ad.adEventCallback = object : AppOpenAdEventCallback {
+            override fun onAdDismissedFullScreenContent() {
+                runOnUiThread {
+                    appOpenAd = null
+                    loadAppOpenAd(adUnitId)
+                }
+            }
+
+            override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
+                runOnUiThread {
+                    Log.w(TAG, "App open ad failed to show: $fullScreenContentError")
+                    appOpenAd = null
+                    loadAppOpenAd(adUnitId)
+                }
+            }
+        }
+        ad.show(this)
     }
 
     private fun loadRewardedAd(adUnitId: String) {

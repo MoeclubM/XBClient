@@ -78,12 +78,12 @@ async function loadPlans() {
     const configData = config.body.data as Record<string, unknown>
     const data = userInfo.body.data as Record<string, unknown>
     if (typeof configData.currency_symbol !== 'string') throw new Error('user_config currency_symbol is required')
-    if (typeof configData.currency_unit !== 'string') throw new Error('user_config currency_unit is required')
+    if (typeof configData.currency !== 'string') throw new Error('user_config currency is required')
     store().setProfile({
       balance: numericValue(data.balance),
       commissionBalance: numericValue(data.commission_balance),
       currencySymbol: configData.currency_symbol,
-      currencyUnit: configData.currency_unit,
+      currencyUnit: configData.currency,
     })
     await loadClientConfig()
   } catch (err) {
@@ -100,6 +100,18 @@ async function loadClientConfig() {
   if (!response.body?.data || typeof response.body.data !== 'object') throw new Error('admob_reward_config response missing data')
   const data = response.body.data as Record<string, unknown>
   store().setProfile({ paymentEnabled: enabled(data.payment_enabled) })
+  store().setAdmobConfig({
+    appOpenAdEnabled: enabled(data.app_open_ad_enabled),
+    appOpenAdUnitId: typeof data.app_open_ad_unit_id === 'string' ? data.app_open_ad_unit_id : (() => { throw new Error('admob_reward_config app_open_ad_unit_id is required') })(),
+    planRewardAdEnabled: enabled(data.plan_reward_ad_enabled),
+    planRewardedAdUnitId: typeof data.plan_rewarded_ad_unit_id === 'string' ? data.plan_rewarded_ad_unit_id : (() => { throw new Error('admob_reward_config plan_rewarded_ad_unit_id is required') })(),
+    planRewardSsvUserId: typeof data.plan_ssv_user_id === 'string' ? data.plan_ssv_user_id : (() => { throw new Error('admob_reward_config plan_ssv_user_id is required') })(),
+    planRewardSsvCustomData: typeof data.plan_ssv_custom_data === 'string' ? data.plan_ssv_custom_data : (() => { throw new Error('admob_reward_config plan_ssv_custom_data is required') })(),
+    pointsRewardAdEnabled: enabled(data.points_reward_ad_enabled),
+    pointsRewardedAdUnitId: typeof data.points_rewarded_ad_unit_id === 'string' ? data.points_rewarded_ad_unit_id : (() => { throw new Error('admob_reward_config points_rewarded_ad_unit_id is required') })(),
+    pointsRewardSsvUserId: typeof data.points_ssv_user_id === 'string' ? data.points_ssv_user_id : (() => { throw new Error('admob_reward_config points_ssv_user_id is required') })(),
+    pointsRewardSsvCustomData: typeof data.points_ssv_custom_data === 'string' ? data.points_ssv_custom_data : (() => { throw new Error('admob_reward_config points_ssv_custom_data is required') })(),
+  })
   if (typeof data.github_project_url === 'string' && data.github_project_url) {
     store().setAdmobConfig({ githubProjectUrl: data.github_project_url })
   }
@@ -107,13 +119,13 @@ async function loadClientConfig() {
 
 async function buy(plan: PlanItem, price: PlanPrice) {
   if (appState.paymentEnabled) {
-    const response = await xboardRequest<{ data?: string; message?: string }>('quick_login_url', {
+    const response = await xboardRequest<{ data?: string; message?: string }>('xbclient_plan_payment', {
       baseUrl: appState.baseUrl,
       authData: appState.authData,
-      params: { redirect: `/#/plan/${plan.id}?period=${price.field}` },
+      params: { plan_id: plan.id },
     })
     if (!response.ok || !response.body?.data) {
-      error.value = !response.ok ? failureText(response) : 'quick_login_url response missing data'
+      error.value = !response.ok ? failureText(response) : 'xbclient_plan_payment response missing data'
       return
     }
     await openInAppBrowser(response.body.data, plan.name)
