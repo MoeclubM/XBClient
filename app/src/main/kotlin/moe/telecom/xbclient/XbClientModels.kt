@@ -180,13 +180,14 @@ private fun JSONObject.normalizedNodeJson(protocol: String): String {
     val node = JSONObject(toString())
     val host = normalizeNodeHost(node.getString("host"))
     node.put("host", host)
+    node.put("server", host)
     val currentSni = normalizeNodeHost(node.optString("sni"))
     if (currentSni.isBlank() || isIpLiteral(currentSni)) {
-        val sni = listOf("server_name", "servername").firstNotNullOfOrNull { key ->
+        val sni = listOf("server_name", "servername", "server-name").firstNotNullOfOrNull { key ->
             node.optString(key).trim().takeIf { it.isNotEmpty() && !isIpLiteral(it) }
         } ?: if (node.opt("tls") is JSONObject) {
             val tls = node.getJSONObject("tls")
-            listOf("server_name", "servername").firstNotNullOfOrNull { key ->
+            listOf("server_name", "servername", "server-name").firstNotNullOfOrNull { key ->
                 tls.optString(key).trim().takeIf { it.isNotEmpty() && !isIpLiteral(it) }
             }
         } else {
@@ -196,6 +197,14 @@ private fun JSONObject.normalizedNodeJson(protocol: String): String {
             node.put("sni", sni)
         } else if (currentSni.isNotBlank()) {
             node.remove("sni")
+        }
+    }
+    if (!node.optBoolean("insecure", false)) {
+        for (key in arrayOf("skip-cert-verify", "skip_cert_verify", "allow_insecure")) {
+            if (node.has(key)) {
+                node.put("insecure", node.optBoolean(key))
+                break
+            }
         }
     }
     if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
@@ -456,7 +465,7 @@ fun readableNodeTestError(error: String): String {
         normalized.contains("os error 10054") ||
         error.contains("远程主机强迫关闭")
     ) {
-        return "失败：节点代理握手中断，请检查节点协议参数或服务器状态"
+        return "失败：节点代理握手中断（$error）"
     }
     if (
         normalized.contains("timed out") ||

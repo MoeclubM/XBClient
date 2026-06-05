@@ -14,6 +14,13 @@ use std::collections::BTreeMap;
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 
+const INSECURE_KEYS: &[&str] = &[
+    "insecure",
+    "skip-cert-verify",
+    "skip_cert_verify",
+    "allow_insecure",
+];
+
 pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionProxyConfig> {
     let protocol = node_protocol(node)?;
     match protocol.as_str() {
@@ -53,7 +60,7 @@ fn anytls_config(node: &Value, listen: SocketAddr) -> Result<ClientConfig> {
         password: node_string(node, &["password"])?,
         sni: node_sni(node, tls, &server_host),
         server_host: server_host.clone(),
-        insecure: tls_bool(node, tls, &["insecure"], false)?,
+        insecure: tls_bool(node, tls, INSECURE_KEYS, false)?,
         ca_cert_paths: tls_ca_cert_paths(tls)?,
         ca_certificates: tls_ca_certificates(tls)?,
         disable_system_roots: tls_disable_system_roots(tls)?,
@@ -84,7 +91,7 @@ fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientC
         password: node_string(node, &["password"])?,
         sni: node_sni(node, tls, &server_host),
         server_host: server_host.clone(),
-        insecure: tls_bool(node, tls, &["insecure"], false)?,
+        insecure: tls_bool(node, tls, INSECURE_KEYS, false)?,
         certificate_fingerprint: tls
             .and_then(|opts| map_string(opts, &["certificate_fingerprint"])),
         ca_cert_paths: tls_ca_cert_paths(tls)?,
@@ -117,7 +124,7 @@ fn trojan_config(node: &Value, listen: SocketAddr) -> Result<TrojanClientConfig>
         password: node_string(node, &["password"])?,
         sni: node_sni(node, tls, &server_host),
         server_host,
-        insecure: tls_bool(node, tls, &["insecure"], false)?,
+        insecure: tls_bool(node, tls, INSECURE_KEYS, false)?,
         ca_cert_paths: tls_ca_cert_paths(tls)?,
         ca_certificates: tls_ca_certificates(tls)?,
         disable_system_roots: tls_disable_system_roots(tls)?,
@@ -146,7 +153,7 @@ fn vless_config(node: &Value, listen: SocketAddr) -> Result<VlessClientConfig> {
         sni: node_sni(node, tls, &server_host),
         server_host,
         insecure: if tls_enabled {
-            tls_bool(node, tls, &["insecure"], false)?
+            tls_bool(node, tls, INSECURE_KEYS, false)?
         } else {
             false
         },
@@ -191,8 +198,8 @@ fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
         server_host,
         insecure: if tls {
             tls_options
-                .map(|opts| map_bool(opts, &["insecure"], false))
-                .unwrap_or_else(|| node_bool(node, &["insecure"], false))?
+                .map(|opts| map_bool(opts, INSECURE_KEYS, false))
+                .unwrap_or_else(|| node_bool(node, INSECURE_KEYS, false))?
         } else {
             false
         },
@@ -256,7 +263,7 @@ fn naive_config(node: &Value, listen: SocketAddr) -> Result<NaiveClientConfig> {
         username: node_optional_string(node, &["username"]).unwrap_or_default(),
         password: node_optional_string(node, &["password"]).unwrap_or_default(),
         sni: node_sni(node, tls, &server_host),
-        insecure: tls_bool(node, tls, &["insecure"], false)?,
+        insecure: tls_bool(node, tls, INSECURE_KEYS, false)?,
         ca_cert_paths: tls_ca_cert_paths(tls)?,
         ca_certificates: tls_ca_certificates(tls)?,
         disable_system_roots: tls_disable_system_roots(tls)?,
@@ -294,7 +301,7 @@ fn tuic_config(node: &Value, listen: SocketAddr) -> Result<TuicClientConfig> {
         password: node_string(node, &["password"])?,
         sni: node_sni(node, tls, &server_host),
         server_host,
-        insecure: tls_bool(node, tls, &["insecure"], false)?,
+        insecure: tls_bool(node, tls, INSECURE_KEYS, false)?,
         ca_cert_paths: tls_ca_cert_paths(tls)?,
         ca_certificates: tls_ca_certificates(tls)?,
         disable_system_roots: tls_disable_system_roots(tls)?,
@@ -348,7 +355,7 @@ fn http_proxy_config(node: &Value, listen: SocketAddr) -> Result<HttpProxyClient
     let pinned_cert_sha256 = tls_pinned_cert_sha256(tls)?;
     ensure!(
         tls_enabled
-            || (!node_bool(node, &["insecure"], false)?
+            || (!node_bool(node, INSECURE_KEYS, false)?
                 && ca_cert_paths.is_empty()
                 && ca_certificates.is_empty()
                 && !disable_system_roots
@@ -366,7 +373,7 @@ fn http_proxy_config(node: &Value, listen: SocketAddr) -> Result<HttpProxyClient
         tls: tls_enabled,
         sni: node_sni(node, tls, &server_host),
         insecure: if tls_enabled {
-            tls_bool(node, tls, &["insecure"], false)?
+            tls_bool(node, tls, INSECURE_KEYS, false)?
         } else {
             false
         },
@@ -403,7 +410,7 @@ fn socks_proxy_config(node: &Value, listen: SocketAddr) -> Result<SocksProxyClie
                 .map(|opts| map_bool(opts, &["enabled"], false).map(|value| !value))
                 .transpose()?
                 .unwrap_or(true)
-            && !node_bool(node, &["insecure"], false)?
+            && !node_bool(node, INSECURE_KEYS, false)?
             && tls_ca_cert_paths(tls)?.is_empty()
             && tls_ca_certificates(tls)?.is_empty()
             && !tls_disable_system_roots(tls)?
@@ -541,8 +548,10 @@ fn node_sni(node: &Value, tls: Option<&Map<String, Value>>, server_host: &str) -
         node_optional_string(node, &["sni"]),
         node_optional_string(node, &["server_name"]),
         node_optional_string(node, &["servername"]),
+        node_optional_string(node, &["server-name"]),
         tls.and_then(|opts| map_string(opts, &["server_name"])),
         tls.and_then(|opts| map_string(opts, &["servername"])),
+        tls.and_then(|opts| map_string(opts, &["server-name"])),
     ];
     values
         .into_iter()
@@ -697,7 +706,13 @@ fn tls_bool(
     default: bool,
 ) -> Result<bool> {
     if let Some(opts) = tls {
-        map_bool(opts, keys, default)
+        if keys.iter().any(|key| opts.contains_key(*key)) {
+            map_bool(opts, keys, default)
+        } else if keys == ["enabled"] {
+            Ok(default)
+        } else {
+            node_bool(node, keys, default)
+        }
     } else {
         let node_keys = if keys == ["enabled"] {
             &["tls"][..]
@@ -1319,7 +1334,8 @@ mod tests {
             "port": 443,
             "password": "secret",
             "sni": "[2001:db8::1]",
-            "server_name": "edge.example.com"
+            "server-name": "edge.example.com",
+            "skip-cert-verify": true
         });
         let AerionProxyConfig::AnyTls(config) =
             node_to_proxy_config(&anytls, "127.0.0.1:1080".parse()?)?
@@ -1328,6 +1344,7 @@ mod tests {
         };
         assert_eq!(config.server_host, "2001:db8::1");
         assert_eq!(config.sni, "edge.example.com");
+        assert!(config.insecure);
 
         let hysteria2 = serde_json::json!({
             "type": "hysteria2",
@@ -1335,6 +1352,7 @@ mod tests {
             "port": 443,
             "password": "secret",
             "sni": "2001:db8::2",
+            "skip_cert_verify": true,
             "tls": {
                 "server_name": "hy2.example.com"
             }
@@ -1346,6 +1364,7 @@ mod tests {
         };
         assert_eq!(config.server_host, "2001:db8::2");
         assert_eq!(config.sni, "hy2.example.com");
+        assert!(config.insecure);
         Ok(())
     }
 

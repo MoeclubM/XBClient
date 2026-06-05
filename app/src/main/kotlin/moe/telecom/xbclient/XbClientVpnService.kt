@@ -263,6 +263,7 @@ class XbClientVpnService : VpnService() {
                 node.put("sni", originalHost)
             }
             node.put("host", resolvedHost)
+            node.put("server", resolvedHost)
         }
         currentNodeJson = node.toString()
         val tunnelNode = if (routeConfigYaml.isBlank()) {
