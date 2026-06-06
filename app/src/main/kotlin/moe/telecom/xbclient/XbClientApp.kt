@@ -1028,6 +1028,8 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
     val visibleScreen = if (state.subscriptionBlocked && state.screen == PassScreen.NODE_SELECT) PassScreen.NODES else state.screen
     val backTargetScreen = when (visibleScreen) {
         PassScreen.NODE_SELECT -> PassScreen.NODES
+        PassScreen.TICKET_DETAIL -> PassScreen.TICKETS
+        PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> PassScreen.PROFILE
         PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
         else -> null
     }
@@ -1137,6 +1139,10 @@ private fun MainScreenContent(
                 item {
                     when (screen) {
                         PassScreen.PROFILE -> ProfileScreen(state, viewModel)
+                        PassScreen.INVITE_DETAILS -> InviteDetailsScreen(state)
+                        PassScreen.TRAFFIC_LOGS -> TrafficLogsScreen(state)
+                        PassScreen.TICKETS -> TicketsScreen(state, viewModel)
+                        PassScreen.TICKET_DETAIL -> TicketDetailScreen(state, viewModel)
                         PassScreen.PLANS -> PlansScreen(state, viewModel)
                         PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
                         else -> HomeScreen(state, viewModel)
@@ -1151,7 +1157,7 @@ private fun MainScreenContent(
 private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewModel, modifier: Modifier = Modifier) {
     val selected = when (state.screen) {
         PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
-        PassScreen.PROFILE -> PassScreen.PROFILE
+        PassScreen.PROFILE, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
         else -> PassScreen.NODES
     }
@@ -1892,6 +1898,21 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
         state = state,
         viewModel = viewModel
     )
+    Section("账户明细") {
+        Panel {
+            OutlinedButton(onClick = { viewModel.openScreen(PassScreen.TRAFFIC_LOGS) }, modifier = Modifier.fillMaxWidth()) {
+                Text("流量明细")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { viewModel.openScreen(PassScreen.INVITE_DETAILS) }, modifier = Modifier.fillMaxWidth()) {
+                Text("邀请佣金明细")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { viewModel.openScreen(PassScreen.TICKETS) }, modifier = Modifier.fillMaxWidth()) {
+                Text("工单")
+            }
+        }
+    }
     if (state.inviteForce || state.inviteCommissionRate > 0) {
         Section(stringResource(R.string.section_invite)) {
             Panel {
@@ -1938,6 +1959,227 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
                 Spacer(Modifier.height(14.dp))
                 Button(onClick = viewModel::generateInvite, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.action_generate_invite))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InviteDetailsScreen(state: XbClientUiState) {
+    Section("邀请佣金明细") {
+        Panel {
+            Text("共 ${state.commissionTotal} 条记录", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(12.dp))
+            when {
+                state.commissionLogsLoading -> Text("正在加载邀请明细...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                state.commissionLogs.isEmpty() -> Text("暂无邀请佣金明细。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else -> {
+                    for ((index, log) in state.commissionLogs.withIndex()) {
+                        Text("订单 ${log.tradeNo}", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "订单金额 ${formatMoney(log.orderAmount, state.currencySymbol, state.currencyUnit)} · 佣金 ${formatMoney(log.getAmount, state.currencySymbol, state.currencyUnit)}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val time = formatUnixTime(log.createdAt)
+                        if (time.isNotEmpty()) {
+                            Spacer(Modifier.height(2.dp))
+                            Text(time, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (index != state.commissionLogs.lastIndex) {
+                            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrafficLogsScreen(state: XbClientUiState) {
+    Section("流量明细") {
+        Panel {
+            when {
+                state.trafficLogsLoading -> Text("正在加载流量明细...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                state.trafficLogs.isEmpty() -> Text("暂无流量明细。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else -> {
+                    for ((index, log) in state.trafficLogs.withIndex()) {
+                        val total = log.upload + log.download
+                        Text(formatUnixTime(log.recordAt), style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "上传 ${formatTrafficBytes(log.upload.toDouble())} · 下载 ${formatTrafficBytes(log.download.toDouble())}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "合计 ${formatTrafficBytes(total.toDouble())} · 倍率 ${String.format(Locale.US, "%.2f", log.serverRate)}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (index != state.trafficLogs.lastIndex) {
+                            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TicketsScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    var subject by rememberSaveable { mutableStateOf("") }
+    var message by rememberSaveable { mutableStateOf("") }
+    var level by rememberSaveable { mutableStateOf(0) }
+    Section("新建工单") {
+        Panel {
+            OutlinedTextField(
+                value = subject,
+                onValueChange = { subject = it },
+                label = { Text("主题") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(10.dp))
+            Text("等级", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                for (candidate in 0..2) {
+                    val selected = level == candidate
+                    if (selected) {
+                        Button(onClick = { level = candidate }, modifier = Modifier.weight(1f)) {
+                            Text(ticketLevelText(candidate))
+                        }
+                    } else {
+                        OutlinedButton(onClick = { level = candidate }, modifier = Modifier.weight(1f)) {
+                            Text(ticketLevelText(candidate))
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = message,
+                onValueChange = { message = it },
+                label = { Text("内容") },
+                minLines = 4,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    viewModel.createTicket(subject, level, message)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("提交工单")
+            }
+        }
+    }
+    Section("我的工单") {
+        Panel {
+            when {
+                state.ticketsLoading -> Text("正在加载工单...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                state.tickets.isEmpty() -> Text("暂无工单。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else -> {
+                    for ((index, ticket) in state.tickets.withIndex()) {
+                        ListItem(
+                            headlineContent = { Text(ticket.subject) },
+                            supportingContent = {
+                                Text("${ticketStatusText(ticket.status)} · ${ticketReplyStatusText(ticket.replyStatus)} · ${ticketLevelText(ticket.level)} · ${formatUnixTime(ticket.updatedAt)}")
+                            },
+                            modifier = Modifier.clickable { viewModel.openTicket(ticket.id) }
+                        )
+                        if (index != state.tickets.lastIndex) {
+                            HorizontalDivider()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TicketDetailScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val ticket = state.selectedTicket
+    var reply by rememberSaveable(ticket?.id) { mutableStateOf("") }
+    Section("工单详情") {
+        Panel {
+            if (ticket == null) {
+                Text(if (state.ticketDetailLoading) "正在加载工单..." else "未选择工单。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Text(ticket.subject, style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "${ticketStatusText(ticket.status)} · ${ticketReplyStatusText(ticket.replyStatus)} · ${ticketLevelText(ticket.level)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                val time = formatUnixTime(ticket.updatedAt)
+                if (time.isNotEmpty()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(time, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+    Section("消息") {
+        Panel {
+            when {
+                state.ticketDetailLoading -> Text("正在加载消息...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                state.ticketMessages.isEmpty() -> Text("暂无消息。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else -> {
+                    for (message in state.ticketMessages) {
+                        Row(
+                            horizontalArrangement = if (message.isMe) Arrangement.End else Arrangement.Start,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = if (message.isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                modifier = Modifier.fillMaxWidth(0.86f)
+                            ) {
+                                Column(Modifier.padding(14.dp)) {
+                                    Text(message.message)
+                                    val time = formatUnixTime(message.createdAt)
+                                    if (time.isNotEmpty()) {
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                    }
+                }
+            }
+        }
+    }
+    if (ticket != null && ticket.status == 0) {
+        Section("回复") {
+            Panel {
+                OutlinedTextField(
+                    value = reply,
+                    onValueChange = { reply = it },
+                    label = { Text("回复内容") },
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = {
+                        viewModel.replyTicket(reply)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("提交回复")
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = viewModel::closeTicket, modifier = Modifier.fillMaxWidth()) {
+                    Text("关闭工单")
                 }
             }
         }
@@ -2589,6 +2831,28 @@ private fun formatMoney(amount: Int, symbol: String, unit: String): String =
 private fun formatUnixTime(value: Long): String =
     if (value <= 0L) "" else SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(value * 1000))
 
+private fun ticketLevelText(level: Int): String =
+    when (level) {
+        0 -> "低"
+        1 -> "中"
+        2 -> "高"
+        else -> "等级 $level"
+    }
+
+private fun ticketStatusText(status: Int): String =
+    when (status) {
+        0 -> "开启"
+        1 -> "关闭"
+        else -> "状态 $status"
+    }
+
+private fun ticketReplyStatusText(status: Int): String =
+    when (status) {
+        0 -> "待回复"
+        1 -> "已回复"
+        else -> "回复状态 $status"
+    }
+
 @Composable
 private fun planPriceText(plan: PlanItem, symbol: String, unit: String, noPriceText: String): String {
     if (plan.prices.isEmpty()) {
@@ -2642,6 +2906,7 @@ private fun AnimatedContentTransitionScope<PassScreen>.screenTransition(): Conte
         PassScreen.NODE_SELECT -> 1
         PassScreen.PLANS -> 2
         PassScreen.PROFILE -> 3
+        PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 4
         PassScreen.SETTINGS -> 4
         PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> 5
     }
@@ -2650,6 +2915,7 @@ private fun AnimatedContentTransitionScope<PassScreen>.screenTransition(): Conte
         PassScreen.NODE_SELECT -> 1
         PassScreen.PLANS -> 2
         PassScreen.PROFILE -> 3
+        PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 4
         PassScreen.SETTINGS -> 4
         PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> 5
     }

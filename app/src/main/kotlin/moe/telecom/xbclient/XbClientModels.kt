@@ -32,6 +32,10 @@ enum class PassScreen {
     NODES,
     PLANS,
     PROFILE,
+    INVITE_DETAILS,
+    TRAFFIC_LOGS,
+    TICKETS,
+    TICKET_DETAIL,
     SETTINGS,
     NODE_SELECT,
     APP_RULES,
@@ -94,7 +98,44 @@ data class AnyTlsNode(
 
 data class InviteItem(
     val code: String,
-    val status: Int
+    val status: Int,
+    val pv: Int,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+data class CommissionLogItem(
+    val id: Int,
+    val orderAmount: Int,
+    val tradeNo: String,
+    val getAmount: Int,
+    val createdAt: Long
+)
+
+data class TrafficLogItem(
+    val upload: Long,
+    val download: Long,
+    val recordAt: Long,
+    val serverRate: Double
+)
+
+data class TicketItem(
+    val id: Int,
+    val level: Int,
+    val replyStatus: Int,
+    val status: Int,
+    val subject: String,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+data class TicketMessageItem(
+    val id: Int,
+    val ticketId: Int,
+    val isMe: Boolean,
+    val message: String,
+    val createdAt: Long,
+    val updatedAt: Long
 )
 
 data class InstalledAppItem(
@@ -231,7 +272,51 @@ fun isIpLiteral(value: String): Boolean {
 fun JSONObject.toInviteItem(): InviteItem =
     InviteItem(
         code = getString("code"),
-        status = getInt("status")
+        status = when (val value = get("status")) {
+            is Boolean -> if (value) 1 else 0
+            else -> numericValue(value).toInt()
+        },
+        pv = getInt("pv"),
+        createdAt = numericValue(get("created_at")).toLong(),
+        updatedAt = numericValue(get("updated_at")).toLong()
+    )
+
+fun JSONObject.toCommissionLogItem(): CommissionLogItem =
+    CommissionLogItem(
+        id = getInt("id"),
+        orderAmount = numericValue(get("order_amount")).toInt(),
+        tradeNo = getString("trade_no"),
+        getAmount = numericValue(get("get_amount")).toInt(),
+        createdAt = numericValue(get("created_at")).toLong()
+    )
+
+fun JSONObject.toTrafficLogItem(): TrafficLogItem =
+    TrafficLogItem(
+        upload = numericValue(get("u")).toLong(),
+        download = numericValue(get("d")).toLong(),
+        recordAt = numericValue(get("record_at")).toLong(),
+        serverRate = numericValue(get("server_rate"))
+    )
+
+fun JSONObject.toTicketItem(): TicketItem =
+    TicketItem(
+        id = getInt("id"),
+        level = getInt("level"),
+        replyStatus = getInt("reply_status"),
+        status = getInt("status"),
+        subject = getString("subject"),
+        createdAt = numericValue(get("created_at")).toLong(),
+        updatedAt = numericValue(get("updated_at")).toLong()
+    )
+
+fun JSONObject.toTicketMessageItem(): TicketMessageItem =
+    TicketMessageItem(
+        id = getInt("id"),
+        ticketId = getInt("ticket_id"),
+        isMe = getBoolean("is_me"),
+        message = getString("message"),
+        createdAt = numericValue(get("created_at")).toLong(),
+        updatedAt = numericValue(get("updated_at")).toLong()
     )
 
 fun JSONObject.toOAuthProvider(): OAuthProvider =
@@ -272,6 +357,18 @@ fun JSONArray.toAnyTlsNodeList(): List<AnyTlsNode> =
 
 fun JSONArray.toInviteItemList(): List<InviteItem> =
     List(length()) { index -> getJSONObject(index).toInviteItem() }
+
+fun JSONArray.toCommissionLogItemList(): List<CommissionLogItem> =
+    List(length()) { index -> getJSONObject(index).toCommissionLogItem() }
+
+fun JSONArray.toTrafficLogItemList(): List<TrafficLogItem> =
+    List(length()) { index -> getJSONObject(index).toTrafficLogItem() }
+
+fun JSONArray.toTicketItemList(): List<TicketItem> =
+    List(length()) { index -> getJSONObject(index).toTicketItem() }
+
+fun JSONArray.toTicketMessageItemList(): List<TicketMessageItem> =
+    List(length()) { index -> getJSONObject(index).toTicketMessageItem() }
 
 fun JSONArray.toOAuthProviderList(): List<OAuthProvider> =
     List(length()) { index -> getJSONObject(index).toOAuthProvider() }

@@ -36,6 +36,7 @@ import java.util.Locale
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.Socket
+import java.util.UUID
 
 private val Context.passVpnDataStore by preferencesDataStore(name = XBCLIENT_PREFS)
 private const val NODE_AUTO_REFRESH_INTERVAL_MS = 30L * 60L * 1000L
@@ -64,6 +65,12 @@ data class XbClientUiState(
     val selectedNodeIndex: Int = 0,
     val nodeTestResults: Map<Int, String> = emptyMap(),
     val invites: List<InviteItem> = emptyList(),
+    val commissionLogs: List<CommissionLogItem> = emptyList(),
+    val commissionTotal: Int = 0,
+    val trafficLogs: List<TrafficLogItem> = emptyList(),
+    val tickets: List<TicketItem> = emptyList(),
+    val selectedTicket: TicketItem? = null,
+    val ticketMessages: List<TicketMessageItem> = emptyList(),
     val inviteForce: Boolean = false,
     val inviteCommissionRate: Int = 0,
     val inviteCommissionBalance: Int = 0,
@@ -92,6 +99,10 @@ data class XbClientUiState(
     val plansLoading: Boolean = false,
     val nodesTesting: Boolean = false,
     val invitesLoading: Boolean = false,
+    val commissionLogsLoading: Boolean = false,
+    val trafficLogsLoading: Boolean = false,
+    val ticketsLoading: Boolean = false,
+    val ticketDetailLoading: Boolean = false,
     val noticesLoading: Boolean = false,
     val installedApps: List<InstalledAppItem> = emptyList(),
     val appSearchQuery: String = "",
@@ -108,7 +119,6 @@ data class XbClientUiState(
     val adRewardLogs: List<AdRewardLogItem> = emptyList(),
     val adRewardLogsLoading: Boolean = false,
     val configUpdatedAt: Long = 0L,
-    val githubProjectUrl: String = "",
     val updateAvailable: Boolean = false,
     val latestReleaseVersion: String = "",
     val latestReleaseUrl: String = "",
@@ -136,7 +146,7 @@ data class XbClientUiState(
         get() = subscriptionBlockReason.isNotEmpty()
 
     val isRefreshing: Boolean
-        get() = userLoading || nodesLoading || plansLoading || invitesLoading || nodesTesting || noticesLoading
+        get() = userLoading || nodesLoading || plansLoading || invitesLoading || commissionLogsLoading || trafficLogsLoading || ticketsLoading || ticketDetailLoading || nodesTesting || noticesLoading
 }
 
 sealed interface XbClientEvent {
@@ -154,6 +164,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     val events = _events.asSharedFlow()
     private var pendingNodeSwitchConnect: Boolean? = null
     private var pendingOAuthCallback: Uri? = null
+    private var pendingOAuthState = ""
     private var nodeAutoRefreshStarted = false
     private var pendingRewardScene = ""
     private var pendingRewardStartedAt = 0L
@@ -166,10 +177,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             ensureNodeAutoRefresh()
             loadInstalledApps()
             refreshOAuthProviders()
-            val state = _uiState.value
-            if (state.githubProjectUrl.isNotBlank()) {
-                checkGithubReleaseUpdate(state.githubProjectUrl)
+            val updateProjectUrl = BuildConfig.GITHUB_PROJECT_URL.trim()
+            if (updateProjectUrl.isNotBlank()) {
+                checkGithubReleaseUpdate(updateProjectUrl)
             }
+            val state = _uiState.value
             if (state.authData.isNotEmpty()) {
                 showDailyNoticeDialog(state.notices)
                 refreshSubscriptionAndNodes(force = true)
@@ -209,6 +221,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(screen = screen) }
         when (screen) {
             PassScreen.PROFILE -> Unit
+            PassScreen.INVITE_DETAILS -> refreshInviteDetails(showLoading = true, showErrors = true)
+            PassScreen.TRAFFIC_LOGS -> refreshTrafficLogs(showLoading = true, showErrors = true)
+            PassScreen.TICKETS -> refreshTickets(showLoading = true, showErrors = true)
+            PassScreen.TICKET_DETAIL -> Unit
             PassScreen.PLANS -> Unit
             PassScreen.NODE_SELECT -> refreshSubscriptionAndNodes()
             PassScreen.APP_RULES -> Unit
@@ -228,6 +244,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshUserInfo(showErrors = true)
                 refreshInvites(force = true, showLoading = true, showErrors = true)
                 refreshRewardConfig()
+            }
+            PassScreen.INVITE_DETAILS -> refreshInviteDetails(force = true, showLoading = true, showErrors = true)
+            PassScreen.TRAFFIC_LOGS -> refreshTrafficLogs(force = true, showLoading = true, showErrors = true)
+            PassScreen.TICKETS -> refreshTickets(force = true, showLoading = true, showErrors = true)
+            PassScreen.TICKET_DETAIL -> _uiState.value.selectedTicket?.let {
+                refreshTicketDetail(it.id, showLoading = true, showErrors = true)
             }
             PassScreen.PLANS -> {
                 refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
@@ -268,6 +290,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
         when (state.screen) {
             PassScreen.NODE_SELECT -> openScreen(PassScreen.NODES)
+            PassScreen.TICKET_DETAIL -> openScreen(PassScreen.TICKETS)
+            PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> openScreen(PassScreen.PROFILE)
             PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> openScreen(PassScreen.SETTINGS)
             PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS -> Unit
         }
@@ -379,12 +403,15 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun openOAuthPage(scene: String, driver: String, inviteCode: String = "") {
+        val state = UUID.randomUUID().toString()
+        pendingOAuthState = state
         val builder = Uri.parse("${defaultApiUrl().trimEnd('/')}/api/v1/passport/auth/oauth/$driver/redirect")
             .buildUpon()
             .appendQueryParameter("scene", scene)
             .appendQueryParameter("redirect", "dashboard")
             .appendQueryParameter("client", "app")
             .appendQueryParameter("app_scheme", BuildConfig.OAUTH_CALLBACK_SCHEME)
+            .appendQueryParameter("state", state)
         if (scene == "register" && inviteCode.trim().isNotEmpty()) {
             builder.appendQueryParameter("invite_code", inviteCode.trim())
         }
@@ -401,6 +428,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             return
         }
         closeOAuthWebView()
+        val state = uri.getQueryParameter("state")
+        if (state.isNullOrEmpty() || state != pendingOAuthState) {
+            emitMessage("OAuth callback state 不匹配。")
+            return
+        }
+        pendingOAuthState = ""
         val error = uri.getQueryParameter("oauth_error")
         if (!error.isNullOrEmpty()) {
             emitMessage("OAuth 失败：$error")
@@ -507,7 +540,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             appOpenAdEnabled = current.appOpenAdEnabled,
             appOpenAdUnitId = current.appOpenAdUnitId,
             configUpdatedAt = current.configUpdatedAt,
-            githubProjectUrl = current.githubProjectUrl,
             appLanguage = current.appLanguage,
             themeMode = current.themeMode,
             languageOnboardingDone = current.languageOnboardingDone,
@@ -718,6 +750,217 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun refreshInviteDetails(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty() || _uiState.value.commissionLogsLoading) {
+            return
+        }
+        if (!force && _uiState.value.commissionLogs.isNotEmpty()) {
+            return
+        }
+        if (showLoading) {
+            _uiState.update { it.copy(commissionLogsLoading = true) }
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody("邀请明细", XboardApi.request("invite_details", defaultApiUrl(), authData, JSONObject()))
+                val logs = body.getJSONArray("data").toCommissionLogItemList()
+                val next = _uiState.value.copy(
+                    commissionLogs = logs,
+                    commissionTotal = body.getInt("total"),
+                    commissionLogsLoading = false
+                )
+                _uiState.value = next
+                persistStoredState(next)
+            } catch (error: Exception) {
+                if (showLoading) {
+                    _uiState.update { it.copy(commissionLogsLoading = false) }
+                }
+                if (showErrors) {
+                    emitMessage("邀请明细加载失败：${error.message}")
+                }
+            }
+        }
+    }
+
+    fun refreshTrafficLogs(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty() || _uiState.value.trafficLogsLoading) {
+            return
+        }
+        if (!force && _uiState.value.trafficLogs.isNotEmpty()) {
+            return
+        }
+        if (showLoading) {
+            _uiState.update { it.copy(trafficLogsLoading = true) }
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody("流量明细", XboardApi.request("traffic_logs", defaultApiUrl(), authData, JSONObject()))
+                val next = _uiState.value.copy(
+                    trafficLogs = extractDataArray(body).toTrafficLogItemList(),
+                    trafficLogsLoading = false
+                )
+                _uiState.value = next
+                persistStoredState(next)
+            } catch (error: Exception) {
+                if (showLoading) {
+                    _uiState.update { it.copy(trafficLogsLoading = false) }
+                }
+                if (showErrors) {
+                    emitMessage("流量明细加载失败：${error.message}")
+                }
+            }
+        }
+    }
+
+    fun refreshTickets(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty() || _uiState.value.ticketsLoading) {
+            return
+        }
+        if (!force && _uiState.value.tickets.isNotEmpty()) {
+            return
+        }
+        if (showLoading) {
+            _uiState.update { it.copy(ticketsLoading = true) }
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody("工单列表", XboardApi.request("tickets", defaultApiUrl(), authData, JSONObject()))
+                val next = _uiState.value.copy(
+                    tickets = extractDataArray(body).toTicketItemList(),
+                    ticketsLoading = false
+                )
+                _uiState.value = next
+                persistStoredState(next)
+            } catch (error: Exception) {
+                if (showLoading) {
+                    _uiState.update { it.copy(ticketsLoading = false) }
+                }
+                if (showErrors) {
+                    emitMessage("工单列表加载失败：${error.message}")
+                }
+            }
+        }
+    }
+
+    fun openTicket(ticketId: Int) {
+        val currentTicket = _uiState.value.tickets.firstOrNull { it.id == ticketId }
+        _uiState.update { it.copy(screen = PassScreen.TICKET_DETAIL, selectedTicket = currentTicket, ticketMessages = emptyList()) }
+        refreshTicketDetail(ticketId, showLoading = true, showErrors = true)
+    }
+
+    fun refreshTicketDetail(ticketId: Int, showLoading: Boolean = false, showErrors: Boolean = false) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty() || _uiState.value.ticketDetailLoading) {
+            return
+        }
+        if (showLoading) {
+            _uiState.update { it.copy(ticketDetailLoading = true) }
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody(
+                    "工单详情",
+                    XboardApi.request("tickets", defaultApiUrl(), authData, JSONObject().put("id", ticketId))
+                )
+                val data = body.getJSONObject("data")
+                val ticket = data.toTicketItem()
+                val next = _uiState.value.copy(
+                    selectedTicket = ticket,
+                    ticketMessages = data.getJSONArray("message").toTicketMessageItemList(),
+                    ticketDetailLoading = false
+                )
+                _uiState.value = next
+                persistStoredState(next)
+            } catch (error: Exception) {
+                if (showLoading) {
+                    _uiState.update { it.copy(ticketDetailLoading = false) }
+                }
+                if (showErrors) {
+                    emitMessage("工单详情加载失败：${error.message}")
+                }
+            }
+        }
+    }
+
+    fun createTicket(subject: String, level: Int, message: String) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty()) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                requireSuccessfulBody(
+                    "创建工单",
+                    XboardApi.request(
+                        "ticket_save",
+                        defaultApiUrl(),
+                        authData,
+                        JSONObject()
+                            .put("subject", subject.trim())
+                            .put("level", level)
+                            .put("message", message.trim())
+                    )
+                )
+                emitMessage("工单已提交。")
+                refreshTickets(force = true, showLoading = true, showErrors = true)
+            } catch (error: Exception) {
+                emitMessage("工单提交失败：${error.message}")
+            }
+        }
+    }
+
+    fun replyTicket(message: String) {
+        val ticket = _uiState.value.selectedTicket ?: return
+        val authData = _uiState.value.authData
+        if (authData.isEmpty()) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                requireSuccessfulBody(
+                    "回复工单",
+                    XboardApi.request(
+                        "ticket_reply",
+                        defaultApiUrl(),
+                        authData,
+                        JSONObject()
+                            .put("id", ticket.id)
+                            .put("message", message.trim())
+                    )
+                )
+                emitMessage("工单回复已提交。")
+                refreshTicketDetail(ticket.id, showLoading = true, showErrors = true)
+                refreshTickets(force = true, showErrors = true)
+            } catch (error: Exception) {
+                emitMessage("工单回复失败：${error.message}")
+            }
+        }
+    }
+
+    fun closeTicket() {
+        val ticket = _uiState.value.selectedTicket ?: return
+        val authData = _uiState.value.authData
+        if (authData.isEmpty()) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                requireSuccessfulBody(
+                    "关闭工单",
+                    XboardApi.request("ticket_close", defaultApiUrl(), authData, JSONObject().put("id", ticket.id))
+                )
+                emitMessage("工单已关闭。")
+                refreshTicketDetail(ticket.id, showLoading = true, showErrors = true)
+                refreshTickets(force = true, showErrors = true)
+            } catch (error: Exception) {
+                emitMessage("关闭工单失败：${error.message}")
+            }
+        }
+    }
+
     fun refreshRewardConfig() {
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
@@ -855,6 +1098,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 )
                 val body = requireSuccessfulBody("网页登录", result)
                 val loginUrl = body.getString("data")
+                val loginUri = Uri.parse(loginUrl)
+                val apiUri = Uri.parse(defaultApiUrl())
+                val loginPort = if (loginUri.port >= 0) loginUri.port else if (loginUri.scheme == "https") 443 else 80
+                val apiPort = if (apiUri.port >= 0) apiUri.port else if (apiUri.scheme == "https") 443 else 80
+                if (loginUri.scheme != apiUri.scheme || loginUri.host != apiUri.host || loginPort != apiPort) {
+                    throw IllegalStateException("网页登录地址必须来自当前 Xboard 站点。")
+                }
                 withContext(Dispatchers.Main) {
                     BrowserOpener.open(context, loginUrl)
                 }
@@ -955,7 +1205,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val body = result.getJSONObject("body")
         body.requireNotXboardFail()
         val data = body.getJSONObject("data")
-        val githubProjectUrl = data.getString("github_project_url")
         val paymentEnabled = data.getBoolean("payment_enabled")
         val appOpenEnabled = data.getBoolean("app_open_ad_enabled")
         val appOpenAdUnitId = if (appOpenEnabled) data.getString("app_open_ad_unit_id") else ""
@@ -967,7 +1216,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     paymentEnabled = paymentEnabled,
                     appOpenAdEnabled = appOpenEnabled,
                     appOpenAdUnitId = appOpenAdUnitId,
-                    githubProjectUrl = githubProjectUrl,
                     configUpdatedAt = configUpdatedAt,
                     planRewardAdEnabled = false,
                     planRewardedAdUnitId = "",
@@ -976,8 +1224,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 )
             }
             persistStoredState(_uiState.value)
-            if (githubProjectUrl.isNotBlank()) {
-                checkGithubReleaseUpdate(githubProjectUrl)
+            val updateProjectUrl = BuildConfig.GITHUB_PROJECT_URL.trim()
+            if (updateProjectUrl.isNotBlank()) {
+                checkGithubReleaseUpdate(updateProjectUrl)
             }
             return Triple("", "", "")
         }
@@ -995,7 +1244,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 paymentEnabled = paymentEnabled,
                 appOpenAdEnabled = appOpenEnabled,
                 appOpenAdUnitId = appOpenAdUnitId,
-                githubProjectUrl = githubProjectUrl,
                 configUpdatedAt = configUpdatedAt,
                 planRewardAdEnabled = planEnabled,
                 planRewardedAdUnitId = planAdUnitId,
@@ -1004,8 +1252,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             )
         }
         persistStoredState(_uiState.value)
-        if (githubProjectUrl.isNotBlank()) {
-            checkGithubReleaseUpdate(githubProjectUrl)
+        val updateProjectUrl = BuildConfig.GITHUB_PROJECT_URL.trim()
+        if (updateProjectUrl.isNotBlank()) {
+            checkGithubReleaseUpdate(updateProjectUrl)
         }
         return if (scene == REWARD_SCENE_POINTS) {
             Triple(pointsAdUnitId, pointsUserId, pointsCustomData)
@@ -1053,7 +1302,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun saveRouteConfigYaml(value: String, geoipDir: String) {
-        updateAndPersist { it.copy(customRouteConfigYaml = value.trim(), geoipDir = geoipDir.trim()) }
+        val routeAssetsDir = geoipDir.trim().ifEmpty { ensureBundledRouteAssets() }
+        updateAndPersist { it.copy(customRouteConfigYaml = value.trim(), geoipDir = routeAssetsDir) }
         emitMessage("分流配置已保存。")
     }
 
@@ -1463,7 +1713,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     private suspend fun loadStoredState() {
+        val bundledRouteAssetsDir = ensureBundledRouteAssets()
         val prefs = app.passVpnDataStore.data.first()
+        val storedGeoipDir = prefs[Keys.GEOIP_DIR]
         val state = XbClientUiState(
             loaded = true,
             authData = prefs[Keys.AUTH_DATA].orEmpty(),
@@ -1499,7 +1751,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             vpnIpv6Enabled = prefs[Keys.VPN_IPV6_ENABLED] ?: true,
             routeConfigYaml = prefs[Keys.ROUTE_CONFIG_YAML].orEmpty(),
             customRouteConfigYaml = prefs[Keys.CUSTOM_ROUTE_CONFIG_YAML].orEmpty(),
-            geoipDir = prefs[Keys.GEOIP_DIR].orEmpty(),
+            geoipDir = storedGeoipDir?.takeIf { it.isNotBlank() } ?: bundledRouteAssetsDir,
             routeRuleCount = prefs[Keys.ROUTE_RULE_COUNT] ?: 0,
             routeRulesPreview = prefs[Keys.ROUTE_RULES_PREVIEW].orEmpty().lines().filter { it.isNotBlank() },
             vpnRequested = prefs[Keys.VPN_RUNNING] ?: false,
@@ -1513,7 +1765,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             appOpenAdUnitId = prefs[Keys.APP_OPEN_AD_UNIT_ID].orEmpty(),
             adRewardLogs = emptyList(),
             configUpdatedAt = prefs[Keys.CONFIG_UPDATED_AT] ?: 0L,
-            githubProjectUrl = prefs[Keys.GITHUB_PROJECT_URL].orEmpty(),
             appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
             themeMode = prefs[Keys.THEME_MODE].orEmpty(),
             languageOnboardingDone = prefs[Keys.LANGUAGE_ONBOARDING_DONE] ?: false,
@@ -1542,6 +1793,18 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             pendingOAuthCallback = null
             handleOAuthCallback(uri)
         }
+    }
+
+    private fun ensureBundledRouteAssets(): String {
+        val routeDir = File(app.filesDir, "route-assets")
+        val cnFile = File(routeDir, "geoip/cn.txt")
+        cnFile.parentFile?.mkdirs()
+        app.assets.open("route/geoip/cn.txt").use { input ->
+            cnFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+        return routeDir.absolutePath
     }
 
     private suspend fun loadInstalledApps() {
@@ -1613,7 +1876,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.APP_OPEN_AD_ENABLED] = state.appOpenAdEnabled
             prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
             prefs[Keys.CONFIG_UPDATED_AT] = state.configUpdatedAt
-            prefs[Keys.GITHUB_PROJECT_URL] = state.githubProjectUrl
             prefs[Keys.APP_LANGUAGE] = state.appLanguage
             prefs[Keys.THEME_MODE] = state.themeMode
             prefs[Keys.LANGUAGE_ONBOARDING_DONE] = state.languageOnboardingDone
@@ -1666,7 +1928,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putBoolean("app_open_ad_enabled", state.appOpenAdEnabled)
             .putString("app_open_ad_unit_id", state.appOpenAdUnitId)
             .putLong("config_updated_at", state.configUpdatedAt)
-            .putString("github_project_url", state.githubProjectUrl)
             .putString("app_language", state.appLanguage)
             .putString("theme_mode", state.themeMode)
             .putBoolean("language_onboarding_done", state.languageOnboardingDone)
@@ -1902,7 +2163,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val APP_OPEN_AD_UNIT_ID = stringPreferencesKey("app_open_ad_unit_id")
         val AD_REWARD_LOGS = stringPreferencesKey("ad_reward_logs")
         val CONFIG_UPDATED_AT = longPreferencesKey("config_updated_at")
-        val GITHUB_PROJECT_URL = stringPreferencesKey("github_project_url")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val LANGUAGE_ONBOARDING_DONE = booleanPreferencesKey("language_onboarding_done")

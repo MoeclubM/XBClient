@@ -328,4 +328,46 @@ rules:
         assert_eq!(config.rules, vec!["MATCH,proxy"]);
         Ok(())
     }
+
+    #[test]
+    fn compiles_inline_rule_providers() -> Result<()> {
+        let config = parse_mihomo_config(
+            r#"
+rule-providers:
+  local:
+    type: inline
+    behavior: domain
+    payload:
+      - example.com
+rules:
+  - RULE-SET,local,DIRECT
+  - MATCH,DIRECT
+"#,
+        )?;
+        config.route_table()?;
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_file_rule_providers() {
+        let error = match parse_mihomo_config(
+            r#"
+rule-providers:
+  local:
+    type: file
+    behavior: domain
+    path: /proc/self/cmdline
+rules:
+  - RULE-SET,local,DIRECT
+"#,
+        ) {
+            Ok(_) => panic!("file rule-providers must be rejected"),
+            Err(error) => error,
+        };
+        assert!(
+            error
+                .to_string()
+                .contains("mihomo route rule-provider local type file is not supported")
+        );
+    }
 }

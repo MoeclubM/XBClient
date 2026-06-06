@@ -14,6 +14,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 object XboardApi {
@@ -230,6 +231,7 @@ object XboardApi {
         }
 
         val subscriptionUserInfo = response.header("subscription-userinfo")
+        val subscriptionHttpUrl = response.request.url
         response.close()
         if (singBox) {
             return JSONObject()
@@ -247,7 +249,13 @@ object XboardApi {
                     .put("route_config_yaml", JSONObject.NULL)
                 )
         }
-        val root = Yaml().load<Any>(text) as Map<*, *>
+        val yaml = Yaml()
+        val parsedRoot = yaml.load<Any>(text) as? Map<*, *>
+            ?: throw IllegalStateException("clash-meta routing YAML root must be a mapping")
+        val root = linkedMapOf<Any?, Any?>()
+        for ((key, value) in parsedRoot) {
+            root[key] = value
+        }
         val rules = (root["rules"] as? List<*>
             ?: throw IllegalStateException("clash-meta routing YAML missing rules array"))
             .map { it.toString() }
@@ -256,11 +264,46 @@ object XboardApi {
             is List<*> -> proxyGroups.size
             else -> throw IllegalStateException("clash-meta routing YAML field proxy-groups must be an array")
         }
-        val ruleProviderCount = when (val ruleProviders = root["rule-providers"]) {
-            null -> 0
-            is Map<*, *> -> ruleProviders.size
-            else -> throw IllegalStateException("clash-meta routing YAML field rule-providers must be an object")
+        val ruleProvidersKey = when {
+            root.containsKey("rule-providers") -> "rule-providers"
+            root.containsKey("rule_providers") -> "rule_providers"
+            else -> null
         }
+        val ruleProviderCount = if (ruleProvidersKey == null) {
+            0
+        } else {
+            val providers = root[ruleProvidersKey] as? Map<*, *>
+                ?: throw IllegalStateException("clash-meta routing YAML field $ruleProvidersKey must be a mapping")
+            val expanded = linkedMapOf<String, Any>()
+            for ((rawName, rawProvider) in providers) {
+                val name = rawName.toString()
+                val provider = rawProvider as? Map<*, *>
+                    ?: throw IllegalStateException("clash-meta rule-provider $name must be a mapping")
+                val behavior = provider["behavior"]?.toString()?.trim()
+                    ?: throw IllegalStateException("clash-meta rule-provider $name missing behavior")
+                val type = provider["type"]?.toString()?.trim()?.lowercase(Locale.US)
+                    ?: throw IllegalStateException("clash-meta rule-provider $name missing type")
+                val expandedProvider = when (type) {
+                    "inline" -> {
+                        mihomoRuleProviderPayload(name, provider["payload"])
+                        provider
+                    }
+                    "http" -> {
+                        val payload = fetchMihomoRuleProviderPayload(name, provider, subscriptionHttpUrl)
+                        linkedMapOf(
+                            "type" to "inline",
+                            "behavior" to behavior,
+                            "payload" to payload
+                        )
+                    }
+                    else -> throw IllegalStateException("clash-meta rule-provider $name type $type is not supported")
+                }
+                expanded[name] = expandedProvider
+            }
+            root[ruleProvidersKey] = expanded
+            providers.size
+        }
+        val routeConfigYaml = if (rules.isEmpty()) JSONObject.NULL else if (ruleProviderCount > 0) yaml.dump(root) else text
         return JSONObject()
             .put("ok", true)
             .put("status", status)
@@ -273,8 +316,51 @@ object XboardApi {
                 .put("proxy_group_count", proxyGroupCount)
                 .put("rule_provider_count", ruleProviderCount)
                 .put("rules_preview", JSONArray().also { array -> rules.take(20).forEach { array.put(it) } })
-                .put("route_config_yaml", if (rules.isEmpty()) JSONObject.NULL else text)
+                .put("route_config_yaml", routeConfigYaml)
             )
+    }
+
+    private fun fetchMihomoRuleProviderPayload(name: String, provider: Map<*, *>, baseUrl: okhttp3.HttpUrl): List<String> {
+        val rawUrl = provider["url"]?.toString()?.trim()
+            ?: throw IllegalStateException("clash-meta http rule-provider $name missing url")
+        val url = baseUrl.resolve(rawUrl)
+            ?: throw IllegalStateException("clash-meta http rule-provider $name url is invalid: $rawUrl")
+        val response = httpClient.newCall(
+            Request.Builder()
+                .url(url)
+                .header("User-Agent", SUBSCRIPTION_USER_AGENT)
+                .header("Accept", "text/yaml, application/yaml, text/plain, */*")
+                .build()
+        ).execute()
+        val status = response.code
+        val body = response.body ?: throw IllegalStateException("clash-meta rule-provider $name response body is required")
+        val text = body.string().trim()
+        response.close()
+        if (status !in 200..299) {
+            throw IllegalStateException("clash-meta rule-provider $name download failed: HTTP $status")
+        }
+        return when (provider["format"]?.toString()?.trim()?.lowercase(Locale.US).takeUnless { it.isNullOrEmpty() } ?: "yaml") {
+            "yaml", "yml" -> {
+                val file = Yaml().load<Any>(text) as? Map<*, *>
+                    ?: throw IllegalStateException("clash-meta rule-provider $name YAML root must be a mapping")
+                mihomoRuleProviderPayload(name, file["payload"])
+            }
+            "text" -> text.lines()
+                .map { it.substringBefore('#').trim() }
+                .filter { it.isNotEmpty() }
+            "mrs" -> throw IllegalStateException("clash-meta rule-provider $name MRS format is not supported")
+            else -> throw IllegalStateException("clash-meta rule-provider $name format ${provider["format"]} is not supported")
+        }
+    }
+
+    private fun mihomoRuleProviderPayload(name: String, payload: Any?): List<String> {
+        val lines = payload as? List<*>
+            ?: throw IllegalStateException("clash-meta rule-provider $name payload must be an array")
+        val cleaned = lines.map { it.toString().trim() }.filter { it.isNotEmpty() }
+        if (cleaned.isEmpty()) {
+            throw IllegalStateException("clash-meta rule-provider $name payload is empty")
+        }
+        return cleaned
     }
 
     private fun readBody(connection: HttpURLConnection): String {

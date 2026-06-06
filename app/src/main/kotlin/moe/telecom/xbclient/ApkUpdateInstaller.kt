@@ -2,6 +2,7 @@ package moe.telecom.xbclient
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -33,6 +34,15 @@ object ApkUpdateInstaller {
     }
 
     fun installApk(context: Context, apkFile: File) {
+        val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.PackageInfoFlags.of(0L))
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
+        } ?: throw IllegalStateException("下载的安装包无法解析。")
+        if (packageInfo.packageName != context.packageName) {
+            throw IllegalStateException("更新安装包包名不匹配：${packageInfo.packageName}")
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val pm = context.packageManager
             if (!pm.canRequestPackageInstalls()) {

@@ -8,10 +8,14 @@ import androidx.browser.customtabs.CustomTabsIntent
 
 object BrowserOpener {
     fun open(context: Context, url: String) {
+        val uri = Uri.parse(url)
+        if (uri.scheme != "https" && uri.scheme != "http") {
+            throw IllegalStateException("仅支持打开 HTTP(S) URL。")
+        }
         val customTabsIntent = CustomTabsIntent.Builder().build()
         if (context !is Activity) {
             customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        customTabsIntent.launchUrl(context, Uri.parse(url))
+        customTabsIntent.launchUrl(context, uri)
     }
 }
