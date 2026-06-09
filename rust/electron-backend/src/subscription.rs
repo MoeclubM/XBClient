@@ -3,7 +3,7 @@ use serde_json::{Map, Value, json};
 
 const SUBSCRIPTION_USER_AGENT: &str = "mihomo";
 const SUBSCRIPTION_NODE_TYPES: &str =
-    "anytls,hysteria,trojan,vless,vmess,mieru,naive,shadowsocks,tuic,http,socks5,direct,block";
+    "anytls,nodeexpand,hysteria,trojan,vless,vmess,mieru,naive,shadowsocks,tuic,http,socks5,direct,block";
 
 pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str) -> Result<Value> {
     let sing_box = flag.eq_ignore_ascii_case("sing-box");

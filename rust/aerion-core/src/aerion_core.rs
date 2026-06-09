@@ -201,6 +201,9 @@ async fn start_aerion_socks(
             AerionProxyConfig::Trojan(config) => {
                 Some(aerion::ProxyCore::from_credentials(&config.password, &[]))
             }
+            AerionProxyConfig::NodeExpand(config) => {
+                Some(aerion::ProxyCore::from_credentials(&config.password, &[]))
+            }
             AerionProxyConfig::Vless(config) => {
                 Some(aerion::ProxyCore::from_credentials(&config.user_id, &[]))
             }

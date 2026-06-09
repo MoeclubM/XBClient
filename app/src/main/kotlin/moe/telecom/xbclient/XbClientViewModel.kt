@@ -628,7 +628,23 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 } else {
                     emptyList()
                 }
+                val nodeExpandNodes = if (blockReason.isEmpty()) {
+                    val nodeExpandResult = XboardApi.request("nodeexpand_nodes", defaultApiUrl(), current.authData, JSONObject())
+                    if (nodeExpandResult.getBoolean("ok")) {
+                        val nodesBody = requireSuccessfulBody("NodeExpand 节点同步", nodeExpandResult)
+                        nodesBody.getJSONObject("data").getJSONArray("nodes").toAnyTlsNodeList()
+                    } else {
+                        throw IllegalStateException(resultError(nodeExpandResult))
+                    }
+                } else {
+                    emptyList()
+                }
+                val nodeExpandIds = nodeExpandNodes
+                    .mapNotNull { JSONObject(it.rawJson).optInt("id", 0).takeIf { id -> id > 0 } }
+                    .toSet()
                 val nodes = baseNodes
+                    .filter { JSONObject(it.rawJson).optInt("id", 0) !in nodeExpandIds }
+                    .plus(nodeExpandNodes)
                 val selectedIndex = _uiState.value.selectedNodeIndex.coerceIn(0, (nodes.size - 1).coerceAtLeast(0))
                 val firstConnectableIndex = nodes.indexOfFirst { it.connectSupported }
                 val next = _uiState.value.copy(
@@ -1901,11 +1917,37 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             if (node.protocol != "direct" && node.protocol != "block") {
                 val originalHost = normalizeNodeHost(testNode.getString("host"))
                 val resolvedHost = XboardApi.resolveNodeHost(_uiState.value.nodeDns, originalHost)
-                if (resolvedHost != originalHost && (!testNode.has("sni") || testNode.getString("sni").isBlank())) {
+                if (node.protocol != "nodeexpand" && resolvedHost != originalHost && (!testNode.has("sni") || testNode.getString("sni").isBlank())) {
                     testNode.put("sni", originalHost)
                 }
                 testNode.put("host", resolvedHost)
                 testNode.put("server", resolvedHost)
+                if (node.protocol == "nodeexpand") {
+                    val endpoints = testNode.optJSONArray("endpoints")
+                        ?: testNode.optJSONObject("protocol_settings")?.optJSONArray("endpoints")
+                        ?: throw IllegalStateException("NodeExpand 节点缺少 endpoints。")
+                    for (index in 0 until endpoints.length()) {
+                        val endpoint = endpoints.getJSONObject(index)
+                        val endpointHost = normalizeNodeHost(endpoint.optString("host").ifBlank { endpoint.optString("server_host") })
+                        if (endpointHost.isBlank()) {
+                            throw IllegalStateException("NodeExpand endpoint #${index + 1} 缺少 host。")
+                        }
+                        val endpointPort = endpoint.optInt("port", endpoint.optInt("server_port", 0))
+                        if (endpointPort <= 0) {
+                            throw IllegalStateException("NodeExpand endpoint #${index + 1} 缺少 port。")
+                        }
+                        val resolvedEndpointHost = XboardApi.resolveNodeHost(_uiState.value.nodeDns, endpointHost)
+                        endpoint.put("host", resolvedEndpointHost)
+                        endpoint.put("server_host", resolvedEndpointHost)
+                        endpoint.put("server_port", endpointPort)
+                        endpoint.put("server", if (resolvedEndpointHost.contains(":")) "[$resolvedEndpointHost]:$endpointPort" else "$resolvedEndpointHost:$endpointPort")
+                    }
+                    testNode.put("endpoints", endpoints)
+                    val protocolSettings = testNode.optJSONObject("protocol_settings")
+                    if (protocolSettings != null) {
+                        protocolSettings.put("endpoints", endpoints)
+                    }
+                }
             }
             val (targetHost, targetPort, targetTls) = targetHostPort(_uiState.value.nodeTestTarget.trim())
             val result = JSONObject(
