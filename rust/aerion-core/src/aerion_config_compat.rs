@@ -3,10 +3,10 @@ use aerion::padding::PaddingScheme;
 use aerion::vless_transport::VlessTransportConfig;
 use aerion::{
     ClientConfig, HttpProxyClientConfig, Hysteria2ClientConfig, MieruClientConfig,
-    MieruTrafficPattern, MieruTransport, NaiveClientConfig, NodeExpandClientConfig,
-    NodeExpandEndpoint, RealityClientConfig, RouteClientConfig, RouteDecision,
-    ShadowsocksClientConfig, SocksProxyClientConfig, TrojanClientConfig, TuicClientConfig,
-    UtlsFingerprint, VlessClientConfig, VmessClientConfig, ensure_vmess_packet_encoding,
+    MieruTrafficPattern, MieruTransport, NaiveClientConfig, RealityClientConfig, RouteClientConfig,
+    RouteDecision, ShadowsocksClientConfig, SocksProxyClientConfig, TrojanClientConfig,
+    TuicClientConfig, UtlsFingerprint, VlessClientConfig, VmessClientConfig,
+    ensure_vmess_packet_encoding,
 };
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Map, Value};
@@ -25,7 +25,6 @@ pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionPr
     let protocol = node_protocol(node)?;
     match protocol.as_str() {
         "anytls" => anytls_config(node, listen).map(AerionProxyConfig::AnyTls),
-        "nodeexpand" => nodeexpand_config(node, listen).map(AerionProxyConfig::NodeExpand),
         "direct" => Ok(AerionProxyConfig::Route(RouteClientConfig {
             listen,
             default: RouteDecision::Direct,
@@ -72,70 +71,6 @@ fn anytls_config(node: &Value, listen: SocketAddr) -> Result<ClientConfig> {
             .unwrap_or_else(PaddingScheme::default_lines),
         heartbeat_interval_secs: node_u64(node, &["heartbeat_interval_secs"], 30)?,
     })
-}
-
-fn nodeexpand_config(node: &Value, listen: SocketAddr) -> Result<NodeExpandClientConfig> {
-    Ok(NodeExpandClientConfig {
-        listen,
-        endpoints: nodeexpand_endpoints(node)?,
-        password: node_optional_string(node, &["password"])
-            .filter(|value| !value.trim().is_empty())
-            .or_else(|| {
-                node_optional_string(node, &["uuid"]).filter(|value| !value.trim().is_empty())
-            })
-            .context("NodeExpand node field password or uuid is required")?,
-        padding_scheme: nodeexpand_padding_scheme(node)?,
-        heartbeat_interval_secs: node_u64(node, &["heartbeat_interval_secs"], 30)?,
-    })
-}
-
-fn nodeexpand_endpoints(node: &Value) -> Result<Vec<NodeExpandEndpoint>> {
-    let settings = object_field(node, &["protocol_settings"])?;
-    let value = field(node, &["endpoints"])
-        .or_else(|| settings.and_then(|settings| settings.get("endpoints")))
-        .context("NodeExpand node field endpoints is required")?;
-    let endpoints = match value {
-        Value::Array(values) => values,
-        _ => bail!("NodeExpand node field endpoints must be an array"),
-    };
-    ensure!(
-        !endpoints.is_empty(),
-        "NodeExpand endpoints must not be empty"
-    );
-    endpoints
-        .iter()
-        .enumerate()
-        .map(|(index, endpoint)| {
-            let Value::Object(map) = endpoint else {
-                bail!("NodeExpand endpoint #{} must be an object", index + 1);
-            };
-            let server_host = map_string(map, &["host", "server_host"])
-                .filter(|value| !value.trim().is_empty())
-                .with_context(|| format!("NodeExpand endpoint #{} host is required", index + 1))?;
-            let server_port = map_port(map, &["port", "server_port"])?
-                .with_context(|| format!("NodeExpand endpoint #{} port is required", index + 1))?;
-            Ok(NodeExpandEndpoint {
-                server_host,
-                server_port,
-            })
-        })
-        .collect()
-}
-
-fn nodeexpand_padding_scheme(node: &Value) -> Result<Vec<String>> {
-    if let Some(lines) = node_string_list(node, &["padding_scheme"])? {
-        if !lines.is_empty() {
-            return Ok(lines);
-        }
-    }
-    let settings = object_field(node, &["protocol_settings"])?;
-    if let Some(value) = settings.and_then(|settings| settings.get("padding_scheme")) {
-        let lines = value_string_list(value, "NodeExpand protocol_settings.padding_scheme")?;
-        if !lines.is_empty() {
-            return Ok(lines);
-        }
-    }
-    Ok(PaddingScheme::default_lines())
 }
 
 fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientConfig> {
@@ -640,22 +575,6 @@ fn map_string(map: &Map<String, Value>, keys: &[&str]) -> Option<String> {
         .and_then(value_to_string)
 }
 
-fn map_port(map: &Map<String, Value>, keys: &[&str]) -> Result<Option<u16>> {
-    let Some(value) = keys.iter().find_map(|key| map.get(*key)) else {
-        return Ok(None);
-    };
-    let port = match value {
-        Value::Number(number) => number.as_u64().context("port field is out of range")?,
-        Value::String(text) => text.trim().parse::<u64>().context("parse port field")?,
-        _ => bail!("map field {} must be a number or string", keys.join("/")),
-    };
-    ensure!(
-        port > 0 && port <= u16::MAX as u64,
-        "map port is out of range"
-    );
-    Ok(Some(port as u16))
-}
-
 fn value_to_string(value: &Value) -> Option<String> {
     match value {
         Value::String(text) => Some(text.trim().to_string()),
@@ -827,29 +746,6 @@ fn node_string_list(node: &Value, keys: &[&str]) -> Result<Option<Vec<String>>> 
         )),
         Some(_) => bail!("node field {} must be a string or array", keys.join("/")),
         None => Ok(None),
-    }
-}
-
-fn value_string_list(value: &Value, label: &str) -> Result<Vec<String>> {
-    match value {
-        Value::Array(values) => {
-            let mut output = Vec::new();
-            for value in values {
-                let value = value_to_string(value)
-                    .with_context(|| format!("{label} array item must be a string"))?;
-                if !value.is_empty() {
-                    output.push(value);
-                }
-            }
-            Ok(output)
-        }
-        Value::String(text) => Ok(text
-            .lines()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_string)
-            .collect()),
-        _ => bail!("{label} must be a string or array"),
     }
 }
 

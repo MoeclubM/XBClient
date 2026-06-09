@@ -261,37 +261,11 @@ class XbClientVpnService : VpnService() {
         if (protocol != "direct" && protocol != "block") {
             val originalHost = normalizeNodeHost(node.getString("host"))
             val resolvedHost = XboardApi.resolveNodeHost(nodeDns, originalHost)
-            if (protocol != "nodeexpand" && resolvedHost != originalHost && (!node.has("sni") || node.getString("sni").isBlank())) {
+            if (resolvedHost != originalHost && (!node.has("sni") || node.getString("sni").isBlank())) {
                 node.put("sni", originalHost)
             }
             node.put("host", resolvedHost)
             node.put("server", resolvedHost)
-            if (protocol == "nodeexpand") {
-                val endpoints = node.optJSONArray("endpoints")
-                    ?: node.optJSONObject("protocol_settings")?.optJSONArray("endpoints")
-                    ?: throw IllegalStateException("NodeExpand 节点缺少 endpoints。")
-                for (index in 0 until endpoints.length()) {
-                    val endpoint = endpoints.getJSONObject(index)
-                    val endpointHost = normalizeNodeHost(endpoint.optString("host").ifBlank { endpoint.optString("server_host") })
-                    if (endpointHost.isBlank()) {
-                        throw IllegalStateException("NodeExpand endpoint #${index + 1} 缺少 host。")
-                    }
-                    val endpointPort = endpoint.optInt("port", endpoint.optInt("server_port", 0))
-                    if (endpointPort <= 0) {
-                        throw IllegalStateException("NodeExpand endpoint #${index + 1} 缺少 port。")
-                    }
-                    val resolvedEndpointHost = XboardApi.resolveNodeHost(nodeDns, endpointHost)
-                    endpoint.put("host", resolvedEndpointHost)
-                    endpoint.put("server_host", resolvedEndpointHost)
-                    endpoint.put("server_port", endpointPort)
-                    endpoint.put("server", if (resolvedEndpointHost.contains(":")) "[$resolvedEndpointHost]:$endpointPort" else "$resolvedEndpointHost:$endpointPort")
-                }
-                node.put("endpoints", endpoints)
-                val protocolSettings = node.optJSONObject("protocol_settings")
-                if (protocolSettings != null) {
-                    protocolSettings.put("endpoints", endpoints)
-                }
-            }
         }
         currentNodeJson = node.toString()
         val tunnelNode = if (routeConfigYaml.isBlank()) {

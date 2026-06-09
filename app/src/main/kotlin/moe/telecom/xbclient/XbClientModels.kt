@@ -63,7 +63,6 @@ data class AnyTlsNode(
     val protocolLabel: String
         get() = when (protocol) {
             "anytls" -> "AnyTLS"
-            "nodeexpand" -> "NodeExpand"
             "hysteria2" -> "Hysteria2"
             "hysteria" -> "Hysteria"
             "ss" -> "Shadowsocks"
@@ -83,7 +82,6 @@ data class AnyTlsNode(
     val connectSupported: Boolean
         get() = when (protocol) {
             "anytls",
-            "nodeexpand",
             "hysteria2",
             "trojan",
             "vless",
@@ -280,7 +278,7 @@ private fun JSONObject.normalizedNodeJson(protocol: String): String {
             }
         }
     }
-    if (protocol in setOf("anytls", "nodeexpand", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
+    if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
         node.put("type", protocol)
     }
     return node.toString()
@@ -681,9 +679,6 @@ fun readableNodeTestError(error: String): String {
     val normalized = error.lowercase(Locale.US)
     if (error.contains("read AnyTLS frame header")) {
         return "失败：AnyTLS 服务器断开连接（$error）"
-    }
-    if (error.contains("NodeExpand")) {
-        return "失败：NodeExpand 连接失败（$error）"
     }
     if (error.contains("Hysteria2 target test")) {
         return "失败：Hysteria2 连接失败（$error）"

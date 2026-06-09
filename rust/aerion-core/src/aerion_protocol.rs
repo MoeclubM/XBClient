@@ -1,12 +1,12 @@
 use aerion::{
     ClientConfig, HttpProxyClientConfig, Hysteria2ClientConfig, MieruClientConfig,
-    NaiveClientConfig, NodeExpandClientConfig, ProxyCore, RouteClientConfig,
-    ShadowsocksClientConfig, SocksProxyClientConfig, TrojanClientConfig, TuicClientConfig,
-    VlessClientConfig, VmessClientConfig, run_client_listener, run_http_proxy_client_listener,
+    NaiveClientConfig, ProxyCore, RouteClientConfig, ShadowsocksClientConfig,
+    SocksProxyClientConfig, TrojanClientConfig, TuicClientConfig, VlessClientConfig,
+    VmessClientConfig, run_client_listener, run_http_proxy_client_listener,
     run_hysteria2_client_listener, run_mieru_client_listener, run_naive_client_listener,
-    run_nodeexpand_client_listener, run_route_client_listener, run_shadowsocks_client_listener,
-    run_socks_proxy_client_listener, run_trojan_client_listener, run_tuic_client_listener,
-    run_vless_client_listener, run_vmess_client_listener,
+    run_route_client_listener, run_shadowsocks_client_listener, run_socks_proxy_client_listener,
+    run_trojan_client_listener, run_tuic_client_listener, run_vless_client_listener,
+    run_vmess_client_listener,
 };
 use anyhow::Result;
 use tokio::net::TcpListener;
@@ -21,7 +21,6 @@ pub enum AerionProxyConfig {
     Vmess(VmessClientConfig),
     Mieru(MieruClientConfig),
     Naive(NaiveClientConfig),
-    NodeExpand(NodeExpandClientConfig),
     Route(RouteClientConfig),
     Shadowsocks(ShadowsocksClientConfig),
     SocksProxy(SocksProxyClientConfig),
@@ -62,9 +61,6 @@ async fn run_aerion_listener(
         AerionProxyConfig::Vmess(config) => run_vmess_client_listener(listener, config).await,
         AerionProxyConfig::Mieru(config) => run_mieru_client_listener(listener, config).await,
         AerionProxyConfig::Naive(config) => run_naive_client_listener(listener, config).await,
-        AerionProxyConfig::NodeExpand(config) => {
-            run_nodeexpand_client_listener(listener, config, core).await
-        }
         AerionProxyConfig::Route(config) => run_route_client_listener(listener, config).await,
         AerionProxyConfig::Shadowsocks(config) => {
             run_shadowsocks_client_listener(listener, config).await

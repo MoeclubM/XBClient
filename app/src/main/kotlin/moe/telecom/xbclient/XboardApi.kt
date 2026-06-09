@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 
 object XboardApi {
     private const val SUBSCRIPTION_USER_AGENT = "mihomo"
-    private const val SUBSCRIPTION_NODE_TYPES = "anytls,nodeexpand,hysteria,trojan,vless,vmess,mieru,naive,shadowsocks,tuic,http,socks5,direct,block"
+    private const val SUBSCRIPTION_NODE_TYPES = "anytls,hysteria,trojan,vless,vmess,mieru,naive,shadowsocks,tuic,http,socks5,direct,block"
     private val userAgent: String
         get() = BuildConfig.USER_AGENT
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -62,7 +62,6 @@ object XboardApi {
             "gift_card_history" -> getAuth(normalizedBaseUrl, "/api/v1/user/gift-card/history", authData, optionalQuery(params, "page", "per_page"))
             "gift_card_detail" -> getAuth(normalizedBaseUrl, "/api/v1/user/gift-card/detail", authData, requiredQuery(params, "id"))
             "gift_card_types" -> getAuth(normalizedBaseUrl, "/api/v1/user/gift-card/types", authData, emptyMap())
-            "nodeexpand_nodes" -> getAuth(normalizedBaseUrl, "/api/v1/nodeexpand/user/nodes", authData, emptyMap())
             "invite_fetch" -> getAuth(normalizedBaseUrl, "/api/v1/user/invite/fetch", authData, emptyMap())
             "invite_save" -> getAuth(normalizedBaseUrl, "/api/v1/user/invite/save", authData, emptyMap())
             "invite_details" -> getAuth(normalizedBaseUrl, "/api/v1/user/invite/details", authData, emptyMap())
