@@ -8,6 +8,8 @@ import android.content.Intent
 import android.graphics.drawable.Icon
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.VpnService
 import android.net.TrafficStats
 import android.os.Build
@@ -38,7 +40,7 @@ class XbClientVpnService : VpnService() {
     private var currentNodeDns = DEFAULT_NODE_DNS
     private var currentOverseasDns = DEFAULT_OVERSEAS_DNS
     private var currentDirectDns = DEFAULT_DIRECT_DNS
-    private var currentDnsMode = DNS_MODE_OVER_TCP
+    private var currentDnsMode = DNS_MODE_VIRTUAL
     private var currentVirtualDnsPool = DEFAULT_VIRTUAL_DNS_POOL
     private var currentIpv6Enabled = true
     private var currentRouteConfigYaml = ""
@@ -316,15 +318,13 @@ class XbClientVpnService : VpnService() {
      * Follows the active underlying (non-VPN) network and pins it via
      * [setUnderlyingNetworks]. Without this, after a Wi-Fi sleep/handover or IP
      * change the tunnel stays bound to the now-dead network and apps lose
-     * connectivity until the VPN is restarted. The default-network callback runs
-     * in this (VPN-excluded) process, so it reports the physical uplink, not the
-     * tunnel itself.
+     * connectivity until the VPN is restarted.
      */
     private fun registerUnderlyingNetworkTracking() {
         if (networkCallback != null) return
         val manager = getSystemService(ConnectivityManager::class.java)
             ?: throw IllegalStateException("connectivity manager is required")
-        val activeNetwork = manager.activeNetwork
+        val activeNetwork = manager.activeNetwork?.takeIf { isNonVpnInternet(manager, it) }
             ?: throw IllegalStateException("active underlying network is required")
         underlyingNetwork = activeNetwork
         setUnderlyingNetworks(arrayOf(activeNetwork))
@@ -336,19 +336,32 @@ class XbClientVpnService : VpnService() {
 
             override fun onLost(network: Network) {
                 if (underlyingNetwork == network) {
-                    underlyingNetwork = manager.activeNetwork
-                    setUnderlyingNetworks(underlyingNetwork?.let { arrayOf(it) })
+                    underlyingNetwork = null
+                    setUnderlyingNetworks(null)
                 }
             }
         }
         try {
-            manager.registerDefaultNetworkCallback(callback)
+            manager.registerNetworkCallback(
+                NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                    .build(),
+                callback
+            )
             connectivityManager = manager
             networkCallback = callback
         } catch (error: Throwable) {
             Log.e("XBClient", "register underlying network callback failed", error)
             throw IllegalStateException("register underlying network callback failed", error)
         }
+    }
+
+    private fun isNonVpnInternet(manager: ConnectivityManager, network: Network): Boolean {
+        val capabilities = manager.getNetworkCapabilities(network)
+            ?: throw IllegalStateException("network capabilities are required")
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
     }
 
     private fun unregisterUnderlyingNetworkTracking() {

@@ -32,6 +32,8 @@ enum class PassScreen {
     NODES,
     PLANS,
     PROFILE,
+    GIFT_CARDS,
+    ACCOUNT_SECURITY,
     INVITE_DETAILS,
     TRAFFIC_LOGS,
     TICKETS,
@@ -146,6 +148,34 @@ data class InstalledAppItem(
 data class OAuthProvider(
     val driver: String,
     val label: String
+)
+
+data class OAuthBindingItem(
+    val driver: String,
+    val label: String,
+    val bound: Boolean,
+    val identity: String,
+    val createdAt: String
+)
+
+data class GiftCardPreviewItem(
+    val templateName: String,
+    val typeName: String,
+    val statusName: String,
+    val rewardText: String,
+    val canRedeem: Boolean,
+    val reason: String
+)
+
+data class GiftCardUsageItem(
+    val id: Int,
+    val code: String,
+    val templateName: String,
+    val typeName: String,
+    val rewardsText: String,
+    val inviteRewardsText: String,
+    val multiplierApplied: Double,
+    val createdAt: String
 )
 
 data class PlanPrice(
@@ -325,6 +355,40 @@ fun JSONObject.toOAuthProvider(): OAuthProvider =
         label = getString("label")
     )
 
+fun JSONObject.toOAuthBindingItem(): OAuthBindingItem =
+    OAuthBindingItem(
+        driver = getString("driver"),
+        label = optString("label"),
+        bound = getBoolean("bound"),
+        identity = optString("email").ifEmpty { optString("name").ifEmpty { optString("nickname") } },
+        createdAt = optString("created_at")
+    )
+
+fun JSONObject.toGiftCardPreviewItem(): GiftCardPreviewItem {
+    val codeInfo = getJSONObject("code_info")
+    val template = codeInfo.getJSONObject("template")
+    return GiftCardPreviewItem(
+        templateName = template.getString("name"),
+        typeName = template.getString("type_name"),
+        statusName = codeInfo.getString("status_name"),
+        rewardText = giftCardRewardText(getJSONObject("reward_preview")),
+        canRedeem = getBoolean("can_redeem"),
+        reason = optString("reason")
+    )
+}
+
+fun JSONObject.toGiftCardUsageItem(): GiftCardUsageItem =
+    GiftCardUsageItem(
+        id = getInt("id"),
+        code = getString("code"),
+        templateName = getString("template_name"),
+        typeName = getString("template_type_name"),
+        rewardsText = giftCardRewardText(jsonObjectValue(get("rewards_given"))),
+        inviteRewardsText = if (isNull("invite_rewards")) "" else giftCardRewardText(jsonObjectValue(get("invite_rewards"))),
+        multiplierApplied = numericValue(opt("multiplier_applied")),
+        createdAt = optString("created_at")
+    )
+
 fun JSONObject.toPlanItem(): PlanItem {
     val periodFields = listOf(
         "month_price" to "月付",
@@ -372,6 +436,12 @@ fun JSONArray.toTicketMessageItemList(): List<TicketMessageItem> =
 
 fun JSONArray.toOAuthProviderList(): List<OAuthProvider> =
     List(length()) { index -> getJSONObject(index).toOAuthProvider() }
+
+fun JSONArray.toOAuthBindingItemList(): List<OAuthBindingItem> =
+    List(length()) { index -> getJSONObject(index).toOAuthBindingItem() }
+
+fun JSONArray.toGiftCardUsageItemList(): List<GiftCardUsageItem> =
+    List(length()) { index -> getJSONObject(index).toGiftCardUsageItem() }
 
 fun JSONArray.toPlanItemList(): List<PlanItem> =
     List(length()) { index -> getJSONObject(index).toPlanItem() }
@@ -470,6 +540,62 @@ fun rewardContentText(item: JSONObject): String {
         return parts.joinToString(" · ")
     }
     throw IllegalStateException("广告奖励记录缺少 reward_content 或 rewards。")
+}
+
+fun giftCardRewardText(rewards: JSONObject): String {
+    val parts = mutableListOf<String>()
+    if (!rewards.isNull("balance")) {
+        val balance = numericValue(rewards.opt("balance"))
+        if (balance > 0.0) {
+            parts.add("余额 +" + String.format(Locale.US, "%.2f", balance / 100.0).trimEnd('0').trimEnd('.'))
+        }
+    }
+    if (!rewards.isNull("transfer_enable")) {
+        val transfer = numericValue(rewards.opt("transfer_enable"))
+        if (transfer > 0.0) {
+            parts.add("流量 +${formatTrafficBytes(transfer)}")
+        }
+    }
+    if (!rewards.isNull("device_limit")) {
+        val deviceLimit = numericValue(rewards.opt("device_limit")).toInt()
+        if (deviceLimit > 0) {
+            parts.add("设备数 +$deviceLimit")
+        }
+    }
+    if (!rewards.isNull("expire_days")) {
+        val expireDays = numericValue(rewards.opt("expire_days")).toInt()
+        if (expireDays > 0) {
+            parts.add("有效期 +$expireDays 天")
+        }
+    }
+    if (!rewards.isNull("plan_id")) {
+        parts.add("套餐 #${numericValue(rewards.opt("plan_id")).toInt()}")
+    }
+    if (!rewards.isNull("plan_validity_days")) {
+        val validityDays = numericValue(rewards.opt("plan_validity_days")).toInt()
+        if (validityDays > 0) {
+            parts.add("套餐有效期 $validityDays 天")
+        }
+    }
+    if (!rewards.isNull("reset_package") && rewards.optBoolean("reset_package")) {
+        parts.add("重置流量")
+    }
+    if (!rewards.isNull("invite_reward_rate")) {
+        val rate = numericValue(rewards.opt("invite_reward_rate"))
+        if (rate > 0.0) {
+            parts.add("邀请人奖励 ${String.format(Locale.US, "%.0f", rate * 100.0)}%")
+        }
+    }
+    if (parts.isEmpty()) {
+        throw IllegalStateException("礼品卡奖励内容为空。")
+    }
+    return parts.joinToString(" · ")
+}
+
+private fun jsonObjectValue(value: Any?): JSONObject = when (value) {
+    is JSONObject -> value
+    is String -> JSONObject(value)
+    else -> throw IllegalStateException("JSON 对象字段类型无效：${value?.javaClass?.name ?: "null"}")
 }
 
 fun JSONObject.requireNotXboardFail() {

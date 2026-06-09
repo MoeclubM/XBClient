@@ -1,5 +1,5 @@
 # 复制为安装目录旁或 %APPDATA%\\XBClient\\local.properties 后修改
 xbclient.appName=XBClient
 xbclient.defaultApiUrl=https://example.com
-xbclient.userAgent=XBClient/1.0
+xbclient.userAgent=<your-api-user-agent>
 xbclient.oauthCallbackScheme=xbclient

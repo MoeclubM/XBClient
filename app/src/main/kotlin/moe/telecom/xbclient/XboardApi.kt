@@ -53,7 +53,7 @@ object XboardApi {
             "order_save" -> postAuth(normalizedBaseUrl, "/api/v1/user/order/save", authData, params)
             "order_checkout" -> postAuth(normalizedBaseUrl, "/api/v1/user/order/checkout", authData, params)
             "oauth_bindings" -> getAuth(normalizedBaseUrl, "/api/v1/user/oauth/bindings", authData, emptyMap())
-            "oauth_bind_prepare" -> postAuth(normalizedBaseUrl, "/api/v1/user/oauth/${params.getString("driver")}/bind", authData, JSONObject())
+            "oauth_bind_prepare" -> requestJson("POST", normalizedBaseUrl, "/api/v1/user/oauth/${params.getString("driver")}/bind", authData, optionalQuery(params, "redirect", "client", "app_scheme"), JSONObject())
             "oauth_unbind" -> postAuth(normalizedBaseUrl, "/api/v1/user/oauth/${params.getString("driver")}/unbind", authData, JSONObject())
             "active_sessions" -> getAuth(normalizedBaseUrl, "/api/v1/user/getActiveSession", authData, emptyMap())
             "remove_active_session" -> postAuth(normalizedBaseUrl, "/api/v1/user/removeActiveSession", authData, params)

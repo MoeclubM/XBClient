@@ -1029,7 +1029,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
     val backTargetScreen = when (visibleScreen) {
         PassScreen.NODE_SELECT -> PassScreen.NODES
         PassScreen.TICKET_DETAIL -> PassScreen.TICKETS
-        PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> PassScreen.PROFILE
+        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> PassScreen.PROFILE
         PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
         else -> null
     }
@@ -1139,6 +1139,8 @@ private fun MainScreenContent(
                 item {
                     when (screen) {
                         PassScreen.PROFILE -> ProfileScreen(state, viewModel)
+                        PassScreen.GIFT_CARDS -> GiftCardsScreen(state, viewModel)
+                        PassScreen.ACCOUNT_SECURITY -> AccountSecurityScreen(state, viewModel)
                         PassScreen.INVITE_DETAILS -> InviteDetailsScreen(state)
                         PassScreen.TRAFFIC_LOGS -> TrafficLogsScreen(state)
                         PassScreen.TICKETS -> TicketsScreen(state, viewModel)
@@ -1157,7 +1159,7 @@ private fun MainScreenContent(
 private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewModel, modifier: Modifier = Modifier) {
     val selected = when (state.screen) {
         PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
-        PassScreen.PROFILE, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> PassScreen.PROFILE
+        PassScreen.PROFILE, PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
         else -> PassScreen.NODES
     }
@@ -1886,6 +1888,14 @@ private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) 
                 Text(stringResource(R.string.common_settings))
             }
             Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { viewModel.openScreen(PassScreen.ACCOUNT_SECURITY) }, modifier = Modifier.fillMaxWidth()) {
+                Text("账号安全")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { viewModel.openScreen(PassScreen.GIFT_CARDS) }, modifier = Modifier.fillMaxWidth()) {
+                Text("礼品卡 / 兑换码")
+            }
+            Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = viewModel::logout, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.common_logout))
             }
@@ -2471,7 +2481,6 @@ private fun NodeRow(
         ),
         border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
-            .clickable(onClick = onSelect)
             .fillMaxWidth()
             .animateContentSize(animationSpec = tween(180))
     ) {
@@ -2484,14 +2493,21 @@ private fun NodeRow(
                 Text(
                     (if (selected) "✓ " else "") + node.displayName(index, stringResource(R.string.node_default_name, index + 1)),
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(onClick = onSelect)
                 )
                 IconButton(onClick = onTest, modifier = Modifier.size(34.dp)) {
                     Text("↻")
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onSelect)
+            ) {
                 Text(node.protocolLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 for (tag in node.tags) {
                     Spacer(Modifier.width(6.dp))
@@ -2706,7 +2722,7 @@ private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel
 }
 
 @Composable
-private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
+fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -2720,7 +2736,7 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
 }
 
 @Composable
-private fun Panel(content: @Composable ColumnScope.() -> Unit) {
+fun Panel(content: @Composable ColumnScope.() -> Unit) {
     OutlinedCard(
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -2906,7 +2922,7 @@ private fun AnimatedContentTransitionScope<PassScreen>.screenTransition(): Conte
         PassScreen.NODE_SELECT -> 1
         PassScreen.PLANS -> 2
         PassScreen.PROFILE -> 3
-        PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 4
+        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 4
         PassScreen.SETTINGS -> 4
         PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> 5
     }
@@ -2915,7 +2931,7 @@ private fun AnimatedContentTransitionScope<PassScreen>.screenTransition(): Conte
         PassScreen.NODE_SELECT -> 1
         PassScreen.PLANS -> 2
         PassScreen.PROFILE -> 3
-        PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 4
+        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 4
         PassScreen.SETTINGS -> 4
         PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> 5
     }

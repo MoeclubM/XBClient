@@ -71,6 +71,9 @@ data class XbClientUiState(
     val tickets: List<TicketItem> = emptyList(),
     val selectedTicket: TicketItem? = null,
     val ticketMessages: List<TicketMessageItem> = emptyList(),
+    val giftCardHistory: List<GiftCardUsageItem> = emptyList(),
+    val giftCardPreview: GiftCardPreviewItem? = null,
+    val oauthBindings: List<OAuthBindingItem> = emptyList(),
     val inviteForce: Boolean = false,
     val inviteCommissionRate: Int = 0,
     val inviteCommissionBalance: Int = 0,
@@ -81,7 +84,7 @@ data class XbClientUiState(
     val overseasDns: String = DEFAULT_OVERSEAS_DNS,
     val directDns: String = DEFAULT_DIRECT_DNS,
     val nodeTestTarget: String = DEFAULT_NODE_TEST_TARGET,
-    val vpnDnsMode: String = DNS_MODE_OVER_TCP,
+    val vpnDnsMode: String = DNS_MODE_VIRTUAL,
     val virtualDnsPool: String = DEFAULT_VIRTUAL_DNS_POOL,
     val vpnIpv6Enabled: Boolean = true,
     val routeConfigYaml: String = "",
@@ -103,6 +106,10 @@ data class XbClientUiState(
     val trafficLogsLoading: Boolean = false,
     val ticketsLoading: Boolean = false,
     val ticketDetailLoading: Boolean = false,
+    val giftCardChecking: Boolean = false,
+    val giftCardRedeeming: Boolean = false,
+    val giftCardHistoryLoading: Boolean = false,
+    val oauthBindingsLoading: Boolean = false,
     val noticesLoading: Boolean = false,
     val installedApps: List<InstalledAppItem> = emptyList(),
     val appSearchQuery: String = "",
@@ -146,7 +153,7 @@ data class XbClientUiState(
         get() = subscriptionBlockReason.isNotEmpty()
 
     val isRefreshing: Boolean
-        get() = userLoading || nodesLoading || plansLoading || invitesLoading || commissionLogsLoading || trafficLogsLoading || ticketsLoading || ticketDetailLoading || nodesTesting || noticesLoading
+        get() = userLoading || nodesLoading || plansLoading || invitesLoading || commissionLogsLoading || trafficLogsLoading || ticketsLoading || ticketDetailLoading || giftCardChecking || giftCardRedeeming || giftCardHistoryLoading || oauthBindingsLoading || nodesTesting || noticesLoading
 }
 
 sealed interface XbClientEvent {
@@ -221,6 +228,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(screen = screen) }
         when (screen) {
             PassScreen.PROFILE -> Unit
+            PassScreen.GIFT_CARDS -> refreshGiftCardHistory(showLoading = true, showErrors = true)
+            PassScreen.ACCOUNT_SECURITY -> {
+                refreshOAuthProviders(showErrors = true)
+                refreshOAuthBindings(showLoading = true, showErrors = true)
+            }
             PassScreen.INVITE_DETAILS -> refreshInviteDetails(showLoading = true, showErrors = true)
             PassScreen.TRAFFIC_LOGS -> refreshTrafficLogs(showLoading = true, showErrors = true)
             PassScreen.TICKETS -> refreshTickets(showLoading = true, showErrors = true)
@@ -244,6 +256,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshUserInfo(showErrors = true)
                 refreshInvites(force = true, showLoading = true, showErrors = true)
                 refreshRewardConfig()
+            }
+            PassScreen.GIFT_CARDS -> refreshGiftCardHistory(force = true, showLoading = true, showErrors = true)
+            PassScreen.ACCOUNT_SECURITY -> {
+                refreshUserInfo(showErrors = true)
+                refreshOAuthProviders(showErrors = true)
+                refreshOAuthBindings(force = true, showLoading = true, showErrors = true)
             }
             PassScreen.INVITE_DETAILS -> refreshInviteDetails(force = true, showLoading = true, showErrors = true)
             PassScreen.TRAFFIC_LOGS -> refreshTrafficLogs(force = true, showLoading = true, showErrors = true)
@@ -291,7 +309,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         when (state.screen) {
             PassScreen.NODE_SELECT -> openScreen(PassScreen.NODES)
             PassScreen.TICKET_DETAIL -> openScreen(PassScreen.TICKETS)
-            PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> openScreen(PassScreen.PROFILE)
+            PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> openScreen(PassScreen.PROFILE)
             PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> openScreen(PassScreen.SETTINGS)
             PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS -> Unit
         }
@@ -394,6 +412,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     )
                 }
                 persistStoredState(_uiState.value)
+                if (_uiState.value.screen == PassScreen.ACCOUNT_SECURITY && _uiState.value.authData.isNotEmpty()) {
+                    refreshOAuthBindings(showErrors = showErrors)
+                }
             } catch (error: Exception) {
                 if (showErrors) {
                     emitMessage("OAuth 配置加载失败：${error.message}")
@@ -429,7 +450,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
         closeOAuthWebView()
         val state = uri.getQueryParameter("state")
-        if (state.isNullOrEmpty() || state != pendingOAuthState) {
+        if (!state.isNullOrEmpty() && pendingOAuthState.isNotEmpty() && state != pendingOAuthState) {
             emitMessage("OAuth callback state 不匹配。")
             return
         }
@@ -442,6 +463,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val success = uri.getQueryParameter("oauth_success")
         if (!success.isNullOrEmpty()) {
             emitMessage(success)
+            if (_uiState.value.isLoggedIn) {
+                refreshOAuthBindings(force = true, showErrors = true)
+            }
             return
         }
         val confirmToken = uri.getQueryParameter("oauth_confirm_token")
@@ -810,6 +834,219 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 if (showErrors) {
                     emitMessage("流量明细加载失败：${error.message}")
                 }
+            }
+        }
+    }
+
+    fun refreshGiftCardHistory(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty() || _uiState.value.giftCardHistoryLoading) {
+            return
+        }
+        if (!force && _uiState.value.giftCardHistory.isNotEmpty()) {
+            return
+        }
+        if (showLoading) {
+            _uiState.update { it.copy(giftCardHistoryLoading = true) }
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody(
+                    "礼品卡记录",
+                    XboardApi.request(
+                        "gift_card_history",
+                        defaultApiUrl(),
+                        authData,
+                        JSONObject()
+                            .put("page", 1)
+                            .put("per_page", 20)
+                    )
+                )
+                _uiState.update {
+                    it.copy(
+                        giftCardHistory = body.getJSONArray("data").toGiftCardUsageItemList(),
+                        giftCardHistoryLoading = false
+                    )
+                }
+            } catch (error: Exception) {
+                if (showLoading) {
+                    _uiState.update { it.copy(giftCardHistoryLoading = false) }
+                }
+                if (showErrors) {
+                    emitMessage("礼品卡记录加载失败：${error.message}")
+                }
+            }
+        }
+    }
+
+    fun checkGiftCard(code: String) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty() || _uiState.value.giftCardChecking) {
+            return
+        }
+        _uiState.update { it.copy(giftCardChecking = true, giftCardPreview = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody(
+                    "礼品卡查询",
+                    XboardApi.request(
+                        "gift_card_check",
+                        defaultApiUrl(),
+                        authData,
+                        JSONObject().put("code", code.trim())
+                    )
+                )
+                _uiState.update {
+                    it.copy(
+                        giftCardPreview = body.getJSONObject("data").toGiftCardPreviewItem(),
+                        giftCardChecking = false
+                    )
+                }
+            } catch (error: Exception) {
+                _uiState.update { it.copy(giftCardChecking = false) }
+                emitMessage("礼品卡查询失败：${error.message}")
+            }
+        }
+    }
+
+    fun redeemGiftCard(code: String) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty() || _uiState.value.giftCardRedeeming) {
+            return
+        }
+        _uiState.update { it.copy(giftCardRedeeming = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody(
+                    "礼品卡兑换",
+                    XboardApi.request(
+                        "gift_card_redeem",
+                        defaultApiUrl(),
+                        authData,
+                        JSONObject().put("code", code.trim())
+                    )
+                )
+                val data = body.getJSONObject("data")
+                val rewardText = giftCardRewardText(data.getJSONObject("rewards"))
+                _uiState.update { it.copy(giftCardRedeeming = false, giftCardPreview = null) }
+                emitMessage("${data.getString("message")} $rewardText")
+                refreshUserInfo()
+                refreshSubscriptionAndNodes(force = true)
+                refreshGiftCardHistory(force = true, showLoading = true, showErrors = true)
+            } catch (error: Exception) {
+                _uiState.update { it.copy(giftCardRedeeming = false) }
+                emitMessage("礼品卡兑换失败：${error.message}")
+            }
+        }
+    }
+
+    fun refreshOAuthBindings(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty() || _uiState.value.oauthBindingsLoading || _uiState.value.oauthProviders.isEmpty()) {
+            return
+        }
+        if (!force && _uiState.value.oauthBindings.isNotEmpty()) {
+            return
+        }
+        if (showLoading) {
+            _uiState.update { it.copy(oauthBindingsLoading = true) }
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody("OAuth 绑定状态", XboardApi.request("oauth_bindings", defaultApiUrl(), authData, JSONObject()))
+                _uiState.update {
+                    it.copy(
+                        oauthBindings = extractDataArray(body).toOAuthBindingItemList(),
+                        oauthBindingsLoading = false
+                    )
+                }
+            } catch (error: Exception) {
+                if (showLoading) {
+                    _uiState.update { it.copy(oauthBindingsLoading = false) }
+                }
+                if (showErrors) {
+                    emitMessage("OAuth 绑定状态加载失败：${error.message}")
+                }
+            }
+        }
+    }
+
+    fun bindOAuth(driver: String) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty()) {
+            return
+        }
+        val state = UUID.randomUUID().toString()
+        pendingOAuthState = state
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val body = requireSuccessfulBody(
+                    "OAuth 绑定",
+                    XboardApi.request(
+                        "oauth_bind_prepare",
+                        defaultApiUrl(),
+                        authData,
+                        JSONObject()
+                            .put("driver", driver)
+                            .put("redirect", "dashboard")
+                            .put("client", "app")
+                            .put("app_scheme", BuildConfig.OAUTH_CALLBACK_SCHEME)
+                    )
+                )
+                val url = body.getJSONObject("data").getString("authorize_url")
+                pendingOAuthState = Uri.parse(url).getQueryParameter("state") ?: state
+                emitEvent(XbClientEvent.OpenExternalUrl(url))
+            } catch (error: Exception) {
+                pendingOAuthState = ""
+                emitMessage("OAuth 绑定失败：${error.message}")
+            }
+        }
+    }
+
+    fun unbindOAuth(driver: String) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty()) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                requireSuccessfulBody(
+                    "OAuth 解绑",
+                    XboardApi.request("oauth_unbind", defaultApiUrl(), authData, JSONObject().put("driver", driver))
+                )
+                emitMessage("OAuth 已解绑。")
+                refreshOAuthBindings(force = true, showLoading = true, showErrors = true)
+            } catch (error: Exception) {
+                emitMessage("OAuth 解绑失败：${error.message}")
+            }
+        }
+    }
+
+    fun changePassword(oldPassword: String, newPassword: String, confirmPassword: String) {
+        val authData = _uiState.value.authData
+        if (authData.isEmpty()) {
+            return
+        }
+        if (newPassword != confirmPassword) {
+            emitMessage("两次新密码输入不同。")
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                requireSuccessfulBody(
+                    "修改密码",
+                    XboardApi.request(
+                        "change_password",
+                        defaultApiUrl(),
+                        authData,
+                        JSONObject()
+                            .put("old_password", oldPassword)
+                            .put("new_password", newPassword)
+                    )
+                )
+                emitMessage("密码已修改。")
+            } catch (error: Exception) {
+                emitMessage("密码修改失败：${error.message}")
             }
         }
     }
@@ -1668,6 +1905,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     testNode.put("sni", originalHost)
                 }
                 testNode.put("host", resolvedHost)
+                testNode.put("server", resolvedHost)
             }
             val (targetHost, targetPort, targetTls) = targetHostPort(_uiState.value.nodeTestTarget.trim())
             val result = JSONObject(
@@ -1746,7 +1984,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             overseasDns = prefs[Keys.OVERSEAS_DNS] ?: DEFAULT_OVERSEAS_DNS,
             directDns = prefs[Keys.DIRECT_DNS] ?: DEFAULT_DIRECT_DNS,
             nodeTestTarget = prefs[Keys.NODE_TEST_TARGET] ?: DEFAULT_NODE_TEST_TARGET,
-            vpnDnsMode = prefs[Keys.VPN_DNS_MODE] ?: DNS_MODE_OVER_TCP,
+            vpnDnsMode = prefs[Keys.VPN_DNS_MODE] ?: DNS_MODE_VIRTUAL,
             virtualDnsPool = prefs[Keys.VIRTUAL_DNS_POOL] ?: DEFAULT_VIRTUAL_DNS_POOL,
             vpnIpv6Enabled = prefs[Keys.VPN_IPV6_ENABLED] ?: true,
             routeConfigYaml = prefs[Keys.ROUTE_CONFIG_YAML].orEmpty(),
