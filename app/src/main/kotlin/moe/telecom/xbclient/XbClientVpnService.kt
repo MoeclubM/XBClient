@@ -227,9 +227,6 @@ class XbClientVpnService : VpnService() {
         }
         val systemDns = if (dnsMode == DNS_MODE_DIRECT) dnsAddress else PRIVATE_IPV4_DNS
         builder.addDnsServer(systemDns)
-        if (ipv6Enabled && dnsMode != DNS_MODE_DIRECT) {
-            builder.addDnsServer(PRIVATE_IPV6_DNS)
-        }
         Log.i("XBClient", "VPN DNS config: mode=$dnsMode system_dns=$systemDns upstream_dns=$dnsAddress fake_pool=$virtualDnsPool ipv6=$ipv6Enabled route_rules=${routeConfigYaml.isNotBlank()}")
         if (routeConfigYaml.isNotBlank() && dnsMode != DNS_MODE_VIRTUAL) {
             Log.w("XBClient", "Clash rule routing is enabled with DNS mode $dnsMode; DOMAIN rules only keep hostnames reliably in Fake-IP mode.")
@@ -572,7 +569,6 @@ class XbClientVpnService : VpnService() {
         private const val PRIVATE_IPV4_CLIENT = "172.19.0.1"
         private const val PRIVATE_IPV4_DNS = "172.19.0.2"
         private const val PRIVATE_IPV6_CLIENT = "fdfe:dcba:9876::1"
-        private const val PRIVATE_IPV6_DNS = "fdfe:dcba:9876::2"
         private const val CHANNEL_ID = "xbclient_vpn"
         private const val NOTIFICATION_ID = 1
         private const val PREFS = "xbclient"
