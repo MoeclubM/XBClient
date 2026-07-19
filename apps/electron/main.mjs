@@ -68,7 +68,7 @@ function readBuildConfig() {
     return JSON.parse(fs.readFileSync(path.join(process.resourcesPath, 'config', 'build-config.json'), 'utf8'))
   }
   return {
-    appName: 'XBClient',
+    appName: process.env.XBCLIENT_APP_NAME,
     defaultApiUrl: process.env.XBCLIENT_DEFAULT_API_URL,
     userAgent: process.env.XBCLIENT_USER_AGENT,
     oauthCallbackScheme: process.env.XBCLIENT_OAUTH_CALLBACK_SCHEME,

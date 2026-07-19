@@ -12,6 +12,12 @@ extensions.extraProperties["aerionAndroidNdkVersion"] = androidNdkVersion
 val defaultApiUrl = providers.environmentVariable("XBCLIENT_DEFAULT_API_URL").orNull
     ?.trim()?.takeIf { it.isNotEmpty() }
     ?: error("XBCLIENT_DEFAULT_API_URL GitHub Secret is required")
+val appName = providers.environmentVariable("XBCLIENT_APP_NAME").orNull
+    ?.trim()?.takeIf { it.isNotEmpty() }
+    ?: error("XBCLIENT_APP_NAME GitHub Secret is required")
+val androidApplicationId = providers.environmentVariable("XBCLIENT_APPLICATION_ID").orNull
+    ?.trim()?.takeIf { it.isNotEmpty() }
+    ?: error("XBCLIENT_APPLICATION_ID GitHub Secret is required")
 val admobAppId = providers.environmentVariable("XBCLIENT_ADMOB_APP_ID").orNull
     ?.trim()?.takeIf { it.isNotEmpty() }
     ?: error("XBCLIENT_ADMOB_APP_ID GitHub Secret is required")
@@ -67,13 +73,13 @@ android {
     ndkVersion = androidNdkVersion
 
     defaultConfig {
-        applicationId = "moe.telecom.xbclient"
+        applicationId = androidApplicationId
         minSdk = minAndroidApi
         targetSdk = latestAndroidApi
         versionCode = appVersionCode
         versionName = appVersionName
         manifestPlaceholders["oauthCallbackScheme"] = oauthCallbackScheme
-        resValue("string", "app_name", "XBClient")
+        resValue("string", "app_name", appName)
         buildConfigField("String", "ADMOB_APP_ID", "\"${admobAppId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "DEFAULT_API_URL", "\"${defaultApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "USER_AGENT", "\"${userAgent.replace("\\", "\\\\").replace("\"", "\\\"")}\"")

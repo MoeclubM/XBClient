@@ -16,7 +16,7 @@ function requiredSecret(name) {
 }
 
 const config = {
-  appName: 'XBClient',
+  appName: requiredSecret('XBCLIENT_APP_NAME'),
   defaultApiUrl: requiredSecret('XBCLIENT_DEFAULT_API_URL'),
   userAgent: requiredSecret('XBCLIENT_USER_AGENT'),
   oauthCallbackScheme: requiredSecret('XBCLIENT_OAUTH_CALLBACK_SCHEME'),
@@ -43,8 +43,14 @@ fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
 console.log(`electron package version -> ${electronVersion}`)
 
 const scheme = config.oauthCallbackScheme
+const executableName = config.appName.replace(/[^\w.-]+/g, '')
+if (!executableName) {
+  throw new Error('XBCLIENT_APP_NAME must contain a character valid in an executable name')
+}
 
 let yml = fs.readFileSync(path.join(__dirname, 'electron-builder.yml'), 'utf8')
+yml = yml.replace(/^productName:.*$/m, `productName: ${JSON.stringify(config.appName)}`)
+yml = yml.replace(/^  executableName:.*$/gm, `  executableName: ${JSON.stringify(executableName)}`)
 const linuxTargets = process.env.XBCLIENT_LINUX_TARGETS?.trim()
 if (linuxTargets) {
   const list = linuxTargets
