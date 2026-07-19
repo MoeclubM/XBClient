@@ -1259,7 +1259,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         userEmail = info.getString("email"),
                         balance = info.getInt("balance"),
                         commissionBalance = info.getInt("commission_balance"),
-                        inviteCommissionRate = info.getInt("commission_rate"),
+                        inviteCommissionRate = if (info.has("commission_rate") && info.isNull("commission_rate")) {
+                            0
+                        } else {
+                            info.getInt("commission_rate")
+                        },
                         inviteCommissionBalance = info.getInt("commission_balance"),
                         currencySymbol = config.getString("currency_symbol"),
                         currencyUnit = config.getString("currency"),

@@ -32,7 +32,7 @@ async function loadProfile() {
     store().setProfile({
       currencySymbol: currency.currencySymbol,
       currencyUnit: currency.currencyUnit,
-      inviteCommissionRate: numericValue(data.commission_rate),
+      inviteCommissionRate: data.commission_rate === null ? 0 : numericValue(data.commission_rate),
       inviteCommissionBalance: numericValue(data.commission_balance),
     })
   } catch (err) {
