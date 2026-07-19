@@ -25,8 +25,8 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
-      XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
-      XBCLIENT_APPLICATION_ID: ${{ secrets.XBCLIENT_APPLICATION_ID }}
+      XBCLIENT_APP_NAME: XBClient
+      XBCLIENT_APPLICATION_ID: moe.telecom.xbclient
       XBCLIENT_ADMOB_APP_ID: ${{ secrets.XBCLIENT_ADMOB_APP_ID }}
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
       XBCLIENT_BUILTIN_DNS_SERVER: ${{ secrets.XBCLIENT_BUILTIN_DNS_SERVER }}
@@ -110,16 +110,16 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:assembleRelease :app:bundleRelease --build-cache --stacktrace
           mv app/build/outputs/apk/release/app-arm64-v8a-release.apk \
-            "app/build/outputs/apk/release/app-arm64-v8a-release-${GITHUB_RUN_ID}.apk"
+            "app/build/outputs/apk/release/XBClient-arm64-v8a-release-${GITHUB_RUN_ID}.apk"
           mv app/build/outputs/bundle/release/app-release.aab \
-            "app/build/outputs/bundle/release/app-release-${GITHUB_RUN_ID}.aab"
+            "app/build/outputs/bundle/release/XBClient-release-${GITHUB_RUN_ID}.aab"
 
       - name: Upload release Android APK
         uses: actions/upload-artifact@v7
         with:
           name: xbclient-release-android-${{ github.ref_name }}-${{ github.run_id }}
           archive: false
-          path: app/build/outputs/apk/release/app-arm64-v8a-release-${{ github.run_id }}.apk
+          path: app/build/outputs/apk/release/XBClient-arm64-v8a-release-${{ github.run_id }}.apk
           if-no-files-found: error
 
       - name: Upload release Android AAB
@@ -127,7 +127,7 @@ jobs:
         with:
           name: xbclient-release-android-aab-${{ github.ref_name }}-${{ github.run_id }}
           archive: false
-          path: app/build/outputs/bundle/release/app-release-${{ github.run_id }}.aab
+          path: app/build/outputs/bundle/release/XBClient-release-${{ github.run_id }}.aab
           if-no-files-found: error
 
       - name: Publish GitHub release
@@ -135,8 +135,8 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            app/build/outputs/apk/release/app-arm64-v8a-release-${{ github.run_id }}.apk
-            app/build/outputs/bundle/release/app-release-${{ github.run_id }}.aab
+            app/build/outputs/apk/release/XBClient-arm64-v8a-release-${{ github.run_id }}.apk
+            app/build/outputs/bundle/release/XBClient-release-${{ github.run_id }}.aab
           generate_release_notes: true
 
   windows-electron-release:
@@ -145,7 +145,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
-      XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
+      XBCLIENT_APP_NAME: XBClient
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
       XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
       XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
@@ -222,7 +222,7 @@ jobs:
       CARGO_TERM_COLOR: always
       XBCLIENT_LINUX_TARGETS: deb
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
-      XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
+      XBCLIENT_APP_NAME: XBClient
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
       XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
       XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
