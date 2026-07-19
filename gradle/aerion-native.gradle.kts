@@ -1,21 +1,9 @@
 import java.util.Locale
-import java.util.Properties
-
-val aerionLocalProperties = Properties()
-val aerionLocalPropertiesFile = rootProject.file("local.properties")
-if (aerionLocalPropertiesFile.isFile) {
-    aerionLocalPropertiesFile.inputStream().use { aerionLocalProperties.load(it) }
-}
 
 fun aerionSdkDirectory(): File {
-    aerionLocalProperties.getProperty("sdk.dir")?.let { return file(it) }
     System.getenv("ANDROID_SDK_ROOT")?.let { return file(it) }
     System.getenv("ANDROID_HOME")?.let { return file(it) }
-    val localAppData = System.getenv("LOCALAPPDATA")
-    if (localAppData != null) {
-        return file("$localAppData/Android/Sdk")
-    }
-    error("Android SDK directory is not configured. Set sdk.dir in local.properties.")
+    error("Android SDK directory is not configured by GitHub Actions")
 }
 
 val aerionMinAndroidApi = extensions.extraProperties["aerionMinAndroidApi"] as Int

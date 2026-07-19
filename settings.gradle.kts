@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "XBClient"
-include(":app")
+include(":apps:android")

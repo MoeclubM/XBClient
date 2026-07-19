@@ -12,7 +12,7 @@
     "start": "electron . build",
     "icons": "node build/generate-icon.mjs",
     "prepare-dist": "node build/prepare-dist.mjs",
-    "build:backend": "cargo build --release --manifest-path ../../rust/electron-backend/Cargo.toml",
+    "build:backend": "cargo build --release --manifest-path backend/Cargo.toml",
     "build:web": "pnpm --filter xbclient-web build",
     "build": "pnpm run icons && pnpm run build:web && pnpm run build:backend",
     "dist": "pnpm run prepare-dist && pnpm run build && electron-builder -p never --config build/electron-builder.generated.yml",

@@ -1,99 +1,32 @@
 # XBClient
 
-XBClient 是一个面向 Xboard 的 Android 客户端。Android 层使用 Kotlin、Jetpack Compose 与 Material 3；Rust 侧直接接入 Aerion 内核，并通过 JNI 提供节点测试与系统 VPN 能力。
+XBClient 是面向 Xboard 的多平台客户端。代理、路由与 TUN 能力统一使用 Aerion；Android 使用 Kotlin、Jetpack Compose 与系统 `VpnService`，Windows/Linux 桌面端使用 Electron、Vue 和 Rust 后端。
 
-## 当前能力
+## 项目结构
 
-- 登录、注册、邀请信息、订阅信息与节点自动刷新。
-- Aerion 节点内核，订阅请求使用 `mihomo` User-Agent。
-- 系统 VPN 连接、重连、停止、通知栏快捷操作、IPv4/IPv6。
-- 节点真连接延迟测试：默认目标 `cp.cloudflare.com`，同一连接测试两次并使用第二次延迟。
-- 应用排除/白名单规则，支持本机应用列表搜索。
-- 激励广告默认关闭；网页套餐/支付入口默认开启，即使未安装 Xboard-XBClient 插件也可通过 Xboard 原版快捷登录进入套餐页。
-- 安装 Xboard-XBClient 插件后，可由服务端下发广告开关、支付入口开关和 AdMob SSV 参数，客户端不写死广告单元 ID。
+| 目录 | 职责 |
+| --- | --- |
+| `apps/android/` | 原生 Android 应用与 `VpnService` |
+| `apps/electron/` | Windows/Linux Electron 壳、系统集成与打包配置 |
+| `apps/electron/web/` | Electron Vue renderer |
+| `apps/electron/backend/` | Electron Rust 后端 |
+| `rust/aerion-core/` | Android 与桌面端共享的 Aerion 适配层 |
+| `rust/third_party/` | Rust 构建所需的正式第三方源码 |
+| `gradle/` | Android Aerion JNI 构建逻辑 |
+| `scripts/ci/` | GitHub Actions 专用脚本 |
 
-## 包名与项目名
+Android 包名固定为 `moe.telecom.xbclient`，应用名固定为 `XBClient`。
 
-- Gradle 项目名：`XBClient`
-- Android 包名：`moe.telecom.xbclient`
-- 默认应用名：`XBClient`
+## 构建与配置
 
-不要把真实站点 API、真实应用名、AdMob App ID、广告单元 ID、登录账号或密码写入 README、源码、提交信息或可提交配置文件。
+项目禁止本地构建。Android APK/AAB、Windows 安装包和 Linux deb 只能通过 GitHub Actions 构建：
 
-## 本地构建配置
+- `.github/workflows/debug.yml`：分支推送和手动触发的 Beta 构建。
+- `.github/workflows/release.yml`：版本标签触发的正式构建与发布。
 
-`local.properties` 已被 `.gitignore` 忽略，可以只在本机写入：
+站点、API、OAuth、AdMob 和签名配置只允许保存在 GitHub Secrets，不使用 `local.properties`、Gradle 参数、本地签名配置或安装目录旁配置文件。
 
-```properties
-sdk.dir=C:/Users/<你>/AppData/Local/Android/Sdk
-xbclient.defaultApiUrl=https://example.com
-xbclient.appName=XBClient
-xbclient.admobAppId=ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx
-xbclient.userAgent=<your-api-user-agent>
-xbclient.oauthCallbackScheme=<your-oauth-scheme>
-```
-
-也可以通过环境变量或 Gradle 参数传入：
-
-```powershell
-$env:XBCLIENT_DEFAULT_API_URL="https://example.com"
-$env:XBCLIENT_APP_NAME="XBClient"
-$env:XBCLIENT_ADMOB_APP_ID="ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx"
-$env:XBCLIENT_USER_AGENT="<your-api-user-agent>"
-$env:XBCLIENT_OAUTH_CALLBACK_SCHEME="<your-oauth-scheme>"
-.\gradlew.bat :app:assembleDebug
-```
-
-等价 Gradle 参数：
-
-```powershell
-.\gradlew.bat :app:assembleDebug `
-  -Pxbclient.defaultApiUrl=https://example.com `
-  -Pxbclient.appName=XBClient `
-  -Pxbclient.admobAppId=ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx `
-  -Pxbclient.userAgent=<your-api-user-agent> `
-  -Pxbclient.oauthCallbackScheme=<your-oauth-scheme>
-```
-
-## 签名
-
-仓库不提交任何 keystore。Debug 构建使用 Android 默认 debug 签名；Release 构建必须显式提供签名文件和密码。
-
-本机 Release 构建可使用被 `.gitignore` 忽略的 keystore，例如：
-
-```text
-app/config/release-signing.local.jks
-```
-
-构建时传入：
-
-```powershell
-$env:XBCLIENT_RELEASE_STORE_FILE="app/config/release-signing.local.jks"
-$env:XBCLIENT_RELEASE_STORE_PASSWORD="<keystore password>"
-$env:XBCLIENT_RELEASE_KEY_ALIAS="xbclient"
-$env:XBCLIENT_RELEASE_KEY_PASSWORD="<key password>"
-.\gradlew.bat :app:assembleRelease
-```
-
-如果需要重新生成签名文件：
-
-```powershell
-keytool -genkeypair `
-  -v `
-  -keystore app\config\release-signing.local.jks `
-  -storetype PKCS12 `
-  -alias xbclient `
-  -keyalg RSA `
-  -keysize 2048 `
-  -validity 10000 `
-  -storepass "<keystore password>" `
-  -keypass "<key password>" `
-  -dname "CN=XBClient, OU=Release, O=XBClient, L=Unknown, ST=Unknown, C=US"
-```
-
-## GitHub Secrets
-
-当前工作流需要这些 Secrets：
+必需 Secrets：
 
 ```text
 XBCLIENT_DEFAULT_API_URL
@@ -106,90 +39,28 @@ XBCLIENT_RELEASE_KEY_ALIAS
 XBCLIENT_RELEASE_KEY_PASSWORD
 ```
 
-建议同时设置：
+可选 Secrets：
 
 ```text
-XBCLIENT_APP_NAME
+XBCLIENT_WEBSITE_URL
+XBCLIENT_PRIVACY_POLICY_URL
+XBCLIENT_USER_AGREEMENT_URL
 ```
 
+Android 构建从 Actions 环境读取 Secrets 并写入最终应用。Electron 仅在 Actions runner 上生成被忽略的临时 `build-config.json`，打包完成后由 runner 销毁；仓库和本机不保存这些配置。
 
-版本号由 Git 自动生成：`versionCode` 使用当前提交的 Unix 时间戳；`versionName` 优先使用当前精确 tag 去掉前缀 `v`。非 tag 构建会基于最近 release tag 生成 `版本-beta.提交数.短提交号`，例如 `0.0.1-beta.2.e0418843`；没有任何 tag 时才使用提交时间戳与短提交号。Debug 固定追加 `.debug` 后缀。
+## 验证约定
 
-设置命令示例：
+本地只允许不产生构建产物的静态检查，例如：
 
-```powershell
-gh secret set XBCLIENT_DEFAULT_API_URL
-gh secret set XBCLIENT_APP_NAME
-gh secret set XBCLIENT_ADMOB_APP_ID
-gh secret set XBCLIENT_USER_AGENT
-gh secret set XBCLIENT_OAUTH_CALLBACK_SCHEME
-gh secret set XBCLIENT_RELEASE_STORE_BASE64
-gh secret set XBCLIENT_RELEASE_STORE_PASSWORD
-gh secret set XBCLIENT_RELEASE_KEY_ALIAS
-gh secret set XBCLIENT_RELEASE_KEY_PASSWORD
+```text
+git diff --check
+cargo fmt --all --check --manifest-path rust/aerion-core/Cargo.toml
+cargo fmt --all --check --manifest-path apps/electron/backend/Cargo.toml
 ```
 
-## 构建
-
-```powershell
-.\gradlew.bat :app:assembleDebug :app:assembleRelease --stacktrace
-cargo test --manifest-path rust\aerion-core\Cargo.toml
-```
-
-## 平台分工
-
-| 平台 | 技术栈 | 目录 |
-| --- | --- | --- |
-| Android | Kotlin + Jetpack Compose | `app/` |
-| Windows / Linux | Electron + Vue（`web/`，不含 Android/iOS 移动端） | `apps/electron/`、`web/`、`rust/electron-backend/` |
-| iOS / macOS | 原生（规划中，Electron macOS 暂未发布） | — |
-
-## Electron 桌面端（Windows / Linux，不含移动端）
-
-桌面端复用 `web` 前端，通过 `rust/electron-backend` 提供节点、订阅与系统代理能力。Android 使用原生 Kotlin 客户端，不加载 Electron 或 `electronAPI`。
-
-```powershell
-pnpm install
-pnpm dev
-```
-
-`pnpm dev` 会启动 Vite（`http://127.0.0.1:5173`）与 Electron 主进程。构建配置从 `local.properties` 或环境变量读取 `XBCLIENT_*`（与 Android 相同字段，桌面端不需要 `XBCLIENT_ADMOB_APP_ID`）。
-
-Windows 构建 Rust 后端需要 Visual Studio Build Tools（MSVC + Windows SDK）。
-
-生产构建（需先配置 `local.properties` 中的 `xbclient.*` / `XBCLIENT_*`）：
-
-```powershell
-pnpm build:desktop    # web dist + release electron-backend
-pnpm --filter xbclient-electron start   # 加载 web/dist 并运行 release 后端
-pnpm dist:desktop       # 全平台 electron-builder（Windows + Linux deb）
-pnpm dist:desktop:win   # Windows NSIS / portable
-pnpm dist:desktop:linux   # Linux deb（当前架构，Wayland 优先）
-```
-
-Linux 本地构建 deb（需 `local.properties` / `XBCLIENT_*`，在对应架构的 Ubuntu 上执行）：
-
-```bash
-pnpm install
-pnpm dist:desktop:linux
-# 产物：apps/electron/dist/*.deb
-# 可选 AppImage：XBCLIENT_LINUX_TARGETS=AppImage pnpm --filter xbclient-electron dist:linux
-```
-
-Wayland：打包版通过 `--ozone-platform-hint=auto` 与 `ELECTRON_OZONE_PLATFORM_HINT`（`bootstrap.mjs`）优先 Wayland；GNOME Wayland 下系统代理仍走 `gsettings`（`org.gnome.system.proxy`）。托盘依赖 `libayatana-appindicator3-1` / `libappindicator3-1`。
-
-能力边界：Aerion 仅负责代理内核（协议/TUN/SOCKS）；OAuth、系统代理、面板 API 等见 [docs/AERION_DESKTOP_REQUIREMENTS.md](docs/AERION_DESKTOP_REQUIREMENTS.md)。
+任何平台可用性结论均以 GitHub Actions 对应 job 的最终结论为准，不以本地构建或仍在运行的工作流代替。
 
 ## 开源许可
 
-本项目采用 Apache License 2.0 开源。详见 `LICENSE` 与 `NOTICE`。
-
-## 发布与历史清理
-
-清理真实 API、真实名称或广告 ID 后，需要重写 Git 历史并强推：
-
-```powershell
-git push --force-with-lease origin main
-```
-
-强推后，其他本地副本需要重新克隆或按新历史重置。
+本项目采用 Apache License 2.0。详见 `LICENSE`、`NOTICE` 与 Android 应用内的开源许可页面。

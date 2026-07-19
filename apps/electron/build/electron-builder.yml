@@ -16,9 +16,9 @@ files:
 extraResources:
   - from: build/icon.png
     to: icon.png
-  - from: ../../web/dist
+  - from: web/dist
     to: web/dist
-  - from: ../../rust/electron-backend/target/release
+  - from: backend/target/release
     to: bin
     filter:
       - xbclient-electron-backend*
@@ -27,7 +27,7 @@ extraResources:
   - from: resources/config
     to: config
     filter:
-      - local.properties
+      - build-config.json
 win:
   target:
     - target: nsis

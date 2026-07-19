@@ -7,8 +7,6 @@
 local.properties
 *.local.properties
 *.local.txt
-app/config/*.local.*
-app/config/release-signing.local.txt
 *.hprof
 *-log*.txt
 *.log
@@ -18,14 +16,15 @@ app/config/release-signing.local.txt
 
 # Rust
 rust/*/target/
+apps/electron/backend/target/
 apps/*/src-tauri/target/
 apps/*/src-tauri/gen/schemas/
 
 # Node / Web
 node_modules/
-web/dist/
+apps/electron/web/dist/
 apps/electron/build/electron-builder.generated.yml
-apps/electron/resources/config/local.properties
+apps/electron/resources/config/build-config.json
 
 # IDE
 .idea/

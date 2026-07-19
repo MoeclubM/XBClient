@@ -25,16 +25,12 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
-      XBCLIENT_APP_NAME: XBClient
-      XBCLIENT_APPLICATION_ID: moe.telecom.xbclient
       XBCLIENT_ADMOB_APP_ID: ${{ secrets.XBCLIENT_ADMOB_APP_ID }}
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
-      XBCLIENT_BUILTIN_DNS_SERVER: ${{ secrets.XBCLIENT_BUILTIN_DNS_SERVER }}
       XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
       XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
       XBCLIENT_PRIVACY_POLICY_URL: ${{ secrets.XBCLIENT_PRIVACY_POLICY_URL }}
       XBCLIENT_USER_AGREEMENT_URL: ${{ secrets.XBCLIENT_USER_AGREEMENT_URL }}
-      XBCLIENT_RELEASE_STORE_FILE: app/config/release-signing.jks
       XBCLIENT_RELEASE_STORE_BASE64: ${{ secrets.XBCLIENT_RELEASE_STORE_BASE64 }}
       XBCLIENT_RELEASE_STORE_PASSWORD: ${{ secrets.XBCLIENT_RELEASE_STORE_PASSWORD }}
       XBCLIENT_RELEASE_KEY_ALIAS: ${{ secrets.XBCLIENT_RELEASE_KEY_ALIAS }}
@@ -66,12 +62,6 @@ jobs:
         with:
           packages: 'platforms;android-36 build-tools;36.1.0 ndk;28.2.13676358'
 
-      - name: Prepare local.properties
-        shell: bash
-        run: |
-          sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          printf 'sdk.dir=%s\n' "$sdk_root" > local.properties
-
       - name: Validate app build secrets
         shell: bash
         run: |
@@ -91,6 +81,8 @@ jobs:
               exit 1
             fi
           done
+          XBCLIENT_RELEASE_STORE_FILE="$RUNNER_TEMP/xbclient-release-signing.jks"
+          echo "XBCLIENT_RELEASE_STORE_FILE=$XBCLIENT_RELEASE_STORE_FILE" >> "$GITHUB_ENV"
           mkdir -p "$(dirname "$XBCLIENT_RELEASE_STORE_FILE")"
           printf '%s' "$XBCLIENT_RELEASE_STORE_BASE64" | base64 -d > "$XBCLIENT_RELEASE_STORE_FILE"
 
@@ -111,16 +103,17 @@ jobs:
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleRelease --build-cache --stacktrace
-          mv app/build/outputs/apk/release/app-arm64-v8a-release.apk \
-            "app/build/outputs/apk/release/XBClient-arm64-v8a-beta-${GITHUB_RUN_ID}.apk"
+          ./gradlew :apps:android:assembleRelease --build-cache --stacktrace
+          apk="$(find apps/android/build/outputs/apk/release -maxdepth 1 -type f -name '*-arm64-v8a-release.apk' -print -quit)"
+          test -n "$apk"
+          mv "$apk" "apps/android/build/outputs/apk/release/XBClient-arm64-v8a-beta-${GITHUB_RUN_ID}.apk"
 
       - name: Upload beta Android APK
         uses: actions/upload-artifact@v7
         with:
           name: xbclient-beta-android-${{ github.run_id }}
           archive: false
-          path: app/build/outputs/apk/release/XBClient-arm64-v8a-beta-${{ github.run_id }}.apk
+          path: apps/android/build/outputs/apk/release/XBClient-arm64-v8a-beta-${{ github.run_id }}.apk
           if-no-files-found: error
 
   windows-beta:
@@ -129,12 +122,9 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
-      XBCLIENT_APP_NAME: XBClient
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
       XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
       XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
-      XBCLIENT_PRIVACY_POLICY_URL: ${{ secrets.XBCLIENT_PRIVACY_POLICY_URL }}
-      XBCLIENT_USER_AGREEMENT_URL: ${{ secrets.XBCLIENT_USER_AGREEMENT_URL }}
 
     steps:
       - name: Checkout
@@ -193,12 +183,9 @@ jobs:
       CARGO_TERM_COLOR: always
       XBCLIENT_LINUX_TARGETS: deb
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
-      XBCLIENT_APP_NAME: XBClient
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
       XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
       XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
-      XBCLIENT_PRIVACY_POLICY_URL: ${{ secrets.XBCLIENT_PRIVACY_POLICY_URL }}
-      XBCLIENT_USER_AGREEMENT_URL: ${{ secrets.XBCLIENT_USER_AGREEMENT_URL }}
 
     steps:
       - name: Checkout

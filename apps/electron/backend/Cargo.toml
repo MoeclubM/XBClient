@@ -5,7 +5,7 @@ edition = "2024"
 license = "Apache-2.0"
 
 [dependencies]
-aerion-core = { path = "../aerion-core" }
+aerion-core = { path = "../../../rust/aerion-core" }
 anyhow = "1"
 once_cell = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip", "stream", "json"] }
@@ -20,5 +20,5 @@ winreg = "0.55"
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Networking_WinInet"] }
 
 [patch.crates-io]
-socks5-impl = { path = "../third_party/socks5-impl" }
-tun2proxy = { path = "../third_party/tun2proxy" }
+socks5-impl = { path = "../../../rust/third_party/socks5-impl" }
+tun2proxy = { path = "../../../rust/third_party/tun2proxy" }

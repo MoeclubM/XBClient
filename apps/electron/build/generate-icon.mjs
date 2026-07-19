@@ -9,8 +9,8 @@ const repoRoot = path.resolve(__dirname, '../../..')
 const size = 512
 
 const sourceCandidates = [
-  path.join(repoRoot, 'web/public/logo.png'),
-  path.join(repoRoot, 'app/src/main/res/drawable-nodpi/ic_launcher.png'),
+  path.join(repoRoot, 'apps/electron/web/public/logo.png'),
+  path.join(repoRoot, 'apps/android/src/main/res/drawable-nodpi/ic_launcher.png'),
 ]
 
 const sourcePath = sourceCandidates.find((file) => fs.existsSync(file))

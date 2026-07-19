@@ -63,47 +63,20 @@ const trayState = {
   userAgent: '',
 }
 
-function parsePropertiesFile(file) {
-  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/)
-  const entries = {}
-  for (const line of lines) {
-    const text = line.trim()
-    if (!text || text.startsWith('#') || text.startsWith('!')) continue
-    const idx = text.search(/[:=]/)
-    if (idx <= 0) continue
-    entries[text.slice(0, idx).trim()] = text.slice(idx + 1).trim()
-  }
-  return entries
-}
-
-function configFileCandidates() {
+function readBuildConfig() {
   if (isPackaged) {
-    const files = [
-      path.join(process.resourcesPath, 'config', 'local.properties'),
-      path.join(path.dirname(process.execPath), 'local.properties'),
-    ]
-    if (app.isReady()) {
-      files.push(path.join(app.getPath('userData'), 'local.properties'))
-    }
-    return files
+    return JSON.parse(fs.readFileSync(path.join(process.resourcesPath, 'config', 'build-config.json'), 'utf8'))
   }
-  return [path.resolve(repoRoot, 'local.properties')]
-}
-
-function readLocalProperties() {
-  for (const file of configFileCandidates()) {
-    if (fs.existsSync(file)) return parsePropertiesFile(file)
+  return {
+    appName: 'XBClient',
+    defaultApiUrl: process.env.XBCLIENT_DEFAULT_API_URL,
+    userAgent: process.env.XBCLIENT_USER_AGENT,
+    oauthCallbackScheme: process.env.XBCLIENT_OAUTH_CALLBACK_SCHEME,
   }
-  return {}
 }
 
 function oauthScheme() {
-  const localProps = readLocalProperties()
-  return (
-    process.env.XBCLIENT_OAUTH_CALLBACK_SCHEME ||
-    localProps['xbclient.oauthCallbackScheme'] ||
-    ''
-  ).trim()
+  return (readBuildConfig().oauthCallbackScheme || '').trim()
 }
 
 function registerOAuthProtocol() {
@@ -154,7 +127,7 @@ if (!instanceLock) {
 registerOAuthProtocol()
 
 function backendManifestPath() {
-  return path.resolve(repoRoot, 'rust/electron-backend/Cargo.toml')
+  return path.resolve(electronDir, 'backend/Cargo.toml')
 }
 
 function backendBinaryName() {
@@ -165,7 +138,7 @@ function backendReleaseBinaryPath() {
   if (isPackaged) {
     return path.join(process.resourcesPath, 'bin', backendBinaryName())
   }
-  return path.resolve(repoRoot, 'rust/electron-backend/target/release', backendBinaryName())
+  return path.resolve(electronDir, 'backend/target/release', backendBinaryName())
 }
 
 function routeAssetsDir() {
@@ -230,16 +203,12 @@ function launchedSilentArgv() {
 }
 
 function buildBackendEnv() {
-  const localProps = readLocalProperties()
+  const config = readBuildConfig()
   const env = { ...process.env }
-  const appName = env.XBCLIENT_APP_NAME || localProps['xbclient.appName']
-  const defaultApiUrl = env.XBCLIENT_DEFAULT_API_URL || localProps['xbclient.defaultApiUrl']
-  const userAgent = env.XBCLIENT_USER_AGENT || localProps['xbclient.userAgent']
-  const oauthCallbackScheme = env.XBCLIENT_OAUTH_CALLBACK_SCHEME || localProps['xbclient.oauthCallbackScheme']
-  if (appName) env.XBCLIENT_APP_NAME = appName
-  if (defaultApiUrl) env.XBCLIENT_DEFAULT_API_URL = defaultApiUrl
-  if (userAgent) env.XBCLIENT_USER_AGENT = userAgent
-  if (oauthCallbackScheme) env.XBCLIENT_OAUTH_CALLBACK_SCHEME = oauthCallbackScheme
+  env.XBCLIENT_APP_NAME = config.appName
+  env.XBCLIENT_DEFAULT_API_URL = config.defaultApiUrl
+  env.XBCLIENT_USER_AGENT = config.userAgent
+  env.XBCLIENT_OAUTH_CALLBACK_SCHEME = config.oauthCallbackScheme
   env.XBCLIENT_ROUTE_ASSETS_DIR = routeAssetsDir()
   return env
 }
@@ -251,7 +220,7 @@ function validateBackendEnv() {
     if (!env[key]?.trim()) missing.push(key)
   }
   if (!missing.length) return env
-  const message = `缺少构建配置：${missing.join(', ')}\n请在 local.properties 或环境变量中设置（与 Android 相同字段）。`
+  const message = `GitHub Secrets 生成的构建配置缺少：${missing.join(', ')}`
   dialog.showErrorBox('XBClient 配置不完整', message)
   throw new Error(message)
 }
@@ -464,7 +433,7 @@ function webIndexHtml() {
   if (isPackaged) {
     return path.join(process.resourcesPath, 'web', 'dist', 'index.html')
   }
-  return path.resolve(repoRoot, 'web/dist/index.html')
+  return path.resolve(electronDir, 'web/dist/index.html')
 }
 
 function appIconPath() {
@@ -475,7 +444,7 @@ function appIconPath() {
   }
   const built = path.join(__dirname, 'build', 'icon.png')
   if (fs.existsSync(built)) return built
-  const logo = path.join(repoRoot, 'web/public/logo.png')
+  const logo = path.join(electronDir, 'web/public/logo.png')
   if (fs.existsSync(logo)) return logo
   throw new Error(`development icon missing: ${built}`)
 }
