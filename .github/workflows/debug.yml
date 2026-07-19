@@ -108,14 +108,14 @@ jobs:
           ./gradlew :apps:android:assembleRelease --build-cache --stacktrace
           apk="$(find apps/android/build/outputs/apk/release -maxdepth 1 -type f -name '*-arm64-v8a-release.apk' -print -quit)"
           test -n "$apk"
-          mv "$apk" "apps/android/build/outputs/apk/release/XBClient-arm64-v8a-beta-${GITHUB_RUN_ID}.apk"
+          mv "$apk" "apps/android/build/outputs/apk/release/${XBCLIENT_APP_NAME}-arm64-v8a-beta-${GITHUB_RUN_ID}.apk"
 
       - name: Upload beta Android APK
         uses: actions/upload-artifact@v7
         with:
           name: xbclient-beta-android-${{ github.run_id }}
           archive: false
-          path: apps/android/build/outputs/apk/release/XBClient-arm64-v8a-beta-${{ github.run_id }}.apk
+          path: apps/android/build/outputs/apk/release/${{ env.XBCLIENT_APP_NAME }}-arm64-v8a-beta-${{ github.run_id }}.apk
           if-no-files-found: error
 
   windows-beta:

@@ -107,15 +107,15 @@ jobs:
           bundle="$(find apps/android/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' -print -quit)"
           test -n "$apk"
           test -n "$bundle"
-          mv "$apk" "apps/android/build/outputs/apk/release/XBClient-arm64-v8a-release-${GITHUB_RUN_ID}.apk"
-          mv "$bundle" "apps/android/build/outputs/bundle/release/XBClient-release-${GITHUB_RUN_ID}.aab"
+          mv "$apk" "apps/android/build/outputs/apk/release/${XBCLIENT_APP_NAME}-arm64-v8a-release-${GITHUB_RUN_ID}.apk"
+          mv "$bundle" "apps/android/build/outputs/bundle/release/${XBCLIENT_APP_NAME}-release-${GITHUB_RUN_ID}.aab"
 
       - name: Upload release Android APK
         uses: actions/upload-artifact@v7
         with:
           name: xbclient-release-android-${{ github.ref_name }}-${{ github.run_id }}
           archive: false
-          path: apps/android/build/outputs/apk/release/XBClient-arm64-v8a-release-${{ github.run_id }}.apk
+          path: apps/android/build/outputs/apk/release/${{ env.XBCLIENT_APP_NAME }}-arm64-v8a-release-${{ github.run_id }}.apk
           if-no-files-found: error
 
       - name: Upload release Android AAB
@@ -123,7 +123,7 @@ jobs:
         with:
           name: xbclient-release-android-aab-${{ github.ref_name }}-${{ github.run_id }}
           archive: false
-          path: apps/android/build/outputs/bundle/release/XBClient-release-${{ github.run_id }}.aab
+          path: apps/android/build/outputs/bundle/release/${{ env.XBCLIENT_APP_NAME }}-release-${{ github.run_id }}.aab
           if-no-files-found: error
 
       - name: Publish GitHub release
@@ -131,8 +131,8 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            apps/android/build/outputs/apk/release/XBClient-arm64-v8a-release-${{ github.run_id }}.apk
-            apps/android/build/outputs/bundle/release/XBClient-release-${{ github.run_id }}.aab
+            apps/android/build/outputs/apk/release/${{ env.XBCLIENT_APP_NAME }}-arm64-v8a-release-${{ github.run_id }}.apk
+            apps/android/build/outputs/bundle/release/${{ env.XBCLIENT_APP_NAME }}-release-${{ github.run_id }}.aab
           generate_release_notes: true
 
   windows-electron-release:
