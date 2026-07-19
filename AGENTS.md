@@ -7,7 +7,9 @@
 3. 克制防御编程：仅在必要边界做判空和类型检查，不要使用过多判断。
 4. 功能模块按功能拆分开，防止单代码文件过大。
 5. 使用命令行编辑文件前请注意文件内容编码与命令行环境是否匹配；防止非英文内容被破坏。
-6. 不优先在本地构建测试；优先使用静态检查，只有本地构建测试确有必要时才执行。如果必须在本地进行构建测试，构建完成后必须清理本地构建缓存/产物，避免留下无关文件。
+6. 禁止在本地 Windows 环境执行 Android、Electron Windows 或其他平台构建；本地仅允许不产生构建产物的静态检查。
+7. Android 与 Windows 安装包必须直接通过 GitHub Actions 构建，并等待对应工作流得到明确的最终结论；不得以本地构建替代 Actions 验证。
+8. 若用户明确批准临时本地诊断构建，结束后必须清理全部本地构建缓存与产物，避免留下无关文件。
 
 Do not introduce new boundary rules / guardrails / blockers / caps (e.g. max-turns), fallback behaviors, or silent degradation just to make it run.
 Do not add mock/simulation fake success paths (e.g. returning (mock) ok, templated outputs that bypass real execution, or swallowing errors).

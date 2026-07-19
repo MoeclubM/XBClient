@@ -125,7 +125,7 @@ jobs:
 
   windows-beta:
     name: Windows Electron beta installer
-    runs-on: windows-latest
+    runs-on: windows-2022
     env:
       CARGO_TERM_COLOR: always
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
