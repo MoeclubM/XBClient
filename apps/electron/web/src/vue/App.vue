@@ -132,6 +132,7 @@ onUnmounted(() => {
             variant="text"
             class="desktop-nav-btn"
             :class="{ 'desktop-nav-btn--active': navActive(item.path) }"
+            :aria-current="navActive(item.path) ? 'page' : undefined"
             @click="router.push(item.path)"
           >
             <span class="nav-symbol">{{ item.icon }}</span>
@@ -158,6 +159,7 @@ onUnmounted(() => {
           :key="item.path"
           :value="item.path"
           :class="{ 'v-btn--active': activeNavIndex === index }"
+          :aria-current="activeNavIndex === index ? 'page' : undefined"
           @click="router.push(item.path)"
         >
           <span class="nav-symbol">{{ item.icon }}</span>

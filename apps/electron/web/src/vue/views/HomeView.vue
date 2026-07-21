@@ -230,9 +230,13 @@ function formatUnixTime(value: number): string {
     <div v-if="!appState.subscription.blockReason" class="page-section">
       <p class="section-label">{{ t('section_current_node') }}</p>
       <v-card
-        class="panel-card"
+        class="panel-card interactive-card"
         :class="{ 'cursor-pointer': appState.nodes.length > 0 }"
+        :role="appState.nodes.length > 0 ? 'button' : undefined"
+        :tabindex="appState.nodes.length > 0 ? 0 : undefined"
         @click="appState.nodes.length > 0 && router.push('/nodes')"
+        @keydown.enter="appState.nodes.length > 0 && router.push('/nodes')"
+        @keydown.space.prevent="appState.nodes.length > 0 && router.push('/nodes')"
       >
         <v-card-text>
           <div class="d-flex align-center">

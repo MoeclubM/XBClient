@@ -110,8 +110,10 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--on-background);
-  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
 }
@@ -125,6 +127,38 @@ textarea {
 
 button {
   -webkit-tap-highlight-color: transparent;
+}
+
+.v-btn,
+.interactive-card,
+.pref-icon-btn,
+.desktop-titlebar__btn {
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 160ms ease-out,
+    border-color 160ms ease-out,
+    color 160ms ease-out,
+    box-shadow 160ms ease-out;
+}
+
+.v-btn:active:not(.v-btn--disabled),
+.interactive-card:active,
+.pref-icon-btn:active,
+.desktop-titlebar__btn:active {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}
+
+.v-btn:focus-visible,
+.interactive-card:focus-visible,
+.pref-icon-btn:focus-visible,
+.desktop-titlebar__btn:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.interactive-card {
+  cursor: pointer;
 }
 
 /* App shell */
@@ -337,7 +371,11 @@ button {
   background: color-mix(in srgb, var(--surface-container) 88%, transparent);
   color: var(--on-surface-variant);
   cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
 }
 
 .pref-icon-btn:hover {
@@ -461,6 +499,9 @@ button {
   overflow: hidden;
   z-index: 30 !important;
   background: color-mix(in srgb, var(--surface-container-low) 78%, transparent) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.35);
+  backdrop-filter: blur(24px) saturate(1.35);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--on-background) 14%, transparent) !important;
 }
 
 .liquid-bottom-nav .v-bottom-navigation__content {
@@ -498,7 +539,9 @@ button {
   border-radius: 31px;
   background: color-mix(in srgb, var(--primary-container) 68%, transparent);
   border: 1px solid color-mix(in srgb, var(--on-primary-container) 8%, transparent);
-  transition: left 320ms cubic-bezier(0.4, 0, 0.2, 1), width 320ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    left 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 360ms cubic-bezier(0.22, 1, 0.36, 1);
   z-index: 0;
   pointer-events: none;
 }
@@ -611,12 +654,15 @@ button {
 
 .service-card {
   cursor: pointer;
-  transition: border-color 160ms ease, transform 160ms ease;
 }
 
 .service-card:hover {
   border-color: color-mix(in srgb, var(--primary) 40%, var(--outline-variant)) !important;
   transform: translateY(-1px);
+}
+
+.service-card:active {
+  transform: scale(0.97);
 }
 
 .service-card h2 {
@@ -720,7 +766,10 @@ button {
   font-size: 0.95rem;
   line-height: 1;
   cursor: pointer;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .desktop-titlebar__btn:hover {
@@ -872,4 +921,39 @@ button {
 /* Pull to refresh area */
 .pull-refresh-area {
   min-height: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .v-btn,
+  .interactive-card,
+  .pref-icon-btn,
+  .desktop-titlebar__btn,
+  .service-card {
+    transition:
+      background-color 120ms ease-out,
+      border-color 120ms ease-out,
+      color 120ms ease-out,
+      opacity 120ms ease-out;
+  }
+
+  .v-btn:active:not(.v-btn--disabled),
+  .interactive-card:active,
+  .pref-icon-btn:active,
+  .desktop-titlebar__btn:active,
+  .service-card:hover {
+    transform: none;
+  }
+
+  .nav-pill {
+    transition: opacity 120ms ease-out;
+  }
+
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: opacity 120ms ease-out;
+  }
 }

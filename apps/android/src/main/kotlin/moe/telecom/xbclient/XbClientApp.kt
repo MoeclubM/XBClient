@@ -35,11 +35,13 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -113,6 +115,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -1168,7 +1171,6 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
     var navDragActive by remember { mutableStateOf(false) }
     var navDragOffsetPx by remember { mutableFloatStateOf(0f) }
     var navDragVelocityPx by remember { mutableFloatStateOf(0f) }
-    var navLastDragAt by remember { mutableStateOf(0L) }
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -1180,9 +1182,10 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(42.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.78f),
+            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.92f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             tonalElevation = 0.dp,
-            shadowElevation = 0.dp
+            shadowElevation = 8.dp
         ) {
             BoxWithConstraints(
                 modifier = Modifier
@@ -1195,17 +1198,17 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                 val itemWidthPx = with(density) { itemWidth.toPx() }
                 val draggedOffset = with(density) {
                     (itemWidthPx * selectedIndex.toFloat() + navDragOffsetPx)
-                        .coerceIn(0f, itemWidthPx * navScreens.lastIndex)
+                        .coerceIn(-itemWidthPx * 0.12f, itemWidthPx * (navScreens.lastIndex + 0.12f))
                         .toDp()
                 } + 2.dp
                 val pillOffset by animateDpAsState(
                     targetValue = if (navDragging) draggedOffset else itemWidth * selectedIndex.toFloat() + 2.dp,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
                     label = "bottom-nav-pill"
                 )
                 val liquidStretch by animateFloatAsState(
                     targetValue = if (navDragging) (abs(navDragVelocityPx) / 2600f).coerceIn(0f, 0.32f) else 0f,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
                     label = "bottom-nav-liquid-stretch"
                 )
                 val dropletAlpha by animateFloatAsState(
@@ -1262,6 +1265,7 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                     Modifier
                         .fillMaxSize()
                         .pointerInput(selectedIndex, itemWidthPx) {
+                            val velocityTracker = VelocityTracker()
                             detectHorizontalDragGestures(
                                 onDragStart = { start ->
                                     val selectedStart = selectedIndex.toFloat() * itemWidthPx
@@ -1269,22 +1273,25 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
                                     navDragging = navDragActive
                                     navDragOffsetPx = 0f
                                     navDragVelocityPx = 0f
-                                    navLastDragAt = System.currentTimeMillis()
+                                    velocityTracker.resetTracking()
                                 },
-                                onHorizontalDrag = { _, dragAmount ->
+                                onHorizontalDrag = { change, dragAmount ->
                                     if (navDragActive) {
-                                        val now = System.currentTimeMillis()
-                                        val elapsed = (now - navLastDragAt).coerceAtLeast(1L)
-                                        navLastDragAt = now
-                                        navDragVelocityPx = dragAmount / elapsed * 1000f
-                                        navDragOffsetPx = (navDragOffsetPx + dragAmount).coerceIn(
-                                            -selectedIndex.toFloat() * itemWidthPx,
-                                            (navScreens.lastIndex - selectedIndex).toFloat() * itemWidthPx
-                                        )
+                                        velocityTracker.addPosition(change.uptimeMillis, change.position)
+                                        navDragVelocityPx = velocityTracker.calculateVelocity().x
+                                        val minimum = -selectedIndex.toFloat() * itemWidthPx
+                                        val maximum = (navScreens.lastIndex - selectedIndex).toFloat() * itemWidthPx
+                                        val next = navDragOffsetPx + dragAmount
+                                        navDragOffsetPx = when {
+                                            next < minimum -> minimum + (next - minimum) * 0.24f
+                                            next > maximum -> maximum + (next - maximum) * 0.24f
+                                            else -> next
+                                        }
                                     }
                                 },
                                 onDragEnd = {
-                                    val targetIndex = (selectedIndex + (navDragOffsetPx / itemWidthPx).roundToInt()).coerceIn(0, navScreens.lastIndex)
+                                    val projectedOffset = navDragOffsetPx + velocityTracker.calculateVelocity().x * 0.18f
+                                    val targetIndex = (selectedIndex + (projectedOffset / itemWidthPx).roundToInt()).coerceIn(0, navScreens.lastIndex)
                                     val active = navDragActive
                                     navDragActive = false
                                     navDragging = false
@@ -1333,6 +1340,9 @@ private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewMode
 
 @Composable
 private fun BottomNavButton(selected: Boolean, icon: Int, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val indication = LocalIndication.current
     val color by animateColorAsState(
         targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
         animationSpec = tween(180),
@@ -1343,10 +1353,19 @@ private fun BottomNavButton(selected: Boolean, icon: Int, label: String, modifie
         animationSpec = tween(180),
         label = "bottom-nav-icon"
     )
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh),
+        label = "bottom-nav-press"
+    )
     val shape = RoundedCornerShape(31.dp)
     Surface(
         modifier = modifier
-            .height(62.dp),
+            .height(62.dp)
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            },
         shape = shape,
         color = Color.Transparent
     ) {
@@ -1355,8 +1374,8 @@ private fun BottomNavButton(selected: Boolean, icon: Int, label: String, modifie
                 .fillMaxSize()
                 .clip(shape)
                 .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
+                    interactionSource = interactionSource,
+                    indication = indication,
                     onClick = onClick
                 )
                 .padding(horizontal = 4.dp),
@@ -1472,11 +1491,24 @@ private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                 else -> R.string.action_connect
             }
         )
+        val connectionInteractionSource = remember { MutableInteractionSource() }
+        val connectionPressed by connectionInteractionSource.collectIsPressedAsState()
+        val connectionScale by animateFloatAsState(
+            targetValue = if (connectionPressed) 0.97f else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh),
+            label = "connection-press"
+        )
         Button(
             onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
             enabled = !state.vpnStarting,
-            modifier = Modifier.size(176.dp),
-            shape = CircleShape
+            modifier = Modifier
+                .size(176.dp)
+                .graphicsLayer {
+                    scaleX = connectionScale
+                    scaleY = connectionScale
+                },
+            shape = CircleShape,
+            interactionSource = connectionInteractionSource
         ) {
             AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
                 Text(text, style = MaterialTheme.typography.headlineSmall)

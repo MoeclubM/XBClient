@@ -148,10 +148,15 @@ async function selectNode(index: number) {
       <v-card
         v-for="(node, index) in appState.nodes"
         :key="`${node.name}-${index}`"
-        class="panel-card"
+        class="panel-card interactive-card"
         :variant="index === selectedNodeIndex ? 'tonal' : 'elevated'"
         :color="index === selectedNodeIndex ? 'primary' : undefined"
+        role="button"
+        tabindex="0"
+        :aria-pressed="index === selectedNodeIndex"
         @click="selectNode(index)"
+        @keydown.enter="selectNode(index)"
+        @keydown.space.prevent="selectNode(index)"
       >
         <v-card-text>
           <div class="d-flex align-start justify-space-between gap-2">

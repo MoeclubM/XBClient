@@ -25,8 +25,12 @@ const serviceItems = [
       <v-card
         v-for="item in serviceItems"
         :key="item.path"
-        class="panel-card service-card"
+        class="panel-card service-card interactive-card"
+        role="link"
+        tabindex="0"
         @click="router.push(item.path)"
+        @keydown.enter="router.push(item.path)"
+        @keydown.space.prevent="router.push(item.path)"
       >
         <v-card-text>
           <v-avatar color="primary" variant="tonal" class="mb-4">{{ item.icon }}</v-avatar>
