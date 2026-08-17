@@ -125,6 +125,12 @@
     <string name="onboarding_continue">ادامه</string>
     <string name="setting_language">زبان</string>
     <string name="setting_theme">حالت رنگ</string>
+    <string name="page_theme">پوسته</string>
+    <string name="setting_theme_summary">حالت رنگ، تاری و نوار شناور پایین</string>
+    <string name="setting_theme_blur">تاری</string>
+    <string name="setting_theme_blur_summary">نوار بالا و پایین با تاری شفاف نمایش داده می‌شود.</string>
+    <string name="setting_theme_floating_bar">نوار شناور پایین</string>
+    <string name="setting_theme_floating_bar_summary">نوار پایین شناور است و محتوا از زیر آن عبور می‌کند.</string>
     <string name="setting_reset_onboarding">نمایش دوباره راه‌اندازی اولیه</string>
     <string name="language_system">سیستم</string>
     <string name="language_zh">چینی / Chinese</string>

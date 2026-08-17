@@ -126,6 +126,12 @@
     <string name="onboarding_continue">继续</string>
     <string name="setting_language">语言</string>
     <string name="setting_theme">颜色模式</string>
+    <string name="page_theme">主题</string>
+    <string name="setting_theme_summary">颜色模式、模糊和悬浮底栏</string>
+    <string name="setting_theme_blur">界面模糊</string>
+    <string name="setting_theme_blur_summary">顶栏和底栏使用透明模糊。</string>
+    <string name="setting_theme_floating_bar">悬浮底栏</string>
+    <string name="setting_theme_floating_bar_summary">底栏悬浮显示，内容可以从下方穿过。</string>
     <string name="setting_reset_onboarding">重新显示启动引导</string>
     <string name="language_system">跟随系统</string>
     <string name="language_zh">中文 / Chinese</string>

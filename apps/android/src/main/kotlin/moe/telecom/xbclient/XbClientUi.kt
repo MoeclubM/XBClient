@@ -109,8 +109,8 @@ fun XbClientTheme(themeMode: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-internal fun rememberBlurBackdrop(): LayerBackdrop? {
-    if (!isRenderEffectSupported()) {
+internal fun rememberBlurBackdrop(enabled: Boolean = true): LayerBackdrop? {
+    if (!enabled || !isRenderEffectSupported()) {
         return null
     }
     val surfaceColor = MiuixTheme.colorScheme.surface
@@ -123,17 +123,18 @@ internal fun rememberBlurBackdrop(): LayerBackdrop? {
 @Composable
 internal fun BlurredBar(
     backdrop: LayerBackdrop?,
+    shape: androidx.compose.ui.graphics.Shape = RectangleShape,
     content: @Composable () -> Unit
 ) {
     Box(
         modifier = if (backdrop != null) {
             Modifier.textureBlur(
                 backdrop = backdrop,
-                shape = RectangleShape,
+                shape = shape,
                 blurRadius = 25f,
                 colors = BlurColors(
                     blendColors = listOf(
-                        BlendColorEntry(color = MiuixTheme.colorScheme.surface.copy(0.87f))
+                        BlendColorEntry(color = MiuixTheme.colorScheme.surface.copy(0.72f))
                     )
                 )
             )
@@ -473,7 +474,7 @@ private fun screenOrder(screen: PassScreen): Int =
         PassScreen.PROFILE -> 3
         PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 4
         PassScreen.SETTINGS -> 4
-        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> 5
+        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> 5
     }
 
 @Composable
@@ -483,6 +484,7 @@ internal fun screenTitle(screen: PassScreen): String =
         PassScreen.PLANS -> stringResource(R.string.nav_plans)
         PassScreen.PROFILE -> stringResource(R.string.nav_profile)
         PassScreen.SETTINGS -> stringResource(R.string.common_settings)
+        PassScreen.THEME -> stringResource(R.string.page_theme)
         PassScreen.NODE_SELECT -> stringResource(R.string.section_available_nodes)
         PassScreen.APP_RULES -> stringResource(R.string.section_app_rules)
         PassScreen.OPEN_SOURCE_LICENSES -> stringResource(R.string.about_open_source_licenses)

@@ -39,6 +39,7 @@ enum class PassScreen {
     TICKETS,
     TICKET_DETAIL,
     SETTINGS,
+    THEME,
     NODE_SELECT,
     APP_RULES,
     OPEN_SOURCE_LICENSES

@@ -12,15 +12,19 @@ import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -39,6 +43,8 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.PullToRefresh
@@ -272,13 +278,15 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
         PassScreen.NODE_SELECT -> PassScreen.NODES
         PassScreen.TICKET_DETAIL -> PassScreen.TICKETS
         PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> PassScreen.PROFILE
-        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
+        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> PassScreen.SETTINGS
         else -> null
     }
     val showBottomBar = visibleScreen in MainTabScreens || (backTargetScreen != null && backTargetScreen in MainTabScreens && backProgress > 0f)
+    val floatingBar = state.floatingBottomBar
     val scrollBehavior = MiuixScrollBehavior()
-    val backdrop = rememberBlurBackdrop()
+    val backdrop = rememberBlurBackdrop(state.enableBlur)
     val barColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
+    val floatingBarColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surfaceContainer
     Scaffold(
         topBar = {
             BlurredBar(backdrop) {
@@ -310,20 +318,26 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
             }
         },
         bottomBar = {
-            if (showBottomBar) {
+            if (showBottomBar && !floatingBar) {
                 BlurredBar(backdrop) {
-                    MainNavigationBar(state, viewModel, barColor)
+                    MainNavigationBar(state, viewModel, barColor, floating = false)
                 }
             }
         }
     ) { padding ->
         XbClientDialogs(state, viewModel)
+        val extraBottom = if (showBottomBar && floatingBar) 88.dp else 0.dp
         PullToRefresh(
             isRefreshing = state.isRefreshing,
             onRefresh = viewModel::refreshCurrentPage,
             modifier = Modifier
                 .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
-                .padding(padding)
+                .padding(
+                    start = padding.calculateStartPadding(LocalLayoutDirection.current),
+                    top = padding.calculateTopPadding(),
+                    end = padding.calculateEndPadding(LocalLayoutDirection.current),
+                    bottom = if (floatingBar) 0.dp else padding.calculateBottomPadding()
+                )
                 .fillMaxSize()
         ) {
             Box(Modifier.fillMaxSize()) {
@@ -333,6 +347,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
                         state = state,
                         viewModel = viewModel,
                         scrollBehavior = scrollBehavior,
+                        extraBottom = extraBottom,
                         modifier = Modifier.graphicsLayer {
                             alpha = 0.35f + backProgress * 0.65f
                             scaleX = 0.96f + backProgress * 0.04f
@@ -354,7 +369,14 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
                     },
                     label = "main-screen"
                 ) { screen ->
-                    MainScreenContent(screen, state, viewModel, scrollBehavior)
+                    MainScreenContent(screen, state, viewModel, scrollBehavior, extraBottom)
+                }
+            }
+        }
+        if (showBottomBar && floatingBar) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                BlurredBar(backdrop, RoundedCornerShape(28.dp)) {
+                    MainNavigationBar(state, viewModel, floatingBarColor, floating = true)
                 }
             }
         }
@@ -362,39 +384,64 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
 }
 
 @Composable
-private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewModel, color: Color) {
+private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewModel, color: Color, floating: Boolean) {
     val selected = when (state.screen) {
-        PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
+        PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> PassScreen.SETTINGS
         PassScreen.PROFILE, PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
         else -> PassScreen.NODES
     }
     val navScreens = listOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
-    NavigationBar(color = color) {
-        for (screen in navScreens) {
-            NavigationBarItem(
-                selected = selected == screen,
-                onClick = { viewModel.openScreen(screen) },
-                icon = ImageVector.vectorResource(
-                    when (screen) {
-                        PassScreen.PLANS -> R.drawable.ic_nav_plans
-                        PassScreen.PROFILE -> R.drawable.ic_nav_profile
-                        PassScreen.SETTINGS -> R.drawable.ic_nav_settings
-                        else -> R.drawable.ic_nav_home
-                    }
-                ),
-                label = stringResource(
-                    id = when (screen) {
-                        PassScreen.PLANS -> R.string.nav_plans
-                        PassScreen.PROFILE -> R.string.nav_profile
-                        PassScreen.SETTINGS -> R.string.common_settings
-                        else -> R.string.nav_home
-                    }
+    if (floating) {
+        FloatingNavigationBar(
+            modifier = Modifier.padding(bottom = 12.dp),
+            color = color,
+            showDivider = false
+        ) {
+            for (screen in navScreens) {
+                FloatingNavigationBarItem(
+                    selected = selected == screen,
+                    onClick = { viewModel.openScreen(screen) },
+                    icon = navIcon(screen),
+                    label = navLabel(screen)
                 )
-            )
+            }
+        }
+    } else {
+        NavigationBar(color = color) {
+            for (screen in navScreens) {
+                NavigationBarItem(
+                    selected = selected == screen,
+                    onClick = { viewModel.openScreen(screen) },
+                    icon = navIcon(screen),
+                    label = navLabel(screen)
+                )
+            }
         }
     }
 }
+
+@Composable
+private fun navIcon(screen: PassScreen): ImageVector =
+    ImageVector.vectorResource(
+        when (screen) {
+            PassScreen.PLANS -> R.drawable.ic_nav_plans
+            PassScreen.PROFILE -> R.drawable.ic_nav_profile
+            PassScreen.SETTINGS -> R.drawable.ic_nav_settings
+            else -> R.drawable.ic_nav_home
+        }
+    )
+
+@Composable
+private fun navLabel(screen: PassScreen): String =
+    stringResource(
+        id = when (screen) {
+            PassScreen.PLANS -> R.string.nav_plans
+            PassScreen.PROFILE -> R.string.nav_profile
+            PassScreen.SETTINGS -> R.string.common_settings
+            else -> R.string.nav_home
+        }
+    )
 
 @Composable
 private fun MainScreenContent(
@@ -402,6 +449,7 @@ private fun MainScreenContent(
     state: XbClientUiState,
     viewModel: XbClientViewModel,
     scrollBehavior: ScrollBehavior,
+    extraBottom: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     val listModifier = modifier
@@ -415,7 +463,7 @@ private fun MainScreenContent(
         PassScreen.OPEN_SOURCE_LICENSES -> OpenSourceLicensesScreen(listModifier)
         else -> LazyColumn(
             modifier = listModifier,
-            contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp + extraBottom),
             overscrollEffect = null
         ) {
             item {
@@ -429,6 +477,7 @@ private fun MainScreenContent(
                     PassScreen.TICKET_DETAIL -> TicketDetailScreen(state, viewModel)
                     PassScreen.PLANS -> PlansScreen(state, viewModel)
                     PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
+                    PassScreen.THEME -> ThemeSettingsScreen(state, viewModel)
                     else -> HomeScreen(state, viewModel)
                 }
             }

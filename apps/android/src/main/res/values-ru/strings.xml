@@ -125,6 +125,12 @@
     <string name="onboarding_continue">Продолжить</string>
     <string name="setting_language">Язык</string>
     <string name="setting_theme">Цветовая тема</string>
+    <string name="page_theme">Тема</string>
+    <string name="setting_theme_summary">Цвет, размытие и плавающая панель</string>
+    <string name="setting_theme_blur">Размытие</string>
+    <string name="setting_theme_blur_summary">Прозрачное размытие верхней и нижней панелей.</string>
+    <string name="setting_theme_floating_bar">Плавающая нижняя панель</string>
+    <string name="setting_theme_floating_bar_summary">Нижняя панель парит, контент проходит под ней.</string>
     <string name="setting_reset_onboarding">Показать вводный экран снова</string>
     <string name="language_system">Система</string>
     <string name="language_zh">Китайский / Chinese</string>

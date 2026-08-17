@@ -72,15 +72,13 @@ internal fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel
             selectedIndex = LanguageOptions.indexOfFirst { it.first == state.appLanguage }.coerceAtLeast(0),
             onSelectedIndexChange = { viewModel.setAppLanguage(LanguageOptions[it].first) }
         )
-        OverlayDropdownPreference(
-            title = stringResource(R.string.setting_theme),
-            summary = themeOptionLabel(state.themeMode, state.appLanguage),
-            items = ThemeOptions.map { themeOptionLabel(it.first, state.appLanguage) },
+        ArrowPreference(
+            title = stringResource(R.string.page_theme),
+            summary = stringResource(R.string.setting_theme_summary),
             startAction = {
                 Icon(Icons.Rounded.Palette, contentDescription = null, tint = MiuixTheme.colorScheme.onBackground, modifier = Modifier.padding(end = 6.dp))
             },
-            selectedIndex = ThemeOptions.indexOfFirst { it.first == state.themeMode }.coerceAtLeast(0),
-            onSelectedIndexChange = { viewModel.setThemeMode(ThemeOptions[it].first) }
+            onClick = { viewModel.openScreen(PassScreen.THEME) }
         )
         ArrowPreference(
             title = stringResource(R.string.setting_reset_onboarding),
@@ -253,6 +251,36 @@ internal fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel
                 Icon(Icons.Rounded.Article, contentDescription = null, tint = MiuixTheme.colorScheme.onBackground, modifier = Modifier.padding(end = 6.dp))
             },
             onClick = { viewModel.openScreen(PassScreen.OPEN_SOURCE_LICENSES) }
+        )
+    }
+}
+
+@Composable
+internal fun ThemeSettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    PreferenceCard {
+        OverlayDropdownPreference(
+            title = stringResource(R.string.setting_theme),
+            summary = themeOptionLabel(state.themeMode, state.appLanguage),
+            items = ThemeOptions.map { themeOptionLabel(it.first, state.appLanguage) },
+            startAction = {
+                Icon(Icons.Rounded.Palette, contentDescription = null, tint = MiuixTheme.colorScheme.onBackground, modifier = Modifier.padding(end = 6.dp))
+            },
+            selectedIndex = ThemeOptions.indexOfFirst { it.first == state.themeMode }.coerceAtLeast(0),
+            onSelectedIndexChange = { viewModel.setThemeMode(ThemeOptions[it].first) }
+        )
+    }
+    PreferenceCard {
+        SwitchPreference(
+            title = stringResource(R.string.setting_theme_blur),
+            summary = stringResource(R.string.setting_theme_blur_summary),
+            checked = state.enableBlur,
+            onCheckedChange = viewModel::setEnableBlur
+        )
+        SwitchPreference(
+            title = stringResource(R.string.setting_theme_floating_bar),
+            summary = stringResource(R.string.setting_theme_floating_bar_summary),
+            checked = state.floatingBottomBar,
+            onCheckedChange = viewModel::setFloatingBottomBar
         )
     }
 }

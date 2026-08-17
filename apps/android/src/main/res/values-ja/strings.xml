@@ -125,6 +125,12 @@
     <string name="onboarding_continue">続行</string>
     <string name="setting_language">言語</string>
     <string name="setting_theme">カラーモード</string>
+    <string name="page_theme">テーマ</string>
+    <string name="setting_theme_summary">カラーモード、ぼかし、フローティングバー</string>
+    <string name="setting_theme_blur">ぼかし</string>
+    <string name="setting_theme_blur_summary">上下バーに透明なぼかしを使います。</string>
+    <string name="setting_theme_floating_bar">フローティングバー</string>
+    <string name="setting_theme_floating_bar_summary">下部バーを浮かせ、その下をコンテンツが通れるようにします。</string>
     <string name="setting_reset_onboarding">起動ガイドをもう一度表示</string>
     <string name="language_system">システム</string>
     <string name="language_zh">中国語 / Chinese</string>

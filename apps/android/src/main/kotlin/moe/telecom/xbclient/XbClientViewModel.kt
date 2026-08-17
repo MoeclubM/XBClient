@@ -130,6 +130,8 @@ data class XbClientUiState(
     val latestDownloadUrl: String = "",
     val appLanguage: String = "",
     val themeMode: String = "",
+    val enableBlur: Boolean = true,
+    val floatingBottomBar: Boolean = true,
     val languageOnboardingDone: Boolean = false,
     val vpnDisclosureDone: Boolean = false,
     val oauthProviders: List<OAuthProvider> = emptyList(),
@@ -239,7 +241,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             PassScreen.NODE_SELECT -> refreshSubscriptionAndNodes()
             PassScreen.APP_RULES -> Unit
             PassScreen.OPEN_SOURCE_LICENSES -> Unit
-            PassScreen.SETTINGS -> Unit
+            PassScreen.SETTINGS, PassScreen.THEME -> Unit
             PassScreen.NODES -> {
                 refreshSubscriptionAndNodes()
                 refreshNotices()
@@ -277,7 +279,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
                 refreshUserInfo(showErrors = true)
             }
-            PassScreen.SETTINGS, PassScreen.APP_RULES -> refreshUserInfo(showErrors = true)
+            PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.THEME -> refreshUserInfo(showErrors = true)
             PassScreen.OPEN_SOURCE_LICENSES -> Unit
             PassScreen.NODES -> {
                 refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
@@ -308,7 +310,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             PassScreen.NODE_SELECT -> openScreen(PassScreen.NODES)
             PassScreen.TICKET_DETAIL -> openScreen(PassScreen.TICKETS)
             PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> openScreen(PassScreen.PROFILE)
-            PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> openScreen(PassScreen.SETTINGS)
+            PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> openScreen(PassScreen.SETTINGS)
             PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS -> Unit
         }
     }
@@ -562,6 +564,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             appOpenAdUnitId = current.appOpenAdUnitId,
             appLanguage = current.appLanguage,
             themeMode = current.themeMode,
+            enableBlur = current.enableBlur,
+            floatingBottomBar = current.floatingBottomBar,
             languageOnboardingDone = current.languageOnboardingDone,
             vpnDisclosureDone = current.vpnDisclosureDone,
             oauthProviders = current.oauthProviders,
@@ -1536,17 +1540,40 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         updateAndPersist { it.copy(themeMode = themeMode) }
     }
 
+    fun setEnableBlur(enabled: Boolean) {
+        app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("enable_blur", enabled)
+            .commit()
+        updateAndPersist { it.copy(enableBlur = enabled) }
+    }
+
+    fun setFloatingBottomBar(enabled: Boolean) {
+        app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("floating_bottom_bar", enabled)
+            .commit()
+        updateAndPersist { it.copy(floatingBottomBar = enabled) }
+    }
+
     fun syncAppearanceSettings() {
         val prefs = app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
         val language = prefs.getString("app_language", _uiState.value.appLanguage)
             ?: throw IllegalStateException("app_language preference is null")
         val theme = prefs.getString("theme_mode", _uiState.value.themeMode)
             ?: throw IllegalStateException("theme_mode preference is null")
+        val enableBlur = prefs.getBoolean("enable_blur", true)
+        val floatingBottomBar = prefs.getBoolean("floating_bottom_bar", true)
         _uiState.update { current ->
             if (!current.loaded) {
                 current
             } else {
-                current.copy(appLanguage = language, themeMode = theme)
+                current.copy(
+                    appLanguage = language,
+                    themeMode = theme,
+                    enableBlur = enableBlur,
+                    floatingBottomBar = floatingBottomBar
+                )
             }
         }
     }
@@ -1963,6 +1990,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             adRewardLogs = emptyList(),
             appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
             themeMode = prefs[Keys.THEME_MODE].orEmpty(),
+            enableBlur = prefs[Keys.ENABLE_BLUR] ?: true,
+            floatingBottomBar = prefs[Keys.FLOATING_BOTTOM_BAR] ?: true,
             languageOnboardingDone = prefs[Keys.LANGUAGE_ONBOARDING_DONE] ?: false,
             vpnDisclosureDone = prefs[Keys.VPN_DISCLOSURE_DONE] ?: false,
             oauthProviders = emptyList(),
@@ -2072,6 +2101,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
             prefs[Keys.APP_LANGUAGE] = state.appLanguage
             prefs[Keys.THEME_MODE] = state.themeMode
+            prefs[Keys.ENABLE_BLUR] = state.enableBlur
+            prefs[Keys.FLOATING_BOTTOM_BAR] = state.floatingBottomBar
             prefs[Keys.LANGUAGE_ONBOARDING_DONE] = state.languageOnboardingDone
             prefs[Keys.VPN_DISCLOSURE_DONE] = state.vpnDisclosureDone
             prefs[Keys.REGISTER_EMAIL_VERIFY_ENABLED] = state.registerEmailVerifyEnabled
@@ -2122,6 +2153,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("app_open_ad_unit_id", state.appOpenAdUnitId)
             .putString("app_language", state.appLanguage)
             .putString("theme_mode", state.themeMode)
+            .putBoolean("enable_blur", state.enableBlur)
+            .putBoolean("floating_bottom_bar", state.floatingBottomBar)
             .putBoolean("language_onboarding_done", state.languageOnboardingDone)
             .putBoolean("vpn_disclosure_done", state.vpnDisclosureDone)
             .putBoolean("register_email_verify_enabled", state.registerEmailVerifyEnabled)
@@ -2354,6 +2387,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val APP_OPEN_AD_UNIT_ID = stringPreferencesKey("app_open_ad_unit_id")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val ENABLE_BLUR = booleanPreferencesKey("enable_blur")
+        val FLOATING_BOTTOM_BAR = booleanPreferencesKey("floating_bottom_bar")
         val LANGUAGE_ONBOARDING_DONE = booleanPreferencesKey("language_onboarding_done")
         val VPN_DISCLOSURE_DONE = booleanPreferencesKey("vpn_disclosure_done")
         val OAUTH_PROVIDERS = stringPreferencesKey("oauth_providers")
