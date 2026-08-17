@@ -69,7 +69,11 @@ val appVersionName = gitExactTag.removePrefix("v").ifEmpty {
 val debugVersionNameSuffix = ".debug"
 android {
     namespace = "moe.telecom.xbclient"
-    compileSdk = compileAndroidApi
+    compileSdk {
+        version = release(compileAndroidApi) {
+            minorApiLevel = 0
+        }
+    }
     buildToolsVersion = latestBuildTools
     ndkVersion = androidNdkVersion
 
