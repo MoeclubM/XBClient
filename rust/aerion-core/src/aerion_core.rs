@@ -204,6 +204,30 @@ async fn start_aerion_socks(
             AerionProxyConfig::Vless(config) => {
                 Some(aerion::ProxyCore::from_credentials(&config.user_id, &[]))
             }
+            AerionProxyConfig::Vmess(config) => {
+                Some(aerion::ProxyCore::from_credentials(&config.user_id, &[]))
+            }
+            AerionProxyConfig::Hysteria2(config) => {
+                Some(aerion::ProxyCore::from_credentials(&config.password, &[]))
+            }
+            AerionProxyConfig::Mieru(config) => {
+                let credential = if config.username.is_empty() {
+                    config.password.as_str()
+                } else {
+                    config.username.as_str()
+                };
+                Some(aerion::ProxyCore::from_credentials(credential, &[]))
+            }
+            AerionProxyConfig::Naive(config) => Some(aerion::ProxyCore::from_credentials(
+                &format!("{}:{}", config.username, config.password),
+                &[],
+            )),
+            AerionProxyConfig::Shadowsocks(config) => {
+                Some(aerion::ProxyCore::from_credentials(&config.password, &[]))
+            }
+            AerionProxyConfig::Tuic(config) => {
+                Some(aerion::ProxyCore::from_credentials(&config.uuid, &[]))
+            }
             _ => None,
         }
     } else {

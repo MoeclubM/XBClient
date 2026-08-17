@@ -36,14 +36,18 @@ pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionPr
         "http" | "https" | "http-proxy" | "https-proxy" | "http+tls" => {
             http_proxy_config(node, listen).map(AerionProxyConfig::HttpProxy)
         }
-        "hysteria2" => hysteria2_config(node, listen).map(AerionProxyConfig::Hysteria2),
+        "hysteria2" | "hysteria" => {
+            hysteria2_config(node, listen).map(AerionProxyConfig::Hysteria2)
+        }
         "trojan" => trojan_config(node, listen).map(AerionProxyConfig::Trojan),
         "vless" => vless_config(node, listen).map(AerionProxyConfig::Vless),
         "vmess" => vmess_config(node, listen).map(AerionProxyConfig::Vmess),
         "mieru" => mieru_config(node, listen).map(AerionProxyConfig::Mieru),
         "naive" => naive_config(node, listen).map(AerionProxyConfig::Naive),
         "tuic" => tuic_config(node, listen).map(AerionProxyConfig::Tuic),
-        "ss" => shadowsocks_config(node, listen).map(AerionProxyConfig::Shadowsocks),
+        "ss" | "shadowsocks" => {
+            shadowsocks_config(node, listen).map(AerionProxyConfig::Shadowsocks)
+        }
         "socks" | "socks5" | "socks5h" => {
             socks_proxy_config(node, listen).map(AerionProxyConfig::SocksProxy)
         }
@@ -213,8 +217,9 @@ fn vmess_config(node: &Value, listen: SocketAddr) -> Result<VmessClientConfig> {
 }
 
 fn mieru_config(node: &Value, listen: SocketAddr) -> Result<MieruClientConfig> {
-    let username =
-        node_optional_string(node, &["username"]).unwrap_or_else(|| "default".to_string());
+    let username = node_optional_string(node, &["username"])
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow::anyhow!("node field username is required for Mieru"))?;
     let password = node_optional_string(node, &["password"]);
     let hashed_password = node_optional_string(node, &["hashed_password"])
         .map(|value| parse_mieru_hash(&value))
@@ -1414,5 +1419,44 @@ mod tests {
         assert_eq!(config.mtu, 1400);
         assert!(config.traffic_pattern.is_none());
         Ok(())
+    }
+
+    #[test]
+    fn accepts_shadowsocks_and_hysteria_protocol_aliases() -> Result<()> {
+        let ss = serde_json::json!({
+            "type": "shadowsocks",
+            "host": "ss.example.com",
+            "port": 8388,
+            "cipher": "aes-128-gcm",
+            "password": "secret"
+        });
+        assert!(matches!(
+            node_to_proxy_config(&ss, "127.0.0.1:1080".parse()?)?,
+            AerionProxyConfig::Shadowsocks(_)
+        ));
+        let hy = serde_json::json!({
+            "type": "hysteria",
+            "host": "hy.example.com",
+            "port": 443,
+            "password": "secret",
+            "sni": "hy.example.com"
+        });
+        assert!(matches!(
+            node_to_proxy_config(&hy, "127.0.0.1:1081".parse()?)?,
+            AerionProxyConfig::Hysteria2(_)
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_mieru_without_username() {
+        let node = serde_json::json!({
+            "type": "mieru",
+            "host": "mieru.example.com",
+            "port": 8964,
+            "password": "secret"
+        });
+        let error = node_to_proxy_config(&node, "127.0.0.1:1080".parse().unwrap()).unwrap_err();
+        assert!(error.to_string().contains("username is required"));
     }
 }

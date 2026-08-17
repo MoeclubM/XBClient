@@ -3,10 +3,11 @@ use aerion::{
     NaiveClientConfig, ProxyCore, RouteClientConfig, ShadowsocksClientConfig,
     SocksProxyClientConfig, TrojanClientConfig, TuicClientConfig, VlessClientConfig,
     VmessClientConfig, run_client_listener, run_http_proxy_client_listener,
-    run_hysteria2_client_listener, run_mieru_client_listener, run_naive_client_listener,
-    run_route_client_listener, run_shadowsocks_client_listener, run_socks_proxy_client_listener,
-    run_trojan_client_listener, run_tuic_client_listener, run_vless_client_listener,
-    run_vmess_client_listener,
+    run_hysteria2_client_listener_with_core, run_mieru_client_listener_with_core,
+    run_naive_client_listener_with_core, run_route_client_listener,
+    run_shadowsocks_client_listener_with_core, run_socks_proxy_client_listener,
+    run_trojan_client_listener, run_tuic_client_listener_with_core, run_vless_client_listener,
+    run_vmess_client_listener_with_core,
 };
 use anyhow::Result;
 use tokio::net::TcpListener;
@@ -52,22 +53,30 @@ async fn run_aerion_listener(
             run_http_proxy_client_listener(listener, config).await
         }
         AerionProxyConfig::Hysteria2(config) => {
-            run_hysteria2_client_listener(listener, config).await
+            run_hysteria2_client_listener_with_core(listener, config, core).await
         }
         AerionProxyConfig::Trojan(config) => {
             run_trojan_client_listener(listener, config, core).await
         }
         AerionProxyConfig::Vless(config) => run_vless_client_listener(listener, config, core).await,
-        AerionProxyConfig::Vmess(config) => run_vmess_client_listener(listener, config).await,
-        AerionProxyConfig::Mieru(config) => run_mieru_client_listener(listener, config).await,
-        AerionProxyConfig::Naive(config) => run_naive_client_listener(listener, config).await,
+        AerionProxyConfig::Vmess(config) => {
+            run_vmess_client_listener_with_core(listener, config, core).await
+        }
+        AerionProxyConfig::Mieru(config) => {
+            run_mieru_client_listener_with_core(listener, config, core).await
+        }
+        AerionProxyConfig::Naive(config) => {
+            run_naive_client_listener_with_core(listener, config, core).await
+        }
         AerionProxyConfig::Route(config) => run_route_client_listener(listener, config).await,
         AerionProxyConfig::Shadowsocks(config) => {
-            run_shadowsocks_client_listener(listener, config).await
+            run_shadowsocks_client_listener_with_core(listener, config, core).await
         }
         AerionProxyConfig::SocksProxy(config) => {
             run_socks_proxy_client_listener(listener, config).await
         }
-        AerionProxyConfig::Tuic(config) => run_tuic_client_listener(listener, config).await,
+        AerionProxyConfig::Tuic(config) => {
+            run_tuic_client_listener_with_core(listener, config, core).await
+        }
     }
 }
