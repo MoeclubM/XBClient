@@ -4,6 +4,7 @@ plugins {
 }
 
 val minAndroidApi = 26
+val appMinAndroidApi = 33
 val compileAndroidApi = 37
 val targetAndroidApi = 36
 val latestBuildTools = "36.1.0"
@@ -79,7 +80,7 @@ android {
 
     defaultConfig {
         applicationId = androidApplicationId
-        minSdk = minAndroidApi
+        minSdk = appMinAndroidApi
         targetSdk = targetAndroidApi
         versionCode = appVersionCode
         versionName = appVersionName
