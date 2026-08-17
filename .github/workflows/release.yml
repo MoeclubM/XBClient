@@ -59,7 +59,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platforms;android-36 build-tools;36.1.0 ndk;28.2.13676358'
+          packages: 'platforms;android-37 build-tools;36.1.0 ndk;28.2.13676358'
 
       - name: Validate app build secrets
         shell: bash

@@ -4,7 +4,8 @@ plugins {
 }
 
 val minAndroidApi = 26
-val latestAndroidApi = 36
+val compileAndroidApi = 37
+val targetAndroidApi = 36
 val latestBuildTools = "36.1.0"
 val androidNdkVersion = "28.2.13676358"
 extensions.extraProperties["aerionMinAndroidApi"] = minAndroidApi
@@ -68,14 +69,14 @@ val appVersionName = gitExactTag.removePrefix("v").ifEmpty {
 val debugVersionNameSuffix = ".debug"
 android {
     namespace = "moe.telecom.xbclient"
-    compileSdk = latestAndroidApi
+    compileSdk = compileAndroidApi
     buildToolsVersion = latestBuildTools
     ndkVersion = androidNdkVersion
 
     defaultConfig {
         applicationId = androidApplicationId
         minSdk = minAndroidApi
-        targetSdk = latestAndroidApi
+        targetSdk = targetAndroidApi
         versionCode = appVersionCode
         versionName = appVersionName
         manifestPlaceholders["oauthCallbackScheme"] = oauthCallbackScheme
