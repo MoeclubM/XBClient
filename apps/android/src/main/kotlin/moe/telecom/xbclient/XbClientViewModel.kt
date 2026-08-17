@@ -115,7 +115,6 @@ data class XbClientUiState(
     val appSearchQuery: String = "",
     val nodeSwitchSheet: Boolean = false,
     val nodeSwitchConnect: Boolean = false,
-    val adEnabled: Boolean = false,
     val paymentEnabled: Boolean = false,
     val planRewardAdEnabled: Boolean = false,
     val planRewardedAdUnitId: String = "",
@@ -125,7 +124,6 @@ data class XbClientUiState(
     val appOpenAdUnitId: String = "",
     val adRewardLogs: List<AdRewardLogItem> = emptyList(),
     val adRewardLogsLoading: Boolean = false,
-    val configUpdatedAt: Long = 0L,
     val updateAvailable: Boolean = false,
     val latestReleaseVersion: String = "",
     val latestReleaseUrl: String = "",
@@ -555,7 +553,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val current = _uiState.value
         val next = XbClientUiState(
             loaded = true,
-            adEnabled = current.adEnabled,
             paymentEnabled = current.paymentEnabled,
             planRewardAdEnabled = current.planRewardAdEnabled,
             planRewardedAdUnitId = current.planRewardedAdUnitId,
@@ -563,7 +560,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             pointsRewardedAdUnitId = current.pointsRewardedAdUnitId,
             appOpenAdEnabled = current.appOpenAdEnabled,
             appOpenAdUnitId = current.appOpenAdUnitId,
-            configUpdatedAt = current.configUpdatedAt,
             appLanguage = current.appLanguage,
             themeMode = current.themeMode,
             languageOnboardingDone = current.languageOnboardingDone,
@@ -1449,28 +1445,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val paymentEnabled = data.getBoolean("payment_enabled")
         val appOpenEnabled = data.getBoolean("app_open_ad_enabled")
         val appOpenAdUnitId = if (appOpenEnabled) data.getString("app_open_ad_unit_id") else ""
-        val configUpdatedAt = System.currentTimeMillis()
-        if (!data.getBoolean("ad_enabled")) {
-            _uiState.update {
-                it.copy(
-                    adEnabled = false,
-                    paymentEnabled = paymentEnabled,
-                    appOpenAdEnabled = appOpenEnabled,
-                    appOpenAdUnitId = appOpenAdUnitId,
-                    configUpdatedAt = configUpdatedAt,
-                    planRewardAdEnabled = false,
-                    planRewardedAdUnitId = "",
-                    pointsRewardAdEnabled = false,
-                    pointsRewardedAdUnitId = ""
-                )
-            }
-            persistStoredState(_uiState.value)
-            val updateProjectUrl = BuildConfig.GITHUB_PROJECT_URL.trim()
-            if (updateProjectUrl.isNotBlank()) {
-                checkGithubReleaseUpdate(updateProjectUrl)
-            }
-            return Triple("", "", "")
-        }
         val planEnabled = data.getBoolean("plan_reward_ad_enabled")
         val planAdUnitId = if (planEnabled) data.getString("plan_rewarded_ad_unit_id") else ""
         val planUserId = if (planEnabled) data.getString("plan_ssv_user_id") else ""
@@ -1481,11 +1455,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val pointsCustomData = if (pointsEnabled) data.getString("points_ssv_custom_data") else ""
         _uiState.update {
             it.copy(
-                adEnabled = planEnabled || pointsEnabled,
                 paymentEnabled = paymentEnabled,
                 appOpenAdEnabled = appOpenEnabled,
                 appOpenAdUnitId = appOpenAdUnitId,
-                configUpdatedAt = configUpdatedAt,
                 planRewardAdEnabled = planEnabled,
                 planRewardedAdUnitId = planAdUnitId,
                 pointsRewardAdEnabled = pointsEnabled,
@@ -1502,22 +1474,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         } else {
             Triple(planAdUnitId, planUserId, planCustomData)
         }
-    }
-
-    private fun clearRewardConfig() {
-        _uiState.update {
-            it.copy(
-                adEnabled = false,
-                paymentEnabled = false,
-                appOpenAdEnabled = false,
-                appOpenAdUnitId = "",
-                planRewardAdEnabled = false,
-                planRewardedAdUnitId = "",
-                pointsRewardAdEnabled = false,
-                pointsRewardedAdUnitId = ""
-            )
-        }
-        persistState(_uiState.value)
     }
 
     fun saveDnsAndTestSettings(nodeDns: String, overseasDns: String, directDns: String, nodeTestTarget: String, vpnDnsMode: String, virtualDnsPool: String) {
@@ -1997,7 +1953,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             routeRuleCount = prefs[Keys.ROUTE_RULE_COUNT] ?: 0,
             routeRulesPreview = prefs[Keys.ROUTE_RULES_PREVIEW].orEmpty().lines().filter { it.isNotBlank() },
             vpnRequested = prefs[Keys.VPN_RUNNING] ?: false,
-            adEnabled = prefs[Keys.AD_ENABLED] ?: false,
             paymentEnabled = false,
             planRewardAdEnabled = prefs[Keys.PLAN_REWARD_AD_ENABLED] ?: false,
             planRewardedAdUnitId = prefs[Keys.PLAN_REWARDED_AD_UNIT_ID].orEmpty(),
@@ -2006,7 +1961,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             appOpenAdEnabled = prefs[Keys.APP_OPEN_AD_ENABLED] ?: false,
             appOpenAdUnitId = prefs[Keys.APP_OPEN_AD_UNIT_ID].orEmpty(),
             adRewardLogs = emptyList(),
-            configUpdatedAt = prefs[Keys.CONFIG_UPDATED_AT] ?: 0L,
             appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
             themeMode = prefs[Keys.THEME_MODE].orEmpty(),
             languageOnboardingDone = prefs[Keys.LANGUAGE_ONBOARDING_DONE] ?: false,
@@ -2109,7 +2063,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.ROUTE_RULE_COUNT] = state.routeRuleCount
             prefs[Keys.ROUTE_RULES_PREVIEW] = state.routeRulesPreview.joinToString("\n")
             prefs[Keys.VPN_RUNNING] = state.vpnRequested
-            prefs[Keys.AD_ENABLED] = state.adEnabled
             prefs[Keys.PAYMENT_ENABLED] = state.paymentEnabled
             prefs[Keys.PLAN_REWARD_AD_ENABLED] = state.planRewardAdEnabled
             prefs[Keys.PLAN_REWARDED_AD_UNIT_ID] = state.planRewardedAdUnitId
@@ -2117,7 +2070,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.POINTS_REWARDED_AD_UNIT_ID] = state.pointsRewardedAdUnitId
             prefs[Keys.APP_OPEN_AD_ENABLED] = state.appOpenAdEnabled
             prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
-            prefs[Keys.CONFIG_UPDATED_AT] = state.configUpdatedAt
             prefs[Keys.APP_LANGUAGE] = state.appLanguage
             prefs[Keys.THEME_MODE] = state.themeMode
             prefs[Keys.LANGUAGE_ONBOARDING_DONE] = state.languageOnboardingDone
@@ -2161,7 +2113,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putInt("route_rule_count", state.routeRuleCount)
             .putString("route_rules_preview", state.routeRulesPreview.joinToString("\n"))
             .putBoolean("vpn_running", state.vpnRequested)
-            .putBoolean("ad_enabled", state.adEnabled)
             .putBoolean("payment_enabled", state.paymentEnabled)
             .putBoolean("plan_reward_ad_enabled", state.planRewardAdEnabled)
             .putString("plan_rewarded_ad_unit_id", state.planRewardedAdUnitId)
@@ -2169,7 +2120,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("points_rewarded_ad_unit_id", state.pointsRewardedAdUnitId)
             .putBoolean("app_open_ad_enabled", state.appOpenAdEnabled)
             .putString("app_open_ad_unit_id", state.appOpenAdUnitId)
-            .putLong("config_updated_at", state.configUpdatedAt)
             .putString("app_language", state.appLanguage)
             .putString("theme_mode", state.themeMode)
             .putBoolean("language_onboarding_done", state.languageOnboardingDone)
@@ -2395,7 +2345,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val ROUTE_RULE_COUNT = intPreferencesKey("route_rule_count")
         val ROUTE_RULES_PREVIEW = stringPreferencesKey("route_rules_preview")
         val VPN_RUNNING = booleanPreferencesKey("vpn_running")
-        val AD_ENABLED = booleanPreferencesKey("ad_enabled")
         val PAYMENT_ENABLED = booleanPreferencesKey("payment_enabled")
         val PLAN_REWARD_AD_ENABLED = booleanPreferencesKey("plan_reward_ad_enabled")
         val PLAN_REWARDED_AD_UNIT_ID = stringPreferencesKey("plan_rewarded_ad_unit_id")
@@ -2403,8 +2352,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val POINTS_REWARDED_AD_UNIT_ID = stringPreferencesKey("points_rewarded_ad_unit_id")
         val APP_OPEN_AD_ENABLED = booleanPreferencesKey("app_open_ad_enabled")
         val APP_OPEN_AD_UNIT_ID = stringPreferencesKey("app_open_ad_unit_id")
-        val AD_REWARD_LOGS = stringPreferencesKey("ad_reward_logs")
-        val CONFIG_UPDATED_AT = longPreferencesKey("config_updated_at")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val LANGUAGE_ONBOARDING_DONE = booleanPreferencesKey("language_onboarding_done")

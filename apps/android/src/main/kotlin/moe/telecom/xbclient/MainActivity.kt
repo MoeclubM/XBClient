@@ -11,7 +11,6 @@ import android.graphics.Color
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -22,41 +21,13 @@ import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.google.android.libraries.ads.mobile.sdk.MobileAds
-import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAd
-import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdEventCallback
-import com.google.android.libraries.ads.mobile.sdk.common.AdLoadCallback
-import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
-import com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError
-import com.google.android.libraries.ads.mobile.sdk.common.LoadAdError
-import com.google.android.libraries.ads.mobile.sdk.initialization.InitializationConfig
-import com.google.android.libraries.ads.mobile.sdk.rewarded.OnUserEarnedRewardListener
-import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardItem
-import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAd
-import com.google.android.libraries.ads.mobile.sdk.rewarded.RewardedAdEventCallback
-import com.google.android.libraries.ads.mobile.sdk.rewarded.ServerSideVerificationOptions
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val viewModel: XbClientViewModel by viewModels()
+    private lateinit var ads: XbClientAds
     private var pendingVpnNodeIndex = 0
     private var receiverRegistered = false
-    private val rewardedAds = mutableMapOf<String, RewardedAd>()
-    private val rewardedAdLoading = mutableSetOf<String>()
-    private val pendingRewardedLoads = mutableSetOf<String>()
-    private var appOpenAd: AppOpenAd? = null
-    private var appOpenAdUnitId = ""
-    private var appOpenAdLoading = false
-    private var pendingAppOpenAdUnitId = ""
-    private var pendingAppOpenShow = false
-    private var appOpenShownThisLaunch = false
-    private var adsInitialized = false
-    private var adsInitializing = false
-    private var pendingRewardUserId = ""
-    private var pendingRewardCustomData = ""
-    private var pendingRewardAdUnitId = ""
-    private var pendingRewardShow = false
     private var redirectedToAuth = false
 
     private val vpnPermissionLauncher =
@@ -86,6 +57,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ads = XbClientAds(this) { viewModel.onRewardAdEarned(it) }
+        ads.start()
         enableEdgeToEdge()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -98,7 +71,7 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is XbClientEvent.Message -> Toast.makeText(this@MainActivity, event.text, Toast.LENGTH_SHORT).show()
                         is XbClientEvent.RequestVpnPermission -> requestVpnPermission(event.nodeIndex)
-                        is XbClientEvent.ShowRewardAd -> showRewardedAd(event.adUnitId, event.userId, event.customData)
+                        is XbClientEvent.ShowRewardAd -> ads.showRewardedAd(event.adUnitId, event.userId, event.customData)
                         is XbClientEvent.OpenExternalUrl -> BrowserOpener.open(this@MainActivity, event.url)
                     }
                 }
@@ -120,15 +93,7 @@ class MainActivity : ComponentActivity() {
                         finish()
                         return@collect
                     }
-                    if (state.isLoggedIn && state.planRewardAdEnabled && state.planRewardedAdUnitId.isNotEmpty()) {
-                        loadRewardedAd(state.planRewardedAdUnitId)
-                    }
-                    if (state.isLoggedIn && state.pointsRewardAdEnabled && state.pointsRewardedAdUnitId.isNotEmpty()) {
-                        loadRewardedAd(state.pointsRewardedAdUnitId)
-                    }
-                    if (state.isLoggedIn && state.appOpenAdEnabled && state.appOpenAdUnitId.isNotEmpty()) {
-                        showAppOpenAd(state.appOpenAdUnitId)
-                    }
+                    ads.sync(state)
                 }
             }
         }
@@ -171,6 +136,11 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
+    override fun onDestroy() {
+        ads.release()
+        super.onDestroy()
+    }
+
     private fun handleLaunchIntent(intent: Intent?) {
         if (intent?.action == ACTION_SELECT_NODE) {
             viewModel.requestNodeSwitchDialog(connectAfterSelect = true)
@@ -201,198 +171,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // The Google Mobile Ads SDK rejects load() calls issued before initialization completes,
-    // which previously left every ad silently failing to load. Initialize once and only load
-    // ads after the SDK reports ready; loads requested in the meantime are queued and flushed.
-    private fun initializeAds() {
-        if (adsInitialized || adsInitializing) {
-            return
-        }
-        if (MobileAds.isInitialized) {
-            onAdsInitialized()
-            return
-        }
-        adsInitializing = true
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                MobileAds.initialize(
-                    this@MainActivity,
-                    InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID).build()
-                ) {
-                    runOnUiThread { onAdsInitialized() }
-                }
-            } catch (error: Exception) {
-                runOnUiThread {
-                    adsInitializing = false
-                    Log.w(TAG, "MobileAds initialization failed.", error)
-                }
-            }
-        }
-    }
-
-    private fun onAdsInitialized() {
-        adsInitialized = true
-        adsInitializing = false
-        val pending = pendingRewardedLoads.toList()
-        pendingRewardedLoads.clear()
-        pending.forEach { loadRewardedAd(it) }
-        val pendingAppOpen = pendingAppOpenAdUnitId
-        if (pendingAppOpen.isNotEmpty()) {
-            pendingAppOpenAdUnitId = ""
-            loadAppOpenAd(pendingAppOpen)
-        }
-    }
-
-    private fun loadAppOpenAd(adUnitId: String) {
-        if (appOpenAdLoading || (appOpenAd != null && appOpenAdUnitId == adUnitId)) {
-            return
-        }
-        if (!adsInitialized) {
-            pendingAppOpenAdUnitId = adUnitId
-            initializeAds()
-            return
-        }
-        appOpenAdLoading = true
-        appOpenAdUnitId = adUnitId
-        AppOpenAd.load(
-            AdRequest.Builder(adUnitId).build(),
-            object : AdLoadCallback<AppOpenAd> {
-                override fun onAdLoaded(ad: AppOpenAd) {
-                    runOnUiThread {
-                        appOpenAd = ad
-                        appOpenAdLoading = false
-                        if (pendingAppOpenShow && !appOpenShownThisLaunch) {
-                            pendingAppOpenShow = false
-                            showAppOpenAd(adUnitId)
-                        }
-                    }
-                }
-
-                override fun onAdFailedToLoad(adError: LoadAdError) {
-                    runOnUiThread {
-                        Log.w(TAG, "App open ad failed to load: $adError")
-                        appOpenAd = null
-                        appOpenAdLoading = false
-                        pendingAppOpenShow = false
-                    }
-                }
-            }
-        )
-    }
-
-    private fun showAppOpenAd(adUnitId: String) {
-        if (appOpenShownThisLaunch) {
-            return
-        }
-        val ad = appOpenAd
-        if (ad == null || appOpenAdUnitId != adUnitId) {
-            pendingAppOpenShow = true
-            loadAppOpenAd(adUnitId)
-            return
-        }
-        appOpenShownThisLaunch = true
-        ad.adEventCallback = object : AppOpenAdEventCallback {
-            override fun onAdDismissedFullScreenContent() {
-                runOnUiThread {
-                    appOpenAd = null
-                    loadAppOpenAd(adUnitId)
-                }
-            }
-
-            override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
-                runOnUiThread {
-                    Log.w(TAG, "App open ad failed to show: $fullScreenContentError")
-                    appOpenAd = null
-                    loadAppOpenAd(adUnitId)
-                }
-            }
-        }
-        ad.show(this)
-    }
-
-    private fun loadRewardedAd(adUnitId: String) {
-        if (rewardedAdLoading.contains(adUnitId) || rewardedAds.containsKey(adUnitId)) {
-            return
-        }
-        if (!adsInitialized) {
-            pendingRewardedLoads.add(adUnitId)
-            initializeAds()
-            return
-        }
-        rewardedAdLoading.add(adUnitId)
-        RewardedAd.load(
-            AdRequest.Builder(adUnitId).build(),
-            object : AdLoadCallback<RewardedAd> {
-                override fun onAdLoaded(ad: RewardedAd) {
-                    runOnUiThread {
-                        rewardedAds[adUnitId] = ad
-                        rewardedAdLoading.remove(adUnitId)
-                        if (pendingRewardShow && pendingRewardAdUnitId == adUnitId) {
-                            pendingRewardShow = false
-                            showRewardedAd(adUnitId, pendingRewardUserId, pendingRewardCustomData)
-                        }
-                    }
-                }
-
-                override fun onAdFailedToLoad(adError: LoadAdError) {
-                    runOnUiThread {
-                        Log.w(TAG, "Rewarded ad failed to load: $adError")
-                        rewardedAds.remove(adUnitId)
-                        rewardedAdLoading.remove(adUnitId)
-                        if (pendingRewardShow && pendingRewardAdUnitId == adUnitId) {
-                            pendingRewardShow = false
-                        }
-                    }
-                }
-            }
-        )
-    }
-
-    private fun showRewardedAd(adUnitId: String, userId: String, customData: String) {
-        val ad = rewardedAds[adUnitId]
-        if (ad == null) {
-            pendingRewardUserId = userId
-            pendingRewardCustomData = customData
-            pendingRewardAdUnitId = adUnitId
-            pendingRewardShow = true
-            loadRewardedAd(adUnitId)
-            return
-        }
-        ad.setServerSideVerificationOptions(
-            ServerSideVerificationOptions(
-                userId = userId,
-                customData = customData
-            )
-        )
-        ad.setImmersiveMode(false)
-        ad.adEventCallback = object : RewardedAdEventCallback {
-            override fun onAdDismissedFullScreenContent() {
-                runOnUiThread {
-                    rewardedAds.remove(adUnitId)
-                    loadRewardedAd(adUnitId)
-                }
-            }
-
-            override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
-                runOnUiThread {
-                    Log.w(TAG, "Rewarded ad failed to show: $fullScreenContentError")
-                    rewardedAds.remove(adUnitId)
-                    loadRewardedAd(adUnitId)
-                }
-            }
-        }
-        ad.show(
-            this,
-            object : OnUserEarnedRewardListener {
-                override fun onUserEarnedReward(reward: RewardItem) {
-                    runOnUiThread {
-                        viewModel.onRewardAdEarned(customData)
-                    }
-                }
-            }
-        )
-    }
-
     private fun requestVpnPermission(nodeIndex: Int) {
         pendingVpnNodeIndex = nodeIndex
         val prepare = VpnService.prepare(this)
@@ -405,6 +183,5 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val ACTION_SELECT_NODE = "moe.telecom.xbclient.action.SELECT_NODE"
-        private const val TAG = "XBClientAds"
     }
 }

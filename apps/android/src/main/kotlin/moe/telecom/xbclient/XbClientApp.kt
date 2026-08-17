@@ -1,226 +1,58 @@
 package moe.telecom.xbclient
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.Intent
-import android.content.res.Configuration
 import android.net.Uri
 import android.os.Message
-import android.text.TextUtils
-import android.view.View
 import android.webkit.CookieManager
-import android.webkit.WebResourceRequest
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Toast
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.autofill.ContentType
-import androidx.compose.ui.autofill.contentType
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
-import java.text.SimpleDateFormat
-import java.util.Date
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.PullToRefresh
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import java.util.Locale
-import kotlin.math.abs
-import kotlin.math.roundToInt
-
-private val XbClientLightColors = lightColorScheme(
-    primary = Color(0xFF0B57D0),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFD3E3FD),
-    onPrimaryContainer = Color(0xFF041E49),
-    secondary = Color(0xFF42526E),
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFD9E2F6),
-    onSecondaryContainer = Color(0xFF101C2F),
-    tertiary = Color(0xFF006B5F),
-    background = Color(0xFFF6F8FC),
-    onBackground = Color(0xFF161B22),
-    surface = Color(0xFFF6F8FC),
-    onSurface = Color(0xFF161B22),
-    surfaceContainerLow = Color.White,
-    surfaceContainer = Color.White,
-    surfaceContainerHigh = Color(0xFFEFF3FA),
-    surfaceVariant = Color(0xFFE2E8F2),
-    onSurfaceVariant = Color(0xFF4C5668),
-    outline = Color(0xFF9AA7BA),
-    outlineVariant = Color(0xFFD7DEE9)
-)
-
-private val XbClientDarkColors = darkColorScheme(
-    primary = Color(0xFF9CC2FF),
-    onPrimary = Color(0xFF073A8C),
-    primaryContainer = Color(0xFF123A6F),
-    onPrimaryContainer = Color(0xFFD8E7FF),
-    secondary = Color(0xFFBBC6DC),
-    onSecondary = Color(0xFF273143),
-    secondaryContainer = Color(0xFF323D52),
-    onSecondaryContainer = Color(0xFFDDE6F8),
-    tertiary = Color(0xFF68DBCD),
-    background = Color(0xFF0F141B),
-    onBackground = Color(0xFFE5E9F0),
-    surface = Color(0xFF0F141B),
-    onSurface = Color(0xFFE5E9F0),
-    surfaceContainerLow = Color(0xFF171C24),
-    surfaceContainer = Color(0xFF1B222D),
-    surfaceContainerHigh = Color(0xFF252D39),
-    surfaceVariant = Color(0xFF343D4C),
-    onSurfaceVariant = Color(0xFFC2CAD8),
-    outline = Color(0xFF7F8A9B),
-    outlineVariant = Color(0xFF303948)
-)
-
-private val LanguageOptions = listOf(
-    "" to "System",
-    "zh-CN" to "中文",
-    "en" to "English",
-    "ja" to "日本語",
-    "ru" to "Русский",
-    "fa" to "فارسی"
-)
-
-private val ThemeOptions = listOf(
-    "" to R.string.theme_system,
-    "light" to R.string.theme_light,
-    "dark" to R.string.theme_dark
-)
-
-private val MainTabScreens = setOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
-
-private val OnboardingLanguageTitles = mapOf(
-    "" to "Choose language\n选择语言",
-    "zh-CN" to "选择语言\nChoose language",
-    "en" to "Choose language",
-    "ja" to "言語を選択\nChoose language",
-    "ru" to "Выберите язык\nChoose language",
-    "fa" to "انتخاب زبان\nChoose language"
-)
-
-private val OnboardingLanguageSubtitles = mapOf(
-    "" to "Please select a language.\n请选择语言。",
-    "zh-CN" to "请选择语言。\nPlease select a language.",
-    "en" to "Please select a language.",
-    "ja" to "言語を選択してください。\nPlease select a language.",
-    "ru" to "Выберите язык.\nPlease select a language.",
-    "fa" to "لطفاً زبان را انتخاب کنید.\nPlease select a language."
-)
 
 @Composable
 fun XbClientApp(viewModel: XbClientViewModel) {
@@ -230,9 +62,7 @@ fun XbClientApp(viewModel: XbClientViewModel) {
     val appLocale = remember(languageTag) { Locale.forLanguageTag(languageTag) }
     val localizedContext = remember(baseContext, appLocale) { localizedContext(baseContext, appLocale) }
     val localizedConfiguration = remember(localizedContext) { localizedContext.resources.configuration }
-    val layoutDirection = remember(appLocale) {
-        if (TextUtils.getLayoutDirectionFromLocale(appLocale) == View.LAYOUT_DIRECTION_RTL) LayoutDirection.Rtl else LayoutDirection.Ltr
-    }
+    val layoutDirection = remember(appLocale) { appLayoutDirection(appLocale) }
     var backProgress by remember { mutableFloatStateOf(0f) }
     PredictiveBackHandler(enabled = state.loaded && state.isLoggedIn && state.canHandleBack) { progress ->
         try {
@@ -252,7 +82,6 @@ fun XbClientApp(viewModel: XbClientViewModel) {
         LocalLayoutDirection provides layoutDirection
     ) {
         XbClientTheme(state.themeMode) {
-            XbClientDialogs(state, viewModel)
             val routeBackProgress = if (
                 state.isLoggedIn &&
                 state.screen !in MainTabScreens &&
@@ -285,9 +114,7 @@ fun XbClientAuthApp(viewModel: XbClientViewModel) {
     val appLocale = remember(languageTag) { Locale.forLanguageTag(languageTag) }
     val localizedContext = remember(baseContext, appLocale) { localizedContext(baseContext, appLocale) }
     val localizedConfiguration = remember(localizedContext) { localizedContext.resources.configuration }
-    val layoutDirection = remember(appLocale) {
-        if (TextUtils.getLayoutDirectionFromLocale(appLocale) == View.LAYOUT_DIRECTION_RTL) LayoutDirection.Rtl else LayoutDirection.Ltr
-    }
+    val layoutDirection = remember(appLocale) { appLayoutDirection(appLocale) }
     var backProgress by remember { mutableFloatStateOf(0f) }
     PredictiveBackHandler(enabled = state.loaded && state.canHandleBack) { progress ->
         try {
@@ -307,65 +134,57 @@ fun XbClientAuthApp(viewModel: XbClientViewModel) {
         LocalLayoutDirection provides layoutDirection
     ) {
         XbClientTheme(state.themeMode) {
-            XbClientDialogs(state, viewModel)
-            Box(
-                modifier = Modifier.graphicsLayer {
-                    alpha = 1f - backProgress * 0.08f
-                    scaleX = 1f - backProgress * 0.025f
-                    scaleY = 1f - backProgress * 0.025f
+            Scaffold {
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        alpha = 1f - backProgress * 0.08f
+                        scaleX = 1f - backProgress * 0.025f
+                        scaleY = 1f - backProgress * 0.025f
+                    }
+                ) {
+                    if (!state.loaded) {
+                        LoadingScreen()
+                    } else if (!state.languageOnboardingDone) {
+                        LanguageOnboardingScreen(state, viewModel)
+                    } else if (!state.vpnDisclosureDone) {
+                        VpnDisclosureScreen(viewModel)
+                    } else if (!state.isLoggedIn) {
+                        AuthScreen(state, viewModel)
+                    } else {
+                        LoadingScreen()
+                    }
                 }
-            ) {
-                if (!state.loaded) {
-                    LoadingScreen()
-                } else if (!state.languageOnboardingDone) {
-                    LanguageOnboardingScreen(state, viewModel)
-                } else if (!state.vpnDisclosureDone) {
-                    VpnDisclosureScreen(viewModel)
-                } else if (!state.isLoggedIn) {
-                    AuthScreen(state, viewModel)
-                } else {
-                    LoadingScreen()
+                XbClientDialogs(state, viewModel)
+                if (state.oauthWebViewUrl.isNotEmpty()) {
+                    OAuthWebView(state.oauthWebViewUrl, viewModel)
                 }
-            }
-            if (state.oauthWebViewUrl.isNotEmpty()) {
-                OAuthWebView(state.oauthWebViewUrl, viewModel)
             }
         }
     }
 }
 
 @Composable
-fun XbClientTheme(themeMode: String, content: @Composable () -> Unit) {
-    val darkTheme = when (themeMode) {
-        "dark" -> true
-        "light" -> false
-        else -> isSystemInDarkTheme()
-    }
-    MaterialTheme(colorScheme = if (darkTheme) XbClientDarkColors else XbClientLightColors, content = content)
-}
-
-@Composable
 private fun LoadingScreen() {
-    Box(Modifier.fillMaxSize())
+    Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        InfiniteProgressIndicator(color = MiuixTheme.colorScheme.primary)
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.oauth_web_title)) },
+                title = stringResource(R.string.oauth_web_title),
                 actions = {
-                    TextButton(onClick = viewModel::closeOAuthWebView) {
-                        Text(stringResource(R.string.common_close))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                    TextButton(
+                        text = stringResource(R.string.common_close),
+                        onClick = viewModel::closeOAuthWebView
+                    )
+                }
             )
-        },
-        containerColor = MaterialTheme.colorScheme.background
+        }
     ) { padding ->
         AndroidView(
             factory = { context ->
@@ -447,586 +266,6 @@ private fun handleOAuthWebUrl(uri: Uri, viewModel: XbClientViewModel): Boolean {
 }
 
 @Composable
-private fun LanguageOnboardingScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    var selected by rememberSaveable { mutableStateOf(if (LanguageOptions.any { it.first == state.appLanguage }) state.appLanguage else "") }
-    var showLanguagePicker by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(1000)
-        showLanguagePicker = true
-    }
-    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
-        AnimatedContent(
-            targetState = showLanguagePicker,
-            transitionSpec = { contentTransition() },
-            label = "language-onboarding-stage",
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-        ) { showPicker ->
-            if (!showPicker) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Image(
-                            painter = painterResource(R.drawable.ic_launcher),
-                            contentDescription = null,
-                            modifier = Modifier.size(112.dp)
-                        )
-                        Spacer(Modifier.height(18.dp))
-                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
-                    }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp)
-                ) {
-                    item {
-                        Image(
-                            painter = painterResource(R.drawable.ic_launcher),
-                            contentDescription = null,
-                            modifier = Modifier.size(72.dp)
-                        )
-                        Spacer(Modifier.height(22.dp))
-                        Text(
-                            OnboardingLanguageTitles[selected] ?: OnboardingLanguageTitles.getValue(""),
-                            style = MaterialTheme.typography.headlineMedium
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            OnboardingLanguageSubtitles[selected] ?: OnboardingLanguageSubtitles.getValue(""),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(24.dp))
-                        ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-                            Column(Modifier.padding(10.dp)) {
-                                for ((index, item) in LanguageOptions.withIndex()) {
-                                    ListItem(
-                                        headlineContent = { Text(item.second) },
-                                        trailingContent = {
-                                            if (selected == item.first) {
-                                                Text("✓", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleLarge)
-                                            }
-                                        },
-                                        modifier = Modifier.clickable {
-                                            selected = item.first
-                                            viewModel.setAppLanguage(item.first)
-                                        }
-                                    )
-                                    if (index != LanguageOptions.lastIndex) {
-                                        HorizontalDivider()
-                                    }
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(20.dp))
-                        Button(onClick = { viewModel.finishLanguageOnboarding(selected) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(stringResource(R.string.onboarding_continue))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun VpnDisclosureScreen(viewModel: XbClientViewModel) {
-    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp)
-        ) {
-            item {
-                Image(
-                    painter = painterResource(R.drawable.ic_launcher),
-                    contentDescription = null,
-                    modifier = Modifier.size(72.dp)
-                )
-                Spacer(Modifier.height(22.dp))
-                Text(stringResource(R.string.vpn_disclosure_title), style = MaterialTheme.typography.headlineMedium)
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.vpn_disclosure_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(24.dp))
-                ElevatedCard(colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-                    Column(Modifier.padding(18.dp)) {
-                        Text(stringResource(R.string.vpn_disclosure_point_traffic))
-                        Spacer(Modifier.height(12.dp))
-                        Text(stringResource(R.string.vpn_disclosure_point_data))
-                        Spacer(Modifier.height(12.dp))
-                        Text(stringResource(R.string.vpn_disclosure_point_control))
-                    }
-                }
-                Spacer(Modifier.height(20.dp))
-                Button(onClick = viewModel::acceptVpnDisclosure, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.vpn_disclosure_accept))
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp)
-        ) {
-            item {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    CompactLanguageMenu(state.appLanguage, viewModel)
-                    CompactThemeMenu(state.themeMode, state.appLanguage, viewModel)
-                }
-                Spacer(Modifier.height(28.dp))
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_launcher),
-                        contentDescription = null,
-                        modifier = Modifier.size(96.dp)
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    Text(stringResource(id = R.string.app_name), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
-                    Spacer(Modifier.height(26.dp))
-                    AnimatedContent(
-                        targetState = state.authMode,
-                        transitionSpec = { contentTransition() },
-                        label = "auth-mode"
-                    ) { authMode ->
-                        if (authMode == AuthMode.LOGIN) {
-                            LoginContent(state, viewModel)
-                        } else {
-                            RegisterContent(state, viewModel)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun LoginContent(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val context = LocalContext.current
-    var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 18.dp)
-            .animateContentSize(animationSpec = tween(180))
-    ) {
-        OutlinedCard(
-            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(18.dp)) {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text(stringResource(R.string.auth_email)) },
-                    singleLine = true,
-                    modifier = Modifier
-                        .contentType(ContentType.Username + ContentType.EmailAddress)
-                        .fillMaxWidth()
-                )
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text(stringResource(R.string.auth_password)) },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier
-                        .contentType(ContentType.Password)
-                        .fillMaxWidth()
-                )
-                Spacer(Modifier.height(16.dp))
-                Button(onClick = { viewModel.login(email, password) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.auth_login))
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = viewModel::showRegister, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.auth_register_account))
-                }
-            }
-        }
-        if (state.oauthProviders.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
-            OutlinedCard(
-                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(18.dp)) {
-                    for (provider in state.oauthProviders) {
-                        OutlinedButton(
-                            onClick = { viewModel.openOAuthPage("login", provider.driver) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.auth_oauth_login_button, provider.label))
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-                }
-            }
-        }
-        if (hasAuthFooterLinks()) {
-            Spacer(Modifier.height(14.dp))
-            AuthFooterLinks(context)
-        }
-    }
-}
-
-private fun hasAuthFooterLinks() =
-    BuildConfig.WEBSITE_URL.trim().isNotEmpty() ||
-        BuildConfig.USER_AGREEMENT_URL.trim().isNotEmpty() ||
-        BuildConfig.PRIVACY_POLICY_URL.trim().isNotEmpty()
-
-@Composable
-private fun RegisterContent(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val context = LocalContext.current
-    var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var inviteCode by rememberSaveable { mutableStateOf("") }
-    var emailCode by rememberSaveable { mutableStateOf("") }
-    var captcha by rememberSaveable { mutableStateOf("") }
-    var legalAccepted by rememberSaveable { mutableStateOf(false) }
-    val legalRequired = BuildConfig.USER_AGREEMENT_URL.trim().isNotEmpty() && BuildConfig.PRIVACY_POLICY_URL.trim().isNotEmpty()
-    val registerEnabled = !legalRequired || legalAccepted
-    Column(modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))) {
-        OutlinedCard(
-            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(18.dp)) {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text(stringResource(R.string.auth_email)) },
-                    singleLine = true,
-                    modifier = Modifier
-                        .contentType(ContentType.NewUsername + ContentType.EmailAddress)
-                        .fillMaxWidth()
-                )
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text(stringResource(R.string.auth_password)) },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier
-                        .contentType(ContentType.NewPassword)
-                        .fillMaxWidth()
-                )
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = inviteCode, onValueChange = { inviteCode = it }, label = { Text(stringResource(R.string.auth_invite_code_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(10.dp))
-                if (state.registerEmailVerifyEnabled) {
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(value = emailCode, onValueChange = { emailCode = it }, label = { Text(stringResource(R.string.auth_email_code_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                }
-                if (state.registerCaptchaEnabled) {
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(value = captcha, onValueChange = { captcha = it }, label = { Text(stringResource(R.string.auth_captcha_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                }
-                if (state.registerEmailVerifyEnabled) {
-                    Spacer(Modifier.height(14.dp))
-                    OutlinedButton(onClick = { viewModel.sendEmailVerify(email, captcha) }, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.auth_send_email_code))
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                if (legalRequired) {
-                    RegisterLegalAgreement(legalAccepted, { legalAccepted = it }, context)
-                    Spacer(Modifier.height(8.dp))
-                }
-                Button(
-                    onClick = { viewModel.register(email, password, inviteCode, emailCode, captcha) },
-                    enabled = registerEnabled,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.auth_register))
-                }
-                Spacer(Modifier.height(8.dp))
-                TextButton(onClick = viewModel::showLogin, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.auth_back_login))
-                }
-                if (state.oauthConfirmToken.isNotEmpty()) {
-                    Spacer(Modifier.height(14.dp))
-                    Text(
-                        stringResource(R.string.auth_oauth_confirm_message, state.oauthConfirmProvider, state.oauthConfirmEmail),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = viewModel::confirmOAuthRegister, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.auth_oauth_confirm_button))
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = viewModel::clearOAuthConfirm, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.auth_oauth_cancel))
-                    }
-                }
-                if (state.oauthProviders.isNotEmpty()) {
-                    Spacer(Modifier.height(14.dp))
-                    for (provider in state.oauthProviders) {
-                        OutlinedButton(
-                            onClick = { viewModel.openOAuthPage("register", provider.driver, inviteCode) },
-                            enabled = registerEnabled,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.auth_oauth_register_button, provider.label))
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RegisterLegalAgreement(checked: Boolean, onCheckedChange: (Boolean) -> Unit, context: Context) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.auth_terms_agree), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LinkText(stringResource(R.string.about_user_agreement)) { openBrowser(context, BuildConfig.USER_AGREEMENT_URL) }
-                LinkText(stringResource(R.string.about_privacy_policy)) { openBrowser(context, BuildConfig.PRIVACY_POLICY_URL) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AuthFooterLinks(context: Context) {
-    val links = listOf(
-        R.string.about_website to BuildConfig.WEBSITE_URL.trim(),
-        R.string.about_user_agreement to BuildConfig.USER_AGREEMENT_URL.trim(),
-        R.string.about_privacy_policy to BuildConfig.PRIVACY_POLICY_URL.trim()
-    ).filter { it.second.isNotEmpty() }
-    if (links.isEmpty()) {
-        return
-    }
-    Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        for ((index, link) in links.withIndex()) {
-            LinkText(stringResource(link.first)) { openBrowser(context, link.second) }
-            if (index != links.lastIndex) {
-                Text(" · ", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
-@Composable
-private fun CompactLanguageMenu(current: String, viewModel: XbClientViewModel) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val selectedLabel = (LanguageOptions.firstOrNull { it.first == current } ?: LanguageOptions.first()).second
-    Box {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clickable { expanded = true }
-                    .padding(horizontal = 12.dp, vertical = 9.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_language),
-                    contentDescription = stringResource(R.string.setting_language),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(selectedLabel, style = MaterialTheme.typography.labelLarge)
-                Spacer(Modifier.width(6.dp))
-                Text("▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for ((tag, label) in LanguageOptions) {
-                DropdownMenuItem(
-                    text = { Text(label) },
-                    trailingIcon = { if (current == tag) Text("✓") },
-                    onClick = {
-                        expanded = false
-                        viewModel.setAppLanguage(tag)
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CompactThemeMenu(current: String, appLanguage: String, viewModel: XbClientViewModel) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val themeOptions = ThemeOptions.map { it.first to themeOptionLabel(it.first, appLanguage) }
-    val selectedLabel = (themeOptions.firstOrNull { it.first == current } ?: themeOptions.first()).second
-    Box {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clickable { expanded = true }
-                    .padding(horizontal = 12.dp, vertical = 9.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_theme),
-                    contentDescription = stringResource(R.string.setting_theme),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(selectedLabel, style = MaterialTheme.typography.labelLarge)
-                Spacer(Modifier.width(6.dp))
-                Text("▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for ((mode, label) in themeOptions) {
-                DropdownMenuItem(
-                    text = { Text(label) },
-                    trailingIcon = { if (current == mode) Text("✓") },
-                    onClick = {
-                        expanded = false
-                        viewModel.setThemeMode(mode)
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun LinkText(text: String, onClick: () -> Unit) {
-    Text(
-        text,
-        color = MaterialTheme.colorScheme.primary,
-        textDecoration = TextDecoration.Underline,
-        modifier = Modifier.clickable(onClick = onClick)
-    )
-}
-
-@Composable
-private fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val selectedLabel = (LanguageOptions.firstOrNull { it.first == current } ?: LanguageOptions.first()).second
-    Box(Modifier.fillMaxWidth()) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = true }
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_language),
-                    contentDescription = stringResource(R.string.setting_language),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.setting_language), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(2.dp))
-                    Text(selectedLabel, style = MaterialTheme.typography.titleSmall)
-                }
-                Text("▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for ((tag, label) in LanguageOptions) {
-                DropdownMenuItem(
-                    text = { Text(label) },
-                    trailingIcon = { if (current == tag) Text("✓") },
-                    onClick = {
-                        expanded = false
-                        viewModel.setAppLanguage(tag)
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ThemeChooser(current: String, appLanguage: String, viewModel: XbClientViewModel) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val themeOptions = ThemeOptions.map { it.first to themeOptionLabel(it.first, appLanguage) }
-    val selectedLabel = (themeOptions.firstOrNull { it.first == current } ?: themeOptions.first()).second
-    Box(Modifier.fillMaxWidth()) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = true }
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_theme),
-                    contentDescription = stringResource(R.string.setting_theme),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.setting_theme), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(2.dp))
-                    Text(selectedLabel, style = MaterialTheme.typography.titleSmall)
-                }
-                Text("▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for ((mode, label) in themeOptions) {
-                DropdownMenuItem(
-                    text = { Text(label) },
-                    trailingIcon = { if (current == mode) Text("✓") },
-                    onClick = {
-                        expanded = false
-                        viewModel.setThemeMode(mode)
-                    }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, backProgress: Float) {
     val visibleScreen = if (state.subscriptionBlocked && state.screen == PassScreen.NODE_SELECT) PassScreen.NODES else state.screen
     val backTargetScreen = when (visibleScreen) {
@@ -1036,87 +275,123 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
         PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
         else -> null
     }
+    val showBottomBar = visibleScreen in MainTabScreens || (backTargetScreen != null && backTargetScreen in MainTabScreens && backProgress > 0f)
+    val scrollBehavior = MiuixScrollBehavior()
+    val backdrop = rememberBlurBackdrop()
+    val barColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(
-                            painter = painterResource(R.drawable.ic_launcher),
-                            contentDescription = null,
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Text(stringResource(id = R.string.app_name), style = MaterialTheme.typography.titleLarge)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::showNotices) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_notice),
-                            contentDescription = stringResource(R.string.section_announcement),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
+            BlurredBar(backdrop) {
+                TopAppBar(
+                    color = barColor,
+                    title = screenTitle(visibleScreen),
+                    navigationIcon = {
+                        if (visibleScreen !in MainTabScreens) {
+                            IconButton(onClick = viewModel::navigateBack) {
+                                Icon(
+                                    imageVector = MiuixIcons.Back,
+                                    contentDescription = stringResource(R.string.common_close),
+                                    tint = MiuixTheme.colorScheme.onBackground
+                                )
+                            }
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = viewModel::showNotices) {
+                            Icon(
+                                imageVector = ImageVector.vectorResource(R.drawable.ic_notice),
+                                contentDescription = stringResource(R.string.section_announcement),
+                                tint = MiuixTheme.colorScheme.onBackground
+                            )
+                        }
+                    },
+                    scrollBehavior = scrollBehavior
+                )
+            }
         },
-        containerColor = MaterialTheme.colorScheme.background
+        bottomBar = {
+            if (showBottomBar) {
+                BlurredBar(backdrop) {
+                    MainNavigationBar(state, viewModel, barColor)
+                }
+            }
+        }
     ) { padding ->
-        Box(
+        XbClientDialogs(state, viewModel)
+        PullToRefresh(
+            isRefreshing = state.isRefreshing,
+            onRefresh = viewModel::refreshCurrentPage,
             modifier = Modifier
+                .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            PullToRefreshBox(
-                isRefreshing = state.isRefreshing,
-                onRefresh = viewModel::refreshCurrentPage,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Box(Modifier.fillMaxSize()) {
-                    if (backTargetScreen != null && backProgress > 0f) {
-                        MainScreenContent(
-                            screen = backTargetScreen,
-                            state = state,
-                            viewModel = viewModel,
-                            bottomPadding = 116.dp,
-                            modifier = Modifier.graphicsLayer {
-                                alpha = 0.35f + backProgress * 0.65f
-                                scaleX = 0.96f + backProgress * 0.04f
-                                scaleY = 0.96f + backProgress * 0.04f
-                                translationX = -size.width * 0.06f * (1f - backProgress)
-                            }
-                        )
-                    }
-                    AnimatedContent(
-                        targetState = visibleScreen,
-                        transitionSpec = { screenTransition() },
+            Box(Modifier.fillMaxSize()) {
+                if (backTargetScreen != null && backProgress > 0f) {
+                    MainScreenContent(
+                        screen = backTargetScreen,
+                        state = state,
+                        viewModel = viewModel,
+                        scrollBehavior = scrollBehavior,
                         modifier = Modifier.graphicsLayer {
-                            if (backTargetScreen != null && backProgress > 0f) {
-                                translationX = size.width * (0.08f + backProgress * 0.82f)
-                                alpha = 1f - backProgress * 0.16f
-                                scaleX = 1f - backProgress * 0.035f
-                                scaleY = 1f - backProgress * 0.035f
-                            }
-                        },
-                        label = "main-screen"
-                    ) { screen ->
-                        MainScreenContent(screen, state, viewModel)
-                    }
+                            alpha = 0.35f + backProgress * 0.65f
+                            scaleX = 0.96f + backProgress * 0.04f
+                            scaleY = 0.96f + backProgress * 0.04f
+                            translationX = -size.width * 0.06f * (1f - backProgress)
+                        }
+                    )
+                }
+                AnimatedContent(
+                    targetState = visibleScreen,
+                    transitionSpec = { screenTransition() },
+                    modifier = Modifier.graphicsLayer {
+                        if (backTargetScreen != null && backProgress > 0f) {
+                            translationX = size.width * (0.08f + backProgress * 0.82f)
+                            alpha = 1f - backProgress * 0.16f
+                            scaleX = 1f - backProgress * 0.035f
+                            scaleY = 1f - backProgress * 0.035f
+                        }
+                    },
+                    label = "main-screen"
+                ) { screen ->
+                    MainScreenContent(screen, state, viewModel, scrollBehavior)
                 }
             }
-            if (visibleScreen in MainTabScreens || backTargetScreen != null && backTargetScreen in MainTabScreens && backProgress > 0f) {
-                BottomNavigation(
-                    state,
-                    viewModel,
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .graphicsLayer {
-                            alpha = if (visibleScreen in MainTabScreens) 1f else backProgress
-                        }
+        }
+    }
+}
+
+@Composable
+private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewModel, color: Color) {
+    val selected = when (state.screen) {
+        PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
+        PassScreen.PROFILE, PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> PassScreen.PROFILE
+        PassScreen.PLANS -> PassScreen.PLANS
+        else -> PassScreen.NODES
+    }
+    val navScreens = listOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
+    NavigationBar(color = color) {
+        for (screen in navScreens) {
+            NavigationBarItem(
+                selected = selected == screen,
+                onClick = { viewModel.openScreen(screen) },
+                icon = ImageVector.vectorResource(
+                    when (screen) {
+                        PassScreen.PLANS -> R.drawable.ic_nav_plans
+                        PassScreen.PROFILE -> R.drawable.ic_nav_profile
+                        PassScreen.SETTINGS -> R.drawable.ic_nav_settings
+                        else -> R.drawable.ic_nav_home
+                    }
+                ),
+                label = stringResource(
+                    id = when (screen) {
+                        PassScreen.PLANS -> R.string.nav_plans
+                        PassScreen.PROFILE -> R.string.nav_profile
+                        PassScreen.SETTINGS -> R.string.common_settings
+                        else -> R.string.nav_home
+                    }
                 )
-            }
+            )
         }
     }
 }
@@ -1126,1860 +401,37 @@ private fun MainScreenContent(
     screen: PassScreen,
     state: XbClientUiState,
     viewModel: XbClientViewModel,
-    modifier: Modifier = Modifier,
-    bottomPadding: Dp = 28.dp
+    scrollBehavior: ScrollBehavior,
+    modifier: Modifier = Modifier
 ) {
-    val contentBottomPadding = if (screen in MainTabScreens) 116.dp else bottomPadding
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        when (screen) {
-            PassScreen.NODE_SELECT -> NodeSelectScreen(state, viewModel)
-            PassScreen.APP_RULES -> AppRulesScreen(state, viewModel)
-            PassScreen.OPEN_SOURCE_LICENSES -> OpenSourceLicensesScreen()
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = contentBottomPadding)
-            ) {
-                item {
-                    when (screen) {
-                        PassScreen.PROFILE -> ProfileScreen(state, viewModel)
-                        PassScreen.GIFT_CARDS -> GiftCardsScreen(state, viewModel)
-                        PassScreen.ACCOUNT_SECURITY -> AccountSecurityScreen(state, viewModel)
-                        PassScreen.INVITE_DETAILS -> InviteDetailsScreen(state)
-                        PassScreen.TRAFFIC_LOGS -> TrafficLogsScreen(state)
-                        PassScreen.TICKETS -> TicketsScreen(state, viewModel)
-                        PassScreen.TICKET_DETAIL -> TicketDetailScreen(state, viewModel)
-                        PassScreen.PLANS -> PlansScreen(state, viewModel)
-                        PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
-                        else -> HomeScreen(state, viewModel)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BottomNavigation(state: XbClientUiState, viewModel: XbClientViewModel, modifier: Modifier = Modifier) {
-    val selected = when (state.screen) {
-        PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
-        PassScreen.PROFILE, PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> PassScreen.PROFILE
-        PassScreen.PLANS -> PassScreen.PLANS
-        else -> PassScreen.NODES
-    }
-    val navScreens = listOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
-    var navDragging by remember { mutableStateOf(false) }
-    var navDragActive by remember { mutableStateOf(false) }
-    var navDragOffsetPx by remember { mutableFloatStateOf(0f) }
-    var navDragVelocityPx by remember { mutableFloatStateOf(0f) }
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp)
-            .padding(bottom = 16.dp),
-        color = Color.Transparent,
-        tonalElevation = 0.dp
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(42.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.92f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            tonalElevation = 0.dp,
-            shadowElevation = 8.dp
+    val listModifier = modifier
+        .fillMaxSize()
+        .scrollEndHaptic()
+        .overScrollVertical()
+        .nestedScroll(scrollBehavior.nestedScrollConnection)
+    when (screen) {
+        PassScreen.NODE_SELECT -> NodeSelectScreen(state, viewModel, listModifier)
+        PassScreen.APP_RULES -> AppRulesScreen(state, viewModel, listModifier)
+        PassScreen.OPEN_SOURCE_LICENSES -> OpenSourceLicensesScreen(listModifier)
+        else -> LazyColumn(
+            modifier = listModifier,
+            contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp),
+            overscrollEffect = null
         ) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .height(76.dp)
-                    .padding(horizontal = 8.dp, vertical = 7.dp)
-            ) {
-                val selectedIndex = navScreens.indexOf(selected).coerceAtLeast(0)
-                val itemWidth = maxWidth / navScreens.size
-                val density = LocalDensity.current
-                val itemWidthPx = with(density) { itemWidth.toPx() }
-                val draggedOffset = with(density) {
-                    (itemWidthPx * selectedIndex.toFloat() + navDragOffsetPx)
-                        .coerceIn(-itemWidthPx * 0.12f, itemWidthPx * (navScreens.lastIndex + 0.12f))
-                        .toDp()
-                } + 2.dp
-                val pillOffset by animateDpAsState(
-                    targetValue = if (navDragging) draggedOffset else itemWidth * selectedIndex.toFloat() + 2.dp,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
-                    label = "bottom-nav-pill"
-                )
-                val liquidStretch by animateFloatAsState(
-                    targetValue = if (navDragging) (abs(navDragVelocityPx) / 2600f).coerceIn(0f, 0.32f) else 0f,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
-                    label = "bottom-nav-liquid-stretch"
-                )
-                val dropletAlpha by animateFloatAsState(
-                    targetValue = if (navDragging && abs(navDragOffsetPx) > 2f) (0.18f + liquidStretch * 0.65f).coerceAtMost(0.38f) else 0f,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
-                    label = "bottom-nav-liquid-droplet"
-                )
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .offset(x = if (navDragVelocityPx >= 0f) pillOffset + 8.dp else pillOffset + itemWidth - 40.dp)
-                        .size(34.dp)
-                        .graphicsLayer {
-                            alpha = dropletAlpha
-                            scaleX = 1f + liquidStretch * 0.8f
-                            scaleY = 1f - liquidStretch * 0.2f
-                        },
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp
-                ) {}
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .offset(x = if (navDragVelocityPx >= 0f) pillOffset + 4.dp else pillOffset + itemWidth - 24.dp)
-                        .size(16.dp)
-                        .graphicsLayer {
-                            alpha = dropletAlpha * 0.72f
-                            scaleX = 1f + liquidStretch
-                            scaleY = 1f - liquidStretch * 0.18f
-                        },
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f),
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp
-                ) {}
-                Surface(
-                    modifier = Modifier
-                        .offset(x = pillOffset)
-                        .width(itemWidth - 4.dp)
-                        .height(62.dp)
-                        .graphicsLayer {
-                            scaleX = 1f + liquidStretch
-                            scaleY = 1f - liquidStretch * 0.28f
-                        },
-                    shape = RoundedCornerShape(31.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.68f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f)),
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp
-                ) {}
-                Row(
-                    Modifier
-                        .fillMaxSize()
-                        .pointerInput(selectedIndex, itemWidthPx) {
-                            val velocityTracker = VelocityTracker()
-                            detectHorizontalDragGestures(
-                                onDragStart = { start ->
-                                    val selectedStart = selectedIndex.toFloat() * itemWidthPx
-                                    navDragActive = start.x >= selectedStart && start.x <= selectedStart + itemWidthPx
-                                    navDragging = navDragActive
-                                    navDragOffsetPx = 0f
-                                    navDragVelocityPx = 0f
-                                    velocityTracker.resetTracking()
-                                },
-                                onHorizontalDrag = { change, dragAmount ->
-                                    if (navDragActive) {
-                                        velocityTracker.addPosition(change.uptimeMillis, change.position)
-                                        navDragVelocityPx = velocityTracker.calculateVelocity().x
-                                        val minimum = -selectedIndex.toFloat() * itemWidthPx
-                                        val maximum = (navScreens.lastIndex - selectedIndex).toFloat() * itemWidthPx
-                                        val next = navDragOffsetPx + dragAmount
-                                        navDragOffsetPx = when {
-                                            next < minimum -> minimum + (next - minimum) * 0.24f
-                                            next > maximum -> maximum + (next - maximum) * 0.24f
-                                            else -> next
-                                        }
-                                    }
-                                },
-                                onDragEnd = {
-                                    val projectedOffset = navDragOffsetPx + velocityTracker.calculateVelocity().x * 0.18f
-                                    val targetIndex = (selectedIndex + (projectedOffset / itemWidthPx).roundToInt()).coerceIn(0, navScreens.lastIndex)
-                                    val active = navDragActive
-                                    navDragActive = false
-                                    navDragging = false
-                                    navDragOffsetPx = 0f
-                                    navDragVelocityPx = 0f
-                                    if (active) {
-                                        viewModel.openScreen(navScreens[targetIndex])
-                                    }
-                                },
-                                onDragCancel = {
-                                    navDragActive = false
-                                    navDragging = false
-                                    navDragOffsetPx = 0f
-                                    navDragVelocityPx = 0f
-                                }
-                            )
-                        },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    for (screen in navScreens) {
-                        BottomNavButton(
-                            selected = selected == screen,
-                            icon = when (screen) {
-                                PassScreen.PLANS -> R.drawable.ic_nav_plans
-                                PassScreen.PROFILE -> R.drawable.ic_nav_profile
-                                PassScreen.SETTINGS -> R.drawable.ic_nav_settings
-                                else -> R.drawable.ic_nav_home
-                            },
-                            label = stringResource(
-                                id = when (screen) {
-                                    PassScreen.PLANS -> R.string.nav_plans
-                                    PassScreen.PROFILE -> R.string.nav_profile
-                                    PassScreen.SETTINGS -> R.string.common_settings
-                                    else -> R.string.nav_home
-                                }
-                            ),
-                            modifier = Modifier.weight(1f),
-                            onClick = { viewModel.openScreen(screen) }
-                        )
-                    }
+            item {
+                when (screen) {
+                    PassScreen.PROFILE -> ProfileScreen(state, viewModel)
+                    PassScreen.GIFT_CARDS -> GiftCardsScreen(state, viewModel)
+                    PassScreen.ACCOUNT_SECURITY -> AccountSecurityScreen(state, viewModel)
+                    PassScreen.INVITE_DETAILS -> InviteDetailsScreen(state)
+                    PassScreen.TRAFFIC_LOGS -> TrafficLogsScreen(state)
+                    PassScreen.TICKETS -> TicketsScreen(state, viewModel)
+                    PassScreen.TICKET_DETAIL -> TicketDetailScreen(state, viewModel)
+                    PassScreen.PLANS -> PlansScreen(state, viewModel)
+                    PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
+                    else -> HomeScreen(state, viewModel)
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun BottomNavButton(selected: Boolean, icon: Int, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
-    val indication = LocalIndication.current
-    val color by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(180),
-        label = "bottom-nav-content"
-    )
-    val iconSize by animateDpAsState(
-        targetValue = if (selected) 27.dp else 25.dp,
-        animationSpec = tween(180),
-        label = "bottom-nav-icon"
-    )
-    val pressScale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh),
-        label = "bottom-nav-press"
-    )
-    val shape = RoundedCornerShape(31.dp)
-    Surface(
-        modifier = modifier
-            .height(62.dp)
-            .graphicsLayer {
-                scaleX = pressScale
-                scaleY = pressScale
-            },
-        shape = shape,
-        color = Color.Transparent
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(shape)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = indication,
-                    onClick = onClick
-                )
-                .padding(horizontal = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(painterResource(icon), contentDescription = null, tint = color, modifier = Modifier.size(iconSize))
-            Spacer(Modifier.height(3.dp))
-            Text(
-                label,
-                color = color,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
-private fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val context = LocalContext.current
-    val selectedNode = state.anyTlsNodes.getOrNull(state.selectedNodeIndex)
-    var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    val latencySamples = remember { mutableStateListOf<Int>() }
-    val uploadSpeedSamples = remember { mutableStateListOf<Long>() }
-    val downloadSpeedSamples = remember { mutableStateListOf<Long>() }
-    // Clock + traffic/speed tick: advances exactly once per second, independent of the
-    // (potentially blocking) connectivity probe below, so the connection timer never stalls.
-    LaunchedEffect(state.vpnRequested) {
-        if (!state.vpnRequested) {
-            uploadSpeedSamples.clear()
-            downloadSpeedSamples.clear()
-            return@LaunchedEffect
-        }
-        var (lastRx, lastTx) = viewModel.refreshVpnSessionStats()
-        var lastAt = System.currentTimeMillis()
-        while (state.vpnRequested) {
-            delay(1000)
-            now = System.currentTimeMillis()
-            val (rx, tx) = viewModel.refreshVpnSessionStats()
-            val elapsed = (now - lastAt).coerceAtLeast(1L)
-            val downBps = ((rx - lastRx).coerceAtLeast(0L) * 1000L) / elapsed
-            val upBps = ((tx - lastTx).coerceAtLeast(0L) * 1000L) / elapsed
-            lastRx = rx
-            lastTx = tx
-            lastAt = now
-            uploadSpeedSamples.add(upBps)
-            downloadSpeedSamples.add(downBps)
-            if (uploadSpeedSamples.size > 60) uploadSpeedSamples.removeAt(0)
-            if (downloadSpeedSamples.size > 60) downloadSpeedSamples.removeAt(0)
-        }
-    }
-    // Connectivity/latency probe in its own loop: its blocking socket connect must not
-    // delay the per-second timer above.
-    LaunchedEffect(state.vpnRequested, state.selectedNodeIndex) {
-        if (!state.vpnRequested) {
-            latencySamples.clear()
-            return@LaunchedEffect
-        }
-        while (state.vpnRequested) {
-            latencySamples.add(viewModel.probeVpnConnectivityNow())
-            if (latencySamples.size > 60) latencySamples.removeAt(0)
-            delay(1000)
-        }
-    }
-    if (state.subscriptionBlocked) {
-        val blockTitle = stringResource(
-            id = when (state.subscriptionBlockReason) {
-                SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_title
-                SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_title
-                else -> R.string.subscription_expired_title
-            }
-        )
-        val blockDescription = stringResource(
-            id = when (state.subscriptionBlockReason) {
-                SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_body
-                SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_body
-                else -> R.string.subscription_expired_body
-            }
-        )
-        Section(blockTitle) {
-            OutlinedCard(
-                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(180))
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(blockDescription, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (state.subscriptionSummary.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(state.subscriptionSummary, style = MaterialTheme.typography.titleMedium)
-                    }
-                    Spacer(Modifier.height(14.dp))
-                    Button(onClick = { viewModel.openScreen(PassScreen.PLANS) }, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.subscription_redeem_button))
-                    }
-                }
-            }
-        }
-        return
-    }
-    Spacer(Modifier.height(24.dp))
-    // Connection control sits directly on the page (no card) with an enlarged circular button.
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        val connectionActionText = stringResource(
-            id = when {
-                state.vpnStarting -> R.string.status_connecting
-                state.vpnRequested -> R.string.action_disconnect
-                else -> R.string.action_connect
-            }
-        )
-        val connectionInteractionSource = remember { MutableInteractionSource() }
-        val connectionPressed by connectionInteractionSource.collectIsPressedAsState()
-        val connectionScale by animateFloatAsState(
-            targetValue = if (connectionPressed) 0.97f else 1f,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh),
-            label = "connection-press"
-        )
-        Button(
-            onClick = { if (state.vpnRequested) viewModel.stopVpn(context) else viewModel.requestStartVpn() },
-            enabled = !state.vpnStarting,
-            modifier = Modifier
-                .size(176.dp)
-                .graphicsLayer {
-                    scaleX = connectionScale
-                    scaleY = connectionScale
-                },
-            shape = CircleShape,
-            interactionSource = connectionInteractionSource
-        ) {
-            AnimatedContent(targetState = connectionActionText, transitionSpec = { contentTransition() }, label = "connection-action") { text ->
-                Text(text, style = MaterialTheme.typography.headlineSmall)
-            }
-        }
-        if (state.vpnRequested) {
-            Spacer(Modifier.height(16.dp))
-            AnimatedContent(
-                targetState = formatDuration((now - state.vpnConnectedAt).coerceAtLeast(0L)),
-                transitionSpec = { contentTransition() },
-                label = "connection-duration",
-            ) { text ->
-                Text(text, style = MaterialTheme.typography.titleMedium)
-            }
-        }
-    }
-    if (state.vpnRequested) {
-        Spacer(Modifier.height(20.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            LatencyChart(samples = latencySamples, modifier = Modifier.weight(1f))
-            SpeedChart(upload = uploadSpeedSamples, download = downloadSpeedSamples, modifier = Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "${stringResource(R.string.session_traffic)} · ${formatTrafficBytes((state.vpnSessionRxBytes + state.vpnSessionTxBytes).toDouble())}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-    Spacer(Modifier.height(24.dp))
-    Section(stringResource(R.string.section_current_node)) {
-        OutlinedCard(
-            colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier
-                .clickable { viewModel.openScreen(PassScreen.NODE_SELECT) }
-                .fillMaxWidth()
-                .animateContentSize(animationSpec = tween(180))
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 78.dp)
-                    .padding(16.dp)
-            ) {
-                val nodeTitle = selectedNode?.displayName(state.selectedNodeIndex, stringResource(R.string.node_default_name, state.selectedNodeIndex + 1))
-                    ?: stringResource(id = if (state.nodesLoading) R.string.status_nodes_syncing else R.string.status_no_nodes)
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.weight(1f)) {
-                        AnimatedContent(targetState = nodeTitle, transitionSpec = { contentTransition() }, label = "current-node") { title ->
-                            Text(title, style = MaterialTheme.typography.headlineSmall)
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        val latencyText = visibleNodeTestText(state.nodeTestResults[state.selectedNodeIndex])
-                        Text(
-                            listOfNotNull(selectedNode?.protocolLabel, latencyText?.let { stringResource(R.string.node_latency, it) }).joinToString(" · "),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Text("›", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-    }
-    if (state.subscriptionSummary.isNotEmpty()) {
-        Section(stringResource(R.string.section_traffic)) {
-            Panel {
-                Text(state.subscriptionSummary, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (state.subscriptionTrafficTotalBytes > 0L) {
-                    Spacer(Modifier.height(12.dp))
-                    LinearProgressIndicator(
-                        progress = { (state.subscriptionTrafficUsedBytes.toFloat() / state.subscriptionTrafficTotalBytes.toFloat()).coerceIn(0f, 1f) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Smoothly-updating single-line chart of round-trip latency samples (ms, -1 = timeout). */
-@Composable
-private fun LatencyChart(samples: List<Int>, modifier: Modifier = Modifier) {
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
-    val lineColor = MaterialTheme.colorScheme.primary
-    val current = samples.lastOrNull()
-    val header = when {
-        current == null -> "— ms"
-        current < 0 -> "—"
-        else -> "$current ms"
-    }
-    ChartCard(modifier = modifier, header = header, headerColor = lineColor) {
-        val valid = samples.filter { it >= 0 }
-        if (valid.size < 2) return@ChartCard
-        val max = (valid.maxOrNull() ?: 100).coerceAtLeast(1)
-        val min = (valid.minOrNull() ?: 0)
-        val range = (max - min).coerceAtLeast(1)
-        val path = Path()
-        valid.forEachIndexed { index, value ->
-            val x = (index.toFloat() / (valid.size - 1)) * size.width
-            val y = size.height * (1f - ((value - min).toFloat() / range).coerceIn(0f, 1f))
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        drawGrid(gridColor)
-        drawPath(path = path, color = lineColor, style = Stroke(width = 2.dp.toPx()))
-    }
-}
-
-/** Smoothly-updating chart of upload (↑) and download (↓) speed in bytes/second. */
-@Composable
-private fun SpeedChart(upload: List<Long>, download: List<Long>, modifier: Modifier = Modifier) {
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
-    val upColor = MaterialTheme.colorScheme.primary
-    val downColor = MaterialTheme.colorScheme.tertiary
-    val curUp = upload.lastOrNull() ?: 0L
-    val curDown = download.lastOrNull() ?: 0L
-    val header = "↑${formatTrafficBytes(curUp.toDouble())}/s ↓${formatTrafficBytes(curDown.toDouble())}/s"
-    ChartCard(modifier = modifier, header = header, headerColor = MaterialTheme.colorScheme.onSurface) {
-        val peak = ((upload + download).maxOrNull() ?: 0L).coerceAtLeast(1L)
-        drawGrid(gridColor)
-        drawSpeedLine(download, peak, downColor)
-        drawSpeedLine(upload, peak, upColor)
-    }
-}
-
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGrid(color: Color) {
-    val gridLines = 4
-    for (i in 0..gridLines) {
-        val y = size.height * (i.toFloat() / gridLines)
-        drawLine(color = color, start = Offset(0f, y), end = Offset(size.width, y), strokeWidth = 0.5.dp.toPx())
-    }
-}
-
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSpeedLine(values: List<Long>, peak: Long, color: Color) {
-    if (values.size < 2) return
-    val path = Path()
-    values.forEachIndexed { index, value ->
-        val x = (index.toFloat() / (values.size - 1)) * size.width
-        val y = size.height * (1f - (value.toFloat() / peak).coerceIn(0f, 1f))
-        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-    }
-    drawPath(path = path, color = color, style = Stroke(width = 2.dp.toPx()))
-}
-
-@Composable
-private fun ChartCard(
-    modifier: Modifier = Modifier,
-    header: String,
-    headerColor: Color,
-    draw: androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit,
-) {
-    Surface(modifier = modifier, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Column(Modifier.padding(12.dp)) {
-            Text(
-                header,
-                style = MaterialTheme.typography.labelMedium,
-                color = headerColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(8.dp))
-            Canvas(modifier = Modifier.fillMaxWidth().height(72.dp)) { draw() }
-        }
-    }
-}
-
-@Composable
-private fun NoticeCard(notice: NoticeItem) {
-    OutlinedCard(
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            if (notice.title.isNotBlank()) {
-                Text(notice.title, style = MaterialTheme.typography.titleMedium)
-            }
-            val content = plainNoticeText(notice.content)
-            if (content.isNotBlank()) {
-                if (notice.title.isNotBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                }
-                Text(content, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (notice.createdAt > 0L) {
-                Spacer(Modifier.height(8.dp))
-                Text(formatUnixTime(notice.createdAt), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
-@Composable
-private fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val context = LocalContext.current
-    RewardAdSection(
-        title = stringResource(R.string.reward_plan_title),
-        enabled = state.planRewardAdEnabled,
-        scene = REWARD_SCENE_PLAN,
-        state = state,
-        viewModel = viewModel
-    )
-    if (state.plansLoading) {
-        Text(stringResource(R.string.plans_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    } else if (state.plans.isEmpty()) {
-        Text(stringResource(R.string.plans_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    } else {
-        val noPriceText = stringResource(R.string.plan_price_unset)
-        for ((index, plan) in state.plans.withIndex()) {
-            PlanRow(
-                plan = plan,
-                currencySymbol = state.currencySymbol,
-                currencyUnit = state.currencyUnit,
-                noPriceText = noPriceText,
-                paymentEnabled = state.paymentEnabled,
-                onOpenPayment = { viewModel.openPlanPage(context, plan.id) },
-                onBalancePurchase = { price -> viewModel.buyPlanWithBalance(plan.id, price.field, price.amount) }
-            )
-            if (index != state.plans.lastIndex) {
-                Spacer(Modifier.height(12.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun PlanRow(
-    plan: PlanItem,
-    currencySymbol: String,
-    currencyUnit: String,
-    noPriceText: String,
-    paymentEnabled: Boolean,
-    onOpenPayment: () -> Unit,
-    onBalancePurchase: (PlanPrice) -> Unit
-) {
-    OutlinedCard(
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier
-            .clickable(enabled = paymentEnabled, onClick = onOpenPayment)
-            .fillMaxWidth()
-            .animateContentSize(animationSpec = tween(180))
-    ) {
-        Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.weight(1f)) {
-                    Text(plan.name, style = MaterialTheme.typography.titleLarge)
-                    if (plan.transferEnable > 0.0) {
-                        Spacer(Modifier.height(4.dp))
-                        Text(stringResource(R.string.plan_traffic, formatTrafficGb(plan.transferEnable)), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                if (paymentEnabled || plan.prices.isEmpty()) {
-                    Spacer(Modifier.width(12.dp))
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        shape = RoundedCornerShape(50)
-                    ) {
-                        Text(
-                            planPriceText(plan, currencySymbol, currencyUnit, noPriceText),
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                        )
-                    }
-                }
-            }
-            val content = plan.content.trim()
-            if (content.isNotEmpty() && !content.startsWith("[") && !content.startsWith("{")) {
-                Spacer(Modifier.height(12.dp))
-                Text(content, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (!paymentEnabled && plan.prices.isNotEmpty()) {
-                Spacer(Modifier.height(14.dp))
-                for ((index, price) in plan.prices.withIndex()) {
-                    FilledTonalButton(onClick = { onBalancePurchase(price) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("${planPriceLabel(price.field)} ${formatMoney(price.amount, currencySymbol, currencyUnit)}")
-                    }
-                    if (index != plan.prices.lastIndex) {
-                        Spacer(Modifier.height(8.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RewardAdSection(
-    title: String,
-    enabled: Boolean,
-    scene: String,
-    state: XbClientUiState,
-    viewModel: XbClientViewModel
-) {
-    if (!enabled) {
-        return
-    }
-    val logs = state.adRewardLogs.filter { it.scene == scene }
-    OutlinedCard(
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 18.dp)
-            .animateContentSize(animationSpec = tween(180))
-    ) {
-        Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    shape = RoundedCornerShape(18.dp),
-                    modifier = Modifier.size(50.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_gift),
-                            contentDescription = null,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.width(14.dp))
-                Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(16.dp))
-            FilledTonalButton(onClick = { viewModel.requestRewardAd(scene) }, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.reward_watch))
-            }
-            if (logs.isNotEmpty()) {
-                val visibleLogs = logs.take(3)
-                Spacer(Modifier.height(16.dp))
-                Text(stringResource(R.string.reward_recent), style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                for ((index, log) in visibleLogs.withIndex()) {
-                    val statusColor = when (log.status) {
-                        "credited" -> MaterialTheme.colorScheme.primary
-                        "failed" -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.tertiary
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                log.rewardContent,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                formatUnixTime(log.createdAt),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (log.status == "failed" && log.error.isNotEmpty()) {
-                                Text(log.error, color = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                        Surface(
-                            color = statusColor.copy(alpha = 0.12f),
-                            contentColor = statusColor,
-                            shape = RoundedCornerShape(50)
-                        ) {
-                            Text(
-                                rewardStatusText(log.status),
-                                style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                    if (index != visibleLogs.lastIndex) {
-                        HorizontalDivider(Modifier.padding(vertical = 10.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val context = LocalContext.current
-    Section(stringResource(R.string.section_account)) {
-        Panel {
-            Text(state.userEmail, style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(10.dp))
-            Text(
-                stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                stringResource(R.string.commission_amount, formatMoney(state.commissionBalance, state.currencySymbol, state.currencyUnit)),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
-            val subscriptionText = state.subscriptionSummary.ifEmpty {
-                stringResource(id = if (state.subscribeUrl.isEmpty()) R.string.subscription_not_synced else R.string.subscription_synced)
-            }
-            Text(subscriptionText, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = { viewModel.openScreen(PassScreen.SETTINGS) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.common_settings))
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { viewModel.openScreen(PassScreen.ACCOUNT_SECURITY) }, modifier = Modifier.fillMaxWidth()) {
-                Text("账号安全")
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { viewModel.openScreen(PassScreen.GIFT_CARDS) }, modifier = Modifier.fillMaxWidth()) {
-                Text("礼品卡 / 兑换码")
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = viewModel::logout, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.common_logout))
-            }
-        }
-    }
-    RewardAdSection(
-        title = stringResource(R.string.reward_points_title),
-        enabled = state.pointsRewardAdEnabled,
-        scene = REWARD_SCENE_POINTS,
-        state = state,
-        viewModel = viewModel
-    )
-    Section("账户明细") {
-        Panel {
-            OutlinedButton(onClick = { viewModel.openScreen(PassScreen.TRAFFIC_LOGS) }, modifier = Modifier.fillMaxWidth()) {
-                Text("流量明细")
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { viewModel.openScreen(PassScreen.INVITE_DETAILS) }, modifier = Modifier.fillMaxWidth()) {
-                Text("邀请佣金明细")
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { viewModel.openScreen(PassScreen.TICKETS) }, modifier = Modifier.fillMaxWidth()) {
-                Text("工单")
-            }
-        }
-    }
-    if (state.inviteForce || state.inviteCommissionRate > 0) {
-        Section(stringResource(R.string.section_invite)) {
-            Panel {
-                Text(stringResource(R.string.invite_aff_rate, state.inviteCommissionRate), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    stringResource(R.string.invite_commission_account, formatMoney(state.inviteCommissionBalance, state.currencySymbol, state.currencyUnit)),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(12.dp))
-                if (state.invites.isEmpty()) {
-                    Text(stringResource(id = if (state.invitesLoading) R.string.invite_loading else R.string.invite_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    val copiedText = stringResource(R.string.invite_code_copied)
-                    for ((index, invite) in state.invites.withIndex()) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable {
-                                        context.getSystemService(ClipboardManager::class.java)
-                                            .setPrimaryClip(ClipData.newPlainText("invite", invite.code))
-                                        Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
-                                    }
-                            ) {
-                                Text(invite.code, style = MaterialTheme.typography.titleLarge)
-                                Text(stringResource(id = if (invite.status == 0) R.string.invite_available else R.string.invite_used), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            TextButton(
-                                onClick = {
-                                    context.getSystemService(ClipboardManager::class.java)
-                                        .setPrimaryClip(ClipData.newPlainText("invite", invite.code))
-                                    Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
-                                }
-                            ) {
-                                Text(stringResource(R.string.invite_copy))
-                            }
-                        }
-                        if (index != state.invites.lastIndex) {
-                            HorizontalDivider(Modifier.padding(vertical = 10.dp))
-                        }
-                    }
-                }
-                Spacer(Modifier.height(14.dp))
-                Button(onClick = viewModel::generateInvite, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.action_generate_invite))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun InviteDetailsScreen(state: XbClientUiState) {
-    Section("邀请佣金明细") {
-        Panel {
-            Text("共 ${state.commissionTotal} 条记录", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(12.dp))
-            when {
-                state.commissionLogsLoading -> Text("正在加载邀请明细...", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                state.commissionLogs.isEmpty() -> Text("暂无邀请佣金明细。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> {
-                    for ((index, log) in state.commissionLogs.withIndex()) {
-                        Text("订单 ${log.tradeNo}", style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "订单金额 ${formatMoney(log.orderAmount, state.currencySymbol, state.currencyUnit)} · 佣金 ${formatMoney(log.getAmount, state.currencySymbol, state.currencyUnit)}",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        val time = formatUnixTime(log.createdAt)
-                        if (time.isNotEmpty()) {
-                            Spacer(Modifier.height(2.dp))
-                            Text(time, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (index != state.commissionLogs.lastIndex) {
-                            HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TrafficLogsScreen(state: XbClientUiState) {
-    Section("流量明细") {
-        Panel {
-            when {
-                state.trafficLogsLoading -> Text("正在加载流量明细...", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                state.trafficLogs.isEmpty() -> Text("暂无流量明细。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> {
-                    for ((index, log) in state.trafficLogs.withIndex()) {
-                        val total = log.upload + log.download
-                        Text(formatUnixTime(log.recordAt), style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "上传 ${formatTrafficBytes(log.upload.toDouble())} · 下载 ${formatTrafficBytes(log.download.toDouble())}",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            "合计 ${formatTrafficBytes(total.toDouble())} · 倍率 ${String.format(Locale.US, "%.2f", log.serverRate)}",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (index != state.trafficLogs.lastIndex) {
-                            HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TicketsScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    var subject by rememberSaveable { mutableStateOf("") }
-    var message by rememberSaveable { mutableStateOf("") }
-    var level by rememberSaveable { mutableStateOf(0) }
-    Section("新建工单") {
-        Panel {
-            OutlinedTextField(
-                value = subject,
-                onValueChange = { subject = it },
-                label = { Text("主题") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(10.dp))
-            Text("等级", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                for (candidate in 0..2) {
-                    val selected = level == candidate
-                    if (selected) {
-                        Button(onClick = { level = candidate }, modifier = Modifier.weight(1f)) {
-                            Text(ticketLevelText(candidate))
-                        }
-                    } else {
-                        OutlinedButton(onClick = { level = candidate }, modifier = Modifier.weight(1f)) {
-                            Text(ticketLevelText(candidate))
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
-                value = message,
-                onValueChange = { message = it },
-                label = { Text("内容") },
-                minLines = 4,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = {
-                    viewModel.createTicket(subject, level, message)
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("提交工单")
-            }
-        }
-    }
-    Section("我的工单") {
-        Panel {
-            when {
-                state.ticketsLoading -> Text("正在加载工单...", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                state.tickets.isEmpty() -> Text("暂无工单。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> {
-                    for ((index, ticket) in state.tickets.withIndex()) {
-                        ListItem(
-                            headlineContent = { Text(ticket.subject) },
-                            supportingContent = {
-                                Text("${ticketStatusText(ticket.status)} · ${ticketReplyStatusText(ticket.replyStatus)} · ${ticketLevelText(ticket.level)} · ${formatUnixTime(ticket.updatedAt)}")
-                            },
-                            modifier = Modifier.clickable { viewModel.openTicket(ticket.id) }
-                        )
-                        if (index != state.tickets.lastIndex) {
-                            HorizontalDivider()
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TicketDetailScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val ticket = state.selectedTicket
-    var reply by rememberSaveable(ticket?.id) { mutableStateOf("") }
-    Section("工单详情") {
-        Panel {
-            if (ticket == null) {
-                Text(if (state.ticketDetailLoading) "正在加载工单..." else "未选择工单。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                Text(ticket.subject, style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "${ticketStatusText(ticket.status)} · ${ticketReplyStatusText(ticket.replyStatus)} · ${ticketLevelText(ticket.level)}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                val time = formatUnixTime(ticket.updatedAt)
-                if (time.isNotEmpty()) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(time, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-    }
-    Section("消息") {
-        Panel {
-            when {
-                state.ticketDetailLoading -> Text("正在加载消息...", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                state.ticketMessages.isEmpty() -> Text("暂无消息。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> {
-                    for (message in state.ticketMessages) {
-                        Row(
-                            horizontalArrangement = if (message.isMe) Arrangement.End else Arrangement.Start,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(18.dp),
-                                color = if (message.isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                                modifier = Modifier.fillMaxWidth(0.86f)
-                            ) {
-                                Column(Modifier.padding(14.dp)) {
-                                    Text(message.message)
-                                    val time = formatUnixTime(message.createdAt)
-                                    if (time.isNotEmpty()) {
-                                        Spacer(Modifier.height(6.dp))
-                                        Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(10.dp))
-                    }
-                }
-            }
-        }
-    }
-    if (ticket != null && ticket.status == 0) {
-        Section("回复") {
-            Panel {
-                OutlinedTextField(
-                    value = reply,
-                    onValueChange = { reply = it },
-                    label = { Text("回复内容") },
-                    minLines = 3,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = {
-                        viewModel.replyTicket(reply)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("提交回复")
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = viewModel::closeTicket, modifier = Modifier.fillMaxWidth()) {
-                    Text("关闭工单")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val context = LocalContext.current
-    var nodeDns by rememberSaveable(state.nodeDns) { mutableStateOf(state.nodeDns) }
-    var overseasDns by rememberSaveable(state.overseasDns) { mutableStateOf(state.overseasDns) }
-    var directDns by rememberSaveable(state.directDns) { mutableStateOf(state.directDns) }
-    var vpnDnsMode by rememberSaveable(state.vpnDnsMode) { mutableStateOf(state.vpnDnsMode) }
-    var virtualDnsPool by rememberSaveable(state.virtualDnsPool) { mutableStateOf(state.virtualDnsPool) }
-    var nodeTestTarget by rememberSaveable(state.nodeTestTarget) { mutableStateOf(state.nodeTestTarget) }
-    var customRouteConfigYaml by rememberSaveable(state.customRouteConfigYaml, state.routeConfigYaml) { mutableStateOf(state.customRouteConfigYaml.ifBlank { state.routeConfigYaml }) }
-    var geoipDir by rememberSaveable(state.geoipDir) { mutableStateOf(state.geoipDir) }
-    Section(stringResource(R.string.section_appearance)) {
-        Panel {
-            LanguageChooser(state.appLanguage, viewModel)
-            Spacer(Modifier.height(14.dp))
-            ThemeChooser(state.themeMode, state.appLanguage, viewModel)
-            Spacer(Modifier.height(14.dp))
-            OutlinedButton(
-                onClick = {
-                    viewModel.resetOnboarding()
-                    val intent = Intent(context, AuthActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    if (context !is android.app.Activity) {
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(intent)
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.setting_reset_onboarding))
-            }
-        }
-    }
-    Section(stringResource(R.string.section_app_rules)) {
-        Panel {
-            val selectedCount = selectedPackages(state).size
-            Text(
-                stringResource(id = if (state.appRuleMode == MODE_ALLOW) R.string.app_rules_allow_desc else R.string.app_rules_exclude_desc),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(if (selectedCount == 0) stringResource(R.string.app_rules_none_selected) else stringResource(R.string.app_rules_selected_count, selectedCount))
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(onClick = { viewModel.openScreen(PassScreen.APP_RULES) }, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.action_select_apps))
-                }
-                OutlinedButton(onClick = viewModel::clearSelectedApps, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.common_clear_selection))
-                }
-            }
-        }
-    }
-    Section(stringResource(R.string.section_traffic_rules)) {
-        Panel {
-            Text(
-                if (state.customRouteConfigYaml.isNotBlank()) stringResource(R.string.traffic_rules_custom_enabled)
-                else if (state.routeRuleCount > 0) stringResource(R.string.traffic_rules_count, state.routeRuleCount)
-                else stringResource(R.string.traffic_rules_none),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (state.routeRulesPreview.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                for (rule in state.routeRulesPreview.take(6)) {
-                    Text(rule, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
-                value = customRouteConfigYaml,
-                onValueChange = { customRouteConfigYaml = it },
-                label = { Text(stringResource(R.string.traffic_rules_config_label)) },
-                minLines = 6,
-                maxLines = 12,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = geoipDir, onValueChange = { geoipDir = it }, label = { Text(stringResource(R.string.geoip_dir_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(6.dp))
-            Text(stringResource(R.string.traffic_rules_config_help), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(onClick = { viewModel.saveRouteConfigYaml(customRouteConfigYaml, geoipDir) }, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.common_save_settings))
-                }
-                OutlinedButton(onClick = {
-                    customRouteConfigYaml = ""
-                    viewModel.saveRouteConfigYaml("", geoipDir)
-                }, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.common_clear_selection))
-                }
-            }
-        }
-    }
-    Section("DNS") {
-        Panel {
-            OutlinedTextField(value = nodeDns, onValueChange = { nodeDns = it }, label = { Text(stringResource(R.string.dns_node_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(value = overseasDns, onValueChange = { overseasDns = it }, label = { Text(stringResource(R.string.dns_overseas_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(value = directDns, onValueChange = { directDns = it }, label = { Text(stringResource(R.string.dns_direct_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(12.dp))
-            Text(stringResource(R.string.dns_mode_label), style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                for ((mode, label) in listOf(
-                    DNS_MODE_OVER_TCP to stringResource(R.string.dns_mode_over_tcp),
-                    DNS_MODE_VIRTUAL to stringResource(R.string.dns_mode_virtual),
-                    DNS_MODE_DIRECT to stringResource(R.string.dns_mode_direct)
-                )) {
-                    if (vpnDnsMode == mode) {
-                        Button(onClick = { vpnDnsMode = mode }, modifier = Modifier.weight(1f)) { Text(label) }
-                    } else {
-                        OutlinedButton(onClick = { vpnDnsMode = mode }, modifier = Modifier.weight(1f)) { Text(label) }
-                    }
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(value = virtualDnsPool, onValueChange = { virtualDnsPool = it }, label = { Text(stringResource(R.string.dns_virtual_pool_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(6.dp))
-            Text(stringResource(R.string.dns_virtual_pool_help), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.enable_ipv6))
-                Switch(checked = state.vpnIpv6Enabled, onCheckedChange = viewModel::setIpv6Enabled)
-            }
-        }
-    }
-    Section(stringResource(R.string.section_node_test)) {
-        Panel {
-            OutlinedTextField(value = nodeTestTarget, onValueChange = { nodeTestTarget = it }, label = { Text(stringResource(R.string.node_test_target_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
-            Text(
-                stringResource(R.string.node_test_help),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(14.dp))
-            Button(
-                onClick = { viewModel.saveDnsAndTestSettings(nodeDns, overseasDns, directDns, nodeTestTarget, vpnDnsMode, virtualDnsPool) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.common_save_settings))
-            }
-        }
-    }
-    Section(stringResource(R.string.section_about)) {
-        Panel {
-            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(4.dp))
-            Text(
-                stringResource(R.string.about_version, BuildConfig.VERSION_NAME.removeSuffix(".debug")),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            val links = listOf(
-                R.string.about_source_code to "https://github.com/MoeclubM/XBClient",
-                R.string.about_website to BuildConfig.WEBSITE_URL.trim(),
-                R.string.about_user_agreement to BuildConfig.USER_AGREEMENT_URL.trim(),
-                R.string.about_privacy_policy to BuildConfig.PRIVACY_POLICY_URL.trim()
-            ).filter { it.second.isNotEmpty() }
-            if (links.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                    for ((label, url) in links) {
-                        LinkText(stringResource(label)) { openBrowser(context, url) }
-                    }
-                }
-            }
-            Spacer(Modifier.height(14.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
-            LinkText(stringResource(R.string.about_open_source_licenses)) {
-                viewModel.openScreen(PassScreen.OPEN_SOURCE_LICENSES)
-            }
-        }
-    }
-}
-
-@Composable
-private fun OpenSourceLicensesScreen() {
-    val context = LocalContext.current
-    val licenses = remember(context) {
-        context.resources.openRawResource(R.raw.open_source_licenses)
-            .bufferedReader()
-            .use { it.readText() }
-    }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
-    ) {
-        item {
-            Panel {
-                Text(
-                    licenses,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
-    ) {
-        item {
-            if (!state.subscriptionBlocked && state.anyTlsNodes.isNotEmpty()) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    FilledTonalButton(
-                        onClick = viewModel::testAllNodes,
-                        enabled = !state.nodesTesting
-                    ) {
-                        Text(stringResource(id = if (state.nodesTesting) R.string.action_test_testing else R.string.action_test_all_nodes))
-                    }
-                }
-            }
-            if (state.subscriptionBlocked) {
-                val blockTitle = stringResource(
-                    id = when (state.subscriptionBlockReason) {
-                        SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_title
-                        SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_title
-                        else -> R.string.subscription_expired_title
-                    }
-                )
-                val blockDescription = stringResource(
-                    id = when (state.subscriptionBlockReason) {
-                        SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_body
-                        SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_body
-                        else -> R.string.subscription_expired_body
-                    }
-                )
-                Section(blockTitle) {
-                    Text(blockDescription, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(14.dp))
-                    Button(onClick = { viewModel.openScreen(PassScreen.PLANS) }, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.subscription_redeem_button))
-                    }
-                }
-            } else {
-                Spacer(Modifier.height(6.dp))
-            }
-        }
-        if (!state.subscriptionBlocked) {
-            if (state.anyTlsNodes.isEmpty()) {
-                item {
-                    Section(stringResource(R.string.section_available_nodes)) {
-                        Text(stringResource(id = if (state.nodesLoading) R.string.status_nodes_syncing else R.string.status_no_nodes_sentence), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            } else {
-                itemsIndexed(state.anyTlsNodes, key = { index, node -> "${node.displayName(index)}-$index" }) { index, node ->
-                    NodeRow(
-                        index = index,
-                        node = node,
-                        selected = index == state.selectedNodeIndex,
-                        testText = state.nodeTestResults[index],
-                        onTest = { viewModel.testNode(index) },
-                        onSelect = { viewModel.selectNode(index, returnToNodes = true) }
-                    )
-                    if (index != state.anyTlsNodes.lastIndex) {
-                        Spacer(Modifier.height(10.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun NodeRow(
-    index: Int,
-    node: AnyTlsNode,
-    selected: Boolean,
-    testText: String?,
-    onTest: () -> Unit,
-    onSelect: () -> Unit
-) {
-    OutlinedCard(
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f) else MaterialTheme.colorScheme.surfaceContainer
-        ),
-        border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(animationSpec = tween(180))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    (if (selected) "✓ " else "") + node.displayName(index, stringResource(R.string.node_default_name, index + 1)),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable(onClick = onSelect)
-                )
-                IconButton(onClick = onTest, modifier = Modifier.size(34.dp)) {
-                    Text("↻")
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onSelect)
-            ) {
-                Text(node.protocolLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                for (tag in node.tags) {
-                    Spacer(Modifier.width(6.dp))
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        shape = RoundedCornerShape(50)
-                    ) {
-                        Text(
-                            tag,
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-                val visibleTestText = visibleNodeTestText(testText)
-                if (visibleTestText != null) {
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        visibleTestText,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AppRulesScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val packages = selectedPackages(state)
-    val query = state.appSearchQuery.trim().lowercase(Locale.ROOT)
-    val apps = remember(state.installedApps, query) {
-        if (query.isEmpty()) {
-            state.installedApps
-        } else {
-            state.installedApps.filter {
-                it.label.lowercase(Locale.ROOT).contains(query) || it.packageName.lowercase(Locale.ROOT).contains(query)
-            }
-        }
-    }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
-    ) {
-        item {
-            Panel {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    if (state.appRuleMode == MODE_EXCLUDE) {
-                        Button(onClick = { viewModel.switchAppRuleMode(MODE_EXCLUDE) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_exclude)) }
-                        OutlinedButton(onClick = { viewModel.switchAppRuleMode(MODE_ALLOW) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_allow)) }
-                    } else {
-                        OutlinedButton(onClick = { viewModel.switchAppRuleMode(MODE_EXCLUDE) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_exclude)) }
-                        Button(onClick = { viewModel.switchAppRuleMode(MODE_ALLOW) }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.mode_allow)) }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = state.appSearchQuery,
-                    onValueChange = viewModel::setAppSearchQuery,
-                    label = { Text(stringResource(R.string.search_app_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.app_rules_selected_count, packages.size), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = { viewModel.openScreen(PassScreen.SETTINGS) }, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.common_back_settings))
-                    }
-                    TextButton(onClick = viewModel::clearSelectedApps, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.common_clear_selection))
-                    }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-        }
-        items(apps, key = { it.packageName }) { app ->
-            val selected = packages.contains(app.packageName)
-            ListItem(
-                headlineContent = { Text(app.label) },
-                supportingContent = { Text(app.packageName) },
-                trailingContent = {
-                    Checkbox(
-                        checked = selected,
-                        onCheckedChange = { viewModel.setAppSelected(app.packageName, it) }
-                    )
-                },
-                modifier = Modifier.clickable { viewModel.setAppSelected(app.packageName, !selected) }
-            )
-            HorizontalDivider()
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val context = LocalContext.current
-    if (state.rewardCreditedDialog) {
-        AlertDialog(
-            onDismissRequest = viewModel::dismissRewardCreditedDialog,
-            icon = {
-                Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.size(58.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_gift),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-                }
-            },
-            title = { Text(stringResource(R.string.reward_credited_title)) },
-            text = {
-                val rewardText = if (state.rewardCreditedContent.isBlank()) {
-                    stringResource(R.string.reward_credited_message)
-                } else {
-                    state.rewardCreditedContent
-                }
-                Text(
-                    rewardText,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            confirmButton = {
-                Button(onClick = viewModel::dismissRewardCreditedDialog) {
-                    Text(stringResource(android.R.string.ok))
-                }
-            },
-            shape = RoundedCornerShape(28.dp)
-        )
-    }
-    if (state.updateAvailable) {
-        AlertDialog(
-            onDismissRequest = viewModel::dismissUpdateDialog,
-            title = { Text(stringResource(R.string.update_title)) },
-            text = {
-                Text(stringResource(R.string.update_message, BuildConfig.VERSION_NAME.removeSuffix(".debug"), state.latestReleaseVersion))
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.openUpdatePage(context) }) {
-                    Text(stringResource(id = if (state.latestDownloadUrl.isEmpty()) R.string.update_open_release else R.string.update_download))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissUpdateDialog) {
-                    Text(stringResource(R.string.common_later))
-                }
-            }
-        )
-    }
-    if (state.noticeDialog) {
-        AlertDialog(
-            onDismissRequest = viewModel::dismissNotices,
-            title = { Text(stringResource(R.string.section_announcement)) },
-            text = {
-                if (state.notices.isEmpty()) {
-                    Text(stringResource(id = if (state.noticesLoading) R.string.notice_loading else R.string.notice_empty))
-                } else {
-                    LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                        items(state.notices) { notice ->
-                            NoticeCard(notice)
-                            Spacer(Modifier.height(10.dp))
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = viewModel::dismissNotices) {
-                    Text(stringResource(R.string.common_close))
-                }
-            }
-        )
-    }
-    if (state.nodeSwitchSheet) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
-            onDismissRequest = viewModel::dismissNodeSwitchDialog,
-            sheetState = sheetState
-        ) {
-            Text(
-                stringResource(id = if (state.nodeSwitchConnect) R.string.sheet_change_node else R.string.sheet_select_node),
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-            )
-            LazyColumn(Modifier.heightIn(max = 520.dp)) {
-                itemsIndexed(state.anyTlsNodes, key = { index, node -> "${node.displayName(index)}-$index" }) { index, node ->
-                    val visibleTestText = visibleNodeTestText(state.nodeTestResults[index])
-                    val tagsText = node.tags.joinToString(" · ").takeIf { it.isNotEmpty() }
-                    val supportingText = listOfNotNull(node.protocolLabel, tagsText, visibleTestText).joinToString(" · ")
-                    ListItem(
-                        headlineContent = { Text(node.displayName(index, stringResource(R.string.node_default_name, index + 1))) },
-                        supportingContent = { Text(supportingText) },
-                        trailingContent = { if (index == state.selectedNodeIndex) Text(stringResource(R.string.common_selected)) },
-                        modifier = Modifier.clickable { viewModel.chooseNodeFromDialog(index) }
-                    )
-                    HorizontalDivider()
-                }
-            }
-            Spacer(Modifier.height(24.dp))
-        }
-    }
-}
-
-@Composable
-fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(animationSpec = tween(180))
-            .padding(bottom = 20.dp)
-    ) {
-        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.height(10.dp))
-        content()
-    }
-}
-
-@Composable
-fun Panel(content: @Composable ColumnScope.() -> Unit) {
-    OutlinedCard(
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(animationSpec = tween(180))
-    ) {
-        Column(Modifier.padding(18.dp), content = content)
-    }
-}
-
-private fun selectedPackages(state: XbClientUiState): Set<String> =
-    (if (state.appRuleMode == MODE_ALLOW) state.allowedApps else state.excludedApps)
-        .split(Regex("[,;\\s]+"))
-        .filter { it.isNotEmpty() }
-        .toSet()
-
-private fun openBrowser(context: Context, url: String) {
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        .addCategory(Intent.CATEGORY_BROWSABLE)
-    if (context !is android.app.Activity) {
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    context.startActivity(intent)
-}
-
-private fun effectiveLanguageTag(selected: String): String {
-    if (selected.isNotEmpty()) {
-        return selected
-    }
-    return when (Locale.getDefault().language.lowercase(Locale.ROOT)) {
-        "zh" -> "zh-CN"
-        "ja" -> "ja"
-        "ru" -> "ru"
-        "fa", "per" -> "fa"
-        "en" -> "en"
-        else -> "en"
-    }
-}
-
-private fun localizedContext(context: Context, locale: Locale): Context {
-    val configuration = Configuration(context.resources.configuration)
-    configuration.setLocale(locale)
-    configuration.setLayoutDirection(locale)
-    return context.createConfigurationContext(configuration)
-}
-
-private fun themeOptionLabel(mode: String, language: String): String {
-    val primaryLanguage = effectiveLanguageTag(language).substringBefore("-")
-    return when (primaryLanguage) {
-        "zh" -> when (mode) {
-            "light" -> "浅色"
-            "dark" -> "深色"
-            else -> "跟随系统"
-        }
-        "ja" -> when (mode) {
-            "light" -> "ライト"
-            "dark" -> "ダーク"
-            else -> "システム"
-        }
-        "ru" -> when (mode) {
-            "light" -> "Светлая"
-            "dark" -> "Темная"
-            else -> "Система"
-        }
-        "fa" -> when (mode) {
-            "light" -> "روشن"
-            "dark" -> "تاریک"
-            else -> "سیستم"
-        }
-        else -> when (mode) {
-            "light" -> "Light"
-            "dark" -> "Dark"
-            else -> "System"
-        }
-    }
-}
-
-private fun plainNoticeText(value: String): String =
-    value
-        .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
-        .replace(Regex("</p>", RegexOption.IGNORE_CASE), "\n")
-        .replace(Regex("<[^>]+>"), "")
-        .replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .trim()
-
-private fun visibleNodeTestText(text: String?): String? =
-    text?.takeIf { it.isNotBlank() && it != "测试中" }
-
-private fun formatDuration(durationMs: Long): String {
-    val seconds = durationMs / 1000
-    val hours = seconds / 3600
-    val minutes = seconds % 3600 / 60
-    val restSeconds = seconds % 60
-    return if (hours > 0) {
-        String.format(Locale.US, "%d:%02d:%02d", hours, minutes, restSeconds)
-    } else {
-        String.format(Locale.US, "%02d:%02d", minutes, restSeconds)
-    }
-}
-
-private fun formatMoney(amount: Int, symbol: String, unit: String): String =
-    (symbol + String.format(Locale.US, "%.2f", amount / 100.0) + if (unit.isBlank()) "" else " $unit").trim()
-
-private fun formatUnixTime(value: Long): String =
-    if (value <= 0L) "" else SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(value * 1000))
-
-private fun ticketLevelText(level: Int): String =
-    when (level) {
-        0 -> "低"
-        1 -> "中"
-        2 -> "高"
-        else -> "等级 $level"
-    }
-
-private fun ticketStatusText(status: Int): String =
-    when (status) {
-        0 -> "开启"
-        1 -> "关闭"
-        else -> "状态 $status"
-    }
-
-private fun ticketReplyStatusText(status: Int): String =
-    when (status) {
-        0 -> "待回复"
-        1 -> "已回复"
-        else -> "回复状态 $status"
-    }
-
-@Composable
-private fun planPriceText(plan: PlanItem, symbol: String, unit: String, noPriceText: String): String {
-    if (plan.prices.isEmpty()) {
-        return noPriceText
-    }
-    val parts = mutableListOf<String>()
-    for (price in plan.prices) {
-        parts += "${planPriceLabel(price.field)} ${formatMoney(price.amount, symbol, unit)}"
-    }
-    return parts.joinToString(" · ")
-}
-
-@Composable
-private fun planPriceLabel(field: String): String =
-    stringResource(
-        when (field) {
-            "month_price" -> R.string.price_month
-            "quarter_price" -> R.string.price_quarter
-            "half_year_price" -> R.string.price_half_year
-            "year_price" -> R.string.price_year
-            "two_year_price" -> R.string.price_two_year
-            "three_year_price" -> R.string.price_three_year
-            "onetime_price" -> R.string.price_onetime
-            "reset_price" -> R.string.price_reset
-            else -> R.string.plan_price_unset
-        }
-    )
-
-@Composable
-private fun rewardStatusText(status: String): String =
-    when (status) {
-        "credited" -> stringResource(R.string.reward_credited)
-        "pending" -> stringResource(R.string.reward_pending)
-        "failed" -> stringResource(R.string.reward_failed)
-        else -> status
-    }
-
-private val XbClientUiState.canHandleBack: Boolean
-    get() = updateAvailable ||
-        oauthWebViewUrl.isNotEmpty() ||
-        !isLoggedIn && authMode == AuthMode.REGISTER ||
-        isLoggedIn && screen !in MainTabScreens
-
-private fun AnimatedContentTransitionScope<*>.contentTransition() =
-    (fadeIn(animationSpec = tween(180)) togetherWith
-        fadeOut(animationSpec = tween(140))).using(SizeTransform(clip = false))
-
-private fun AnimatedContentTransitionScope<PassScreen>.screenTransition(): ContentTransform {
-    val initialOrder = when (initialState) {
-        PassScreen.NODES -> 0
-        PassScreen.NODE_SELECT -> 1
-        PassScreen.PLANS -> 2
-        PassScreen.PROFILE -> 3
-        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 4
-        PassScreen.SETTINGS -> 4
-        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> 5
-    }
-    val targetOrder = when (targetState) {
-        PassScreen.NODES -> 0
-        PassScreen.NODE_SELECT -> 1
-        PassScreen.PLANS -> 2
-        PassScreen.PROFILE -> 3
-        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 4
-        PassScreen.SETTINGS -> 4
-        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES -> 5
-    }
-    return if (targetOrder >= initialOrder) {
-        (slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) +
-            fadeIn(animationSpec = tween(160)) +
-            scaleIn(initialScale = 0.985f, animationSpec = tween(220)) togetherWith
-            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) +
-            fadeOut(animationSpec = tween(140)) +
-            scaleOut(targetScale = 1.015f, animationSpec = tween(180))).using(SizeTransform(clip = false))
-    } else {
-        (slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) +
-            fadeIn(animationSpec = tween(160)) +
-            scaleIn(initialScale = 0.985f, animationSpec = tween(220)) togetherWith
-            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) +
-            fadeOut(animationSpec = tween(140)) +
-            scaleOut(targetScale = 1.015f, animationSpec = tween(180))).using(SizeTransform(clip = false))
     }
 }
