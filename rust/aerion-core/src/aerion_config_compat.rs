@@ -235,7 +235,7 @@ fn mieru_config(node: &Value, listen: SocketAddr) -> Result<MieruClientConfig> {
         username,
         password: password.unwrap_or_default(),
         hashed_password,
-        mtu: node_u64(node, &["mtu"], 1500)? as usize,
+        mtu: node_u64(node, &["mtu"], 0)? as usize,
         transport: MieruTransport::parse(
             node_optional_string(node, &["transport"])
                 .unwrap_or_else(|| "tcp".to_string())
