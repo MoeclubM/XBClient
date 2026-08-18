@@ -1,106 +1,75 @@
 # XBClient
 
-面向 [Xboard](https://github.com/cedar2025/Xboard) 的多平台客户端。代理、分流和 TUN 统一走 [Aerion](https://github.com/MoeclubM/Aerion)；Android 用 Kotlin / Jetpack Compose / [MIUIX](https://github.com/compose-miuix-ui/miuix) / `VpnService`，Windows 与 Linux 桌面端用 Electron、Vue 和 Rust 后端。
+面向 [Xboard](https://github.com/cedar2025/Xboard) 的 Android、Windows、Linux 客户端。
 
-应用名、包名、站点与 API 由 GitHub Actions 从 Secrets 注入，仓库里不保存默认品牌信息。
+登录面板账号后即可同步节点、套餐和流量；连接、分流和 TUN 由 [Aerion](https://github.com/MoeclubM/Aerion) 内核处理，和服务端 [NodeRS](https://github.com/MoeclubM/NodeRS) 使用同一套协议实现。
 
-## 架构
+[![Release](https://img.shields.io/github/v/release/MoeclubM/XBClient?style=flat-square)](https://github.com/MoeclubM/XBClient/releases)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE)
 
-```text
-Xboard API / OAuth / 订阅节点
-        │
-        ▼
-┌───────────────┐     ┌──────────────────────────┐
-│ Android UI    │     │ Electron Vue + 系统集成  │
-│ VpnService    │     │ 系统代理 / 托盘 / 更新   │
-└───────┬───────┘     └────────────┬─────────────┘
-        │  JNI / JSON              │ FFI / JSON
-        ▼                          ▼
-        └──────── rust/aerion-core ┘
-                     │
-                     ▼
-                   Aerion
-          协议客户端 · 路由 · TUN
-```
+<p align="center">
+  <img src="apps/electron/web/public/logo.png" width="96" alt="XBClient">
+</p>
 
-`rust/aerion-core` 是 Android 与桌面共用的适配层：把订阅节点 JSON 或 Clash YAML 编成 Aerion 配置，再拉起本地 SOCKS 与 TUN。
+## 特性
 
-## 功能
+- **面板一体**：登录 / 注册 / 第三方登录，套餐购买与兑换，工单，流量记录，邀请返利，站点公告。
+- **节点即用**：自动同步订阅节点，支持延迟测试，一键连接。
+- **TUN 与分流**：全局或规则分流（Clash / Mihomo YAML）；Android 可按应用黑白名单；桌面端可接管系统代理。
+- **协议齐全**：AnyTLS、Hysteria2、Trojan、VLESS、VMess、Mieru、Naive、TUIC、Shadowsocks，以及 HTTP / SOCKS5、直连 / 阻断。
+- **多平台**：Android 使用系统 VPN；Windows / Linux 提供托盘、静默启动和应用内更新。
+- **多语言**：中文、英语、日语、俄语、波斯语，可跟随系统。
 
-- 登录、套餐、工单、流量记录、邀请与站点公告（对接 Xboard 用户 API）
-- 节点列表与连通性测试
-- TUN 全局 / 规则分流（mihomo YAML，经 Aerion 静态路由表）
-- Android 应用分流；桌面端系统代理
-- OAuth 回调、AdMob（由 Secrets 配置）
-- 开源许可页
+应用名、包名、站点地址和 API 在发布时注入，仓库里不存放默认品牌信息。你拿到的安装包会直接指向对应的 Xboard 站点。
 
-连接侧协议由 Aerion 提供，当前 UI 允许：AnyTLS、Hysteria2、Trojan、VLESS、VMess、Mieru、Naive、TUIC、Shadowsocks、HTTP、SOCKS5，以及 direct / block。能力边界见 [Aerion 文档](https://github.com/MoeclubM/Aerion/blob/main/docs/limitations.md)。
+## 平台
 
-## 项目结构
+| 平台 | 安装包 | 连接方式 |
+| --- | --- | --- |
+| Android | arm64 APK | 系统 VPN（`VpnService`） |
+| Windows | 安装包 | TUN（需管理员）或系统代理 |
+| Linux | deb（x64 / arm64） | TUN 或系统代理 |
 
-| 路径 | 职责 |
-| --- | --- |
-| `apps/android/` | 原生 Android 与 `VpnService` |
-| `apps/electron/` | Windows / Linux 壳、系统集成、打包 |
-| `apps/electron/web/` | Vue 界面 |
-| `apps/electron/backend/` | 桌面 Rust 后端 |
-| `rust/aerion-core/` | 两端共享的 Aerion 适配 |
-| `rust/third_party/` | 构建所需的第三方源码 |
-| `gradle/` | Android JNI 构建 |
-| `scripts/ci/` | GitHub Actions 脚本 |
+## 使用教程
 
-## 构建
+### 1. 安装
 
-禁止本地出包。Android APK/AAB、Windows 安装包和 Linux deb 只通过 Actions 构建：
+到 [Releases](https://github.com/MoeclubM/XBClient/releases) 下载对应平台的安装包：
 
-- `.github/workflows/debug.yml`：分支推送与手动 Beta
-- `.github/workflows/release.yml`：版本标签正式发布
+- Android：安装 APK，按系统提示允许安装未知来源（如需要）。
+- Windows：运行安装程序。使用 TUN 时请右键「以管理员身份运行」。
+- Linux：安装 deb 后，TUN 需要能访问 `/dev/net/tun`。
 
-标识、站点、API、OAuth、AdMob 和签名只放在 GitHub Secrets，不使用 `local.properties`、Gradle 参数、本地签名文件或安装目录旁配置。
+### 2. 登录
 
-必需 Secrets：
+打开应用，用面板邮箱和密码登录；站点若开启了第三方登录，也可以走 OAuth。没有账号可以在应用内注册（邀请码按站点要求填写）。
 
-```text
-XBCLIENT_DEFAULT_API_URL
-XBCLIENT_APP_NAME
-XBCLIENT_APPLICATION_ID
-XBCLIENT_ADMOB_APP_ID
-XBCLIENT_USER_AGENT
-XBCLIENT_OAUTH_CALLBACK_SCHEME
-XBCLIENT_RELEASE_STORE_BASE64
-XBCLIENT_RELEASE_STORE_PASSWORD
-XBCLIENT_RELEASE_KEY_ALIAS
-XBCLIENT_RELEASE_KEY_PASSWORD
-```
+登录后会同步套餐、流量和节点。没有有效套餐时，先到「套餐」页购买、兑换或重置流量。
 
-可选：
+### 3. 连接
 
-```text
-XBCLIENT_WEBSITE_URL
-XBCLIENT_PRIVACY_POLICY_URL
-XBCLIENT_USER_AGREEMENT_URL
-```
+1. 在节点列表里选择一个节点，需要时先点「测试」看延迟。
+2. 点「连接」。Android 首次会请求 VPN 权限，请允许。
+3. 状态变为「已连接」后即可使用。桌面端默认可以打开系统代理；需要全局接管网卡时再打开 TUN。
 
-Android 构建在 runner 上把 Secrets 写进最终应用。Electron 只在 runner 生成会被忽略的临时 `build-config.json`，打包结束后删除。
+### 4. 分流（可选）
 
-## 验证
+- **规则分流**：订阅若带了 Clash / Mihomo `rules`，连接时会按规则走代理或直连。也可以在设置里粘贴自定义 YAML。
+- **应用分流（仅 Android）**：白名单只让选中的 App 走节点，黑名单则让选中的 App 直连。
+- **DNS / IPv6**：可在设置中指定节点解析 DNS、代理 DNS、直连 DNS，以及 Fake-IP 或 IPv6。
 
-本地只做不产生产物的检查，例如：
+### 5. 更新
 
-```text
-git diff --check
-cargo fmt --all --check --manifest-path rust/aerion-core/Cargo.toml
-cargo fmt --all --check --manifest-path apps/electron/backend/Cargo.toml
-```
-
-平台是否可用，以对应 Actions job 的最终结论为准，不以本地构建或仍在跑的工作流代替。
+应用内发现新版本时，可直接下载安装，或打开 Release 页面手动更新。
 
 ## 相关项目
 
-- [Aerion](https://github.com/MoeclubM/Aerion) — 协议与 TUN 核心
+- [Aerion](https://github.com/MoeclubM/Aerion) — 协议、路由与 TUN 核心
 - [NodeRS](https://github.com/MoeclubM/NodeRS) — Xboard 机器节点
 - [Xboard](https://github.com/cedar2025/Xboard) — 面板
 
+能力细节见 [Aerion](https://github.com/MoeclubM/Aerion)。自行编译安装包时，品牌、签名和站点配置说明见 [docs/build.md](docs/build.md)。
+
 ## 许可
 
-Apache License 2.0。见 `LICENSE`、`NOTICE` 与应用内开源许可页。
+Apache License 2.0。见 [LICENSE](LICENSE)、[NOTICE](NOTICE) 与应用内「开源许可」页。
