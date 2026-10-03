@@ -21,7 +21,7 @@ dependencies = [
 [[package]]
 name = "aerion"
 version = "0.1.0"
-source = "git+https://github.com/MoeclubM/Aerion.git?rev=e7c0e830a6dd382f3fd4d31e6070f458540913ae#e7c0e830a6dd382f3fd4d31e6070f458540913ae"
+source = "git+https://github.com/MoeclubM/Aerion.git?rev=ee8f0e28eadd15b978ae48a11c32ebe63d8b385a#ee8f0e28eadd15b978ae48a11c32ebe63d8b385a"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -32,6 +32,7 @@ dependencies = [
  "chacha20poly1305",
  "cipher",
  "clap",
+ "curve25519-dalek",
  "ed25519-dalek",
  "getrandom 0.3.4",
  "h2",

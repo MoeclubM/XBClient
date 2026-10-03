@@ -45,6 +45,7 @@ const CONNECT_SUPPORTED = new Set([
   'vless',
   'vmess',
   'mieru',
+  'sudoku',
   'naive',
   'tuic',
   'ss',
@@ -185,6 +186,8 @@ function protocolLabel(protocol: string): string {
       return 'HTTP'
     case 'mieru':
       return 'Mieru'
+    case 'sudoku':
+      return 'Sudoku'
     case 'direct':
       return 'Direct'
     case 'block':

@@ -42,6 +42,17 @@ pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionPr
         "trojan" => trojan_config(node, listen).map(AerionProxyConfig::Trojan),
         "vless" => vless_config(node, listen).map(AerionProxyConfig::Vless),
         "vmess" => vmess_config(node, listen).map(AerionProxyConfig::Vmess),
+        "sudoku" => {
+            let options: aerion::SudokuOptions = serde_json::from_value(node.clone())?;
+            options.validate()?;
+            Ok(AerionProxyConfig::Sudoku(aerion::SudokuClientConfig {
+                listen,
+                server_host: node_string(node, &["host", "server"])?,
+                server_port: node_port(node, &["port"])?,
+                key: node_string(node, &["key"])?,
+                options,
+            }))
+        }
         "mieru" => mieru_config(node, listen).map(AerionProxyConfig::Mieru),
         "naive" => naive_config(node, listen).map(AerionProxyConfig::Naive),
         "tuic" => tuic_config(node, listen).map(AerionProxyConfig::Tuic),
@@ -52,6 +63,42 @@ pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionPr
             socks_proxy_config(node, listen).map(AerionProxyConfig::SocksProxy)
         }
         other => bail!("unsupported Aerion node protocol: {other}"),
+    }
+}
+
+#[cfg(test)]
+mod sudoku_tests {
+    use super::*;
+    #[test]
+    fn plugin_sudoku_node_preserves_credentials_and_appearance() -> Result<()> {
+        let node = serde_json::json!({
+            "type":"sudoku", "host":"node.example.com", "port":443, "key":"user-uuid",
+            "aead-method":"aes-128-gcm", "table-type":"up_ascii_down_entropy",
+            "padding-min":0, "padding-max":10, "enable-pure-downlink":false,
+            "custom-tables":["xpxvvpvv"], "http-mask":true, "http-mask-mode":"ws",
+            "path-root":"edge", "udp":true, "client_supported":true
+        });
+        let AerionProxyConfig::Sudoku(config) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            panic!("expected Sudoku")
+        };
+        assert_eq!(config.key, "user-uuid");
+        assert_eq!(config.options.aead, "aes-128-gcm");
+        assert_eq!(config.options.custom_tables, ["xpxvvpvv"]);
+        assert_eq!(config.options.padding_min, 0);
+        assert_eq!(config.options.http_mask_mode, "ws");
+        assert_eq!(config.options.path_root, "edge");
+        Ok(())
+    }
+    #[test]
+    fn sudoku_rejects_missing_psk_and_unimplemented_httpmask() {
+        for node in [
+            serde_json::json!({"type":"sudoku","host":"example.com","port":443}),
+            serde_json::json!({"type":"sudoku","host":"example.com","port":443,"key":"test","http-mask":true,"http-mask-mode":"poll"}),
+        ] {
+            assert!(node_to_proxy_config(&node, "127.0.0.1:1080".parse().unwrap()).is_err());
+        }
     }
 }
 

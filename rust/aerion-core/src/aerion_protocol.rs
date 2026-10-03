@@ -21,6 +21,7 @@ pub enum AerionProxyConfig {
     Vless(VlessClientConfig),
     Vmess(VmessClientConfig),
     Mieru(MieruClientConfig),
+    Sudoku(aerion::SudokuClientConfig),
     Naive(NaiveClientConfig),
     Route(RouteClientConfig),
     Shadowsocks(ShadowsocksClientConfig),
@@ -61,6 +62,9 @@ async fn run_aerion_listener(
         AerionProxyConfig::Vless(config) => run_vless_client_listener(listener, config, core).await,
         AerionProxyConfig::Vmess(config) => {
             run_vmess_client_listener_with_core(listener, config, core).await
+        }
+        AerionProxyConfig::Sudoku(config) => {
+            aerion::run_sudoku_client_listener_with_core(listener, config, core).await
         }
         AerionProxyConfig::Mieru(config) => {
             run_mieru_client_listener_with_core(listener, config, core).await

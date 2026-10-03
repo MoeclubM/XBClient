@@ -75,6 +75,7 @@ fn mihomo_client_config(config: MihomoClientConfig, _listen: SocketAddr) -> Aeri
         MihomoClientConfig::Vless(config) => AerionProxyConfig::Vless(config),
         MihomoClientConfig::Vmess(config) => AerionProxyConfig::Vmess(config),
         MihomoClientConfig::Mieru(config) => AerionProxyConfig::Mieru(config),
+        MihomoClientConfig::Sudoku(config) => AerionProxyConfig::Sudoku(config),
         MihomoClientConfig::Naive(config) => AerionProxyConfig::Naive(config),
         MihomoClientConfig::Route(config) => AerionProxyConfig::Route(config),
         MihomoClientConfig::Shadowsocks(config) => AerionProxyConfig::Shadowsocks(config),

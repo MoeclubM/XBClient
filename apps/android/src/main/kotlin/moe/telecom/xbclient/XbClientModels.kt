@@ -75,6 +75,7 @@ data class AnyTlsNode(
             "naive" -> "Naive"
             "http" -> "HTTP"
             "mieru" -> "Mieru"
+            "sudoku" -> "Sudoku"
             "direct" -> "Direct"
             "block" -> "Block"
             else -> protocol.uppercase(Locale.US)
@@ -88,6 +89,7 @@ data class AnyTlsNode(
             "vless",
             "vmess",
             "mieru",
+            "sudoku",
             "ss",
             "naive",
             "tuic",
