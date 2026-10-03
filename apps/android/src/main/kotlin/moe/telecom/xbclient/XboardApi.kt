@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 
 object XboardApi {
     private const val SUBSCRIPTION_USER_AGENT = "mihomo"
-    private const val SUBSCRIPTION_NODE_TYPES = "anytls,hysteria,trojan,vless,vmess,mieru,naive,shadowsocks,tuic,http,socks5,direct,block"
+    private const val SUBSCRIPTION_NODE_TYPES = "anytls,hysteria,trojan,vless,vmess,mieru,sudoku,naive,shadowsocks,tuic,http,socks5,direct,block"
     private val userAgent: String
         get() = BuildConfig.USER_AGENT
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
