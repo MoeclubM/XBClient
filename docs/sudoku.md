@@ -1,7 +1,7 @@
 # Sudoku
 
 Android 与 Electron 节点列表及连接流程支持 `type=sudoku`。
-更新 Xboard 和 Xboard-XBClient 0.0.36 后，节点接口下发每用户 UUID `key`、
+更新 Xboard 和 Xboard-XBClient 0.0.37 后，节点接口下发每用户 UUID `key`、
 AEAD、ASCII、填充比例、经典/packed 下行、自定义表与 HTTPMask 配置。
 共享 Rust 核心导入完整配置，Android/Windows/Linux 均使用同一 Aerion 实现。
 

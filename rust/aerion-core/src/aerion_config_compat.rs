@@ -1503,7 +1503,9 @@ mod tests {
             "port": 8964,
             "password": "secret"
         });
-        let error = node_to_proxy_config(&node, "127.0.0.1:1080".parse().unwrap()).unwrap_err();
+        let error = node_to_proxy_config(&node, "127.0.0.1:1080".parse().unwrap())
+            .err()
+            .expect("invalid configuration must fail");
         assert!(error.to_string().contains("username is required"));
     }
 }
