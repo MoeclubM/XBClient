@@ -108,6 +108,7 @@ export async function xboardRequest<T = unknown>(
   const userAgent = useAppStore.getState().buildConfig?.user_agent.trim()
   if (!userAgent) throw new Error('XBCLIENT_USER_AGENT is required in build config')
   headers['User-Agent'] = userAgent
+  if (action === 'xbclient_nodes') headers['X-XBClient-Protocols'] = 'sudoku'
   if (def.auth) {
     if (!options.authData) throw new Error(`action ${action} requires auth`)
     headers.Authorization = options.authData

@@ -76,7 +76,7 @@ mod sudoku_tests {
             "aead-method":"aes-128-gcm", "table-type":"up_ascii_down_entropy",
             "padding-min":0, "padding-max":10, "enable-pure-downlink":false,
             "custom-tables":["xpxvvpvv"], "http-mask":true, "http-mask-mode":"ws",
-            "path-root":"edge", "udp":true, "client_supported":true
+            "path-root":"edge", "http-mask-multiplex":"on", "udp":true, "client_supported":true
         });
         let AerionProxyConfig::Sudoku(config) =
             node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
@@ -89,6 +89,7 @@ mod sudoku_tests {
         assert_eq!(config.options.padding_min, 0);
         assert_eq!(config.options.http_mask_mode, "ws");
         assert_eq!(config.options.path_root, "edge");
+        assert_eq!(config.options.multiplex, "on");
         Ok(())
     }
     #[test]

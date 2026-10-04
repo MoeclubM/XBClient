@@ -18,7 +18,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 object XboardApi {
-    private const val SUBSCRIPTION_USER_AGENT = "mihomo"
+    private const val SUBSCRIPTION_USER_AGENT = "Aerion"
     private const val SUBSCRIPTION_NODE_TYPES = "anytls,hysteria,trojan,vless,vmess,mieru,sudoku,naive,shadowsocks,tuic,http,socks5,direct,block"
     private val userAgent: String
         get() = BuildConfig.USER_AGENT
@@ -178,6 +178,9 @@ object XboardApi {
             .url(baseUrl + path + queryString(query))
             .header("User-Agent", userAgent)
             .header("Accept", "application/json")
+        if (path == "/api/v1/admob/user/nodes") {
+            builder.header("X-XBClient-Protocols", "sudoku")
+        }
         if (authData.isNotEmpty()) {
             builder.header("Authorization", authData)
         }
