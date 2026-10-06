@@ -75,6 +75,7 @@ data class AnyTlsNode(
             "naive" -> "Naive"
             "http" -> "HTTP"
             "mieru" -> "Mieru"
+            "sudoku" -> "Sudoku"
             "direct" -> "Direct"
             "block" -> "Block"
             else -> protocol.uppercase(Locale.US)
@@ -88,6 +89,7 @@ data class AnyTlsNode(
             "vless",
             "vmess",
             "mieru",
+            "sudoku",
             "ss",
             "naive",
             "tuic",
@@ -279,7 +281,7 @@ private fun JSONObject.normalizedNodeJson(protocol: String): String {
             }
         }
     }
-    if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
+    if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "sudoku", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
         node.put("type", protocol)
     }
     return node.toString()

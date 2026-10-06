@@ -218,6 +218,9 @@ async fn start_aerion_socks(
                 };
                 Some(aerion::ProxyCore::from_credentials(credential, &[]))
             }
+            AerionProxyConfig::Sudoku(config) => {
+                Some(aerion::ProxyCore::from_credentials(&config.key, &[]))
+            }
             AerionProxyConfig::Naive(config) => Some(aerion::ProxyCore::from_credentials(
                 &format!("{}:{}", config.username, config.password),
                 &[],
