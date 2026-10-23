@@ -57,7 +57,11 @@ internal class XbClientAds(
                 Log.w(TAG, "Rewarded ad failed to preload: $adError")
                 if (!activity.isDestroyed && pendingRewardShow && pendingRewardAdUnitId == preloadId) {
                     pendingRewardShow = false
-                    Toast.makeText(activity, R.string.reward_ad_unavailable, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        activity,
+                        "${activity.getString(R.string.reward_ad_unavailable)}\n${adError.code}: ${adError.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }
@@ -157,7 +161,11 @@ internal class XbClientAds(
                     Log.w(TAG, "Rewarded ad failed to show: $fullScreenContentError")
                     isShowingFullScreenAd = false
                     skipNextAppOpen = true
-                    Toast.makeText(activity, R.string.reward_ad_unavailable, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        activity,
+                        "${activity.getString(R.string.reward_ad_unavailable)}\n${fullScreenContentError.code}: ${fullScreenContentError.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }
@@ -203,7 +211,11 @@ internal class XbClientAds(
                     Log.w(TAG, "MobileAds initialization failed.", error)
                     if (!activity.isDestroyed && pendingRewardShow) {
                         pendingRewardShow = false
-                        Toast.makeText(activity, R.string.reward_ad_unavailable, Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            activity,
+                            "${activity.getString(R.string.reward_ad_unavailable)}\n${error.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
             }

@@ -152,6 +152,12 @@ jobs:
         shell: bash
         run: bash scripts/ci/validate-desktop-secrets.sh
 
+      - name: Install NASM
+        shell: bash
+        run: |
+          choco install nasm --no-progress --yes
+          echo 'C:/Program Files/NASM' >> "$GITHUB_PATH"
+
       - name: Build Windows installer
         shell: bash
         run: |
