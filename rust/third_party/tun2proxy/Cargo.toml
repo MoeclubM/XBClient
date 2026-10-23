@@ -53,16 +53,16 @@ path = "src/bin/udpgw_server.rs"
 required-features = ["udpgw"]
 
 [dependencies.async-trait]
-version = "0.1.89"
+version = "0.1.92"
 
 [dependencies.base64easy]
 version = "0.1.7"
 
 [dependencies.chrono]
-version = "0.4.44"
+version = "0.4.45"
 
 [dependencies.clap]
-version = "4.6.1"
+version = "4.6.7"
 features = [
     "derive",
     "wrap_help",
@@ -83,29 +83,29 @@ version = "0.3.1"
 version = "0.15.7"
 
 [dependencies.env_logger]
-version = "0.11.10"
+version = "0.11.11"
 
 [dependencies.hashlink]
-version = "0.11.0"
+version = "0.11.1"
 
 [dependencies.hickory-proto]
-version = "0.26.0"
+version = "0.26.3"
 
 [dependencies.httparse]
 version = "1.10.1"
 
 [dependencies.ipstack]
-version = "1.0.0"
+version = "1.0.1"
 
 [dependencies.log]
-version = "0.4.29"
+version = "0.4.34"
 features = ["std"]
 
 [dependencies.percent-encoding]
 version = "2.3.2"
 
 [dependencies.serde]
-version = "1.0.228"
+version = "1.0.229"
 features = ["derive"]
 
 [dependencies.shlex]
@@ -120,38 +120,38 @@ features = [
 default-features = false
 
 [dependencies.thiserror]
-version = "2.0.18"
+version = "2.0.21"
 
 [dependencies.tokio]
-version = "1.52.1"
+version = "1.54.1"
 features = ["full"]
 
 [dependencies.tokio-util]
-version = "0.7.18"
+version = "0.7.20"
 
 [dependencies.tproxy-config]
-version = "^7.0.7"
+version = "^7.0.9"
 default-features = false
 
 [dependencies.tun]
-version = "0.8.7"
+version = "0.8.14"
 features = ["async"]
 
 [dependencies.udp-stream]
-version = "0.0.12"
+version = "0.0.13"
 default-features = false
 
 [dependencies.unicase]
-version = "2.9.0"
+version = "2.10.0"
 
 [dependencies.url]
 version = "2.5.8"
 
 [build-dependencies.chrono]
-version = "0.4.44"
+version = "0.4.45"
 
 [build-dependencies.serde_json]
-version = "1.0.149"
+version = "1.0.154"
 
 [target.'cfg(target_os="android")'.dependencies.android_logger]
 version = "0.15.1"
@@ -164,16 +164,19 @@ default-features = false
 version = "2"
 
 [target.'cfg(target_os="windows")'.dependencies.windows-service]
-version = "0.8.0"
+version = "0.8.1"
 
 [target."cfg(unix)".dependencies.daemonize]
 version = "0.5.0"
 
 [target."cfg(unix)".dependencies.nix]
-version = "0.31.2"
+version = "0.31.3"
 features = [
     "fs",
     "socket",
     "uio",
 ]
 default-features = false
+
+[patch.crates-io]
+socks5-impl = { path = "../socks5-impl" }

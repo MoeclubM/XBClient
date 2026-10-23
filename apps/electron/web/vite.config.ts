@@ -13,6 +13,5 @@ export default defineConfig({
   envPrefix: ['VITE_'],
   build: {
     target: 'chrome120',
-    minify: 'esbuild',
   },
 })
