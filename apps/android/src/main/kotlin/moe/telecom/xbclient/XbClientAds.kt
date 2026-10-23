@@ -1,5 +1,6 @@
 package moe.telecom.xbclient
 
+import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -187,7 +188,9 @@ internal class XbClientAds(
             try {
                 MobileAds.initialize(
                     activity.applicationContext,
-                    InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID).build()
+                    InitializationConfig.Builder(BuildConfig.ADMOB_APP_ID)
+                        .setExtras(Bundle().apply { putBoolean("force_use_cronet", true) })
+                        .build()
                 ) {}
                 activity.runOnUiThread {
                     if (!activity.isDestroyed) {

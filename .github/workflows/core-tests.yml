@@ -10,6 +10,6 @@ jobs:
   rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y cmake pkg-config libclang-dev
       - run: cargo test --locked --manifest-path rust/aerion-core/Cargo.toml
