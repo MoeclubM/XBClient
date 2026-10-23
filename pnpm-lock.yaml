@@ -162,6 +162,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  electron-winstaller@5.4.0: 21eb4761100ebf0a5d7767604341a66dc01779b862ca173af23fa5135abb9aca
+
 importers:
 
   .: {}
@@ -3287,7 +3290,7 @@ snapshots:
     dependencies:
       app-builder-lib: 26.15.3(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3)(supports-color@7.2.0)
       builder-util: 26.15.3(supports-color@7.2.0)
-      electron-winstaller: 5.4.0(supports-color@7.2.0)
+      electron-winstaller: 5.4.0(patch_hash=21eb4761100ebf0a5d7767604341a66dc01779b862ca173af23fa5135abb9aca)(supports-color@7.2.0)
     transitivePeerDependencies:
       - dmg-builder
       - supports-color
@@ -3335,7 +3338,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron-winstaller@5.4.0(supports-color@7.2.0):
+  electron-winstaller@5.4.0(patch_hash=21eb4761100ebf0a5d7767604341a66dc01779b862ca173af23fa5135abb9aca)(supports-color@7.2.0):
     dependencies:
       '@electron/asar': 3.4.1
       debug: 4.4.3(supports-color@7.2.0)
