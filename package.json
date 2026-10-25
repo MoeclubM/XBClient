@@ -1,6 +1,7 @@
 {
   "name": "xbclient",
   "private": true,
+  "packageManager": "pnpm@12.15.0",
   "scripts": {
     "dev": "pnpm --filter xbclient-electron dev",
     "build:web": "pnpm --filter xbclient-web build",

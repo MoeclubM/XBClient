@@ -55,7 +55,7 @@ jobs:
           java -version
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
         with:
           cache-cleanup: always
 
@@ -131,18 +131,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 
       - name: Install pnpm
         shell: bash
-        run: npm install -g pnpm@10.20.0
+        run: npm install -g pnpm@12.15.0
 
       - name: Set up Rust
         shell: bash
@@ -151,6 +151,12 @@ jobs:
       - name: Validate desktop build secrets
         shell: bash
         run: bash scripts/ci/validate-desktop-secrets.sh
+
+      - name: Install NASM
+        shell: bash
+        run: |
+          choco install nasm --no-progress --yes
+          echo 'C:/Program Files/NASM' >> "$GITHUB_PATH"
 
       - name: Build Windows installer
         shell: bash
@@ -193,18 +199,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 
       - name: Install pnpm
         shell: bash
-        run: npm install -g pnpm@10.20.0
+        run: npm install -g pnpm@12.15.0
 
       - name: Set up Rust
         shell: bash

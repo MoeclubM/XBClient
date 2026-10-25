@@ -124,10 +124,11 @@ internal fun rememberBlurBackdrop(enabled: Boolean = true): LayerBackdrop? {
 internal fun BlurredBar(
     backdrop: LayerBackdrop?,
     shape: androidx.compose.ui.graphics.Shape = RectangleShape,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
     Box(
-        modifier = if (backdrop != null) {
+        modifier = modifier.then(if (backdrop != null) {
             Modifier.textureBlur(
                 backdrop = backdrop,
                 shape = shape,
@@ -140,7 +141,7 @@ internal fun BlurredBar(
             )
         } else {
             Modifier
-        }
+        })
     ) {
         content()
     }
