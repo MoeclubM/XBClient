@@ -9,6 +9,7 @@ val compileAndroidApi = 37
 val targetAndroidApi = 36
 val latestBuildTools = "36.1.0"
 val androidNdkVersion = "28.2.13676358"
+val miuixVersion = "0.9.4"
 extensions.extraProperties["aerionMinAndroidApi"] = minAndroidApi
 extensions.extraProperties["aerionAndroidNdkVersion"] = androidNdkVersion
 val defaultApiUrl = providers.environmentVariable("XBCLIENT_DEFAULT_API_URL").orNull
@@ -193,11 +194,11 @@ dependencies {
     implementation("com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:1.6.0")
     implementation("com.squareup.okhttp3:okhttp:5.5.1")
     implementation("org.yaml:snakeyaml:2.7")
-    implementation("top.yukonga.miuix.kmp:miuix-ui-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-preference-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-icons-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-blur-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-shader-android:0.9.4")
+    implementation("top.yukonga.miuix.kmp:miuix-ui-android:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-preference-android:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-icons-android:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-blur-android:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-shader-android:$miuixVersion")
 }
 
 configurations.configureEach {

@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,8 +31,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -283,6 +286,8 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
     }
     val showBottomBar = visibleScreen in MainTabScreens || (backTargetScreen != null && backTargetScreen in MainTabScreens && backProgress > 0f)
     val floatingBar = state.floatingBottomBar
+    val density = LocalDensity.current
+    var floatingBarHeight by remember(density) { mutableStateOf(0.dp) }
     val scrollBehavior = MiuixScrollBehavior()
     val backdrop = rememberBlurBackdrop(state.enableBlur)
     val barColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surface
@@ -326,7 +331,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
         }
     ) { padding ->
         XbClientDialogs(state, viewModel)
-        val extraBottom = if (showBottomBar && floatingBar) 88.dp else 0.dp
+        val extraBottom = if (showBottomBar && floatingBar) floatingBarHeight else 0.dp
         PullToRefresh(
             isRefreshing = state.isRefreshing,
             onRefresh = viewModel::refreshCurrentPage,
@@ -375,7 +380,11 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
         }
         if (showBottomBar && floatingBar) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                BlurredBar(backdrop, RoundedCornerShape(28.dp)) {
+                BlurredBar(
+                    backdrop,
+                    RoundedCornerShape(28.dp),
+                    Modifier.onSizeChanged { floatingBarHeight = with(density) { it.height.toDp() } }
+                ) {
                     MainNavigationBar(state, viewModel, floatingBarColor, floating = true)
                 }
             }
@@ -394,7 +403,6 @@ private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewMod
     val navScreens = listOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
     if (floating) {
         FloatingNavigationBar(
-            modifier = Modifier.padding(bottom = 12.dp),
             color = color,
             showDivider = false
         ) {

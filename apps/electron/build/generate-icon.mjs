@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PNG } from 'pngjs'
-import toIco from 'to-ico'
+import pngToIco from 'png-to-ico'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '../../..')
@@ -58,7 +58,9 @@ const pngPath = path.join(__dirname, 'icon.png')
 const icoPath = path.join(__dirname, 'icon.ico')
 
 fs.writeFileSync(pngPath, PNG.sync.write(png))
-const icoBuffer = await toIco([fs.readFileSync(pngPath)], { resize: true, sizes: [16, 24, 32, 48, 64, 128, 256] })
+const icoBuffer = await pngToIco(
+  [16, 24, 32, 48, 64, 128, 256].map((iconSize) => PNG.sync.write(resizePng(src, iconSize))),
+)
 fs.writeFileSync(icoPath, icoBuffer)
 
 console.log(`wrote apps/electron/build/icon.png and icon.ico from ${path.relative(repoRoot, sourcePath)}`)
