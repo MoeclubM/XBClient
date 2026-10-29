@@ -67,7 +67,7 @@ pub struct RuntimeConfig {
 }
 
 #[derive(Serialize)]
-struct XboardResponse {
+struct HttpResponse {
     ok: bool,
     status: u16,
     body: Value,
@@ -76,7 +76,7 @@ struct XboardResponse {
 }
 
 #[derive(Deserialize)]
-struct XboardRequest {
+struct HttpRequest {
     method: String,
     url: String,
     headers: Option<HashMap<String, String>>,
@@ -93,8 +93,8 @@ struct ResolveNodeHostRequest {
 }
 
 #[derive(Deserialize)]
-struct RpcParamsForXboardRequest {
-    request: XboardRequest,
+struct RpcParamsForHttpRequest {
+    request: HttpRequest,
 }
 
 fn platform_name() -> &'static str {
@@ -215,7 +215,7 @@ async fn resolve_node_host(params: ResolveNodeHostRequest) -> Result<String> {
     Err(anyhow!("节点 DNS 无可用 A/AAAA 记录。"))
 }
 
-async fn xboard_request(params: RpcParamsForXboardRequest) -> Result<XboardResponse> {
+async fn http_request(params: RpcParamsForHttpRequest) -> Result<HttpResponse> {
     let method = params
         .request
         .method
@@ -233,21 +233,21 @@ async fn xboard_request(params: RpcParamsForXboardRequest) -> Result<XboardRespo
     }
 
     if let Some(body) = params.request.body {
-        let bytes = serde_json::to_vec(&body).context("encode xboard request body")?;
+        let bytes = serde_json::to_vec(&body).context("encode HTTP request body")?;
         builder = builder
             .body(bytes)
             .header("Content-Type", "application/json; charset=utf-8");
     }
 
-    let response = builder.send().await.context("xboard request")?;
+    let response = builder.send().await.context("HTTP request")?;
     let status = response.status().as_u16();
-    let text = response.text().await.context("read xboard response")?;
+    let text = response.text().await.context("read HTTP response")?;
 
     ensure!(!text.is_empty(), "xboard JSON response body is empty");
     let parsed = serde_json::from_str(&text).context("parse xboard JSON response")?;
 
     let ok = (200..300).contains(&status);
-    Ok(XboardResponse {
+    Ok(HttpResponse {
         ok,
         status,
         body: parsed,
@@ -460,9 +460,9 @@ async fn main() -> Result<()> {
                         result: serde_json::to_value(resolved)?,
                     })
                 }
-                "xboard_request" => {
-                    let params: RpcParamsForXboardRequest = serde_json::from_value(req.params)?;
-                    let resp = xboard_request(params).await?;
+                "http_request" => {
+                    let params: RpcParamsForHttpRequest = serde_json::from_value(req.params)?;
+                    let resp = http_request(params).await?;
                     Ok(RpcResponseOk {
                         id: req.id,
                         ok: true,

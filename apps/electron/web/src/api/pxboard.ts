@@ -1,8 +1,8 @@
-import { invoke } from '../platform/electron'
+import { httpRequest } from './http'
 import { openExternal } from './system'
 import { useAppStore, type SubscriptionState } from '../store'
-import { subscriptionFetch } from './xboard'
-import { toAppNode, type RawNode } from '../nodes'
+import { subscriptionFetch } from './subscriptions'
+import { toAppNode } from '../nodes'
 import { formatTrafficBytes, formatUnixDate } from '../format'
 import { saveSession, saveSubscriptionCache } from '../store/persist'
 
@@ -12,8 +12,8 @@ export async function pxboardRequest<T>(path: string, body?: unknown, authData =
   const config = useAppStore.getState().buildConfig!
   const headers: Record<string, string> = { 'User-Agent': config.user_agent }
   if (authData) headers.Authorization = 'Bearer ' + authData.replace(/^PxBoard /, '')
-  const response = await invoke<{ ok: boolean; body: { data: T; message: string } }>('xboard_request', {
-    request: { method: body === undefined ? 'GET' : 'POST', url: config.default_api_url.replace(/\/$/, '') + '/api/v1' + path, headers, body },
+  const response = await httpRequest<{ data: T; message: string }>({
+    method: body === undefined ? 'GET' : 'POST', url: config.default_api_url.replace(/\/$/, '') + '/api/v1' + path, headers, body,
   })
   if (!response.ok) throw new Error(response.body.message)
   return response.body.data
@@ -69,11 +69,10 @@ export async function syncPxBoard(): Promise<string | null> {
   let nodes: ReturnType<typeof toAppNode>[] = []
   let routing = { has_rules: false, rule_count: 0, proxy_group_count: 0, rule_provider_count: 0, rules_preview: [] as string[], route_config_yaml: null as string | null }
   if (!blockReason) {
-    const config = await pxboardRequest<{ nodes: RawNode[] }>('/extensions/subscriptions/configuration?format=aerion')
-    nodes = config.nodes.map(toAppNode)
     const response = await subscriptionFetch(current.baseUrl.replace(/\/$/, '') + '/api/v1/extensions/subscriptions/configuration?format=clash', 'meta', 'Bearer ' + auth.replace(/^PxBoard /, ''))
-    if (!response.ok || !response.routing) throw new Error(response.error || 'Subscription routing missing')
+    if (!response.ok || !response.routing || !response.nodes) throw new Error(response.error || 'Subscription routing missing')
     routing = response.routing
+    nodes = response.nodes.map(toAppNode)
   }
   if (useAppStore.getState().authData !== auth) return null
   current.setProfile({ panelExtensions: plugins.filter(p => p.enabled).map(p => p.id) })

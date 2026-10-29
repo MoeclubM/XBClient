@@ -616,12 +616,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 var subscriptionRouteRulesPreview = emptyList<String>()
                 var metaNodesResult: JSONObject? = null
                 if (blockReason.isEmpty() && subscribeUrl.isNotEmpty()) {
-                    metaNodesResult = XboardApi.request(
-                        "anytls_nodes",
-                        defaultApiUrl(),
-                        "",
-                        JSONObject().put("subscribe_url", subscribeUrl).put("flag", "meta")
-                    )
+                    metaNodesResult = Subscriptions.fetch(subscribeUrl, "meta")
                     if (metaNodesResult.getBoolean("ok")) {
                         val routing = metaNodesResult.getJSONObject("routing")
                         subscriptionRouteConfigYaml = if (routing.isNull("route_config_yaml")) "" else routing.getString("route_config_yaml")

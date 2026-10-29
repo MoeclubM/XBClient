@@ -1,11 +1,4 @@
-import {
-  aerionStartRoute,
-  aerionStartSocks,
-  aerionStartVpn,
-  aerionStop,
-  aerionStopRoute,
-  aerionStopVpn,
-} from '../api/xboard'
+import { aerionStartRoute, aerionStartSocks, aerionStartVpn, aerionStop, aerionStopRoute, aerionStopVpn } from '../api/aerion'
 import {
   parseSocksAddr,
   resolveAppNode,

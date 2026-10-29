@@ -2,10 +2,14 @@ use anyhow::{Context, Result, bail};
 use serde_json::{Map, Value, json};
 
 const SUBSCRIPTION_USER_AGENT: &str = "Aerion";
-const SUBSCRIPTION_NODE_TYPES: &str =
-    "anytls,hysteria,trojan,vless,vmess,mieru,sudoku,naive,shadowsocks,tuic,http,socks5,direct,block";
+const SUBSCRIPTION_NODE_TYPES: &str = "anytls,hysteria,trojan,vless,vmess,mieru,sudoku,naive,shadowsocks,tuic,http,socks5,direct,block";
 
-pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str, authorization: Option<&str>) -> Result<Value> {
+pub async fn fetch(
+    client: &reqwest::Client,
+    url: &str,
+    flag: &str,
+    authorization: Option<&str>,
+) -> Result<Value> {
     let sing_box = flag.eq_ignore_ascii_case("sing-box");
     let request_url = with_subscription_query(url, flag)?;
     let user_agent = if sing_box {
@@ -22,10 +26,10 @@ pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str, authorizatio
         .get(request_url)
         .header("User-Agent", user_agent)
         .header("Accept", accept);
-    if let Some(authorization) = authorization { request = request.header("Authorization", authorization); }
-    let response = request.send()
-        .await
-        .context("fetch subscription")?;
+    if let Some(authorization) = authorization {
+        request = request.header("Authorization", authorization);
+    }
+    let response = request.send().await.context("fetch subscription")?;
     let status = response.status().as_u16();
     let subscription_userinfo = response
         .headers()
@@ -46,26 +50,33 @@ pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str, authorizatio
             "body": text,
         }));
     }
-    let routing = if sing_box {
-        json!({
-            "has_rules": false,
-            "rule_count": 0,
-            "proxy_group_count": 0,
-            "rule_provider_count": 0,
-            "rules_preview": [],
-            "route_config_yaml": null,
-        })
+    let (routing, nodes) = if sing_box {
+        (
+            json!({
+                "has_rules": false,
+                "rule_count": 0,
+                "proxy_group_count": 0,
+                "rule_provider_count": 0,
+                "rules_preview": [],
+                "route_config_yaml": null,
+            }),
+            None,
+        )
     } else {
         clash_routing_meta(&text)?
     };
-    Ok(json!({
+    let mut result = json!({
         "ok": true,
         "status": status,
         "format": if sing_box { "sing-box" } else { "clashmeta" },
         "flag": flag,
         "subscription_userinfo": subscription_userinfo,
         "routing": routing,
-    }))
+    });
+    if let Some(nodes) = nodes {
+        result["nodes"] = nodes;
+    }
+    Ok(result)
 }
 
 fn with_subscription_query(url: &str, flag: &str) -> Result<reqwest::Url> {
@@ -77,10 +88,31 @@ fn with_subscription_query(url: &str, flag: &str) -> Result<reqwest::Url> {
     Ok(parsed)
 }
 
-fn clash_routing_meta(text: &str) -> Result<Value> {
+fn clash_routing_meta(text: &str) -> Result<(Value, Option<Value>)> {
     let root: Value = serde_yaml::from_str::<serde_yaml::Value>(text)
         .context("parse clash-meta routing YAML")
         .and_then(yaml_to_json)?;
+    let nodes = root
+        .get("proxies")
+        .map(|value| -> Result<Value> {
+            let mut nodes = value
+                .as_array()
+                .cloned()
+                .context("Mihomo proxies must be an array")?;
+            for node in &mut nodes {
+                let node = node
+                    .as_object_mut()
+                    .context("Mihomo proxy must be an object")?;
+                if let Some(host) = node.get("server").cloned() {
+                    node.insert("host".into(), host);
+                }
+                if let Some(insecure) = node.get("skip-cert-verify").cloned() {
+                    node.insert("insecure".into(), insecure);
+                }
+            }
+            Ok(Value::Array(nodes))
+        })
+        .transpose()?;
     let rules = root
         .get("rules")
         .and_then(Value::as_array)
@@ -104,14 +136,17 @@ fn clash_routing_meta(text: &str) -> Result<Value> {
         Some(_) => bail!("clash-meta routing YAML field rule-providers must be an object"),
     };
     let preview: Vec<&str> = rule_strings.iter().take(20).map(String::as_str).collect();
-    Ok(json!({
-        "has_rules": !rule_strings.is_empty(),
-        "rule_count": rule_strings.len(),
-        "proxy_group_count": proxy_group_count,
-        "rule_provider_count": rule_provider_count,
-        "rules_preview": preview,
-        "route_config_yaml": if rule_strings.is_empty() { Value::Null } else { Value::String(text.to_string()) },
-    }))
+    Ok((
+        json!({
+            "has_rules": !rule_strings.is_empty(),
+            "rule_count": rule_strings.len(),
+            "proxy_group_count": proxy_group_count,
+            "rule_provider_count": rule_provider_count,
+            "rules_preview": preview,
+            "route_config_yaml": if rule_strings.is_empty() { Value::Null } else { Value::String(text.to_string()) },
+        }),
+        nodes,
+    ))
 }
 
 fn yaml_to_json(value: serde_yaml::Value) -> Result<Value> {

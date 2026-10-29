@@ -33,7 +33,7 @@ Treat the finished Actions job as the source of truth for whether a platform bui
 
 `XBCLIENT_PANEL_TYPE` 放在 GitHub Secrets，支持 `xboard`（未设置时默认）与 `pxboard`。`XBCLIENT_DEFAULT_API_URL` 为对应面板公开地址，不要带 `/api/v1`。同一份代码包含两种面板对接，使用相同的连接内核和设备设置；当前发布包固定连接发布者选择的站点，不提供多站点账号管理。
 
-PxBoard 需要部署客户端认证接口及新版 `subscriptions` 插件，详见 [PxBoard 原生客户端协议](https://github.com/MoeClub-Open/PxBoard/blob/main/docs/native-clients.md)。它使用浏览器完成站点登录和确认，再通过一次性校验领取会话；不依赖自定义 OAuth 回调地址。节点、期限、用量和分流原生同步；商业与账户操作通过短期一次性链接打开本站前台。功能展示跟随面板启用的插件。Xboard 专用广告奖励不会迁移为 PxBoard 功能。
+PxBoard 需要部署客户端认证接口及新版 `subscriptions` 插件，详见 [PxBoard 原生客户端协议](https://github.com/MoeClub-Open/PxBoard/blob/main/docs/native-clients.md)。它使用浏览器完成站点登录和确认，再通过一次性校验领取会话；不依赖自定义 OAuth 回调地址。节点与分流从同一次认证 Mihomo 配置请求中读取，期限和用量从访问账户同步；商业与账户操作通过短期一次性链接打开本站前台。功能展示跟随面板启用的插件。Xboard 专用广告奖励不会迁移为 PxBoard 功能。
 
 切换站点或面板类型会要求重新登录并清除旧连接缓存，不删除服务端用户、套餐或余额，也不清除设备偏好。Google Play 安装的 Android 客户端通过 Play 更新，不使用 GitHub APK 覆盖。
 

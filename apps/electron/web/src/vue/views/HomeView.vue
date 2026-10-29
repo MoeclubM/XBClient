@@ -1,12 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  aerionStartSocks,
-  aerionStartVpn,
-  aerionStop,
-  aerionStopVpn,
-} from '../../api/xboard'
+import { aerionStartSocks, aerionStartVpn, aerionStop, aerionStopVpn } from '../../api/aerion'
 import { applyDesktopConnection, isDesktopConnectionShell } from '../../desktop/connection'
 import { onAeronEvent, reportVpnSession } from '../../platform/electron'
 import {

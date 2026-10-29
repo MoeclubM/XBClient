@@ -1,6 +1,7 @@
 import { isPxBoard, syncPxBoard } from './api/pxboard'
 import { failureText } from './api/helpers'
-import { subscriptionFetch, xboardRequest, type XboardBody } from './api/xboard'
+import { subscriptionFetch } from './api/subscriptions'
+import { xboardRequest, type XboardBody } from './api/xboard'
 import { formatTrafficBytes, formatUnixDate, numericValue } from './format'
 import { translate, type TranslationKey } from './i18n'
 import { rawNodeRows, toAppNode } from './nodes'

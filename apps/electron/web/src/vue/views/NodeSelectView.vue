@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { aerionTestNode } from '../../api/xboard'
+import { aerionTestNode } from '../../api/aerion'
 import { resolveAppNode } from '../../api/system'
 import {
   displayNodeName,
