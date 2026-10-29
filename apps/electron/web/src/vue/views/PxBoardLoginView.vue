@@ -10,12 +10,13 @@ const error = ref('')
 let controller: AbortController | null = null
 async function login() {
   controller?.abort()
-  controller = new AbortController()
+  const attempt = new AbortController()
+  controller = attempt
   busy.value = true
   error.value = ''
-  try { await loginPxBoard(controller.signal); await router.replace('/home') }
-  catch (e) { if (!controller.signal.aborted) error.value = e instanceof Error ? e.message : String(e) }
-  finally { busy.value = false }
+  try { await loginPxBoard(attempt.signal); await router.replace('/home') }
+  catch (e) { if (!attempt.signal.aborted) error.value = e instanceof Error ? e.message : String(e) }
+  finally { if (controller === attempt) busy.value = false }
 }
 function cancel() { controller?.abort(); busy.value = false }
 onUnmounted(cancel)

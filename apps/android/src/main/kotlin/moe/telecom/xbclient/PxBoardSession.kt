@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -23,20 +24,24 @@ internal class PxBoardSession(
     private val open: (String) -> Unit,
 ) {
     private var loginJob: Job? = null
-    fun cancelLogin() { loginJob?.cancel(); state.update { it.copy(nativeLoginPending = false) } }
+    private var loginAttempt = 0
+    fun cancelLogin() { loginAttempt++; loginJob?.cancel(); state.update { it.copy(nativeLoginPending = false) } }
     fun login() {
         cancelLogin()
+        val attempt = loginAttempt
         loginJob = scope.launch(Dispatchers.IO) {
             state.update { it.copy(nativeLoginPending = true) }
             try {
                 val proof = UUID.randomUUID().toString() + UUID.randomUUID().toString()
                 val challenge = MessageDigest.getInstance("SHA-256").digest(proof.toByteArray()).joinToString("") { "%02x".format(it) }
                 val flow = PxBoardApi.request("/auth/native", body = JSONObject().put("name", name).put("challenge", challenge)) as JSONObject
+                coroutineContext.ensureActive()
                 open(flow.getString("authorizationUrl"))
                 val expiresAt = Instant.parse(flow.getString("expiresAt")).toEpochMilli()
                 while (System.currentTimeMillis() < expiresAt) {
                     delay(flow.getLong("intervalSeconds") * 1000L)
                     val result = PxBoardApi.request("/auth/native/${flow.getString("id")}/token", body = JSONObject().put("proof", proof)) as JSONObject
+                    coroutineContext.ensureActive()
                     if (result.getString("status") == "pending") continue
                     val user = result.getJSONObject("user")
                     state.update { it.copy(authData = "PxBoard " + result.getString("token"), userEmail = user.getString("email"), nativeLoginPending = false) }
@@ -47,7 +52,7 @@ internal class PxBoardSession(
                 throw IllegalStateException("Authorization expired. Please sign in again.")
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { message(e.message ?: e.toString()) }
-            finally { state.update { it.copy(nativeLoginPending = false) } }
+            finally { if (attempt == loginAttempt) state.update { it.copy(nativeLoginPending = false) } }
         }
     }
     fun portal(path: String) {
