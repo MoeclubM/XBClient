@@ -4,6 +4,8 @@ plugins {
 }
 
 val minAndroidApi = 26
+val panelType = providers.environmentVariable("XBCLIENT_PANEL_TYPE").orNull?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: "xboard"
+require(panelType in setOf("xboard", "pxboard")) { "XBCLIENT_PANEL_TYPE must be xboard or pxboard" }
 val appMinAndroidApi = 33
 val compileAndroidApi = 37
 val targetAndroidApi = 36
@@ -91,6 +93,7 @@ android {
         buildConfigField("String", "ADMOB_APP_ID", "\"${admobAppId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "DEFAULT_API_URL", "\"${defaultApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "USER_AGENT", "\"${userAgent.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "PANEL_TYPE", "\"$panelType\"")
         buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"${oauthCallbackScheme.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "WEBSITE_URL", "\"${websiteUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "PRIVACY_POLICY_URL", "\"${privacyPolicyUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")

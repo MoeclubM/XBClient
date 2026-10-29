@@ -5,7 +5,7 @@ const SUBSCRIPTION_USER_AGENT: &str = "Aerion";
 const SUBSCRIPTION_NODE_TYPES: &str =
     "anytls,hysteria,trojan,vless,vmess,mieru,sudoku,naive,shadowsocks,tuic,http,socks5,direct,block";
 
-pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str) -> Result<Value> {
+pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str, authorization: Option<&str>) -> Result<Value> {
     let sing_box = flag.eq_ignore_ascii_case("sing-box");
     let request_url = with_subscription_query(url, flag)?;
     let user_agent = if sing_box {
@@ -18,11 +18,12 @@ pub async fn fetch(client: &reqwest::Client, url: &str, flag: &str) -> Result<Va
     } else {
         "text/yaml, application/yaml, text/plain, */*"
     };
-    let response = client
+    let mut request = client
         .get(request_url)
         .header("User-Agent", user_agent)
-        .header("Accept", accept)
-        .send()
+        .header("Accept", accept);
+    if let Some(authorization) = authorization { request = request.header("Authorization", authorization); }
+    let response = request.send()
         .await
         .context("fetch subscription")?;
     let status = response.status().as_u16();

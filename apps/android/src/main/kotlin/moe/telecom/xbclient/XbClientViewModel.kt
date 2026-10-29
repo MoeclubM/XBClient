@@ -44,6 +44,8 @@ private const val NODE_TEST_TIMEOUT_MS = 8000L
 
 data class XbClientUiState(
     val loaded: Boolean = false,
+    val nativeLoginPending: Boolean = false,
+    val nativeExtensions: Set<String> = emptySet(),
     val authMode: AuthMode = AuthMode.LOGIN,
     val screen: PassScreen = PassScreen.NODES,
     val authData: String = "",
@@ -169,6 +171,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     val uiState = _uiState.asStateFlow()
     private val _events = MutableSharedFlow<XbClientEvent>()
     val events = _events.asSharedFlow()
+    private val nativePanel = PxBoardSession(app.getString(R.string.app_name), viewModelScope, _uiState, ::persistStoredState, ::emitMessage) { emitEvent(XbClientEvent.OpenExternalUrl(it)) }
+    fun loginPxBoard() = nativePanel.login()
+    fun cancelPxBoardLogin() = nativePanel.cancelLogin()
+    fun openPxBoardPortal(path: String = "/user") = nativePanel.portal(path)
+
     private var pendingNodeSwitchConnect: Boolean? = null
     private var pendingOAuthCallback: Uri? = null
     private var pendingOAuthState = ""
@@ -185,7 +192,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             loadInstalledApps()
             refreshOAuthProviders()
             val updateProjectUrl = BuildConfig.GITHUB_PROJECT_URL.trim()
-            if (updateProjectUrl.isNotBlank()) {
+            if (updateProjectUrl.isNotBlank() && !isPlayInstallation()) {
                 checkGithubReleaseUpdate(updateProjectUrl)
             }
             val state = _uiState.value
@@ -225,6 +232,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun openScreen(screen: PassScreen) {
+        if (PxBoardApi.enabled) { _uiState.update { it.copy(screen = screen) }; nativePanel.refresh(); return }
         _uiState.update { it.copy(screen = screen) }
         when (screen) {
             PassScreen.PROFILE -> Unit
@@ -250,6 +258,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshCurrentPage() {
+        if (PxBoardApi.enabled) { nativePanel.refresh(); return }
         when (_uiState.value.screen) {
             PassScreen.PROFILE -> {
                 refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
@@ -396,6 +405,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshOAuthProviders(showErrors: Boolean = false) {
+        if (PxBoardApi.enabled) return
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = XboardApi.request("guest_config", defaultApiUrl(), "", JSONObject())
@@ -552,7 +562,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun logout() {
+        nativePanel.cancelLogin()
         val current = _uiState.value
+        if (PxBoardApi.enabled && current.authData.isNotEmpty()) viewModelScope.launch(Dispatchers.IO) {
+            try { PxBoardApi.request("/auth/logout", current.authData, JSONObject()) }
+            catch (error: Exception) { emitMessage(error.message ?: error.toString()) }
+        }
         val next = XbClientUiState(
             loaded = true,
             paymentEnabled = current.paymentEnabled,
@@ -578,6 +593,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshSubscriptionAndNodes(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
+        if (PxBoardApi.enabled) { nativePanel.refresh(); return }
         val current = _uiState.value
         if (current.authData.isEmpty() || current.nodesLoading) {
             return
@@ -661,6 +677,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshPlans(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
+        if (PxBoardApi.enabled) return
         val authData = _uiState.value.authData
         if (authData.isEmpty() || _uiState.value.plansLoading) {
             return
@@ -691,6 +708,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshNotices(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
+        if (PxBoardApi.enabled) return
         val authData = _uiState.value.authData
         if (authData.isEmpty() || _uiState.value.noticesLoading) {
             return
@@ -721,6 +739,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshInvites(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
+        if (PxBoardApi.enabled) return
         val authData = _uiState.value.authData
         if (authData.isEmpty() || _uiState.value.invitesLoading) {
             return
@@ -1199,6 +1218,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshRewardConfig() {
+        if (PxBoardApi.enabled) return
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
             return
@@ -1213,6 +1233,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshAdRewardHistory(showLoading: Boolean = false) {
+        if (PxBoardApi.enabled) return
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
             return
@@ -1242,6 +1263,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshUserInfo(showErrors: Boolean = false) {
+        if (PxBoardApi.enabled) return
         val current = _uiState.value
         val authData = current.authData
         if (authData.isEmpty() || current.userLoading) {
@@ -1470,7 +1492,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
         persistStoredState(_uiState.value)
         val updateProjectUrl = BuildConfig.GITHUB_PROJECT_URL.trim()
-        if (updateProjectUrl.isNotBlank()) {
+        if (updateProjectUrl.isNotBlank() && !isPlayInstallation()) {
             checkGithubReleaseUpdate(updateProjectUrl)
         }
         return if (scene == REWARD_SCENE_POINTS) {
@@ -1941,9 +1963,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val bundledRouteAssetsDir = ensureBundledRouteAssets()
         val prefs = app.passVpnDataStore.data.first()
         val storedGeoipDir = prefs[Keys.GEOIP_DIR]
+        val sessionMatches = prefs[Keys.PANEL_ORIGIN] == defaultApiUrl().trimEnd('/') + "|" + BuildConfig.PANEL_TYPE
         val state = XbClientUiState(
             loaded = true,
-            authData = prefs[Keys.AUTH_DATA].orEmpty(),
+            authData = if (sessionMatches) prefs[Keys.AUTH_DATA].orEmpty() else "",
             subscribeToken = prefs[Keys.SUBSCRIBE_TOKEN].orEmpty(),
             subscribeUrl = prefs[Keys.SUBSCRIBE_URL].orEmpty(),
             subscriptionSummary = prefs[Keys.SUBSCRIPTION_SUMMARY].orEmpty(),
@@ -2005,6 +2028,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             vpnBaseTxBytes = runtimePrefs.getLong("vpn_base_tx_bytes", currentUidTxBytes())
         }
         _uiState.value = state.copy(
+            anyTlsNodes = if (sessionMatches) state.anyTlsNodes else emptyList(),
+            appOpenAdEnabled = !PxBoardApi.enabled && state.appOpenAdEnabled,
+            planRewardAdEnabled = !PxBoardApi.enabled && state.planRewardAdEnabled,
+            pointsRewardAdEnabled = !PxBoardApi.enabled && state.pointsRewardAdEnabled,
+            routeConfigYaml = if (sessionMatches) state.routeConfigYaml else "",
+            subscribeUrl = if (sessionMatches) state.subscribeUrl else "",
+            vpnRequested = sessionMatches && state.vpnRequested,
             selectedNodeIndex = state.selectedNodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0)),
             vpnConnectedAt = if (state.vpnRequested) runtimePrefs.getLong("vpn_connected_at", 0L) else 0L,
             vpnSessionRxBytes = if (state.vpnRequested) (currentUidRxBytes() - vpnBaseRxBytes).coerceAtLeast(0L) else 0L,
@@ -2058,6 +2088,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     private suspend fun persistStoredState(state: XbClientUiState) {
         app.passVpnDataStore.edit { prefs ->
+            prefs[Keys.PANEL_ORIGIN] = defaultApiUrl().trimEnd('/') + "|" + BuildConfig.PANEL_TYPE
             prefs[Keys.AUTH_DATA] = state.authData
             prefs[Keys.SUBSCRIBE_TOKEN] = state.subscribeToken
             prefs[Keys.SUBSCRIBE_URL] = state.subscribeUrl
@@ -2208,7 +2239,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private fun isPlayInstallation() = app.packageManager.getInstallSourceInfo(app.packageName).installingPackageName == "com.android.vending"
+
     private fun checkGithubReleaseUpdate(projectUrl: String) {
+        if (isPlayInstallation()) {
+            emitEvent(XbClientEvent.OpenExternalUrl("https://play.google.com/store/apps/details?id=${app.packageName}"))
+            return
+        }
         val value = projectUrl.trim()
         if (value.isEmpty()) {
             throw IllegalStateException("GitHub 项目地址为空。")
@@ -2341,6 +2378,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     private object Keys {
+        val PANEL_ORIGIN = stringPreferencesKey("panel_origin")
         val AUTH_DATA = stringPreferencesKey("auth_data")
         val SUBSCRIBE_TOKEN = stringPreferencesKey("subscribe_token")
         val SUBSCRIBE_URL = stringPreferencesKey("subscribe_url")

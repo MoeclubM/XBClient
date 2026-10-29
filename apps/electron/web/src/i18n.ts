@@ -1,5 +1,10 @@
 export const TRANSLATIONS = {
   'zh-CN': {
+    panel_authorizing: '请在浏览器中确认登录',
+    panel_cancel: '取消',
+    panel_suspended: '访问账户已暂停',
+    panel_suspended_body: '请在用户中心查看账户状态。',
+    panel_user_center: '用户中心',
     nav_home: '主页',
     nav_nodes: '节点',
     section_connection: '连接',
@@ -235,6 +240,11 @@ export const TRANSLATIONS = {
     traffic_logs_empty: '暂无流量记录。',
   },
   en: {
+    panel_authorizing: 'Confirm sign-in in your browser',
+    panel_cancel: 'Cancel',
+    panel_suspended: 'Access suspended',
+    panel_suspended_body: 'Open the user center to check your account.',
+    panel_user_center: 'User center',
     nav_home: 'Home',
     nav_nodes: 'Nodes',
     section_connection: 'Connection',

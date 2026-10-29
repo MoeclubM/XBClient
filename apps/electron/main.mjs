@@ -69,6 +69,7 @@ function readBuildConfig() {
   }
   return {
     appName: process.env.XBCLIENT_APP_NAME,
+    panelType: process.env.XBCLIENT_PANEL_TYPE?.trim() || 'xboard',
     defaultApiUrl: process.env.XBCLIENT_DEFAULT_API_URL,
     userAgent: process.env.XBCLIENT_USER_AGENT,
     oauthCallbackScheme: process.env.XBCLIENT_OAUTH_CALLBACK_SCHEME,
@@ -152,6 +153,7 @@ function desktopRuntimeConfig() {
   const env = validateBackendEnv()
   return {
     app_name: env.XBCLIENT_APP_NAME,
+    panel_type: env.XBCLIENT_PANEL_TYPE,
     default_api_url: env.XBCLIENT_DEFAULT_API_URL,
     user_agent: env.XBCLIENT_USER_AGENT,
     oauth_callback_scheme: env.XBCLIENT_OAUTH_CALLBACK_SCHEME,
@@ -206,6 +208,7 @@ function buildBackendEnv() {
   const config = readBuildConfig()
   const env = { ...process.env }
   env.XBCLIENT_APP_NAME = config.appName
+  env.XBCLIENT_PANEL_TYPE = config.panelType
   env.XBCLIENT_DEFAULT_API_URL = config.defaultApiUrl
   env.XBCLIENT_USER_AGENT = config.userAgent
   env.XBCLIENT_OAUTH_CALLBACK_SCHEME = config.oauthCallbackScheme
@@ -215,6 +218,7 @@ function buildBackendEnv() {
 
 function validateBackendEnv() {
   const env = buildBackendEnv()
+  if (!['xboard', 'pxboard'].includes(env.XBCLIENT_PANEL_TYPE)) throw new Error('XBCLIENT_PANEL_TYPE must be xboard or pxboard')
   const missing = []
   for (const key of ['XBCLIENT_APP_NAME', 'XBCLIENT_DEFAULT_API_URL', 'XBCLIENT_USER_AGENT', 'XBCLIENT_OAUTH_CALLBACK_SCHEME']) {
     if (!env[key]?.trim()) missing.push(key)

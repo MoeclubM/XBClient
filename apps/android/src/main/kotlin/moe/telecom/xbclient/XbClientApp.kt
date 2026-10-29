@@ -400,7 +400,7 @@ private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewMod
         PassScreen.PLANS -> PassScreen.PLANS
         else -> PassScreen.NODES
     }
-    val navScreens = listOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
+    val navScreens = listOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS).filter { !PxBoardApi.enabled || it != PassScreen.PLANS || "commerce" in state.nativeExtensions }
     if (floating) {
         FloatingNavigationBar(
             color = color,
@@ -476,14 +476,14 @@ private fun MainScreenContent(
         ) {
             item {
                 when (screen) {
-                    PassScreen.PROFILE -> ProfileScreen(state, viewModel)
+                    PassScreen.PROFILE -> if (PxBoardApi.enabled) PxBoardAccount(state, viewModel) else ProfileScreen(state, viewModel)
                     PassScreen.GIFT_CARDS -> GiftCardsScreen(state, viewModel)
                     PassScreen.ACCOUNT_SECURITY -> AccountSecurityScreen(state, viewModel)
                     PassScreen.INVITE_DETAILS -> InviteDetailsScreen(state)
                     PassScreen.TRAFFIC_LOGS -> TrafficLogsScreen(state)
                     PassScreen.TICKETS -> TicketsScreen(state, viewModel)
                     PassScreen.TICKET_DETAIL -> TicketDetailScreen(state, viewModel)
-                    PassScreen.PLANS -> PlansScreen(state, viewModel)
+                    PassScreen.PLANS -> if (PxBoardApi.enabled) PxBoardAccount(state, viewModel, plans = true) else PlansScreen(state, viewModel)
                     PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
                     PassScreen.THEME -> ThemeSettingsScreen(state, viewModel)
                     else -> HomeScreen(state, viewModel)

@@ -60,6 +60,7 @@ pub struct RuntimeCapabilities {
 #[derive(Serialize)]
 pub struct RuntimeConfig {
     pub app_name: String,
+    pub panel_type: String,
     pub default_api_url: String,
     pub user_agent: String,
     pub oauth_callback_scheme: String,
@@ -141,6 +142,7 @@ fn runtime_capabilities() -> RuntimeCapabilities {
 fn runtime_config() -> Result<RuntimeConfig> {
     Ok(RuntimeConfig {
         app_name: required_env("XBCLIENT_APP_NAME")?,
+        panel_type: required_env("XBCLIENT_PANEL_TYPE")?,
         default_api_url: required_env("XBCLIENT_DEFAULT_API_URL")?,
         user_agent: required_env("XBCLIENT_USER_AGENT")?,
         oauth_callback_scheme: required_env("XBCLIENT_OAUTH_CALLBACK_SCHEME")?,
@@ -258,10 +260,11 @@ async fn subscription_fetch(params: &Value) -> Result<Value> {
     struct SubscriptionReq {
         url: String,
         flag: String,
+        authorization: Option<String>,
     }
     let input: SubscriptionReq =
         serde_json::from_value(params.clone()).context("parse subscription_fetch args")?;
-    let v = subscription::fetch(&HTTP_CLIENT, &input.url, &input.flag).await?;
+    let v = subscription::fetch(&HTTP_CLIENT, &input.url, &input.flag, input.authorization.as_deref()).await?;
     Ok(v)
 }
 

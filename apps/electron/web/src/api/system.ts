@@ -25,6 +25,7 @@ export interface RuntimeCapabilities {
 }
 
 export interface RuntimeConfig {
+  panel_type: 'xboard' | 'pxboard'
   app_name: string
   default_api_url: string
   user_agent: string

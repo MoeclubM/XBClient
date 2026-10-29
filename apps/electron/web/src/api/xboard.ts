@@ -150,8 +150,9 @@ export interface SubscriptionResult {
 export async function subscriptionFetch(
   url: string,
   flag: 'meta' | 'sing-box' = 'meta',
+  authorization?: string,
 ): Promise<SubscriptionResult> {
-  return invoke<SubscriptionResult>('subscription_fetch', { url, flag })
+  return invoke<SubscriptionResult>('subscription_fetch', { url, flag, authorization })
 }
 
 export interface TestNodeResult {

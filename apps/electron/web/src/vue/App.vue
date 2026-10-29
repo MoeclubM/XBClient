@@ -6,6 +6,9 @@ import { installElectronTraySync } from '../platform/electron-tray-sync'
 import { isDesktopShell } from '../platform/shell'
 import { appState, applyDocumentTheme, bootstrapApp, preventDesktopZoom, t } from './state'
 import DesktopTitleBar from './components/DesktopTitleBar.vue'
+import { isPxBoard } from '../api/pxboard'
+import PxBoardLoginView from './views/PxBoardLoginView.vue'
+import PxBoardPortalView from './views/PxBoardPortalView.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,17 +35,19 @@ watch(themeName, (value) => {
   applyDocumentTheme()
 }, { immediate: true })
 
-const NAV_ITEMS = [
+const nativePage = computed(() => !isPxBoard() ? null : route.path === '/login' ? PxBoardLoginView : ['/plans', '/profile', '/services', '/tickets', '/promotion', '/traffic'].includes(route.path) ? PxBoardPortalView : null)
+
+const NAV_ITEMS = computed(() => [
   { path: '/home', icon: '⌂', label: () => t('nav_home') },
   { path: '/nodes', icon: '◎', label: () => t('nav_nodes') },
   { path: '/plans', icon: '◫', label: () => t('nav_plans') },
   { path: '/profile', icon: '◉', label: () => t('nav_profile') },
   { path: '/services', icon: '✦', label: () => t('nav_services') },
   { path: '/settings', icon: '⚙', label: () => t('nav_settings') },
-]
+].filter(item => !isPxBoard() || item.path !== '/services' && (item.path !== '/plans' || appState.panelExtensions.includes('commerce'))))
 
 const activeNavIndex = computed(() => {
-  const idx = NAV_ITEMS.findIndex((item) => {
+  const idx = NAV_ITEMS.value.findIndex((item) => {
     if (item.path === '/settings') return route.path.startsWith('/settings')
     if (item.path === '/services') return ['/services', '/tickets', '/promotion', '/traffic'].includes(route.path)
     if (item.path === '/nodes') return route.path === '/nodes'
@@ -52,7 +57,7 @@ const activeNavIndex = computed(() => {
 })
 
 const navPillStyle = computed(() => {
-  const count = NAV_ITEMS.length
+  const count = NAV_ITEMS.value.length
   const pct = 100 / count
   return {
     left: `calc(${activeNavIndex.value * pct}% + 2px)`,
@@ -141,7 +146,7 @@ onUnmounted(() => {
         </aside>
         <div class="desktop-main">
           <v-main class="liquid-main liquid-main--desktop">
-            <RouterView />
+            <RouterView v-slot="{ Component }"><component :is="nativePage || Component" /></RouterView>
           </v-main>
         </div>
       </div>
@@ -149,7 +154,7 @@ onUnmounted(() => {
 
     <template v-else>
       <v-main class="liquid-main">
-        <RouterView />
+        <RouterView v-slot="{ Component }"><component :is="nativePage || Component" /></RouterView>
       </v-main>
 
       <nav v-if="showNav" class="liquid-bottom-nav">

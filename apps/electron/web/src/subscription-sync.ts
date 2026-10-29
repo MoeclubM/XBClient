@@ -1,3 +1,4 @@
+import { isPxBoard, syncPxBoard } from './api/pxboard'
 import { failureText } from './api/helpers'
 import { subscriptionFetch, xboardRequest, type XboardBody } from './api/xboard'
 import { formatTrafficBytes, formatUnixDate, numericValue } from './format'
@@ -63,6 +64,7 @@ function subscriptionState(data: Record<string, unknown>, language: string): Sub
 }
 
 export async function syncSubscription(): Promise<string | null> {
+  if (isPxBoard()) return syncPxBoard()
   const state = useAppStore.getState()
   const language = state.settings.appLanguage
   const sub = await xboardRequest<XboardBody>('user_subscribe', { baseUrl: state.baseUrl, authData: state.authData })

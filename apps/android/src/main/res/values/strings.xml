@@ -272,4 +272,9 @@
     <string name="traffic_logs_empty">暂无流量明细。</string>
     <string name="traffic_logs_up_down">上传 %1$s · 下载 %2$s</string>
     <string name="traffic_logs_total_rate">合计 %1$s · 倍率 %2$s</string>
+    <string name="panel_authorizing">请在浏览器中确认登录</string>
+    <string name="panel_cancel">取消</string>
+    <string name="panel_user_center">用户中心</string>
+    <string name="panel_account_suspended">访问账户已暂停</string>
+    <string name="panel_account_suspended_body">请在用户中心查看账户状态。</string>
 </resources>

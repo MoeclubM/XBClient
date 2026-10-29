@@ -1,3 +1,4 @@
+import { isPxBoard } from './pxboard'
 import { enabled } from '../reward'
 import { useAppStore } from '../store'
 import { parseOAuthProviders } from './helpers'
@@ -15,6 +16,7 @@ interface GuestConfigBody {
 }
 
 export async function syncGuestAuthConfig(baseUrl: string): Promise<void> {
+  if (isPxBoard()) return
   const response = await xboardRequest<GuestConfigBody>('guest_config', { baseUrl })
   if (!response.ok) {
     if (response.body?.message) throw new Error(response.body.message)

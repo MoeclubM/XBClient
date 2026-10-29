@@ -91,6 +91,7 @@ internal fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     if (state.subscriptionBlocked) {
         val blockTitle = stringResource(
             id = when (state.subscriptionBlockReason) {
+                "suspended" -> R.string.panel_account_suspended
                 SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_title
                 SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_title
                 else -> R.string.subscription_expired_title
@@ -98,6 +99,7 @@ internal fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
         )
         val blockDescription = stringResource(
             id = when (state.subscriptionBlockReason) {
+                "suspended" -> R.string.panel_account_suspended_body
                 SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_body
                 SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_body
                 else -> R.string.subscription_expired_body
@@ -119,7 +121,7 @@ internal fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             }
             Spacer(Modifier.height(14.dp))
             Button(
-                onClick = { viewModel.openScreen(PassScreen.PLANS) },
+                onClick = { if (PxBoardApi.enabled) viewModel.openPxBoardPortal() else viewModel.openScreen(PassScreen.PLANS) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColorsPrimary()
             ) {
@@ -342,14 +344,16 @@ internal fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMod
             if (state.subscriptionBlocked) {
                 val blockTitle = stringResource(
                     id = when (state.subscriptionBlockReason) {
-                        SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_title
+                        "suspended" -> R.string.panel_account_suspended
+                SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_title
                         SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_title
                         else -> R.string.subscription_expired_title
                     }
                 )
                 val blockDescription = stringResource(
                     id = when (state.subscriptionBlockReason) {
-                        SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_body
+                        "suspended" -> R.string.panel_account_suspended_body
+                SUBSCRIPTION_BLOCK_NO_PLAN -> R.string.subscription_no_plan_body
                         SUBSCRIPTION_BLOCK_TRAFFIC -> R.string.subscription_traffic_exceeded_body
                         else -> R.string.subscription_expired_body
                     }
@@ -366,7 +370,7 @@ internal fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMod
                     Text(blockDescription, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                     Spacer(Modifier.height(14.dp))
                     Button(
-                        onClick = { viewModel.openScreen(PassScreen.PLANS) },
+                        onClick = { if (PxBoardApi.enabled) viewModel.openPxBoardPortal() else viewModel.openScreen(PassScreen.PLANS) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColorsPrimary()
                     ) {

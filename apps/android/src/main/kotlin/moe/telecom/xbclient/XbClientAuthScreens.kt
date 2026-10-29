@@ -222,7 +222,9 @@ internal fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
                         transitionSpec = { contentTransition() },
                         label = "auth-mode"
                     ) { authMode ->
-                        if (authMode == AuthMode.LOGIN) {
+                        if (PxBoardApi.enabled) {
+                            PxBoardLogin(state, viewModel)
+                        } else if (authMode == AuthMode.LOGIN) {
                             LoginContent(state, viewModel)
                         } else {
                             RegisterContent(state, viewModel)

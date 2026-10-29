@@ -20,7 +20,8 @@ export interface ElectronAPI {
   invoke: ElectronAPIInvoke
   getVersion: () => Promise<string>
   getRuntimeConfig: () => Promise<{
-    app_name: string
+    panel_type: 'xboard' | 'pxboard'
+  app_name: string
     default_api_url: string
     user_agent: string
     oauth_callback_scheme: string

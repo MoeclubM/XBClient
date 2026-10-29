@@ -35,7 +35,7 @@ export async function bootstrapApp(): Promise<void> {
   store().setBuildConfig(config)
 
   const session = await loadSession()
-  if (session) {
+  if (session && session.baseUrl === config.default_api_url && session.panelType === config.panel_type) {
     store().setSession({ ...session, baseUrl: config.default_api_url })
     const cache = await loadSubscriptionCache(session.authData)
     if (cache) {

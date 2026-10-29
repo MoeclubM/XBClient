@@ -85,7 +85,7 @@ object XboardApi {
             "xbclient_nodes" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/nodes", authData, emptyMap())
 
             // 非站点 API：订阅内容解析
-            "anytls_nodes" -> fetchProxyNodes(params.getString("subscribe_url"), params.getString("flag"))
+            "anytls_nodes" -> fetchProxyNodes(params.getString("subscribe_url"), params.getString("flag"), params.optString("authorization"))
             else -> throw IllegalArgumentException("unsupported Xboard action: $action")
         }
     }
@@ -206,7 +206,7 @@ object XboardApi {
             }
     }
 
-    private fun fetchProxyNodes(subscribeUrl: String, flag: String): JSONObject {
+    private fun fetchProxyNodes(subscribeUrl: String, flag: String, authorization: String = ""): JSONObject {
         val singBox = flag.equals("sing-box", ignoreCase = true)
         val url = Uri.parse(subscribeUrl)
             .buildUpon()
@@ -218,6 +218,7 @@ object XboardApi {
             Request.Builder()
                 .url(url)
                 .header("User-Agent", if (singBox) "sing-box" else SUBSCRIPTION_USER_AGENT)
+                .apply { if (authorization.isNotEmpty()) header("Authorization", authorization) }
                 .header("Accept", if (singBox) "application/json, text/plain, */*" else "text/yaml, application/yaml, text/plain, */*")
                 .build()
         ).execute()

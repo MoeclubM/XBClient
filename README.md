@@ -1,6 +1,6 @@
 # XBClient
 
-面向 [Xboard](https://github.com/cedar2025/Xboard) 的 Android、Windows、Linux 客户端。
+支持 [Xboard](https://github.com/cedar2025/Xboard) 与 [PxBoard](https://github.com/MoeClub-Open/PxBoard) 的 Android、Windows、Linux 客户端。
 
 登录面板账号后即可同步节点、套餐和流量；连接、分流和 TUN 由 [Aerion](https://github.com/MoeclubM/Aerion) 内核处理，和服务端 [NodeRS](https://github.com/MoeclubM/NodeRS) 使用同一套协议实现。
 
@@ -20,7 +20,7 @@
 - **多平台**：Android 使用系统 VPN；Windows / Linux 提供托盘、静默启动和应用内更新。
 - **多语言**：中文、英语、日语、俄语、波斯语，可跟随系统。
 
-应用名、包名、站点地址和 API 在发布时注入，仓库里不存放默认品牌信息。你拿到的安装包会直接指向对应的 Xboard 站点。
+应用名、包名、站点地址和 API 在发布时注入，仓库里不存放默认品牌信息。通过 `XBCLIENT_PANEL_TYPE` 选择 Xboard 或 PxBoard；安装包指向发布者配置的站点。PxBoard 使用浏览器授权登录，节点与流量在应用内显示，套餐、支付、兑换码和工单复用站点用户前台。
 
 ## 平台
 

@@ -110,7 +110,7 @@ export interface AdRewardLogItem {
 
 export interface SubscriptionState {
   summary: string
-  blockReason: '' | 'no_plan' | 'expired' | 'traffic_exceeded'
+  blockReason: '' | 'no_plan' | 'expired' | 'traffic_exceeded' | 'suspended'
   trafficUsedBytes: number
   trafficTotalBytes: number
   planName: string
@@ -118,6 +118,7 @@ export interface SubscriptionState {
 }
 
 interface AppState {
+  panelExtensions: string[]
   baseUrl: string
   authData: string
   email: string
@@ -172,6 +173,7 @@ interface AppState {
   setCapabilities(capabilities: RuntimeCapabilities): void
   setBuildConfig(config: RuntimeConfig): void
   setProfile(patch: Partial<Pick<AppState,
+    | 'panelExtensions'
     | 'balance'
     | 'commissionBalance'
     | 'currencySymbol'
@@ -241,6 +243,7 @@ function set(patch: StatePatch): void {
 
 const initialState: AppState = {
   baseUrl: '',
+  panelExtensions: [],
   authData: '',
   email: '',
   subscribeUrl: '',
@@ -349,6 +352,7 @@ const initialState: AppState = {
       systemProxyActive: false,
       balance: 0,
       commissionBalance: 0,
+      panelExtensions: [],
       currencySymbol: '',
       currencyUnit: '',
       paymentEnabled: true,

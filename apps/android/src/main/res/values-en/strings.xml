@@ -259,4 +259,9 @@
     <string name="traffic_logs_empty">No traffic logs.</string>
     <string name="traffic_logs_up_down">Upload %1$s · Download %2$s</string>
     <string name="traffic_logs_total_rate">Total %1$s · Rate %2$s</string>
+    <string name="panel_authorizing">Confirm sign-in in your browser</string>
+    <string name="panel_cancel">Cancel</string>
+    <string name="panel_user_center">User center</string>
+    <string name="panel_account_suspended">Access suspended</string>
+    <string name="panel_account_suspended_body">Open the user center to check your account.</string>
 </resources>

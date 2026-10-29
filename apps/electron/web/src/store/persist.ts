@@ -1,3 +1,4 @@
+import { useAppStore } from '.'
 import type { AppNode, AppSettings, RouteRoutingState, SubscriptionState } from '.'
 
 const SESSION_KEY = 'xbclient.session.v1'
@@ -5,6 +6,8 @@ const SETTINGS_KEY = 'xbclient.settings.v1'
 const SUBSCRIPTION_CACHE_KEY = 'xbclient.subscription-cache.v1'
 
 export interface PersistedSession {
+  baseUrl?: string
+  panelType?: 'xboard' | 'pxboard'
   authData: string
   email: string
 }
@@ -35,7 +38,8 @@ export async function loadSession(): Promise<PersistedSession | null> {
 }
 
 export async function saveSession(session: PersistedSession): Promise<void> {
-  writeJson(SESSION_KEY, { authData: session.authData, email: session.email })
+  const config = useAppStore.getState().buildConfig!
+  writeJson(SESSION_KEY, { ...session, baseUrl: config.default_api_url, panelType: config.panel_type })
 }
 
 export async function clearSession(): Promise<void> {

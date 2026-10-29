@@ -15,7 +15,11 @@ function requiredSecret(name) {
   return value
 }
 
+const panelType = process.env.XBCLIENT_PANEL_TYPE?.trim() || 'xboard'
+if (!['xboard', 'pxboard'].includes(panelType)) throw new Error('XBCLIENT_PANEL_TYPE must be xboard or pxboard')
+
 const config = {
+  panelType,
   appName: requiredSecret('XBCLIENT_APP_NAME'),
   defaultApiUrl: requiredSecret('XBCLIENT_DEFAULT_API_URL'),
   userAgent: requiredSecret('XBCLIENT_USER_AGENT'),
