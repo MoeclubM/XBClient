@@ -78,4 +78,3 @@ export async function aerionStartVpn(request: VpnStartRequest): Promise<VpnHandl
 export async function aerionStopVpn(sessionId: number): Promise<{ ok: boolean; session_id: number }> {
   return invoke('aerion_stop_vpn', { sessionId })
 }
-

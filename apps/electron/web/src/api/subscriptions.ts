@@ -29,4 +29,3 @@ export async function subscriptionFetch(
 ): Promise<SubscriptionResult> {
   return invoke<SubscriptionResult>('subscription_fetch', { url, flag, authorization })
 }
-
