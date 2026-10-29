@@ -3,6 +3,12 @@ import type { InviteItem, OAuthProvider } from '../store'
 
 export type Row = Record<string, unknown>
 
+export function enabled(value: unknown): boolean {
+  if (value === true || value === 1 || value === '1' || value === 'true') return true
+  if (value === false || value === 0 || value === '0' || value === 'false') return false
+  throw new Error(`boolean flag has invalid value: ${String(value)}`)
+}
+
 export function dataRows(value: unknown): Row[] {
   if (Array.isArray(value)) return value as Row[]
   throw new Error('Xboard response data must be an array')
@@ -12,10 +18,6 @@ export function field(row: Row, key: string): string {
   const value = row[key]
   if (typeof value !== 'string' && typeof value !== 'number') throw new Error(`Xboard row field ${key} is required`)
   return String(value)
-}
-
-export function rowId(row: Row): string {
-  return field(row, 'id')
 }
 
 export function failureText(response: { ok: boolean; status: number; body?: unknown; error?: string }): string {

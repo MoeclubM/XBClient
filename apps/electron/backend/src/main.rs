@@ -243,8 +243,8 @@ async fn http_request(params: RpcParamsForHttpRequest) -> Result<HttpResponse> {
     let status = response.status().as_u16();
     let text = response.text().await.context("read HTTP response")?;
 
-    ensure!(!text.is_empty(), "xboard JSON response body is empty");
-    let parsed = serde_json::from_str(&text).context("parse xboard JSON response")?;
+    ensure!(!text.is_empty(), "HTTP JSON response body is empty");
+    let parsed = serde_json::from_str(&text).context("parse HTTP JSON response")?;
 
     let ok = (200..300).contains(&status);
     Ok(HttpResponse {

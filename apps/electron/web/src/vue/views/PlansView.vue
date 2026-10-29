@@ -4,7 +4,7 @@ import { failureText, parseUserCurrencyConfig } from '../../api/helpers'
 import { openInAppBrowser } from '../../api/system'
 import { xboardRequest, type XboardBody } from '../../api/xboard'
 import { formatMoney, formatTrafficGb, numericValue, publicErrorText } from '../../format'
-import { enabled } from '../../reward'
+import { enabled } from '../../api/helpers'
 import { appState, store, t } from '../state'
 import type { PlanItem, PlanPrice } from '../../store'
 
@@ -91,7 +91,6 @@ async function loadPlans() {
 }
 
 async function loadClientConfig() {
-  store().setRewardLogs([])
   const response = await xboardRequest<XboardBody>('admob_reward_config', { baseUrl: appState.baseUrl, authData: appState.authData })
   if (!response.ok) throw new Error(failureText(response))
   if (!response.body?.data || typeof response.body.data !== 'object') throw new Error('admob_reward_config response missing data')

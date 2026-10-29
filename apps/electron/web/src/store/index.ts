@@ -97,17 +97,6 @@ export interface OAuthProvider {
   label: string
 }
 
-export interface AdRewardLogItem {
-  id: number
-  scene: string
-  transactionId: string
-  status: string
-  error: string
-  rewardContent: string
-  usedAt: number
-  createdAt: number
-}
-
 export interface SubscriptionState {
   summary: string
   blockReason: '' | 'no_plan' | 'expired' | 'traffic_exceeded' | 'suspended'
@@ -154,7 +143,6 @@ interface AppState {
   registerEmailVerifyEnabled: boolean
   registerCaptchaEnabled: boolean
   registerCaptchaType: string
-  adRewardLogs: AdRewardLogItem[]
   plans: PlanItem[]
   invites: InviteItem[]
   notices: NoticeItem[]
@@ -204,7 +192,6 @@ interface AppState {
     | 'registerCaptchaEnabled'
     | 'registerCaptchaType'
   >>): void
-  setRewardLogs(logs: AdRewardLogItem[]): void
   setPlans(plans: PlanItem[]): void
   setInvites(invites: InviteItem[]): void
   setNotices(notices: NoticeItem[]): void
@@ -299,7 +286,6 @@ const initialState: AppState = {
   registerEmailVerifyEnabled: false,
   registerCaptchaEnabled: false,
   registerCaptchaType: '',
-  adRewardLogs: [],
   plans: [],
   invites: [],
   notices: [],
@@ -335,7 +321,6 @@ const initialState: AppState = {
   setProfile: (patch) => set((state) => ({ ...state, ...patch })),
   setAdmobConfig: (patch) => set((state) => ({ ...state, ...patch })),
   setAuthConfig: (patch) => set((state) => ({ ...state, ...patch })),
-  setRewardLogs: (adRewardLogs) => set({ adRewardLogs }),
   setPlans: (plans) => set({ plans }),
   setInvites: (invites) => set({ invites }),
   setNotices: (notices) => set({ notices }),
@@ -375,7 +360,6 @@ const initialState: AppState = {
       registerEmailVerifyEnabled: false,
       registerCaptchaEnabled: false,
       registerCaptchaType: '',
-      adRewardLogs: [],
       plans: [],
       invites: [],
       notices: [],

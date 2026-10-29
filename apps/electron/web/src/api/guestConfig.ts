@@ -1,7 +1,6 @@
 import { isPxBoard } from './pxboard'
-import { enabled } from '../reward'
 import { useAppStore } from '../store'
-import { parseOAuthProviders } from './helpers'
+import { enabled, parseOAuthProviders } from './helpers'
 import { xboardRequest } from './xboard'
 
 interface GuestConfigBody {
