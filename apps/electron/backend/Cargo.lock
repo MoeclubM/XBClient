@@ -85,7 +85,7 @@ dependencies = [
  "aerion",
  "android_logger",
  "anyhow",
- "base64",
+ "base64 0.22.1",
  "jni",
  "log",
  "once_cell",
