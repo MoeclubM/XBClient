@@ -64,6 +64,7 @@ data class AnyTlsNode(
     val protocolLabel: String
         get() = when (protocol) {
             "anytls" -> "AnyTLS"
+            "flux" -> "Flux"
             "hysteria2" -> "Hysteria2"
             "hysteria" -> "Hysteria"
             "ss" -> "Shadowsocks"
@@ -84,6 +85,7 @@ data class AnyTlsNode(
     val connectSupported: Boolean
         get() = when (protocol) {
             "anytls",
+            "flux",
             "hysteria2",
             "trojan",
             "vless",
@@ -281,7 +283,7 @@ private fun JSONObject.normalizedNodeJson(protocol: String): String {
             }
         }
     }
-    if (protocol in setOf("anytls", "hysteria2", "trojan", "vless", "vmess", "mieru", "sudoku", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
+    if (protocol in setOf("anytls", "flux", "hysteria2", "trojan", "vless", "vmess", "mieru", "sudoku", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
         node.put("type", protocol)
     }
     return node.toString()

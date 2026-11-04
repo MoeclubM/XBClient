@@ -2,7 +2,7 @@ use anyhow::{Context, Result, bail};
 use serde_json::{Map, Value, json};
 
 const SUBSCRIPTION_USER_AGENT: &str = "Aerion";
-const SUBSCRIPTION_NODE_TYPES: &str = "anytls,hysteria,trojan,vless,vmess,mieru,sudoku,naive,shadowsocks,tuic,http,socks5,direct,block";
+const SUBSCRIPTION_NODE_TYPES: &str = "anytls,hysteria,trojan,vless,vmess,mieru,sudoku,flux,naive,shadowsocks,tuic,http,socks5,direct,block";
 
 pub async fn fetch(
     client: &reqwest::Client,

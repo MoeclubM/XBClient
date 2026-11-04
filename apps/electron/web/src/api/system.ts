@@ -57,6 +57,9 @@ export async function resolveNodeHost(dnsUrl: string, host: string, userAgent: s
 }
 
 export async function resolveAppNode(node: AppNode, dnsUrl: string, userAgent: string): Promise<unknown> {
+  if (node.protocol === 'flux') {
+    return invoke('resolve_flux_node', { dnsUrl, node: JSON.parse(node.rawJson), userAgent })
+  }
   const resolvedHost = await resolveNodeHost(dnsUrl, rawNodeHost(node), userAgent)
   return aerionNodeWithResolvedHost(node, resolvedHost)
 }

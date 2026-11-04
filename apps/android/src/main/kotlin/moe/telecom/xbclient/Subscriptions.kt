@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 
 object Subscriptions {
     private const val SUBSCRIPTION_USER_AGENT = "Aerion"
-    private const val SUBSCRIPTION_NODE_TYPES = "anytls,hysteria,trojan,vless,vmess,mieru,sudoku,naive,shadowsocks,tuic,http,socks5,direct,block"
+    private const val SUBSCRIPTION_NODE_TYPES = "anytls,hysteria,trojan,vless,vmess,mieru,sudoku,flux,naive,shadowsocks,tuic,http,socks5,direct,block"
     private val httpClient = OkHttpClient.Builder().connectTimeout(30, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
     fun fetch(subscribeUrl: String, flag: String, authorization: String = ""): JSONObject {
         val singBox = flag.equals("sing-box", ignoreCase = true)

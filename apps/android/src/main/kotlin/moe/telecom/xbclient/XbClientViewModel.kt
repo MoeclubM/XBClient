@@ -1902,7 +1902,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private fun testNodeBlocking(node: AnyTlsNode): String {
         return try {
             val testNode = JSONObject(node.rawJson)
-            if (node.protocol != "direct" && node.protocol != "block") {
+            if (node.protocol == "flux") {
+                XboardApi.resolveFluxNode(_uiState.value.nodeDns, testNode)
+            } else if (node.protocol != "direct" && node.protocol != "block") {
                 val originalHost = normalizeNodeHost(testNode.getString("host"))
                 val resolvedHost = XboardApi.resolveNodeHost(_uiState.value.nodeDns, originalHost)
                 if (resolvedHost != originalHost && (!testNode.has("sni") || testNode.getString("sni").isBlank())) {

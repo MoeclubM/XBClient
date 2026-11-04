@@ -255,7 +255,9 @@ class XbClientVpnService : VpnService() {
 
         val node = JSONObject(nodeJson ?: throw IllegalStateException("node_json is required"))
         val protocol = node.getString("type").lowercase(Locale.US)
-        if (protocol != "direct" && protocol != "block") {
+        if (protocol == "flux") {
+            XboardApi.resolveFluxNode(nodeDns, node)
+        } else if (protocol != "direct" && protocol != "block") {
             val originalHost = normalizeNodeHost(node.getString("host"))
             val resolvedHost = XboardApi.resolveNodeHost(nodeDns, originalHost)
             if (resolvedHost != originalHost && (!node.has("sni") || node.getString("sni").isBlank())) {

@@ -601,6 +601,13 @@ function applyTraySnapshot(snapshot) {
 }
 
 async function trayResolveNode(node) {
+  if (node.protocol === 'flux') {
+    return backendInvoke('resolve_flux_node', {
+      dnsUrl: trayState.settings.nodeDns,
+      node: JSON.parse(node.rawJson),
+      userAgent: trayState.userAgent,
+    })
+  }
   const raw = JSON.parse(node.rawJson)
   const host = String(raw.host)
   const resolvedHost = await backendInvoke('resolve_node_host', {

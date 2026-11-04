@@ -69,6 +69,7 @@ fn route_proxy_tags(routes: &RouteTable) -> Vec<String> {
 fn mihomo_client_config(config: MihomoClientConfig, _listen: SocketAddr) -> AerionProxyConfig {
     match config {
         MihomoClientConfig::AnyTls(config) => AerionProxyConfig::AnyTls(config),
+        MihomoClientConfig::Flux(config) => AerionProxyConfig::Flux(config),
         MihomoClientConfig::HttpProxy(config) => AerionProxyConfig::HttpProxy(config),
         MihomoClientConfig::Hysteria2(config) => AerionProxyConfig::Hysteria2(config),
         MihomoClientConfig::Trojan(config) => AerionProxyConfig::Trojan(config),

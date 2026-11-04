@@ -3,12 +3,13 @@ use anyhow::{Context, Result, anyhow, bail, ensure};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::io::Write;
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::sync::Mutex;
 use std::time::Duration;
 use tokio::io::{self, AsyncBufReadExt, BufReader};
+use tokio::task::JoinSet;
 
 mod subscription;
 mod system_proxy;
@@ -88,6 +89,15 @@ struct ResolveNodeHostRequest {
     #[serde(rename = "dnsUrl")]
     dns_url: String,
     host: String,
+    #[serde(rename = "userAgent")]
+    user_agent: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ResolveFluxNodeRequest {
+    #[serde(rename = "dnsUrl")]
+    dns_url: String,
+    node: Value,
     #[serde(rename = "userAgent")]
     user_agent: Option<String>,
 }
@@ -213,6 +223,195 @@ async fn resolve_node_host(params: ResolveNodeHostRequest) -> Result<String> {
     }
 
     Err(anyhow!("节点 DNS 无可用 A/AAAA 记录。"))
+}
+
+fn normalize_flux_host(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix('[')
+        .and_then(|s| s.strip_suffix(']'))
+        && inner.contains(':')
+    {
+        return inner.to_string();
+    }
+    trimmed.to_string()
+}
+
+fn channel_effective_host(ch: & serde_json::Map<String, Value>, main_host: &str) -> String {
+    for key in ["server", "connect_host", "connect-host", "connectHost", "host"] {
+        if let Some(val) = ch.get(key).and_then(Value::as_str) {
+            let norm = normalize_flux_host(val);
+            if !norm.is_empty() {
+                return norm;
+            }
+        }
+    }
+    main_host.to_string()
+}
+
+async fn query_doh_family(
+    resolver: &str,
+    host: &str,
+    record_type: &str,
+    user_agent: Option<&str>,
+) -> Result<Vec<String>> {
+    let mut url = reqwest::Url::parse(resolver).with_context(|| "parse dns resolver URL")?;
+    url.query_pairs_mut()
+        .append_pair("name", host)
+        .append_pair("type", record_type);
+    let mut request = HTTP_CLIENT
+        .get(url)
+        .header("Accept", "application/dns-json, application/json");
+    if let Some(ua) = user_agent.map(str::trim).filter(|v| !v.is_empty()) {
+        request = request.header("User-Agent", ua);
+    }
+    let response = request
+        .send()
+        .await
+        .map_err(|error| anyhow!("节点 DNS 请求失败：{error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        bail!("节点 DNS 请求失败：HTTP {}", status.as_u16());
+    }
+    #[derive(Deserialize)]
+    struct DohResponse {
+        #[serde(rename = "Answer")]
+        answer: Option<Vec<DohAnswer>>,
+    }
+    #[derive(Deserialize)]
+    struct DohAnswer {
+        data: String,
+    }
+    let body = response
+        .json::<DohResponse>()
+        .await
+        .map_err(|error| anyhow!("节点 DNS 响应不是 JSON：{error}"))?;
+    let mut out = Vec::new();
+    if let Some(answers) = body.answer {
+        for item in answers {
+            let text = item.data.trim();
+            let valid = if record_type == "A" {
+                text.parse::<Ipv4Addr>().is_ok()
+            } else {
+                text.parse::<Ipv6Addr>().is_ok()
+            };
+            if valid && !out.iter().any(|existing| existing == text) {
+                out.push(text.to_string());
+            }
+        }
+    }
+    Ok(out)
+}
+
+async fn resolve_flux_node(params: ResolveFluxNodeRequest) -> Result<Value> {
+    let mut node = params.node;
+    let obj = node
+        .as_object_mut()
+        .context("Flux node must be a JSON object")?;
+    let main_host = obj
+        .get("host")
+        .or_else(|| obj.get("server"))
+        .and_then(Value::as_str)
+        .map(normalize_flux_host)
+        .unwrap_or_default();
+
+    let mut domains = BTreeSet::new();
+    if !main_host.is_empty() && main_host.parse::<IpAddr>().is_err() {
+        domains.insert(main_host.clone());
+    }
+    for list in [
+        obj.get("channels").and_then(Value::as_array),
+        obj.get("flux")
+            .and_then(Value::as_object)
+            .and_then(|f| f.get("channels"))
+            .and_then(Value::as_array),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        for item in list {
+            let Some(ch) = item.as_object() else {
+                continue;
+            };
+            if ch.get("enabled").and_then(Value::as_bool) == Some(false) {
+                continue;
+            }
+            let ch_host = channel_effective_host(ch, &main_host);
+            if !ch_host.is_empty() && ch_host.parse::<IpAddr>().is_err() {
+                domains.insert(ch_host);
+            }
+        }
+    }
+
+    if domains.is_empty() {
+        return Ok(node);
+    }
+
+    let resolver = params.dns_url.trim().to_string();
+    if !resolver.starts_with("http://") && !resolver.starts_with("https://") {
+        return Err(anyhow!("节点 DNS 必须是 DoH 地址。"));
+    }
+    let user_agent = params.user_agent;
+    let mut join_set = JoinSet::new();
+    for domain in domains {
+        let resolver_cl = resolver.clone();
+        let ua_cl = user_agent.clone();
+        join_set.spawn(async move {
+            let (v4, v6) = tokio::try_join!(
+                query_doh_family(&resolver_cl, &domain, "A", ua_cl.as_deref()),
+                query_doh_family(&resolver_cl, &domain, "AAAA", ua_cl.as_deref()),
+            )?;
+            if v4.is_empty() && v6.is_empty() {
+                bail!("节点 DNS 无可用 A/AAAA 记录：{domain}");
+            }
+            Ok::<(String, Vec<String>, Vec<String>), anyhow::Error>((domain, v4, v6))
+        });
+    }
+
+    let mut resolved_map: HashMap<String, (Vec<String>, Vec<String>)> = HashMap::new();
+    while let Some(joined) = join_set.join_next().await {
+        let (domain, v4, v6) = joined.context("Flux DoH task join failed")??;
+        resolved_map.insert(domain, (v4, v6));
+    }
+
+    if let Some((v4, v6)) = resolved_map.get(&main_host) {
+        obj.insert("resolved_v4".to_string(), json!(v4));
+        obj.insert("resolved_v6".to_string(), json!(v6));
+    }
+    if let Some(channels) = obj.get_mut("channels").and_then(Value::as_array_mut) {
+        for item in channels {
+            if let Some(ch) = item.as_object_mut() {
+                if ch.get("enabled").and_then(Value::as_bool) == Some(false) {
+                    continue;
+                }
+                let ch_host = channel_effective_host(ch, &main_host);
+                if let Some((v4, v6)) = resolved_map.get(&ch_host) {
+                    ch.insert("resolved_v4".to_string(), json!(v4));
+                    ch.insert("resolved_v6".to_string(), json!(v6));
+                }
+            }
+        }
+    }
+    if let Some(channels) = obj
+        .get_mut("flux")
+        .and_then(Value::as_object_mut)
+        .and_then(|f| f.get_mut("channels"))
+        .and_then(Value::as_array_mut)
+    {
+        for item in channels {
+            if let Some(ch) = item.as_object_mut() {
+                if ch.get("enabled").and_then(Value::as_bool) == Some(false) {
+                    continue;
+                }
+                let ch_host = channel_effective_host(ch, &main_host);
+                if let Some((v4, v6)) = resolved_map.get(&ch_host) {
+                    ch.insert("resolved_v4".to_string(), json!(v4));
+                    ch.insert("resolved_v6".to_string(), json!(v6));
+                }
+            }
+        }
+    }
+    Ok(node)
 }
 
 async fn http_request(params: RpcParamsForHttpRequest) -> Result<HttpResponse> {
@@ -458,6 +657,15 @@ async fn main() -> Result<()> {
                         id: req.id,
                         ok: true,
                         result: serde_json::to_value(resolved)?,
+                    })
+                }
+                "resolve_flux_node" => {
+                    let params: ResolveFluxNodeRequest = serde_json::from_value(req.params)?;
+                    let resolved = resolve_flux_node(params).await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: resolved,
                     })
                 }
                 "http_request" => {

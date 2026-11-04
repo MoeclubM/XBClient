@@ -179,6 +179,34 @@ async fn stop_listener(task: JoinHandle<Result<()>>) {
     }
 }
 
+pub(crate) fn flux_tun_bypass_cidrs(
+    config: &aerion::FluxClientConfig,
+    include_ipv6: bool,
+) -> Vec<String> {
+    let mut out = Vec::new();
+    for ip in config.all_static_ips() {
+        if ip.is_loopback() || ip.is_unspecified() {
+            continue;
+        }
+        match ip {
+            IpAddr::V4(v4) => {
+                let cidr = format!("{v4}/32");
+                if !out.contains(&cidr) {
+                    out.push(cidr);
+                }
+            }
+            IpAddr::V6(v6) if include_ipv6 => {
+                let cidr = format!("{v6}/128");
+                if !out.contains(&cidr) {
+                    out.push(cidr);
+                }
+            }
+            IpAddr::V6(_) => {}
+        }
+    }
+    out
+}
+
 async fn start_aerion_socks(
     node: Value,
     track_traffic: bool,
@@ -186,6 +214,7 @@ async fn start_aerion_socks(
     SocketAddr,
     JoinHandle<Result<()>>,
     Option<aerion::ProxyCore>,
+    Vec<String>,
 )> {
     let listen = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
     let listener = TcpListener::bind(listen)
@@ -193,10 +222,19 @@ async fn start_aerion_socks(
         .context("bind Aerion local SOCKS listener")?;
     let local_addr = listener.local_addr().context("read Aerion SOCKS address")?;
     let config = node_to_proxy_config(&node, local_addr)?;
+    let bypass_cidrs = match &config {
+        AerionProxyConfig::Flux(cfg) => {
+            flux_tun_bypass_cidrs(cfg, !cfg!(target_os = "windows"))
+        }
+        _ => Vec::new(),
+    };
     let core = if track_traffic {
         match &config {
             AerionProxyConfig::AnyTls(config) => {
                 Some(aerion::ProxyCore::from_credentials(&config.password, &[]))
+            }
+            AerionProxyConfig::Flux(config) => {
+                Some(aerion::ProxyCore::from_credentials(&config.key, &[]))
             }
             AerionProxyConfig::Trojan(config) => {
                 Some(aerion::ProxyCore::from_credentials(&config.password, &[]))
@@ -237,7 +275,7 @@ async fn start_aerion_socks(
         None
     };
     let task = spawn_aerion_listener(listener, config, core.clone());
-    Ok((local_addr, task, core))
+    Ok((local_addr, task, core, bypass_cidrs))
 }
 
 pub async fn start_socks_from_json(input: &str) -> Result<String> {
@@ -247,7 +285,7 @@ pub async fn start_socks_from_json(input: &str) -> Result<String> {
     let log_bridge = aerion::LogBridge::new();
     let session_id = NEXT_SOCKS_SESSION_ID.fetch_add(1, Ordering::SeqCst);
 
-    let (socks_addr, task, core) = start_aerion_socks(request.node, true).await?;
+    let (socks_addr, task, core, _) = start_aerion_socks(request.node, true).await?;
 
     let log_task = {
         let mut rx = log_bridge.subscribe();
@@ -324,7 +362,7 @@ pub async fn test_node_from_json(input: &str) -> Result<String> {
     let target_port = request.target_port;
     let target_tls = request.target_tls;
     let timeout_duration = Duration::from_millis(request.timeout_ms);
-    let (socks_addr, mut task, _) = start_aerion_socks(request.node, false).await?;
+    let (socks_addr, mut task, _, _) = start_aerion_socks(request.node, false).await?;
     let result = timeout(timeout_duration, async {
         probe_via_socks(socks_addr, &target_host, target_port, target_tls).await
     })
@@ -559,7 +597,7 @@ mod platform {
         };
         let dns_addr: IpAddr = request.dns_addr.parse().context("parse VPN DNS address")?;
 
-        let (socks_addr, proxy_task, core) = start_aerion_socks(request.node, true).await?;
+        let (socks_addr, proxy_task, core, _) = start_aerion_socks(request.node, true).await?;
 
         let tun_fd = request
             .tun_fd
@@ -710,7 +748,8 @@ mod platform {
         };
         let dns_addr: IpAddr = request.dns_addr.parse().context("parse VPN DNS address")?;
 
-        let (socks_addr, proxy_task, core) = start_aerion_socks(request.node, true).await?;
+        let (socks_addr, proxy_task, core, bypass_cidrs) =
+            start_aerion_socks(request.node, true).await?;
 
         let mut tun_config = TunConfig::new(socks_proxy_url(socks_addr));
         tun_config.setup = true;
@@ -721,6 +760,11 @@ mod platform {
         tun_config.virtual_dns_pool = request.virtual_dns_pool;
         if let Some(bypass) = request.bypass {
             tun_config.bypass = bypass;
+        }
+        for cidr in bypass_cidrs {
+            if !tun_config.bypass.contains(&cidr) {
+                tun_config.bypass.push(cidr);
+            }
         }
         tun_config.ipv6 = request.ipv6;
         if let Some(tcp_timeout_secs) = request.tcp_timeout_secs {
@@ -853,4 +897,58 @@ pub async fn start_vpn_from_json(input: &str) -> Result<String> {
 
 pub async fn stop_vpn(session_id: u64) -> Result<String> {
     platform::stop(session_id).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn flux_tun_bypass_collects_v4_and_v6_channel_cidrs() -> Result<()> {
+        let node = json!({
+            "type": "flux",
+            "host": "edge.example.com",
+            "port": 443,
+            "key": "user-uuid",
+            "security": "obfs",
+            "obfs_key": "flux-obfs-secret",
+            "channels": [
+                {
+                    "id": "ch1",
+                    "connect_host": "198.51.100.5",
+                    "connect_ports": "443",
+                    "transport": "tcp"
+                },
+                {
+                    "id": "ch2",
+                    "connect_host": "cdn.example.com",
+                    "connect_ports": "8443",
+                    "transport": "udp",
+                    "resolved_v4": ["203.0.113.8"],
+                    "resolved_v6": ["2001:db8::8"]
+                }
+            ]
+        });
+        let AerionProxyConfig::Flux(cfg) =
+            node_to_proxy_config(&node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected Flux config")
+        };
+        assert_eq!(
+            flux_tun_bypass_cidrs(&cfg, true),
+            vec![
+                "198.51.100.5/32".to_string(),
+                "203.0.113.8/32".to_string(),
+                "2001:db8::8/128".to_string(),
+            ]
+        );
+        assert_eq!(
+            flux_tun_bypass_cidrs(&cfg, false),
+            vec![
+                "198.51.100.5/32".to_string(),
+                "203.0.113.8/32".to_string(),
+            ]
+        );
+        Ok(())
+    }
 }

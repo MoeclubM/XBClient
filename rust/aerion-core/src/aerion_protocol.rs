@@ -1,8 +1,9 @@
 use aerion::{
-    ClientConfig, HttpProxyClientConfig, Hysteria2ClientConfig, MieruClientConfig,
+    ClientConfig, FluxClientConfig, HttpProxyClientConfig, Hysteria2ClientConfig, MieruClientConfig,
     NaiveClientConfig, ProxyCore, RouteClientConfig, ShadowsocksClientConfig,
     SocksProxyClientConfig, TrojanClientConfig, TuicClientConfig, VlessClientConfig,
-    VmessClientConfig, run_client_listener, run_http_proxy_client_listener,
+    VmessClientConfig, run_client_listener, run_flux_client_listener_with_core,
+    run_http_proxy_client_listener,
     run_hysteria2_client_listener_with_core, run_mieru_client_listener_with_core,
     run_naive_client_listener_with_core, run_route_client_listener,
     run_shadowsocks_client_listener_with_core, run_socks_proxy_client_listener,
@@ -15,6 +16,7 @@ use tokio::task::JoinHandle;
 
 pub enum AerionProxyConfig {
     AnyTls(ClientConfig),
+    Flux(FluxClientConfig),
     HttpProxy(HttpProxyClientConfig),
     Hysteria2(Hysteria2ClientConfig),
     Trojan(TrojanClientConfig),
@@ -50,6 +52,9 @@ async fn run_aerion_listener(
 ) -> Result<()> {
     match config {
         AerionProxyConfig::AnyTls(config) => run_client_listener(listener, config, core).await,
+        AerionProxyConfig::Flux(config) => {
+            run_flux_client_listener_with_core(listener, config, core).await
+        }
         AerionProxyConfig::HttpProxy(config) => {
             run_http_proxy_client_listener(listener, config).await
         }

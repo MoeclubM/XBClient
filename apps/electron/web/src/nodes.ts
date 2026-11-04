@@ -40,6 +40,7 @@ export interface RawNode {
 
 const CONNECT_SUPPORTED = new Set([
   'anytls',
+  'flux',
   'hysteria2',
   'trojan',
   'vless',
@@ -163,6 +164,8 @@ function protocolLabel(protocol: string): string {
   switch (protocol) {
     case 'anytls':
       return 'AnyTLS'
+    case 'flux':
+      return 'Flux'
     case 'hysteria2':
       return 'Hysteria2'
     case 'hysteria':

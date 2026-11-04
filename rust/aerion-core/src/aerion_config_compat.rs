@@ -2,7 +2,9 @@ use crate::aerion_protocol::AerionProxyConfig;
 use aerion::padding::PaddingScheme;
 use aerion::vless_transport::VlessTransportConfig;
 use aerion::{
-    ClientConfig, HttpProxyClientConfig, Hysteria2ClientConfig, MieruClientConfig,
+    ClientConfig, FluxChannelClientConfig, FluxChannelRole, FluxChannelWireConfig,
+    FluxClientConfig, FluxHttpMode, FluxOptions, FluxSecurityMode, FluxTransportKind,
+    HttpProxyClientConfig, Hysteria2ClientConfig, MAX_FLUX_EXPANDED_PORTS, MieruClientConfig,
     MieruTrafficPattern, MieruTransport, NaiveClientConfig, RealityClientConfig, RouteClientConfig,
     RouteDecision, ShadowsocksClientConfig, SocksProxyClientConfig, TrojanClientConfig,
     TuicClientConfig, UtlsFingerprint, VlessClientConfig, VmessClientConfig,
@@ -11,7 +13,7 @@ use aerion::{
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 
 const INSECURE_KEYS: &[&str] = &[
@@ -25,6 +27,7 @@ pub fn node_to_proxy_config(node: &Value, listen: SocketAddr) -> Result<AerionPr
     let protocol = node_protocol(node)?;
     match protocol.as_str() {
         "anytls" => anytls_config(node, listen).map(AerionProxyConfig::AnyTls),
+        "flux" => flux_config(node, listen).map(AerionProxyConfig::Flux),
         "direct" => Ok(AerionProxyConfig::Route(RouteClientConfig {
             listen,
             default: RouteDecision::Direct,
@@ -123,6 +126,292 @@ fn anytls_config(node: &Value, listen: SocketAddr) -> Result<ClientConfig> {
             .unwrap_or_else(PaddingScheme::default_lines),
         heartbeat_interval_secs: node_u64(node, &["heartbeat_interval_secs"], 30)?,
     })
+}
+
+fn flux_config(node: &Value, listen: SocketAddr) -> Result<FluxClientConfig> {
+    let merged = merged_flux_node(node)?;
+    let server_host = node_string(&merged, &["host", "server"])?;
+    let raw_port = node_optional_u64(&merged, &["port"])?.unwrap_or(0);
+    ensure!(raw_port <= u16::MAX as u64, "Flux port is out of range");
+    let server_port = raw_port as u16;
+    let key = node_string(&merged, &["key", "uuid", "password"])?;
+    let udp = node_bool(&merged, &["udp"], true)?;
+
+    let mut options_map = Map::new();
+    for (dst, keys) in [
+        ("ip_strategy", &["ip_strategy", "ip-strategy", "ipStrategy"][..]),
+        (
+            "standby_channels",
+            &["standby_channels", "standby-channels", "standbyChannels"][..],
+        ),
+        (
+            "rotation_interval_sec",
+            &[
+                "rotation_interval_sec",
+                "rotation-interval-sec",
+                "rotation-interval",
+                "rotationIntervalSec",
+            ][..],
+        ),
+        (
+            "rotation_bytes_mb",
+            &[
+                "rotation_bytes_mb",
+                "rotation-bytes-mb",
+                "rotation-bytes",
+                "rotationBytesMb",
+            ][..],
+        ),
+    ] {
+        if let Some(val) = field(&merged, keys)
+            && !val.is_null()
+        {
+            options_map.insert(dst.to_string(), val.clone());
+        }
+    }
+    let options: FluxOptions =
+        serde_json::from_value(Value::Object(options_map)).context("parse Flux options")?;
+    options.validate()?;
+
+    let tls = object_field(&merged, &["tls"])?;
+    let default_reality = flux_reality_config(&merged, tls)?;
+    let default_obfs_key = node_optional_string(
+        &merged,
+        &["obfs_key", "obfs-key", "obfs_password", "obfs-password", "obfsKey"],
+    )
+    .filter(|v| !v.is_empty());
+    let default_security = match node_optional_string(&merged, &["security"])
+        .filter(|v| !v.is_empty())
+        .as_deref()
+    {
+        Some(mode) => match mode.to_ascii_lowercase().as_str() {
+            "reality" => FluxSecurityMode::Reality,
+            "tls" => FluxSecurityMode::Tls,
+            "obfs" | "salamander" => FluxSecurityMode::Obfs,
+            other => bail!("unsupported Flux security mode: {other}"),
+        },
+        None => {
+            if default_reality.is_some() {
+                FluxSecurityMode::Reality
+            } else if default_obfs_key.is_some() {
+                FluxSecurityMode::Obfs
+            } else {
+                FluxSecurityMode::Tls
+            }
+        }
+    };
+    let default_sni = node_sni(&merged, tls, &server_host);
+    let default_fingerprint = flux_fingerprint(&merged)?;
+    let default_insecure = tls_bool(&merged, tls, INSECURE_KEYS, false)?;
+    let default_alpn = node_alpn_list(&merged, tls)?.unwrap_or_default();
+    let ca_cert_paths = tls_ca_cert_paths(tls)?;
+    let ca_certificates = tls_ca_certificates(tls)?;
+    let pinned_cert_sha256 = tls_pinned_cert_sha256(tls)?;
+    let resolved_v4 = parse_ipv4_list(&merged, &["resolved_v4", "resolved-v4", "resolvedV4"])?;
+    let resolved_v6 = parse_ipv6_list(&merged, &["resolved_v6", "resolved-v6", "resolvedV6"])?;
+
+    let wire_channels: Vec<FluxChannelWireConfig> = match field(&merged, &["channels"]) {
+        Some(val) if !val.is_null() => {
+            serde_json::from_value(val.clone()).context("parse Flux channels")?
+        }
+        _ => Vec::new(),
+    };
+
+    let mut channels = Vec::new();
+    if wire_channels.is_empty() {
+        ensure!(server_port > 0, "Flux node port is required when channels list is empty");
+        for (id, transport) in [
+            ("ch-tcp", FluxTransportKind::Tcp),
+            ("ch-udp", FluxTransportKind::Udp),
+        ] {
+            channels.push(FluxChannelClientConfig {
+                id: id.to_string(),
+                server_host: server_host.clone(),
+                ports: vec![server_port],
+                ip_version: "auto".to_string(),
+                resolved_v4: resolved_v4.clone(),
+                resolved_v6: resolved_v6.clone(),
+                transport,
+                http_mode: FluxHttpMode::Ws,
+                http_host: None,
+                http_path: "/".to_string(),
+                http_headers: BTreeMap::new(),
+                security: default_security,
+                sni: default_sni.clone(),
+                alpn: default_alpn.clone(),
+                fingerprint: default_fingerprint,
+                insecure: default_insecure,
+                ca_cert_paths: if default_security == FluxSecurityMode::Tls {
+                    ca_cert_paths.clone()
+                } else {
+                    Vec::new()
+                },
+                ca_certificates: if default_security == FluxSecurityMode::Tls {
+                    ca_certificates.clone()
+                } else {
+                    Vec::new()
+                },
+                pinned_cert_sha256: if default_security == FluxSecurityMode::Tls {
+                    pinned_cert_sha256.clone()
+                } else {
+                    Vec::new()
+                },
+                reality: if default_security == FluxSecurityMode::Reality {
+                    default_reality.clone()
+                } else {
+                    None
+                },
+                obfs_key: if default_security == FluxSecurityMode::Obfs {
+                    default_obfs_key.clone()
+                } else {
+                    None
+                },
+                role: FluxChannelRole::Primary,
+                weight: 100,
+            });
+        }
+    } else {
+        let mut used_ports = 0usize;
+        for (index, wire_ch) in wire_channels.into_iter().enumerate() {
+            let remaining = MAX_FLUX_EXPANDED_PORTS.saturating_sub(used_ports);
+            if let Some(mut ch) = wire_ch.into_client_channel(
+                index,
+                &server_host,
+                server_port,
+                default_security,
+                Some(&default_sni),
+                default_fingerprint,
+                default_insecure,
+                default_reality.as_ref(),
+                default_obfs_key.as_deref(),
+                remaining,
+            )? {
+                used_ports += ch.ports.len();
+                if ch.alpn.is_empty() && !default_alpn.is_empty() {
+                    ch.alpn = default_alpn.clone();
+                }
+                if ch.server_host.eq_ignore_ascii_case(&server_host)
+                    && ch.resolved_v4.is_empty()
+                    && ch.resolved_v6.is_empty()
+                {
+                    ch.resolved_v4 = resolved_v4.clone();
+                    ch.resolved_v6 = resolved_v6.clone();
+                }
+                if ch.security == FluxSecurityMode::Tls {
+                    if ch.ca_cert_paths.is_empty() {
+                        ch.ca_cert_paths = ca_cert_paths.clone();
+                    }
+                    if ch.ca_certificates.is_empty() {
+                        ch.ca_certificates = ca_certificates.clone();
+                    }
+                    if ch.pinned_cert_sha256.is_empty() {
+                        ch.pinned_cert_sha256 = pinned_cert_sha256.clone();
+                    }
+                }
+                channels.push(ch);
+            }
+        }
+    }
+
+    let fallback_port = if server_port > 0 {
+        server_port
+    } else {
+        channels
+            .first()
+            .and_then(|ch| ch.ports.first().copied())
+            .unwrap_or(443)
+    };
+    let config = FluxClientConfig {
+        listen,
+        server_host,
+        server_port: fallback_port,
+        key,
+        udp,
+        options,
+        channels,
+    };
+    config.validate()?;
+    Ok(config)
+}
+
+fn merged_flux_node(node: &Value) -> Result<Value> {
+    let Value::Object(root) = node else {
+        bail!("Flux node must be an object");
+    };
+    let mut merged = Map::new();
+    if let Some(nested) = root.get("flux").and_then(Value::as_object) {
+        for (k, v) in nested {
+            merged.insert(k.clone(), v.clone());
+        }
+    }
+    for (k, v) in root {
+        if k != "flux" {
+            merged.insert(k.clone(), v.clone());
+        }
+    }
+    Ok(Value::Object(merged))
+}
+
+fn flux_reality_config(
+    node: &Value,
+    tls: Option<&Map<String, Value>>,
+) -> Result<Option<RealityClientConfig>> {
+    let opts = object_field(node, &["reality_opts", "reality-opts"])?;
+    let tls_reality = tls
+        .and_then(|t| t.get("reality"))
+        .and_then(Value::as_object);
+    let public_key = opts
+        .and_then(|o| map_string(o, &["public_key", "public-key", "publicKey"]))
+        .or_else(|| {
+            tls_reality.and_then(|o| map_string(o, &["public_key", "public-key", "publicKey"]))
+        })
+        .or_else(|| node_optional_string(node, &["public_key", "public-key", "publicKey"]))
+        .filter(|v| !v.is_empty());
+    let Some(public_key) = public_key else {
+        return Ok(None);
+    };
+    let short_id = opts
+        .and_then(|o| map_string(o, &["short_id", "short-id", "shortId"]))
+        .or_else(|| tls_reality.and_then(|o| map_string(o, &["short_id", "short-id", "shortId"])))
+        .or_else(|| node_optional_string(node, &["short_id", "short-id", "shortId"]))
+        .unwrap_or_default();
+    RealityClientConfig::from_strings(&public_key, &short_id).map(Some)
+}
+
+fn flux_fingerprint(node: &Value) -> Result<Option<UtlsFingerprint>> {
+    let Some(value) = node_optional_string(
+        node,
+        &["client_fingerprint", "client-fingerprint", "fingerprint"],
+    )
+    .filter(|v| !v.is_empty()) else {
+        return Ok(None);
+    };
+    UtlsFingerprint::from_mihomo_name(&value)
+}
+
+fn parse_ipv4_list(node: &Value, keys: &[&str]) -> Result<Vec<Ipv4Addr>> {
+    let Some(list) = node_string_list(node, keys)? else {
+        return Ok(Vec::new());
+    };
+    list.into_iter()
+        .map(|item| {
+            item.parse::<Ipv4Addr>()
+                .with_context(|| format!("invalid Flux resolved IPv4 address: {item}"))
+        })
+        .collect()
+}
+
+fn parse_ipv6_list(node: &Value, keys: &[&str]) -> Result<Vec<Ipv6Addr>> {
+    let Some(list) = node_string_list(node, keys)? else {
+        return Ok(Vec::new());
+    };
+    list.into_iter()
+        .map(|item| {
+            item.trim_matches(['[', ']'])
+                .parse::<Ipv6Addr>()
+                .with_context(|| format!("invalid Flux resolved IPv6 address: {item}"))
+        })
+        .collect()
 }
 
 fn hysteria2_config(node: &Value, listen: SocketAddr) -> Result<Hysteria2ClientConfig> {
@@ -1508,5 +1797,103 @@ mod tests {
             .err()
             .expect("invalid configuration must fail");
         assert!(error.to_string().contains("username is required"));
+    }
+
+    #[test]
+    fn parses_flux_default_and_manual_multi_channel_nodes() -> Result<()> {
+        let pub_key = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
+        let auto_node = serde_json::json!({
+            "type": "flux",
+            "name": "Flux-Auto",
+            "host": "edge.example.com",
+            "port": 443,
+            "uuid": "a3482e88-686a-4a58-8126-99c9df64b7bf",
+            "servername": "www.microsoft.com",
+            "client-fingerprint": "chrome",
+            "reality-opts": {
+                "public-key": pub_key,
+                "short-id": "01020304"
+            },
+            "resolved_v4": ["203.0.113.10"],
+            "resolved_v6": ["2001:db8::10"]
+        });
+        let AerionProxyConfig::Flux(auto_cfg) =
+            node_to_proxy_config(&auto_node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected Flux config")
+        };
+        assert_eq!(auto_cfg.channels.len(), 2);
+        assert_eq!(auto_cfg.channels[0].transport, FluxTransportKind::Tcp);
+        assert_eq!(auto_cfg.channels[1].transport, FluxTransportKind::Udp);
+        assert_eq!(auto_cfg.channels[0].sni, "www.microsoft.com");
+        assert_eq!(auto_cfg.all_static_ips().len(), 2);
+
+        let manual_node = serde_json::json!({
+            "type": "flux",
+            "name": "Flux-Manual",
+            "host": "edge.example.com",
+            "port": 443,
+            "key": "user-uuid",
+            "client_supported": true,
+            "flux": {
+                "ip_strategy": "dual",
+                "standby_channels": 3,
+                "security": "reality",
+                "public_key": pub_key,
+                "short_id": "a1b2",
+                "channels": [
+                    {
+                        "id": "direct-reality",
+                        "connect_ports": "443",
+                        "transport": "tcp",
+                        "security": "reality",
+                        "sni": "www.microsoft.com",
+                        "resolved_v4": ["198.51.100.1"]
+                    },
+                    {
+                        "id": "cdn-ws",
+                        "connect_host": "cdn.example.com",
+                        "connect_ports": "443",
+                        "transport": "http",
+                        "http_mode": "ws",
+                        "http_path": "/flux-ws",
+                        "security": "tls",
+                        "resolved_v6": ["2001:db8::2"]
+                    },
+                    {
+                        "id": "udp-obfs",
+                        "connect_ports": "21000-21002",
+                        "transport": "udp",
+                        "security": "obfs",
+                        "obfs_key": "flux-obfs-secret",
+                        "role": "backup",
+                        "weight": 80,
+                        "resolved_v4": ["198.51.100.9"]
+                    }
+                ]
+            }
+        });
+        let AerionProxyConfig::Flux(manual_cfg) =
+            node_to_proxy_config(&manual_node, "127.0.0.1:1080".parse()?)?
+        else {
+            bail!("expected Flux manual config")
+        };
+        assert_eq!(manual_cfg.options.standby_channels, 3);
+        assert_eq!(manual_cfg.channels.len(), 3);
+        assert_eq!(manual_cfg.channels[1].http_path, "/flux-ws");
+        assert_eq!(manual_cfg.channels[2].ports, vec![21000, 21001, 21002]);
+        assert_eq!(manual_cfg.all_static_ips().len(), 3);
+
+        let invalid_ports = serde_json::json!({
+            "type": "flux",
+            "host": "edge.example.com",
+            "port": 443,
+            "key": "user-uuid",
+            "security": "obfs",
+            "obfs_key": "flux-obfs-secret",
+            "channels": [{ "connect_ports": "10000-10100", "transport": "udp" }]
+        });
+        assert!(node_to_proxy_config(&invalid_ports, "127.0.0.1:1080".parse()?).is_err());
+        Ok(())
     }
 }
