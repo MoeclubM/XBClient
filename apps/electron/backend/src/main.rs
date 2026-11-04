@@ -177,7 +177,7 @@ async fn resolve_node_host(params: ResolveNodeHostRequest) -> Result<String> {
 
         let mut request = HTTP_CLIENT
             .get(url)
-            .header("Accept", "application/dns-json, application/json");
+            .header("Accept", "application/dns-json");
 
         if let Some(value) = params
             .user_agent
@@ -261,7 +261,7 @@ async fn query_doh_family(
         .append_pair("type", record_type);
     let mut request = HTTP_CLIENT
         .get(url)
-        .header("Accept", "application/dns-json, application/json");
+        .header("Accept", "application/dns-json");
     if let Some(ua) = user_agent.map(str::trim).filter(|v| !v.is_empty()) {
         request = request.header("User-Agent", ua);
     }

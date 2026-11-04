@@ -94,7 +94,7 @@ object XboardApi {
                 connectTimeout = 10000
                 readTimeout = 10000
                 setRequestProperty("User-Agent", userAgent)
-                setRequestProperty("Accept", "application/dns-json, application/json")
+                setRequestProperty("Accept", "application/dns-json")
             }
             val status = connection.responseCode
             val text = readBody(connection)
@@ -132,7 +132,7 @@ object XboardApi {
             connectTimeout = 10000
             readTimeout = 10000
             setRequestProperty("User-Agent", userAgent)
-            setRequestProperty("Accept", "application/dns-json, application/json")
+            setRequestProperty("Accept", "application/dns-json")
         }
         val status = connection.responseCode
         val text = readBody(connection)
