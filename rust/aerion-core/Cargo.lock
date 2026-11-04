@@ -25,7 +25,7 @@ dependencies = [
 [[package]]
 name = "aerion"
 version = "0.1.0"
-source = "git+https://github.com/MoeclubM/Aerion.git?rev=d4e0eb81662dba48bf0044f96b04fe425f9d641f#d4e0eb81662dba48bf0044f96b04fe425f9d641f"
+source = "git+https://github.com/MoeclubM/Aerion.git?rev=549b315830367ee5b74ef31882faa69b53828c14#549b315830367ee5b74ef31882faa69b53828c14"
 dependencies = [
  "aes 0.8.4",
  "aes-gcm 0.10.3",
@@ -79,6 +79,7 @@ dependencies = [
  "aerion",
  "android_logger",
  "anyhow",
+ "base64",
  "jni",
  "log",
  "once_cell",

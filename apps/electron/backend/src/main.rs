@@ -227,9 +227,7 @@ async fn resolve_node_host(params: ResolveNodeHostRequest) -> Result<String> {
 
 fn normalize_flux_host(raw: &str) -> String {
     let trimmed = raw.trim();
-    if let Some(inner) = trimmed
-        .strip_prefix('[')
-        .and_then(|s| s.strip_suffix(']'))
+    if let Some(inner) = trimmed.strip_prefix('[').and_then(|s| s.strip_suffix(']'))
         && inner.contains(':')
     {
         return inner.to_string();
@@ -237,8 +235,14 @@ fn normalize_flux_host(raw: &str) -> String {
     trimmed.to_string()
 }
 
-fn channel_effective_host(ch: & serde_json::Map<String, Value>, main_host: &str) -> String {
-    for key in ["server", "connect_host", "connect-host", "connectHost", "host"] {
+fn channel_effective_host(ch: &serde_json::Map<String, Value>, main_host: &str) -> String {
+    for key in [
+        "server",
+        "connect_host",
+        "connect-host",
+        "connectHost",
+        "host",
+    ] {
         if let Some(val) = ch.get(key).and_then(Value::as_str) {
             let norm = normalize_flux_host(val);
             if !norm.is_empty() {
@@ -314,102 +318,102 @@ async fn resolve_flux_node(params: ResolveFluxNodeRequest) -> Result<Value> {
         .and_then(Value::as_str)
         .map(normalize_flux_host)
         .unwrap_or_default();
-
+    let mut channels = obj
+        .remove("channels")
+        .and_then(|v| v.as_array().cloned())
+        .or_else(|| {
+            obj.get("flux")
+                .and_then(|v| v.get("channels"))
+                .and_then(Value::as_array)
+                .cloned()
+        })
+        .unwrap_or_default();
     let mut domains = BTreeSet::new();
-    if !main_host.is_empty() && main_host.parse::<IpAddr>().is_err() {
-        domains.insert(main_host.clone());
+    if channels.is_empty() {
+        if main_host.parse::<IpAddr>().is_err() {
+            domains.insert(main_host.clone());
+        }
+    } else {
+        for ch in &channels {
+            if let Some(ch) = ch
+                .as_object()
+                .filter(|ch| ch.get("enabled").and_then(Value::as_bool) != Some(false))
+            {
+                let host = channel_effective_host(ch, &main_host);
+                if host.parse::<IpAddr>().is_err() {
+                    domains.insert(host);
+                }
+            }
+        }
     }
-    for list in [
-        obj.get("channels").and_then(Value::as_array),
-        obj.get("flux")
-            .and_then(Value::as_object)
-            .and_then(|f| f.get("channels"))
-            .and_then(Value::as_array),
-    ]
-    .into_iter()
-    .flatten()
-    {
-        for item in list {
-            let Some(ch) = item.as_object() else {
-                continue;
-            };
+    let resolver = params.dns_url.trim().to_string();
+    ensure!(
+        domains.is_empty() || resolver.starts_with("https://") || resolver.starts_with("http://"),
+        "Flux DNS must be a DoH URL"
+    );
+    let mut tasks = JoinSet::new();
+    for domain in domains {
+        let resolver = resolver.clone();
+        let ua = params.user_agent.clone();
+        tasks.spawn(async move {
+            let (a, aaaa) = tokio::join!(
+                query_doh_family(&resolver, &domain, "A", ua.as_deref()),
+                query_doh_family(&resolver, &domain, "AAAA", ua.as_deref()),
+            );
+            for result in [&a, &aaaa] {
+                if let Err(error) = result {
+                    tracing::warn!(%domain, %error, "Flux DNS family query failed");
+                }
+            }
+            (domain, a.unwrap_or_default(), aaaa.unwrap_or_default())
+        });
+    }
+    let mut resolved = HashMap::new();
+    while let Some(result) = tasks.join_next().await {
+        let (host, v4, v6) = result.context("Flux DNS task failed")?;
+        resolved.insert(host, (v4, v6));
+    }
+    if channels.is_empty() {
+        if let Some((v4, v6)) = resolved.get(&main_host) {
+            ensure!(
+                !v4.is_empty() || !v6.is_empty(),
+                "Flux DNS resolved no usable address for {main_host}"
+            );
+            obj.insert("resolved_v4".into(), json!(v4));
+            obj.insert("resolved_v6".into(), json!(v6));
+        }
+    } else {
+        let mut usable = 0;
+        for item in &mut channels {
+            let ch = item
+                .as_object_mut()
+                .context("Flux channel must be an object")?;
             if ch.get("enabled").and_then(Value::as_bool) == Some(false) {
                 continue;
             }
-            let ch_host = channel_effective_host(ch, &main_host);
-            if !ch_host.is_empty() && ch_host.parse::<IpAddr>().is_err() {
-                domains.insert(ch_host);
-            }
-        }
-    }
-
-    if domains.is_empty() {
-        return Ok(node);
-    }
-
-    let resolver = params.dns_url.trim().to_string();
-    if !resolver.starts_with("http://") && !resolver.starts_with("https://") {
-        return Err(anyhow!("节点 DNS 必须是 DoH 地址。"));
-    }
-    let user_agent = params.user_agent;
-    let mut join_set = JoinSet::new();
-    for domain in domains {
-        let resolver_cl = resolver.clone();
-        let ua_cl = user_agent.clone();
-        join_set.spawn(async move {
-            let (v4, v6) = tokio::try_join!(
-                query_doh_family(&resolver_cl, &domain, "A", ua_cl.as_deref()),
-                query_doh_family(&resolver_cl, &domain, "AAAA", ua_cl.as_deref()),
-            )?;
-            if v4.is_empty() && v6.is_empty() {
-                bail!("节点 DNS 无可用 A/AAAA 记录：{domain}");
-            }
-            Ok::<(String, Vec<String>, Vec<String>), anyhow::Error>((domain, v4, v6))
-        });
-    }
-
-    let mut resolved_map: HashMap<String, (Vec<String>, Vec<String>)> = HashMap::new();
-    while let Some(joined) = join_set.join_next().await {
-        let (domain, v4, v6) = joined.context("Flux DoH task join failed")??;
-        resolved_map.insert(domain, (v4, v6));
-    }
-
-    if let Some((v4, v6)) = resolved_map.get(&main_host) {
-        obj.insert("resolved_v4".to_string(), json!(v4));
-        obj.insert("resolved_v6".to_string(), json!(v6));
-    }
-    if let Some(channels) = obj.get_mut("channels").and_then(Value::as_array_mut) {
-        for item in channels {
-            if let Some(ch) = item.as_object_mut() {
-                if ch.get("enabled").and_then(Value::as_bool) == Some(false) {
+            let host = channel_effective_host(ch, &main_host);
+            if let Some((v4, v6)) = resolved.get(&host) {
+                let family = ch
+                    .get("ip-version")
+                    .or_else(|| ch.get("ip_version"))
+                    .or_else(|| ch.get("ipVersion"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("auto");
+                if (v4.is_empty() || family == "ipv6") && (v6.is_empty() || family == "ipv4") {
+                    tracing::warn!(%host, "Flux channel unavailable after DNS resolution");
+                    ch.insert("enabled".into(), json!(false));
                     continue;
                 }
-                let ch_host = channel_effective_host(ch, &main_host);
-                if let Some((v4, v6)) = resolved_map.get(&ch_host) {
-                    ch.insert("resolved_v4".to_string(), json!(v4));
-                    ch.insert("resolved_v6".to_string(), json!(v6));
-                }
+                ch.insert("resolved_v4".into(), json!(v4));
+                ch.insert("resolved_v6".into(), json!(v6));
             }
+            usable += 1;
         }
-    }
-    if let Some(channels) = obj
-        .get_mut("flux")
-        .and_then(Value::as_object_mut)
-        .and_then(|f| f.get_mut("channels"))
-        .and_then(Value::as_array_mut)
-    {
-        for item in channels {
-            if let Some(ch) = item.as_object_mut() {
-                if ch.get("enabled").and_then(Value::as_bool) == Some(false) {
-                    continue;
-                }
-                let ch_host = channel_effective_host(ch, &main_host);
-                if let Some((v4, v6)) = resolved_map.get(&ch_host) {
-                    ch.insert("resolved_v4".to_string(), json!(v4));
-                    ch.insert("resolved_v6".to_string(), json!(v6));
-                }
-            }
+        ensure!(usable > 0, "Flux has no channel with a usable address");
+        if let Some(flux) = obj.get_mut("flux").and_then(Value::as_object_mut) {
+            flux.remove("channels");
         }
+        obj.insert("channels".into(), json!(channels));
     }
     Ok(node)
 }
@@ -463,7 +467,13 @@ async fn subscription_fetch(params: &Value) -> Result<Value> {
     }
     let input: SubscriptionReq =
         serde_json::from_value(params.clone()).context("parse subscription_fetch args")?;
-    let v = subscription::fetch(&HTTP_CLIENT, &input.url, &input.flag, input.authorization.as_deref()).await?;
+    let v = subscription::fetch(
+        &HTTP_CLIENT,
+        &input.url,
+        &input.flag,
+        input.authorization.as_deref(),
+    )
+    .await?;
     Ok(v)
 }
 

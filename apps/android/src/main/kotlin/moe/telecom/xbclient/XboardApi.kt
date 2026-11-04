@@ -171,72 +171,68 @@ object XboardApi {
 
     fun resolveFluxNode(dns: String, node: JSONObject) {
         val mainHost = normalizeNodeHost(node.optString("host").ifBlank { node.optString("server") })
-        val channelArrays = listOfNotNull(
-            node.optJSONArray("channels"),
-            node.optJSONObject("flux")?.optJSONArray("channels")
-        )
+        val channels = node.optJSONArray("channels") ?: node.optJSONObject("flux")?.optJSONArray("channels")
         val domains = LinkedHashSet<String>()
-        if (mainHost.isNotEmpty() && !isIpLiteral(mainHost)) {
-            domains.add(mainHost)
-        }
-        for (arr in channelArrays) {
-            for (index in 0 until arr.length()) {
-                val ch = arr.optJSONObject(index) ?: continue
+        if (channels == null || channels.length() == 0) {
+            if (!isIpLiteral(mainHost)) domains.add(mainHost)
+        } else {
+            for (index in 0 until channels.length()) {
+                val ch = channels.optJSONObject(index) ?: continue
                 if (!ch.optBoolean("enabled", true)) continue
-                val chHost = channelEffectiveHost(ch, mainHost)
-                if (chHost.isNotEmpty() && !isIpLiteral(chHost)) {
-                    domains.add(chHost)
-                }
+                val host = channelEffectiveHost(ch, mainHost)
+                if (!isIpLiteral(host)) domains.add(host)
             }
-        }
-        if (domains.isEmpty()) {
-            return
         }
         val resolver = dns.trim()
-        if (!resolver.startsWith("http://") && !resolver.startsWith("https://")) {
-            throw IllegalStateException("节点 DNS 必须是 DoH 地址。")
-        }
+        require(domains.isEmpty() || resolver.startsWith("https://") || resolver.startsWith("http://")) { "Flux DNS 必须是 DoH 地址" }
         val pool = Executors.newFixedThreadPool((domains.size * 2).coerceIn(2, 8))
-        val resolvedMap = LinkedHashMap<String, Pair<List<String>, List<String>>>()
+        val resolved = LinkedHashMap<String, Pair<List<String>, List<String>>>()
         try {
-            val futures = domains.associateWith { domain ->
-                val v4Future = pool.submit(Callable { queryDohFamily(resolver, domain, "A") })
-                val v6Future = pool.submit(Callable { queryDohFamily(resolver, domain, "AAAA") })
-                v4Future to v6Future
+            val futures = domains.associateWith { host ->
+                pool.submit(Callable { queryDohFamily(resolver, host, "A") }) to
+                    pool.submit(Callable { queryDohFamily(resolver, host, "AAAA") })
             }
-            for ((domain, pair) in futures) {
-                val v4 = try {
-                    pair.first.get()
-                } catch (e: ExecutionException) {
-                    throw (e.cause ?: e)
+            for ((host, pair) in futures) {
+                fun family(future: java.util.concurrent.Future<List<String>>): List<String> = try {
+                    future.get()
+                } catch (error: ExecutionException) {
+                    android.util.Log.w("Flux", "DNS query failed for $host", error.cause ?: error)
+                    emptyList()
                 }
-                val v6 = try {
-                    pair.second.get()
-                } catch (e: ExecutionException) {
-                    throw (e.cause ?: e)
-                }
-                if (v4.isEmpty() && v6.isEmpty()) {
-                    throw IllegalStateException("节点 DNS 无可用 A/AAAA 记录：$domain")
-                }
-                resolvedMap[domain] = v4 to v6
+                resolved[host] = family(pair.first) to family(pair.second)
             }
         } finally {
             pool.shutdownNow()
         }
-        resolvedMap[mainHost]?.let { (v4, v6) ->
-            node.put("resolved_v4", JSONArray(v4))
-            node.put("resolved_v6", JSONArray(v6))
-        }
-        for (arr in channelArrays) {
-            for (index in 0 until arr.length()) {
-                val ch = arr.optJSONObject(index) ?: continue
+        if (channels == null || channels.length() == 0) {
+            resolved[mainHost]?.let { (v4, v6) ->
+                check(v4.isNotEmpty() || v6.isNotEmpty()) { "Flux DNS 无可用地址：$mainHost" }
+                node.put("resolved_v4", JSONArray(v4))
+                node.put("resolved_v6", JSONArray(v6))
+            }
+        } else {
+            var usable = 0
+            for (index in 0 until channels.length()) {
+                val ch = channels.optJSONObject(index) ?: continue
                 if (!ch.optBoolean("enabled", true)) continue
-                val chHost = channelEffectiveHost(ch, mainHost)
-                resolvedMap[chHost]?.let { (v4, v6) ->
+                val host = channelEffectiveHost(ch, mainHost)
+                val addresses = resolved[host]
+                if (addresses != null) {
+                    val (v4, v6) = addresses
+                    val family = ch.optString("ip-version").ifBlank { ch.optString("ip_version").ifBlank { ch.optString("ipVersion", "auto") } }
+                    if ((v4.isEmpty() || family == "ipv6") && (v6.isEmpty() || family == "ipv4")) {
+                        ch.put("enabled", false)
+                        android.util.Log.w("Flux", "Channel unavailable after DNS resolution: $host")
+                        continue
+                    }
                     ch.put("resolved_v4", JSONArray(v4))
                     ch.put("resolved_v6", JSONArray(v6))
                 }
+                usable++
             }
+            check(usable > 0) { "Flux 没有可用入口地址" }
+            node.optJSONObject("flux")?.remove("channels")
+            node.put("channels", channels)
         }
     }
 

@@ -2,13 +2,11 @@ use crate::aerion_protocol::AerionProxyConfig;
 use aerion::padding::PaddingScheme;
 use aerion::vless_transport::VlessTransportConfig;
 use aerion::{
-    ClientConfig, FluxChannelClientConfig, FluxChannelRole, FluxChannelWireConfig,
-    FluxClientConfig, FluxHttpMode, FluxOptions, FluxSecurityMode, FluxTransportKind,
-    HttpProxyClientConfig, Hysteria2ClientConfig, MAX_FLUX_EXPANDED_PORTS, MieruClientConfig,
-    MieruTrafficPattern, MieruTransport, NaiveClientConfig, RealityClientConfig, RouteClientConfig,
-    RouteDecision, ShadowsocksClientConfig, SocksProxyClientConfig, TrojanClientConfig,
-    TuicClientConfig, UtlsFingerprint, VlessClientConfig, VmessClientConfig,
-    ensure_vmess_packet_encoding,
+    ClientConfig, FluxChannelWireConfig, FluxClientConfig, FluxOptions, FluxSecurityMode,
+    HttpProxyClientConfig, Hysteria2ClientConfig, MieruClientConfig, MieruTrafficPattern,
+    MieruTransport, NaiveClientConfig, RealityClientConfig, RouteClientConfig, RouteDecision,
+    ShadowsocksClientConfig, SocksProxyClientConfig, TrojanClientConfig, TuicClientConfig,
+    UtlsFingerprint, VlessClientConfig, VmessClientConfig, ensure_vmess_packet_encoding,
 };
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Map, Value};
@@ -139,7 +137,10 @@ fn flux_config(node: &Value, listen: SocketAddr) -> Result<FluxClientConfig> {
 
     let mut options_map = Map::new();
     for (dst, keys) in [
-        ("ip_strategy", &["ip_strategy", "ip-strategy", "ipStrategy"][..]),
+        (
+            "ip_strategy",
+            &["ip_strategy", "ip-strategy", "ipStrategy"][..],
+        ),
         (
             "standby_channels",
             &["standby_channels", "standby-channels", "standbyChannels"][..],
@@ -177,7 +178,13 @@ fn flux_config(node: &Value, listen: SocketAddr) -> Result<FluxClientConfig> {
     let default_reality = flux_reality_config(&merged, tls)?;
     let default_obfs_key = node_optional_string(
         &merged,
-        &["obfs_key", "obfs-key", "obfs_password", "obfs-password", "obfsKey"],
+        &[
+            "obfs_key",
+            "obfs-key",
+            "obfs_password",
+            "obfs-password",
+            "obfsKey",
+        ],
     )
     .filter(|v| !v.is_empty());
     let default_security = match node_optional_string(&merged, &["security"])
@@ -217,120 +224,47 @@ fn flux_config(node: &Value, listen: SocketAddr) -> Result<FluxClientConfig> {
         _ => Vec::new(),
     };
 
-    let mut channels = Vec::new();
-    if wire_channels.is_empty() {
-        ensure!(server_port > 0, "Flux node port is required when channels list is empty");
-        for (id, transport) in [
-            ("ch-tcp", FluxTransportKind::Tcp),
-            ("ch-udp", FluxTransportKind::Udp),
-        ] {
-            channels.push(FluxChannelClientConfig {
-                id: id.to_string(),
-                server_host: server_host.clone(),
-                ports: vec![server_port],
-                ip_version: "auto".to_string(),
-                resolved_v4: resolved_v4.clone(),
-                resolved_v6: resolved_v6.clone(),
-                transport,
-                http_mode: FluxHttpMode::Ws,
-                http_host: None,
-                http_path: "/".to_string(),
-                http_headers: BTreeMap::new(),
-                security: default_security,
-                sni: default_sni.clone(),
-                alpn: default_alpn.clone(),
-                fingerprint: default_fingerprint,
-                insecure: default_insecure,
-                ca_cert_paths: if default_security == FluxSecurityMode::Tls {
-                    ca_cert_paths.clone()
-                } else {
-                    Vec::new()
-                },
-                ca_certificates: if default_security == FluxSecurityMode::Tls {
-                    ca_certificates.clone()
-                } else {
-                    Vec::new()
-                },
-                pinned_cert_sha256: if default_security == FluxSecurityMode::Tls {
-                    pinned_cert_sha256.clone()
-                } else {
-                    Vec::new()
-                },
-                reality: if default_security == FluxSecurityMode::Reality {
-                    default_reality.clone()
-                } else {
-                    None
-                },
-                obfs_key: if default_security == FluxSecurityMode::Obfs {
-                    default_obfs_key.clone()
-                } else {
-                    None
-                },
-                role: FluxChannelRole::Primary,
-                weight: 100,
-            });
-        }
-    } else {
-        let mut used_ports = 0usize;
-        for (index, wire_ch) in wire_channels.into_iter().enumerate() {
-            let remaining = MAX_FLUX_EXPANDED_PORTS.saturating_sub(used_ports);
-            if let Some(mut ch) = wire_ch.into_client_channel(
-                index,
-                &server_host,
-                server_port,
-                default_security,
-                Some(&default_sni),
-                default_fingerprint,
-                default_insecure,
-                default_reality.as_ref(),
-                default_obfs_key.as_deref(),
-                remaining,
-            )? {
-                used_ports += ch.ports.len();
-                if ch.alpn.is_empty() && !default_alpn.is_empty() {
-                    ch.alpn = default_alpn.clone();
-                }
-                if ch.server_host.eq_ignore_ascii_case(&server_host)
-                    && ch.resolved_v4.is_empty()
-                    && ch.resolved_v6.is_empty()
-                {
-                    ch.resolved_v4 = resolved_v4.clone();
-                    ch.resolved_v6 = resolved_v6.clone();
-                }
-                if ch.security == FluxSecurityMode::Tls {
-                    if ch.ca_cert_paths.is_empty() {
-                        ch.ca_cert_paths = ca_cert_paths.clone();
-                    }
-                    if ch.ca_certificates.is_empty() {
-                        ch.ca_certificates = ca_certificates.clone();
-                    }
-                    if ch.pinned_cert_sha256.is_empty() {
-                        ch.pinned_cert_sha256 = pinned_cert_sha256.clone();
-                    }
-                }
-                channels.push(ch);
-            }
-        }
-    }
-
-    let fallback_port = if server_port > 0 {
-        server_port
-    } else {
-        channels
-            .first()
-            .and_then(|ch| ch.ports.first().copied())
-            .unwrap_or(443)
-    };
-    let config = FluxClientConfig {
-        listen,
-        server_host,
-        server_port: fallback_port,
+    let proxy = aerion::config_compat::mihomo::MihomoFluxProxy {
+        name: node_optional_string(&merged, &["name"]).unwrap_or_else(|| "Flux".to_string()),
+        server: server_host,
+        port: server_port,
         key,
         udp,
+        security: Some(default_security),
+        servername: Some(default_sni),
+        client_fingerprint: default_fingerprint,
+        skip_cert_verify: default_insecure,
+        alpn: if default_alpn.is_empty() {
+            None
+        } else {
+            Some(serde_json::from_value(serde_json::json!(default_alpn))?)
+        },
+        reality_opts: None,
+        public_key: default_reality.as_ref().map(|r| {
+            use base64::Engine;
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(r.public_key)
+        }),
+        short_id: default_reality.as_ref().map(|r| {
+            r.short_id
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        }),
+        obfs_key: default_obfs_key,
+        resolved_v4,
+        resolved_v6,
+        channels: wire_channels,
         options,
-        channels,
+        fields: BTreeMap::new(),
     };
-    config.validate()?;
+    let mut config = proxy.to_client_config(listen)?;
+    for channel in &mut config.channels {
+        if channel.security == FluxSecurityMode::Tls {
+            channel.ca_cert_paths = ca_cert_paths.clone();
+            channel.ca_certificates = ca_certificates.clone();
+            channel.pinned_cert_sha256 = pinned_cert_sha256.clone();
+        }
+    }
     Ok(config)
 }
 
@@ -1275,6 +1209,7 @@ fn parse_mieru_hash(value: &str) -> Result<[u8; 32]> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aerion::FluxTransportKind;
     use aerion::vless_transport::VlessTransportKind;
 
     #[test]
