@@ -362,7 +362,7 @@ async fn resolve_flux_node(params: ResolveFluxNodeRequest) -> Result<Value> {
             );
             for result in [&a, &aaaa] {
                 if let Err(error) = result {
-                    tracing::warn!(%domain, %error, "Flux DNS family query failed");
+                    eprintln!("Flux DNS family query failed for {domain}: {error}");
                 }
             }
             (domain, a.unwrap_or_default(), aaaa.unwrap_or_default())
@@ -400,7 +400,7 @@ async fn resolve_flux_node(params: ResolveFluxNodeRequest) -> Result<Value> {
                     .and_then(Value::as_str)
                     .unwrap_or("auto");
                 if (v4.is_empty() || family == "ipv6") && (v6.is_empty() || family == "ipv4") {
-                    tracing::warn!(%host, "Flux channel unavailable after DNS resolution");
+                    eprintln!("Flux channel unavailable after DNS resolution: {host}");
                     ch.insert("enabled".into(), json!(false));
                     continue;
                 }
