@@ -4,6 +4,8 @@
 
 登录面板账号后即可同步节点、套餐和流量；连接、分流和 TUN 由 [Aerion](https://github.com/MoeclubM/Aerion) 内核处理，和服务端 [NodeRS](https://github.com/MoeclubM/NodeRS) 使用同一套协议实现。
 
+订阅同步使用独立的 Aerion 适配器：Xboard 请求 `flag=aerion`，PxBoard 请求 `format=aerion`。继续读取 YAML 节点和规则；Flux 等 Aerion 扩展不进入面板的普通 Mihomo 订阅适配器。
+
 [![Release](https://img.shields.io/github/v/release/MoeclubM/XBClient?style=flat-square)](https://github.com/MoeclubM/XBClient/releases)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE)
 

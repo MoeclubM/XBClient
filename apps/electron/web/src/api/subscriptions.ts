@@ -24,7 +24,7 @@ export interface SubscriptionResult {
 
 export async function subscriptionFetch(
   url: string,
-  flag: 'meta' | 'sing-box' = 'meta',
+  flag: 'aerion' | 'meta' | 'sing-box' = 'aerion',
   authorization?: string,
 ): Promise<SubscriptionResult> {
   return invoke<SubscriptionResult>('subscription_fetch', { url, flag, authorization })

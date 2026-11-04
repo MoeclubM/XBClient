@@ -24,5 +24,5 @@ object PxBoardApi {
         }
     }
     fun authorization(authData: String) = "Bearer " + authData.removePrefix("PxBoard ")
-    fun configurationUrl() = BuildConfig.DEFAULT_API_URL.trimEnd('/') + "/api/v1/extensions/subscriptions/configuration?format=clash"
+    fun configurationUrl() = BuildConfig.DEFAULT_API_URL.trimEnd('/') + "/api/v1/extensions/subscriptions/configuration?format=aerion"
 }

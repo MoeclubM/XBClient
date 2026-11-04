@@ -87,7 +87,7 @@ internal class PxBoardSession(
                 var nodes = emptyList<AnyTlsNode>()
                 var routing = JSONObject().put("route_config_yaml", "").put("rule_count", 0).put("rules_preview", JSONArray())
                 if (blocked.isEmpty()) {
-                    val result = Subscriptions.fetch(PxBoardApi.configurationUrl(), "meta", PxBoardApi.authorization(auth))
+                    val result = Subscriptions.fetch(PxBoardApi.configurationUrl(), "aerion", PxBoardApi.authorization(auth))
                     if (!result.getBoolean("ok")) throw IllegalStateException(resultError(result))
                     routing = result.getJSONObject("routing")
                     nodes = result.getJSONArray("nodes").toAnyTlsNodeList()

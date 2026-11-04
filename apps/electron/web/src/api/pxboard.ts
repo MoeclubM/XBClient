@@ -69,7 +69,7 @@ export async function syncPxBoard(): Promise<string | null> {
   let nodes: ReturnType<typeof toAppNode>[] = []
   let routing = { has_rules: false, rule_count: 0, proxy_group_count: 0, rule_provider_count: 0, rules_preview: [] as string[], route_config_yaml: null as string | null }
   if (!blockReason) {
-    const response = await subscriptionFetch(current.baseUrl.replace(/\/$/, '') + '/api/v1/extensions/subscriptions/configuration?format=clash', 'meta', 'Bearer ' + auth.replace(/^PxBoard /, ''))
+    const response = await subscriptionFetch(current.baseUrl.replace(/\/$/, '') + '/api/v1/extensions/subscriptions/configuration?format=aerion', 'aerion', 'Bearer ' + auth.replace(/^PxBoard /, ''))
     if (!response.ok || !response.routing || !response.nodes) throw new Error(response.error || 'Subscription routing missing')
     routing = response.routing
     nodes = response.nodes.map(toAppNode)

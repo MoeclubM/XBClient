@@ -14,8 +14,14 @@ object Subscriptions {
     private val httpClient = OkHttpClient.Builder().connectTimeout(30, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
     fun fetch(subscribeUrl: String, flag: String, authorization: String = ""): JSONObject {
         val singBox = flag.equals("sing-box", ignoreCase = true)
-        val url = android.net.Uri.parse(subscribeUrl)
-            .buildUpon()
+        val original = android.net.Uri.parse(subscribeUrl)
+        val builder = original.buildUpon().clearQuery()
+        for (name in original.queryParameterNames) {
+            if (name != "flag" && name != "types") {
+                for (value in original.getQueryParameters(name)) builder.appendQueryParameter(name, value)
+            }
+        }
+        val url = builder
             .appendQueryParameter("types", SUBSCRIPTION_NODE_TYPES)
             .appendQueryParameter("flag", flag)
             .build()
@@ -129,7 +135,7 @@ object Subscriptions {
             .put("ok", true)
             .put("status", status)
             .put("nodes", nodes)
-            .put("format", "clashmeta")
+            .put("format", if (flag.equals("aerion", ignoreCase = true)) "aerion" else "clashmeta")
             .put("flag", flag)
             .put("subscription_userinfo", subscriptionUserInfo)
             .put("routing", JSONObject()

@@ -616,7 +616,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 var subscriptionRouteRulesPreview = emptyList<String>()
                 var metaNodesResult: JSONObject? = null
                 if (blockReason.isEmpty() && subscribeUrl.isNotEmpty()) {
-                    metaNodesResult = Subscriptions.fetch(subscribeUrl, "meta")
+                    metaNodesResult = Subscriptions.fetch(subscribeUrl, "aerion")
                     if (metaNodesResult.getBoolean("ok")) {
                         val routing = metaNodesResult.getJSONObject("routing")
                         subscriptionRouteConfigYaml = if (routing.isNull("route_config_yaml")) "" else routing.getString("route_config_yaml")

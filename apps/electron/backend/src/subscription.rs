@@ -68,7 +68,7 @@ pub async fn fetch(
     let mut result = json!({
         "ok": true,
         "status": status,
-        "format": if sing_box { "sing-box" } else { "clashmeta" },
+        "format": if sing_box { "sing-box" } else if flag.eq_ignore_ascii_case("aerion") { "aerion" } else { "clashmeta" },
         "flag": flag,
         "subscription_userinfo": subscription_userinfo,
         "routing": routing,
@@ -81,8 +81,15 @@ pub async fn fetch(
 
 fn with_subscription_query(url: &str, flag: &str) -> Result<reqwest::Url> {
     let mut parsed = reqwest::Url::parse(url).context("parse subscription URL")?;
+    let query: Vec<(String, String)> = parsed
+        .query_pairs()
+        .filter(|(key, _)| key != "flag" && key != "types")
+        .map(|(key, value)| (key.into_owned(), value.into_owned()))
+        .collect();
+    parsed.set_query(None);
     parsed
         .query_pairs_mut()
+        .extend_pairs(query)
         .append_pair("types", SUBSCRIPTION_NODE_TYPES)
         .append_pair("flag", flag);
     Ok(parsed)

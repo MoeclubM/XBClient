@@ -77,7 +77,7 @@ export async function syncSubscription(): Promise<string | null> {
   let list: AppNode[] = []
   let metaSubscription: Awaited<ReturnType<typeof subscriptionFetch>> | null = null
   if (url) {
-    metaSubscription = await subscriptionFetch(url, 'meta')
+    metaSubscription = await subscriptionFetch(url, 'aerion')
     if (!metaSubscription.ok) {
       if (!metaSubscription.error) throw new Error('订阅规则同步失败但缺少 error 字段。')
       return metaSubscription.error
