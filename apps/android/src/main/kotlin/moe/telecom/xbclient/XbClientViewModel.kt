@@ -466,7 +466,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun logout() {
-        nativePanel.cancelLogin()
+        pxboardAuth.cancelLogin()
         val current = _uiState.value
         if (PxBoardApi.enabled && current.authData.isNotEmpty()) viewModelScope.launch(Dispatchers.IO) {
             try { PxBoardApi.request("/auth/logout", current.authData, JSONObject()) }
