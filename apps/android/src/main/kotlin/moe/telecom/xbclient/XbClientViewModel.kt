@@ -444,6 +444,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun openUpdatePage(context: Context) {
+        if (isPlayInstallation()) {
+            dismissUpdateDialog()
+            BrowserOpener.open(context, "https://play.google.com/store/apps/details?id=${context.packageName}")
+            return
+        }
         val downloadUrl = _uiState.value.latestDownloadUrl.trim()
         val releaseUrl = _uiState.value.latestReleaseUrl.trim()
         dismissUpdateDialog()
@@ -2017,7 +2022,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private fun isPlayInstallation() = app.packageManager.getInstallSourceInfo(app.packageName).installingPackageName == "com.android.vending"
+    private fun isPlayInstallation() =
+        !BuildConfig.SELF_UPDATE_ENABLED ||
+            app.packageManager.getInstallSourceInfo(app.packageName).installingPackageName == "com.android.vending"
 
     private fun checkGithubReleaseUpdate(projectUrl: String) {
         if (isPlayInstallation()) {

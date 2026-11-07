@@ -103,20 +103,21 @@ jobs:
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew :apps:android:assembleRelease :apps:android:bundleRelease --build-cache --stacktrace
-          apk="$(find apps/android/build/outputs/apk/release -maxdepth 1 -type f -name '*-arm64-v8a-release.apk' -print -quit)"
-          bundle="$(find apps/android/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' -print -quit)"
+          ./gradlew :apps:android:assembleGithubRelease :apps:android:bundlePlayRelease --build-cache --stacktrace
+          apk="$(find apps/android/build/outputs/apk -type f -name '*-arm64-v8a-release.apk' -print -quit)"
+          bundle="$(find apps/android/build/outputs/bundle -type f -name '*.aab' -print -quit)"
           test -n "$apk"
           test -n "$bundle"
-          mv "$apk" "apps/android/build/outputs/apk/release/${XBCLIENT_APP_NAME}-arm64-v8a-release-${GITHUB_RUN_ID}.apk"
-          mv "$bundle" "apps/android/build/outputs/bundle/release/${XBCLIENT_APP_NAME}-release-${GITHUB_RUN_ID}.aab"
+          mkdir -p apps/android/build/outputs/dist
+          mv "$apk" "apps/android/build/outputs/dist/${XBCLIENT_APP_NAME}-arm64-v8a-release-${GITHUB_RUN_ID}.apk"
+          mv "$bundle" "apps/android/build/outputs/dist/${XBCLIENT_APP_NAME}-release-${GITHUB_RUN_ID}.aab"
 
       - name: Upload release Android APK
         uses: actions/upload-artifact@v7
         with:
           name: xbclient-release-android-${{ github.ref_name }}-${{ github.run_id }}
           archive: false
-          path: apps/android/build/outputs/apk/release/${{ env.XBCLIENT_APP_NAME }}-arm64-v8a-release-${{ github.run_id }}.apk
+          path: apps/android/build/outputs/dist/${{ env.XBCLIENT_APP_NAME }}-arm64-v8a-release-${{ github.run_id }}.apk
           if-no-files-found: error
 
       - name: Upload release Android AAB
@@ -124,7 +125,7 @@ jobs:
         with:
           name: xbclient-release-android-aab-${{ github.ref_name }}-${{ github.run_id }}
           archive: false
-          path: apps/android/build/outputs/bundle/release/${{ env.XBCLIENT_APP_NAME }}-release-${{ github.run_id }}.aab
+          path: apps/android/build/outputs/dist/${{ env.XBCLIENT_APP_NAME }}-release-${{ github.run_id }}.aab
           if-no-files-found: error
 
       - name: Publish GitHub release
@@ -132,8 +133,8 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            apps/android/build/outputs/apk/release/${{ env.XBCLIENT_APP_NAME }}-arm64-v8a-release-${{ github.run_id }}.apk
-            apps/android/build/outputs/bundle/release/${{ env.XBCLIENT_APP_NAME }}-release-${{ github.run_id }}.aab
+            apps/android/build/outputs/dist/${{ env.XBCLIENT_APP_NAME }}-arm64-v8a-release-${{ github.run_id }}.apk
+            apps/android/build/outputs/dist/${{ env.XBCLIENT_APP_NAME }}-release-${{ github.run_id }}.aab
           generate_release_notes: true
 
   windows-electron-release:

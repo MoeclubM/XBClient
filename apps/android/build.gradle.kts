@@ -54,6 +54,8 @@ fun gitText(vararg args: String, required: Boolean = true): String {
 }
 
 val gitCommitTimestamp = gitText("log", "-1", "--format=%ct").toInt()
+val gitCommitCount = gitText("rev-list", "--count", "HEAD").toInt()
+val playVersionCodeBase = 1778837979
 val gitShortHash = gitText("rev-parse", "--short=8", "HEAD")
 val gitExactTag = gitText("describe", "--tags", "--exact-match", "HEAD", required = false)
 val gitLatestTag = gitText("describe", "--tags", "--abbrev=0", required = false)
@@ -103,6 +105,20 @@ android {
             "GITHUB_PROJECT_URL",
             "\"https://github.com/MoeclubM/XBClient\"",
         )
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("github") {
+            dimension = "distribution"
+            versionCode = gitCommitTimestamp
+            buildConfigField("Boolean", "SELF_UPDATE_ENABLED", "true")
+        }
+        create("play") {
+            dimension = "distribution"
+            versionCode = playVersionCodeBase + gitCommitCount
+            buildConfigField("Boolean", "SELF_UPDATE_ENABLED", "false")
+        }
     }
 
     signingConfigs {
@@ -175,9 +191,8 @@ val validateSharedSigning = tasks.register("validateSharedSigning") {
 }
 
 tasks.matching {
-    it.name == "assembleRelease" ||
-        it.name == "bundleRelease" ||
-        it.name == "packageRelease"
+    (it.name.startsWith("assemble") || it.name.startsWith("bundle") || it.name.startsWith("package")) &&
+        it.name.contains("Release")
 }.configureEach {
     dependsOn(validateSharedSigning)
 }

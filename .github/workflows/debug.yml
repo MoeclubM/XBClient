@@ -106,17 +106,21 @@ jobs:
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew :apps:android:assembleRelease :apps:android:bundleRelease --build-cache --stacktrace
-          apk="$(find apps/android/build/outputs/apk/release -maxdepth 1 -type f -name '*-arm64-v8a-release.apk' -print -quit)"
+          ./gradlew :apps:android:assembleGithubRelease :apps:android:bundlePlayRelease --build-cache --stacktrace
+          apk="$(find apps/android/build/outputs/apk -type f -name '*-arm64-v8a-release.apk' -print -quit)"
+          bundle="$(find apps/android/build/outputs/bundle -type f -name '*.aab' -print -quit)"
           test -n "$apk"
-          mv "$apk" "apps/android/build/outputs/apk/release/${XBCLIENT_APP_NAME}-arm64-v8a-beta-${GITHUB_RUN_ID}.apk"
+          test -n "$bundle"
+          mkdir -p apps/android/build/outputs/dist
+          mv "$apk" "apps/android/build/outputs/dist/${XBCLIENT_APP_NAME}-arm64-v8a-beta-${GITHUB_RUN_ID}.apk"
+          mv "$bundle" "apps/android/build/outputs/dist/${XBCLIENT_APP_NAME}-beta-${GITHUB_RUN_ID}.aab"
 
       - name: Upload beta Android AAB
         uses: actions/upload-artifact@v7
         with:
           name: xbclient-beta-android-aab-${{ github.run_id }}
           archive: false
-          path: apps/android/build/outputs/bundle/release/*.aab
+          path: apps/android/build/outputs/dist/${{ env.XBCLIENT_APP_NAME }}-beta-${{ github.run_id }}.aab
           if-no-files-found: error
 
       - name: Upload beta Android APK
@@ -124,7 +128,7 @@ jobs:
         with:
           name: xbclient-beta-android-${{ github.run_id }}
           archive: false
-          path: apps/android/build/outputs/apk/release/${{ env.XBCLIENT_APP_NAME }}-arm64-v8a-beta-${{ github.run_id }}.apk
+          path: apps/android/build/outputs/dist/${{ env.XBCLIENT_APP_NAME }}-arm64-v8a-beta-${{ github.run_id }}.apk
           if-no-files-found: error
 
   windows-beta:
