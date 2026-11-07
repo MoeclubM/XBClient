@@ -3,12 +3,13 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { syncGuestAuthConfig } from '../../api/guestConfig'
 import { failureText } from '../../api/helpers'
-import { onOAuthCallback, openInAppBrowser, takeOAuthCallback } from '../../api/system'
-import { normalizeBaseUrl, xboardRequest, type XboardBody } from '../../api/xboard'
+import { onOAuthCallback, takeOAuthCallback } from '../../api/system'
+import { xboardRequest } from '../../api/xboard'
 import { publicErrorText } from '../../format'
 import { saveSession } from '../../store/persist'
 import { isDesktopShell } from '../../platform/shell'
 import { appState, store, t } from '../state'
+import { openXboardOAuth, parseXboardCallback, loginXboardWithVerify, confirmXboardOAuth } from '../../api/auth/xboard'
 import type { OAuthProvider } from '../../store'
 import AppearanceControls from '../components/AppearanceControls.vue'
 
@@ -16,11 +17,6 @@ type AuthMode = 'login' | 'register'
 
 interface AuthBody {
   data?: { auth_data?: string; token?: string }
-  message?: string
-}
-
-interface ConfirmOAuthBody {
-  data?: string
   message?: string
 }
 
@@ -207,26 +203,12 @@ async function sendEmailVerify() {
   }
 }
 
-async function openOAuth(provider: OAuthProvider) {
-  if (!appState.buildConfig) throw new Error(t('config_not_loaded'))
-  const url = new URL(
-    `/api/v1/passport/auth/oauth/${encodeURIComponent(provider.driver)}/redirect`,
-    `${normalizeBaseUrl(baseUrl.value)}/`,
-  )
-  url.searchParams.set('scene', mode.value)
-  url.searchParams.set('redirect', 'dashboard')
-  url.searchParams.set('client', 'app')
-  url.searchParams.set('app_scheme', appState.buildConfig.oauth_callback_scheme)
-  if (mode.value === 'register' && inviteCode.value.trim()) url.searchParams.set('invite_code', inviteCode.value.trim())
-  await openInAppBrowser(url.toString(), `${provider.label} OAuth`)
-  message.value = t('oauth_opened_waiting_callback')
-}
-
 async function startOAuth(provider: OAuthProvider) {
   error.value = ''
   message.value = ''
   try {
-    await openOAuth(provider)
+    await openXboardOAuth(provider, mode.value, inviteCode.value)
+    message.value = t('oauth_opened_waiting_callback')
   } catch (err) {
     error.value = publicErrorText(err, t('oauth_open_failed'))
   }
@@ -234,89 +216,35 @@ async function startOAuth(provider: OAuthProvider) {
 
 async function checkOAuthCallback() {
   if (!oauthCallbackSupported.value) return
-  const callbackUrl = await takeOAuthCallback()
-  if (!callbackUrl) return
-  const uri = new URL(callbackUrl.replace(/^([a-z][a-z0-9+.-]*):([^/])/i, '$1://$2'))
-  const oauthError = uri.searchParams.get('oauth_error')
-  if (oauthError) {
-    error.value = `${t('oauth_open_failed')}: ${oauthError}`
-    return
-  }
-  const oauthSuccess = uri.searchParams.get('oauth_success')
-  if (oauthSuccess) {
-    message.value = oauthSuccess
-    return
-  }
-  const confirmToken = uri.searchParams.get('oauth_confirm_token')
-  if (confirmToken) {
-    const provider = uri.searchParams.get('oauth_provider')
-    const accountEmail = uri.searchParams.get('oauth_email')
-    if (!provider || !accountEmail) throw new Error('OAuth confirm callback missing provider or email')
-    mode.value = 'register'
-    oauthConfirm.value = {
-      token: confirmToken,
-      provider,
-      email: accountEmail,
+  const url = await takeOAuthCallback()
+  if (!url) return
+  try {
+    const result = parseXboardCallback(url)
+    if (result.type === 'message') message.value = result.message
+    else if (result.type === 'confirm') {
+      mode.value = 'register'
+      oauthConfirm.value = result.confirm
+    } else {
+      const session = await loginXboardWithVerify(result.verify)
+      await finishLogin(session.authData, session.email)
     }
-    return
+  } catch (err) {
+    error.value = publicErrorText(err)
   }
-  const verify = uri.searchParams.get('verify')
-  if (verify) await loginWithVerify(verify)
-}
-
-function verifyFromCallback(value: string): string {
-  const matched = /[?&](?:verify|token)=([^&]+)/.exec(value.trim())
-  return matched ? decodeURIComponent(matched[1]) : value.trim()
 }
 
 async function confirmOAuthRegister() {
   if (!oauthConfirm.value) return
   tokenLoading.value = true
+  error.value = ''
   try {
-    const response = await xboardRequest<ConfirmOAuthBody>('confirm_oauth_register', {
-      baseUrl: baseUrl.value,
-      params: { token: oauthConfirm.value.token },
-    })
-    if (!response.ok) {
-      error.value = failureText(response)
-      return
-    }
-    if (typeof response.body?.data !== 'string' || !response.body.data.trim()) throw new Error('OAuth confirm response missing data')
-    await loginWithVerify(verifyFromCallback(response.body.data))
+    const session = await confirmXboardOAuth(oauthConfirm.value.token)
+    await finishLogin(session.authData, session.email)
   } catch (err) {
     error.value = publicErrorText(err)
   } finally {
     tokenLoading.value = false
   }
-}
-
-async function loginWithVerify(verify: string) {
-  const response = await xboardRequest<AuthBody>('token_login', {
-    baseUrl: baseUrl.value,
-    params: { verify: verifyFromCallback(verify) },
-  })
-  if (!response.ok) {
-    error.value = failureText(response)
-    return
-  }
-  const data = response.body?.data
-  const authData = data?.auth_data
-  if (!authData) {
-    error.value = t('oauth_login_missing')
-    return
-  }
-  const info = await xboardRequest<XboardBody>('user_info', {
-    baseUrl: baseUrl.value,
-    authData,
-  })
-  if (!info.ok) {
-    error.value = failureText(info)
-    return
-  }
-  if (!info.body?.data || typeof info.body.data !== 'object') throw new Error('user_info response missing data')
-  const user = info.body.data as Record<string, unknown>
-  if (typeof user.email !== 'string' || !user.email.trim()) throw new Error('user_info response missing email')
-  await finishLogin(authData, user.email)
 }
 
 async function finishLogin(authData: string, accountEmail: string) {

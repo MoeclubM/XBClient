@@ -16,8 +16,14 @@ import top.yukonga.miuix.kmp.basic.Text
 @Composable
 internal fun PxBoardLogin(state: XbClientUiState, viewModel: XbClientViewModel) {
     Column(Modifier.fillMaxWidth().padding(24.dp)) {
-        Button(onClick = viewModel::loginPxBoard, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColorsPrimary(), enabled = !state.nativeLoginPending) {
+        Button(onClick = { viewModel.loginPxBoard() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColorsPrimary(), enabled = !state.nativeLoginPending) {
             Text(stringResource(if (state.nativeLoginPending) R.string.panel_authorizing else R.string.auth_login))
+        }
+        for (provider in state.oauthProviders) {
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = { viewModel.loginPxBoard(provider.driver) }, modifier = Modifier.fillMaxWidth(), enabled = !state.nativeLoginPending) {
+                Text(stringResource(R.string.auth_oauth_login_button, provider.label))
+            }
         }
         if (state.nativeLoginPending) {
             Spacer(Modifier.height(12.dp))

@@ -4,7 +4,7 @@ import { useAppStore, type SubscriptionState } from '../store'
 import { subscriptionFetch } from './subscriptions'
 import { toAppNode } from '../nodes'
 import { formatTrafficBytes, formatUnixDate } from '../format'
-import { saveSession, saveSubscriptionCache } from '../store/persist'
+import { saveSubscriptionCache } from '../store/persist'
 
 export const isPxBoard = () => useAppStore.getState().buildConfig?.panel_type === 'pxboard'
 
@@ -12,36 +12,11 @@ export async function pxboardRequest<T>(path: string, body?: unknown, authData =
   const config = useAppStore.getState().buildConfig!
   const headers: Record<string, string> = { 'User-Agent': config.user_agent }
   if (authData) headers.Authorization = 'Bearer ' + authData.replace(/^PxBoard /, '')
-  const response = await httpRequest<{ data: T; message: string }>({
+  const response = await httpRequest<{ data: T; error: { code: string; message: string } }>({
     method: body === undefined ? 'GET' : 'POST', url: config.default_api_url.replace(/\/$/, '') + '/api/v1' + path, headers, body,
   })
-  if (!response.ok) throw new Error(response.body.message)
+  if (!response.ok) throw new Error(response.body.error.message)
   return response.body.data
-}
-
-export async function loginPxBoard(signal: AbortSignal): Promise<void> {
-  const config = useAppStore.getState().buildConfig!
-  const proof = Array.from(crypto.getRandomValues(new Uint8Array(32)), value => value.toString(16).padStart(2, '0')).join('')
-  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(proof))
-  const challenge = Array.from(new Uint8Array(hash), value => value.toString(16).padStart(2, '0')).join('')
-  const flow = await pxboardRequest<{ id: string; authorizationUrl: string; expiresAt: string; intervalSeconds: number }>('/auth/native', { name: config.app_name, challenge }, '')
-  await openExternal(flow.authorizationUrl)
-  while (Date.now() < Date.parse(flow.expiresAt)) {
-    await new Promise<void>((resolve, reject) => {
-      signal.throwIfAborted()
-      const abort = () => { clearTimeout(timer); reject(signal.reason) }
-      const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve() }, flow.intervalSeconds * 1000)
-      signal.addEventListener('abort', abort, { once: true })
-    })
-    const result = await pxboardRequest<{ status: string; token: string; user: { email: string } }>(`/auth/native/${flow.id}/token`, { proof }, '')
-    signal.throwIfAborted()
-    if (result.status === 'pending') continue
-    const authData = 'PxBoard ' + result.token
-    useAppStore.getState().setSession({ baseUrl: config.default_api_url, authData, email: result.user.email })
-    await saveSession({ authData, email: result.user.email, baseUrl: config.default_api_url, panelType: config.panel_type })
-    return
-  }
-  throw new Error('Authorization expired. Please sign in again.')
 }
 
 export async function openPxBoardPortal(redirectPath = '/user'): Promise<void> {

@@ -19,7 +19,7 @@ object PxBoardApi {
         if (body != null) request.post(body.toString().toRequestBody("application/json".toMediaType()))
         client.newCall(request.build()).execute().use { response ->
             val envelope = JSONObject(response.body!!.string())
-            if (!response.isSuccessful) throw IllegalStateException(envelope.getString("message"))
+            if (!response.isSuccessful) throw IllegalStateException(envelope.getJSONObject("error").getString("message"))
             return envelope.get("data")
         }
     }

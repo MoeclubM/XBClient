@@ -35,6 +35,19 @@ Treat the finished Actions job as the source of truth for whether a platform bui
 
 PxBoard 需要部署客户端认证接口及新版 `subscriptions` 插件，详见 [PxBoard 原生客户端协议](https://github.com/MoeClub-Open/PxBoard/blob/main/docs/native-clients.md)。它使用浏览器完成站点登录和确认，再通过一次性校验领取会话；不依赖自定义 OAuth 回调地址。节点与分流从同一次认证 Mihomo 配置请求中读取，期限和用量从访问账户同步；商业与账户操作通过短期一次性链接打开本站前台。功能展示跟随面板启用的插件。Xboard 专用广告奖励不会迁移为 PxBoard 功能。
 
+登录对接分别存放在独立适配器中：
+
+| 平台 | PxBoard | XBoard + OAuth 插件 |
+| --- | --- | --- |
+| Android | `PxBoardAuthAdapter.kt` | `XboardAuthAdapter.kt` |
+| Windows / Linux | `api/auth/pxboard.ts` | `api/auth/xboard.ts` |
+
+PxBoard 登录页从 `/api/v1/setup` 确认 OAuth 插件是否启用，再从 `/api/v1/extensions/oauth/providers` 读取可用登录服务。点击提供方后，在系统浏览器打开本站授权申请并传递 `provider` 提示；本站处理第三方登录、人机验证、首次注册和动态验证码，随后仍需用户明确批准客户端访问。浏览器已经登录时直接显示批准页面。客户端用自己保存的校验串领取会话，不接收 XBoard 的 `verify` 回调。未安装 OAuth 插件时保留普通浏览器登录入口。
+
+XBoard 从 `/api/v1/guest/comm/config` 加载 OAuth 插件的服务列表，通过系统浏览器访问插件授权入口，并使用安装包配置的 scheme 接收回调。适配器独立处理登录、注册确认、错误和 `token2Login` 换取会话，桌面端不再使用内嵌浏览器进行第三方授权。
+
+两套适配器同时编译进应用，由 `XBCLIENT_PANEL_TYPE` 选择本站使用的接口，不探测失败后切到另一种协议。切换类型需通过应用更新，不新增站点切换入口。服务端的用户和 OAuth 绑定继续保存在各自面板和插件中。
+
 切换站点或面板类型会要求重新登录并清除旧连接缓存，不删除服务端用户、套餐或余额，也不清除设备偏好。Google Play 安装的 Android 客户端通过 Play 更新，不使用 GitHub APK 覆盖。
 
 更新已上架应用：
