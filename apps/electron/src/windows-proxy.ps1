@@ -32,7 +32,7 @@ public static class XBClientInternet {
     [StructLayout(LayoutKind.Sequential)] public struct Options {
         public int Size; public IntPtr Connection; public int Count; public int Error; public IntPtr Values;
     }
-    [DllImport("wininet.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    [DllImport("wininet.dll", SetLastError = true, CharSet = CharSet.Unicode, ExactSpelling = true)]
     public static extern bool InternetSetOptionW(IntPtr handle, int option, IntPtr buffer, int length);
     public static void SetProxy(string server) {
         var text = Marshal.StringToHGlobalUni(server);
