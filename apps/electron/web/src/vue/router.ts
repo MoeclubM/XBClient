@@ -13,6 +13,7 @@ import TicketsView from './views/TicketsView.vue'
 import ServicesView from './views/ServicesView.vue'
 import PromotionView from './views/PromotionView.vue'
 import TrafficLogsView from './views/TrafficLogsView.vue'
+import LogsView from './views/LogsView.vue'
 
 export const router = createRouter({
   history: createWebHashHistory(),
@@ -28,6 +29,7 @@ export const router = createRouter({
     { path: '/tickets', component: TicketsView, meta: { auth: true } },
     { path: '/promotion', component: PromotionView, meta: { auth: true } },
     { path: '/traffic', component: TrafficLogsView, meta: { auth: true } },
+    { path: '/logs', component: LogsView, meta: { auth: true } },
     { path: '/settings', component: SettingsView, meta: { auth: true } },
     { path: '/settings/app-rules', component: AppRulesView, meta: { auth: true, hideNav: true } },
     { path: '/settings/traffic-rules', component: TrafficRulesView, meta: { auth: true, hideNav: true } },

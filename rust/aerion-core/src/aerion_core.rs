@@ -58,7 +58,10 @@ pub(crate) fn on_event(event_json: &str) {
     }
 }
 
-fn core_event_json(event: &aerion::CoreEvent, wrapper_session_id: Option<u64>) -> String {
+pub(crate) fn core_event_json(
+    event: &aerion::CoreEvent,
+    wrapper_session_id: Option<u64>,
+) -> String {
     let mut value = match event {
         aerion::CoreEvent::UsersReplaced { user_ids } => json!({
             "type": "users_replaced",
@@ -125,9 +128,12 @@ fn traffic_direction_name(direction: aerion::TrafficDirection) -> &'static str {
 }
 
 #[derive(Deserialize)]
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+#[allow(dead_code)]
 struct StartVpnRequest {
+    #[serde(default)]
     node: Value,
+    #[serde(default)]
+    route: Option<crate::aerion_route::StartRouteRequest>,
     tun_fd: Option<i32>,
     mtu: u16,
     dns: String,
@@ -179,6 +185,21 @@ async fn stop_listener(task: JoinHandle<Result<()>>) {
     }
 }
 
+fn host_tun_bypass_cidrs(host: &str, include_ipv6: bool) -> Vec<String> {
+    let trimmed = host.trim().trim_matches(['[', ']']);
+    let Ok(ip) = trimmed.parse::<IpAddr>() else {
+        return Vec::new();
+    };
+    if ip.is_loopback() || ip.is_unspecified() {
+        return Vec::new();
+    }
+    match ip {
+        IpAddr::V4(v4) => vec![format!("{v4}/32")],
+        IpAddr::V6(v6) if include_ipv6 => vec![format!("{v6}/128")],
+        IpAddr::V6(_) => Vec::new(),
+    }
+}
+
 pub(crate) fn flux_tun_bypass_cidrs(
     config: &aerion::FluxClientConfig,
     include_ipv6: bool,
@@ -207,6 +228,30 @@ pub(crate) fn flux_tun_bypass_cidrs(
     out
 }
 
+pub(crate) fn proxy_tun_bypass_cidrs(
+    config: &AerionProxyConfig,
+    include_ipv6: bool,
+) -> Vec<String> {
+    match config {
+        AerionProxyConfig::Flux(cfg) => flux_tun_bypass_cidrs(cfg, include_ipv6),
+        AerionProxyConfig::AnyTls(cfg) => host_tun_bypass_cidrs(&cfg.server_host, include_ipv6),
+        AerionProxyConfig::HttpProxy(cfg) => host_tun_bypass_cidrs(&cfg.server_host, include_ipv6),
+        AerionProxyConfig::Hysteria2(cfg) => host_tun_bypass_cidrs(&cfg.server_host, include_ipv6),
+        AerionProxyConfig::Trojan(cfg) => host_tun_bypass_cidrs(&cfg.server_host, include_ipv6),
+        AerionProxyConfig::Vless(cfg) => host_tun_bypass_cidrs(&cfg.server_host, include_ipv6),
+        AerionProxyConfig::Vmess(cfg) => host_tun_bypass_cidrs(&cfg.server_host, include_ipv6),
+        AerionProxyConfig::Mieru(cfg) => host_tun_bypass_cidrs(&cfg.server_host, include_ipv6),
+        AerionProxyConfig::Sudoku(cfg) => host_tun_bypass_cidrs(&cfg.server_host, include_ipv6),
+        AerionProxyConfig::Naive(cfg) => host_tun_bypass_cidrs(&cfg.server_host, include_ipv6),
+        AerionProxyConfig::Shadowsocks(cfg) => {
+            host_tun_bypass_cidrs(&cfg.server_host, include_ipv6)
+        }
+        AerionProxyConfig::SocksProxy(cfg) => host_tun_bypass_cidrs(&cfg.server_host, include_ipv6),
+        AerionProxyConfig::Tuic(cfg) => host_tun_bypass_cidrs(&cfg.server_host, include_ipv6),
+        AerionProxyConfig::Route(_) => Vec::new(),
+    }
+}
+
 async fn start_aerion_socks(
     node: Value,
     track_traffic: bool,
@@ -222,12 +267,7 @@ async fn start_aerion_socks(
         .context("bind Aerion local SOCKS listener")?;
     let local_addr = listener.local_addr().context("read Aerion SOCKS address")?;
     let config = node_to_proxy_config(&node, local_addr)?;
-    let bypass_cidrs = match &config {
-        AerionProxyConfig::Flux(cfg) => {
-            flux_tun_bypass_cidrs(cfg, !cfg!(target_os = "windows"))
-        }
-        _ => Vec::new(),
-    };
+    let bypass_cidrs = proxy_tun_bypass_cidrs(&config, !cfg!(target_os = "windows"));
     let core = if track_traffic {
         match &config {
             AerionProxyConfig::AnyTls(config) => {
@@ -268,6 +308,9 @@ async fn start_aerion_socks(
             }
             AerionProxyConfig::Tuic(config) => {
                 Some(aerion::ProxyCore::from_credentials(&config.uuid, &[]))
+            }
+            AerionProxyConfig::Route(_) => {
+                Some(aerion::ProxyCore::from_credentials("direct", &[]))
             }
             _ => None,
         }
@@ -730,10 +773,26 @@ mod platform {
     struct VpnSession {
         shutdown: TunCancellationToken,
         finished: tokio::sync::oneshot::Receiver<std::result::Result<(), String>>,
-        proxy_task: JoinHandle<Result<()>>,
+        proxy_tasks: Vec<JoinHandle<Result<()>>>,
         _log_task: Option<JoinHandle<()>>,
         _event_task: Option<JoinHandle<()>>,
         _core: Option<aerion::ProxyCore>,
+    }
+
+    fn abort_tasks(tasks: Vec<JoinHandle<Result<()>>>) {
+        for task in tasks {
+            task.abort();
+        }
+    }
+
+    fn clear_outbound_if_idle() {
+        if VPN_SESSIONS
+            .lock()
+            .expect("VPN session map lock poisoned")
+            .is_empty()
+        {
+            aerion::clear_outbound_interface();
+        }
     }
 
     pub async fn start(input: &str) -> Result<String> {
@@ -749,8 +808,35 @@ mod platform {
         };
         let dns_addr: IpAddr = request.dns_addr.parse().context("parse VPN DNS address")?;
 
-        let (socks_addr, proxy_task, core, bypass_cidrs) =
-            start_aerion_socks(request.node, true).await?;
+        if VPN_SESSIONS
+            .lock()
+            .expect("VPN session map lock poisoned")
+            .is_empty()
+            && let Some(iface) = aerion::detect_default_outbound_interface()
+        {
+            aerion::set_outbound_interface(iface);
+        }
+
+        let (socks_addr, proxy_tasks, core, bypass_cidrs) = match request.route {
+            Some(route_req) => match crate::aerion_route::start_route_runtime(route_req).await {
+                Ok(rt) => {
+                    let mut tasks = rt.outbound_tasks;
+                    tasks.push(rt.router_task);
+                    (rt.socks_addr, tasks, Some(rt.core), rt.bypass_cidrs)
+                }
+                Err(error) => {
+                    clear_outbound_if_idle();
+                    return Err(error);
+                }
+            },
+            None => match start_aerion_socks(request.node, true).await {
+                Ok((addr, task, core, cidrs)) => (addr, vec![task], core, cidrs),
+                Err(error) => {
+                    clear_outbound_if_idle();
+                    return Err(error);
+                }
+            },
+        };
 
         let mut tun_config = TunConfig::new(socks_proxy_url(socks_addr));
         tun_config.setup = true;
@@ -771,12 +857,8 @@ mod platform {
         if let Some(tcp_timeout_secs) = request.tcp_timeout_secs {
             tun_config.tcp_timeout_secs = tcp_timeout_secs;
         }
-        if let Some(udp_timeout_secs) = request.udp_timeout_secs {
-            tun_config.udp_timeout_secs = udp_timeout_secs;
-        }
-        if let Some(max_sessions) = request.max_sessions {
-            tun_config.max_sessions = max_sessions;
-        }
+        tun_config.udp_timeout_secs = request.udp_timeout_secs.unwrap_or(60);
+        tun_config.max_sessions = request.max_sessions.unwrap_or(2048);
         if let Some(exit_on_fatal_error) = request.exit_on_fatal_error {
             tun_config.exit_on_fatal_error = exit_on_fatal_error;
         }
@@ -790,7 +872,8 @@ mod platform {
                 if let Some(core) = core {
                     core.cancel_all_sessions();
                 }
-                proxy_task.abort();
+                abort_tasks(proxy_tasks);
+                clear_outbound_if_idle();
                 return Err(error).context("spawn Aerion TUN runtime");
             }
         };
@@ -824,7 +907,7 @@ mod platform {
                 VpnSession {
                     shutdown: shutdown.clone(),
                     finished: finished_rx,
-                    proxy_task,
+                    proxy_tasks,
                     _log_task: log_task,
                     _event_task: event_task,
                     _core: core.clone(),
@@ -845,13 +928,14 @@ mod platform {
                 if let Some(core) = session._core {
                     core.cancel_all_sessions();
                 }
-                session.proxy_task.abort();
+                abort_tasks(session.proxy_tasks);
                 if let Some(task) = session._log_task {
                     task.abort();
                 }
                 if let Some(task) = session._event_task {
                     task.abort();
                 }
+                clear_outbound_if_idle();
                 on_event(
                     &json!({
                         "type": "vpn_stopped",
@@ -888,13 +972,14 @@ mod platform {
         if let Some(core) = session._core {
             core.cancel_all_sessions();
         }
-        session.proxy_task.abort();
+        abort_tasks(session.proxy_tasks);
         if let Some(task) = session._log_task {
             task.abort();
         }
         if let Some(task) = session._event_task {
             task.abort();
         }
+        clear_outbound_if_idle();
         session
             .finished
             .await

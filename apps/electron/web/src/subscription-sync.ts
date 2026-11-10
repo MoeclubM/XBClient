@@ -90,6 +90,7 @@ export async function syncSubscription(): Promise<string | null> {
       proxyGroupCount: Number(routing.proxy_group_count),
       ruleProviderCount: Number(routing.rule_provider_count),
       rulesPreview: routing.rules_preview,
+      rules: routing.rules ?? routing.rules_preview,
       routeConfigYaml: typeof routing.route_config_yaml === 'string' ? routing.route_config_yaml : null,
     })
   }

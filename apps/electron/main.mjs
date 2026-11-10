@@ -1,12 +1,16 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, Tray, Menu, nativeImage } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, screen, shell, Tray, Menu, nativeImage } from 'electron'
 import path from 'node:path'
-import { spawn, execFileSync } from 'node:child_process'
+import { spawn, execFile, execFileSync } from 'node:child_process'
+import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import readline from 'node:readline'
 import fs from 'node:fs'
 import AutoLaunch from 'auto-launch'
 import { setupAutoUpdater } from './updater.mjs'
-import { clearWindowsSystemProxy, setWindowsSystemProxy } from './runtime/system-proxy.js'
+import { clearDesktopLocalProxy, clearWindowsSystemProxy, setWindowsSystemProxy, syncDesktopLocalProxy } from './runtime/system-proxy.js'
+
+const execFileAsync = promisify(execFile)
+const MAX_BACKEND_LOGS = 500
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform')
@@ -39,6 +43,9 @@ let backendIsReady = false
 let backendStderr = ''
 let backendBootPromise = null
 let lastBackendStartAt = 0
+let nextLogId = 1
+const backendLogs = []
+let windowStateSaveTimer = null
 let trayInstance = null
 let trayBusy = false
 let autoLauncherInstance = null
@@ -47,6 +54,7 @@ const trayState = {
   selectedNodeIndex: 0,
   vpn: null,
   systemProxyOn: false,
+  httpProxyAddr: '',
   useVpn: false,
   routingMode: 'rule',
   settings: {
@@ -59,11 +67,81 @@ const trayState = {
     routingMode: 'rule',
     tunEnabled: false,
     systemProxyEnabled: true,
+    proxyPort: 0,
+    allowLan: false,
+    systemProxyBypass: '',
     routeConfigYaml: '',
     geoipDir: '',
   },
   routingRouteConfigYaml: '',
   userAgent: '',
+}
+
+function appendBackendLog(level, message) {
+  const text = String(message ?? '').trim()
+  if (!text) return
+  const entry = {
+    id: nextLogId++,
+    timestamp: Date.now(),
+    level: String(level || 'info').toLowerCase(),
+    message: text,
+  }
+  backendLogs.push(entry)
+  if (backendLogs.length > MAX_BACKEND_LOGS) {
+    backendLogs.splice(0, backendLogs.length - MAX_BACKEND_LOGS)
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('aerion-log', entry)
+  }
+}
+
+function windowStateFilePath() {
+  return path.join(app.getPath('userData'), 'window-state.json')
+}
+
+function loadWindowState() {
+  const file = windowStateFilePath()
+  if (!fs.existsSync(file)) return { width: 1060, height: 720, maximized: false }
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8'))
+    const width = Number.isFinite(raw?.width) && raw.width >= 800 ? Math.round(raw.width) : 1060
+    const height = Number.isFinite(raw?.height) && raw.height >= 600 ? Math.round(raw.height) : 720
+    const maximized = Boolean(raw?.maximized)
+    if (Number.isFinite(raw?.x) && Number.isFinite(raw?.y)) {
+      const x = Math.round(raw.x)
+      const y = Math.round(raw.y)
+      const visible = screen.getAllDisplays().some(({ workArea }) => (
+        x + width > workArea.x + 80
+        && x < workArea.x + workArea.width - 80
+        && y + height > workArea.y + 80
+        && y < workArea.y + workArea.height - 80
+      ))
+      if (visible) return { x, y, width, height, maximized }
+    }
+    return { width, height, maximized }
+  } catch {
+    return { width: 1060, height: 720, maximized: false }
+  }
+}
+
+function saveWindowStateNow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const maximized = mainWindow.isMaximized()
+  const bounds = maximized ? mainWindow.getNormalBounds() : mainWindow.getBounds()
+  try {
+    fs.mkdirSync(path.dirname(windowStateFilePath()), { recursive: true })
+    fs.writeFileSync(windowStateFilePath(), JSON.stringify({ ...bounds, maximized }), 'utf8')
+  } catch (error) {
+    console.error('[window-state]', error)
+  }
+}
+
+function scheduleWindowStateSave() {
+  if (windowStateSaveTimer) clearTimeout(windowStateSaveTimer)
+  windowStateSaveTimer = setTimeout(() => {
+    windowStateSaveTimer = null
+    saveWindowStateNow()
+  }, 250)
 }
 
 function readBuildConfig() {
@@ -311,6 +389,7 @@ function backendStart() {
       }
       if (msg?.type === 'log') {
         console.log('[backend]', msg.level, msg.message)
+        appendBackendLog(msg.level, msg.message)
         return
       }
       if (typeof msg?.id === 'number') {
@@ -334,6 +413,7 @@ function backendStart() {
     const chunk = String(data)
     backendStderr = (backendStderr + chunk).slice(-8000)
     console.error('[backend:stderr]', chunk.trim())
+    appendBackendLog('warn', chunk.trim())
   })
 }
 
@@ -372,6 +452,21 @@ async function waitBackendReady() {
 }
 
 function backendInvoke(method, params, timeoutMs = 120_000) {
+  if (method === 'local_proxy_sync') {
+    return syncDesktopLocalProxy({
+      host: params.host,
+      port: params.port,
+      enableSystemProxy: Boolean(params.enableSystemProxy),
+      listenPort: Number(params.listenPort) || 0,
+      allowLan: Boolean(params.allowLan),
+      bypass: typeof params.bypass === 'string' ? params.bypass : '',
+      setPlatformProxy: (host, port) => backendInvoke('system_proxy_set', { host, port }),
+      clearPlatformProxy: () => trayState.systemProxyOn ? backendInvoke('system_proxy_clear', {}) : Promise.resolve(),
+    })
+  }
+  if (method === 'local_proxy_clear') {
+    return clearDesktopLocalProxy(() => trayState.systemProxyOn ? backendInvoke('system_proxy_clear', {}) : Promise.resolve())
+  }
   if (process.platform === 'win32') {
     if (method === 'system_proxy_set') return setWindowsSystemProxy(params.host, params.port)
     if (method === 'system_proxy_clear') return clearWindowsSystemProxy()
@@ -485,9 +580,11 @@ function loadAppIcon() {
 function createMainWindow() {
   const icon = loadAppIcon()
   const startHidden = launchedSilentArgv()
+  const savedState = loadWindowState()
   mainWindow = new BrowserWindow({
-    width: 1024,
-    height: 720,
+    ...(typeof savedState.x === 'number' && typeof savedState.y === 'number' ? { x: savedState.x, y: savedState.y } : {}),
+    width: savedState.width,
+    height: savedState.height,
     minWidth: 800,
     minHeight: 600,
     show: !startHidden,
@@ -500,13 +597,18 @@ function createMainWindow() {
       nodeIntegration: false,
     },
   })
+  if (savedState.maximized && !startHidden) mainWindow.maximize()
 
   mainWindow.on('maximize', () => {
+    scheduleWindowStateSave()
     if (!mainWindow.isDestroyed()) mainWindow.webContents.send('window-maximized-changed', true)
   })
   mainWindow.on('unmaximize', () => {
+    scheduleWindowStateSave()
     if (!mainWindow.isDestroyed()) mainWindow.webContents.send('window-maximized-changed', false)
   })
+  mainWindow.on('resize', scheduleWindowStateSave)
+  mainWindow.on('move', scheduleWindowStateSave)
 
   if (isDev) {
     mainWindow.loadURL('http://127.0.0.1:5173')
@@ -525,6 +627,7 @@ function createMainWindow() {
   })
 
   mainWindow.on('close', (e) => {
+    saveWindowStateNow()
     if (quitRequested) return
     e.preventDefault()
     mainWindow.hide()
@@ -566,7 +669,7 @@ function dnsAddressForVpn(value) {
 function aerionNodeWithResolvedHost(rawJson, resolvedHost) {
   const raw = JSON.parse(rawJson)
   const originalHost = String(raw.host)
-  if (resolvedHost !== originalHost && !String(raw.sni ?? '').trim()) throw new Error(`node ${String(raw.name)} resolved to IP without sni`)
+  if (resolvedHost !== originalHost && !String(raw.sni ?? '').trim()) raw.sni = originalHost
   raw.host = resolvedHost
   return raw
 }
@@ -612,6 +715,7 @@ function applyTraySnapshot(snapshot) {
         }
       : null
   trayState.systemProxyOn = Boolean(snapshot.systemProxyOn)
+  trayState.httpProxyAddr = typeof snapshot.httpProxyAddr === 'string' ? snapshot.httpProxyAddr : ''
   trayState.useVpn = snapshot.useVpn
   trayState.routingMode = snapshot.routingMode
   Object.assign(trayState.settings, snapshot.settings)
@@ -641,10 +745,9 @@ async function trayResolveNode(node) {
 }
 
 async function trayDisconnect() {
-  if (trayState.systemProxyOn) {
-    await backendInvoke('system_proxy_clear', {})
-    trayState.systemProxyOn = false
-  }
+  await backendInvoke('local_proxy_clear', {})
+  trayState.systemProxyOn = false
+  trayState.httpProxyAddr = ''
   if (!trayState.vpn) return
   const useTun = !trayState.vpn.routeMode && !trayState.vpn.socksAddr
   if (trayState.vpn.routeMode) {
@@ -656,7 +759,7 @@ async function trayDisconnect() {
     await backendInvoke('aerion_stop', { sessionId: trayState.vpn.sessionId })
   }
   trayState.vpn = null
-  pushTrayStateToWeb({ vpn: null, systemProxyOn: trayState.systemProxyOn })
+  pushTrayStateToWeb({ vpn: null, systemProxyOn: false, httpProxyAddr: '' })
 }
 
 function trayRouteConfigYaml() {
@@ -667,15 +770,23 @@ function trayRouteConfigYaml() {
 
 async function trayApplySessionSystemProxy() {
   const socksAddr = trayState.vpn?.socksAddr || trayState.vpn?.tunSocksAddr || ''
-  if (trayState.settings.systemProxyEnabled) {
-    if (!socksAddr) throw new Error('当前会话缺少可用于系统代理的本地 SOCKS 地址')
-    const parsed = parseSocksAddr(socksAddr)
-    await backendInvoke('system_proxy_set', { host: parsed.host, port: parsed.port })
-    trayState.systemProxyOn = true
-  } else if (trayState.systemProxyOn) {
-    await backendInvoke('system_proxy_clear', {})
+  if (!socksAddr) {
+    await backendInvoke('local_proxy_clear', {})
     trayState.systemProxyOn = false
+    trayState.httpProxyAddr = ''
+    return
   }
+  const parsed = parseSocksAddr(socksAddr)
+  const synced = await backendInvoke('local_proxy_sync', {
+    host: parsed.host,
+    port: parsed.port,
+    enableSystemProxy: Boolean(trayState.settings.systemProxyEnabled),
+    listenPort: Number(trayState.settings.proxyPort) || 0,
+    allowLan: Boolean(trayState.settings.allowLan),
+    bypass: trayState.settings.systemProxyBypass || '',
+  })
+  trayState.systemProxyOn = synced.systemProxyOn
+  trayState.httpProxyAddr = `127.0.0.1:${synced.httpPort}`
 }
 
 async function trayConnect(index) {
@@ -683,6 +794,10 @@ async function trayConnect(index) {
   const useRuleRouting =
     !trayState.useVpn
     && trayState.settings.systemProxyEnabled
+    && trayState.routingMode === 'rule'
+    && Boolean(routeConfigYaml)
+  const useTunRuleRouting =
+    trayState.useVpn
     && trayState.routingMode === 'rule'
     && Boolean(routeConfigYaml)
   if (!trayState.useVpn && !trayState.settings.systemProxyEnabled) return
@@ -710,10 +825,21 @@ async function trayConnect(index) {
     }
     await trayApplySessionSystemProxy()
   } else if (trayState.useVpn) {
+    if (trayState.routingMode === 'rule' && !routeConfigYaml) throw new Error('订阅中无可用路由规则')
     const dnsMode = trayState.settings.vpnDnsMode
     const dnsSource = dnsMode === 'direct' ? trayState.settings.directDns : trayState.settings.overseasDns
     const handle = await backendInvoke('aerion_start_vpn', {
       node: resolved,
+      ...(useTunRuleRouting
+        ? {
+            route: {
+              config_yaml: routeConfigYaml,
+              geoip_dir: trayState.settings.geoipDir.trim() || undefined,
+              selected_proxy: node.name,
+              selected_node: resolved,
+            },
+          }
+        : {}),
       mtu: 1500,
       dns: dnsMode,
       dns_addr: dnsAddressForVpn(dnsSource),
@@ -746,6 +872,7 @@ async function trayConnect(index) {
     selectedNodeIndex: index,
     vpn: trayState.vpn && { ...trayState.vpn, uploadBytes: 0, downloadBytes: 0 },
     systemProxyOn: trayState.systemProxyOn,
+    httpProxyAddr: trayState.httpProxyAddr,
   })
 }
 
@@ -770,9 +897,9 @@ async function trayApplyConnection() {
     if (!routeSession || session?.nodeIndex !== index || modeChanged) {
       if (session) await trayDisconnect()
       await trayConnect(index)
-    } else if (!trayState.systemProxyOn && session.socksAddr) {
+    } else if (session.socksAddr) {
       await trayApplySessionSystemProxy()
-      pushTrayStateToWeb({ systemProxyOn: trayState.systemProxyOn })
+      pushTrayStateToWeb({ systemProxyOn: trayState.systemProxyOn, httpProxyAddr: trayState.httpProxyAddr })
     }
     return
   }
@@ -786,7 +913,7 @@ async function trayApplyConnection() {
       await trayConnect(index)
     } else {
       await trayApplySessionSystemProxy()
-      pushTrayStateToWeb({ systemProxyOn: trayState.systemProxyOn })
+      pushTrayStateToWeb({ systemProxyOn: trayState.systemProxyOn, httpProxyAddr: trayState.httpProxyAddr })
     }
     return
   }
@@ -796,16 +923,17 @@ async function trayApplyConnection() {
     if (!socksSession || session?.nodeIndex !== index || modeChanged) {
       if (session) await trayDisconnect()
       await trayConnect(index)
-    } else if (!trayState.systemProxyOn && session.socksAddr) {
+    } else if (session.socksAddr) {
       await trayApplySessionSystemProxy()
-      pushTrayStateToWeb({ systemProxyOn: trayState.systemProxyOn })
+      pushTrayStateToWeb({ systemProxyOn: trayState.systemProxyOn, httpProxyAddr: trayState.httpProxyAddr })
     }
   } else if (session) {
     await trayDisconnect()
-  } else if (trayState.systemProxyOn) {
-    await backendInvoke('system_proxy_clear', {})
+  } else if (trayState.systemProxyOn || trayState.httpProxyAddr) {
+    await backendInvoke('local_proxy_clear', {})
     trayState.systemProxyOn = false
-    pushTrayStateToWeb({ systemProxyOn: false })
+    trayState.httpProxyAddr = ''
+    pushTrayStateToWeb({ systemProxyOn: false, httpProxyAddr: '' })
   }
 }
 
@@ -941,6 +1069,28 @@ function rebuildTrayMenu() {
       },
     })
   }
+  if (connected && trayState.httpProxyAddr) {
+    const httpUrl = `http://${trayState.httpProxyAddr}`
+    const socksAddr = trayState.vpn?.socksAddr || trayState.vpn?.tunSocksAddr || ''
+    const socksUrl = socksAddr ? `socks5://${socksAddr}` : httpUrl
+    template.push({
+      label: `复制终端代理 (${trayState.httpProxyAddr})`,
+      submenu: [
+        {
+          label: 'PowerShell',
+          click: () => clipboard.writeText(`$env:HTTP_PROXY="${httpUrl}"; $env:HTTPS_PROXY="${httpUrl}"; $env:ALL_PROXY="${socksUrl}"`),
+        },
+        {
+          label: 'CMD',
+          click: () => clipboard.writeText(`set HTTP_PROXY=${httpUrl} && set HTTPS_PROXY=${httpUrl} && set ALL_PROXY=${socksUrl}`),
+        },
+        {
+          label: 'Bash',
+          click: () => clipboard.writeText(`export http_proxy="${httpUrl}" https_proxy="${httpUrl}" all_proxy="${socksUrl}"`),
+        },
+      ],
+    })
+  }
 
   const nodeItems = trayState.nodes.map((node, index) => ({
     label: trayNodeLabel(node, index),
@@ -977,6 +1127,7 @@ function rebuildTrayMenu() {
   const status = [routingLabels[trayState.routingMode], connected ? '已连接' : '未连接', nodeName]
   if (trayState.useVpn) status.push('TUN')
   if (trayState.systemProxyOn) status.push('系统代理')
+  if (trayState.httpProxyAddr) status.push(trayState.httpProxyAddr)
   trayInstance.setToolTip(`${app.getName()} · ${status.join(' · ')}`)
 }
 
@@ -1085,6 +1236,38 @@ function startHttpHandlers() {
   ipcMain.handle('electron-sync-tray-state', (_, { state }) => {
     applyTraySnapshot(state)
   })
+  ipcMain.handle('electron-get-logs', () => backendLogs.slice())
+  ipcMain.handle('electron-clear-logs', () => {
+    backendLogs.length = 0
+    return true
+  })
+  ipcMain.handle('electron-open-app-dir', async () => {
+    const dir = app.getPath('userData')
+    fs.mkdirSync(dir, { recursive: true })
+    const err = await shell.openPath(dir)
+    if (err) throw new Error(err)
+    return dir
+  })
+  ipcMain.handle('electron-relaunch-admin', async () => {
+    if (process.platform !== 'win32') throw new Error('仅 Windows 支持一键管理员提权重启')
+    saveWindowStateNow()
+    await cleanupConnections()
+    const args = isPackaged ? [] : [app.getAppPath(), isDev ? 'dev' : 'build']
+    const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`
+    const argExpr = args.length ? ` -ArgumentList @(${args.map(psQuote).join(', ')})` : ''
+    const script = `Start-Process -FilePath ${psQuote(process.execPath)}${argExpr} -Verb RunAs`
+    app.releaseSingleInstanceLock()
+    try {
+      await execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], { windowsHide: true })
+    } catch {
+      app.requestSingleInstanceLock()
+      return { ok: false, cancelled: true }
+    }
+    quitRequested = true
+    quitCleanupComplete = true
+    app.quit()
+    return { ok: true }
+  })
 }
 
 function notifyBackendError(err) {
@@ -1109,25 +1292,23 @@ async function reportTrayFailure(title, error) {
 
 async function resetConnectionAfterFailure(error) {
   try {
-    if (process.platform === 'win32' || trayState.systemProxyOn) {
-      await backendInvoke('system_proxy_clear', {})
-      trayState.systemProxyOn = false
-    }
+    await backendInvoke('local_proxy_clear', {})
+    trayState.systemProxyOn = false
+    trayState.httpProxyAddr = ''
   } catch (cleanupError) {
     error = new AggregateError([error, cleanupError], `${error.message}\n恢复系统代理失败：${cleanupError.message}`)
   }
   trayState.vpn = null
   activeVpnSessionId = null
-  pushTrayStateToWeb({ vpn: null, systemProxyOn: trayState.systemProxyOn })
+  pushTrayStateToWeb({ vpn: null, systemProxyOn: false, httpProxyAddr: '' })
   rebuildTrayMenu()
   notifyBackendError(error)
 }
 
 async function cleanupConnections() {
-  if (process.platform === 'win32' || trayState.systemProxyOn) {
-    await backendInvoke('system_proxy_clear', {})
-    trayState.systemProxyOn = false
-  }
+  await backendInvoke('local_proxy_clear', {})
+  trayState.systemProxyOn = false
+  trayState.httpProxyAddr = ''
   if (trayState.vpn) {
     const session = trayState.vpn
     const stopCmd = session.routeMode ? 'aerion_stop_route' : session.socksAddr ? 'aerion_stop' : 'aerion_stop_vpn'

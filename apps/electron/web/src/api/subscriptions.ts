@@ -7,6 +7,7 @@ export interface SubscriptionRouting {
   proxy_group_count: number
   rule_provider_count: number
   rules_preview: string[]
+  rules?: string[]
   route_config_yaml: string | null
 }
 

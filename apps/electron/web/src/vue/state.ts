@@ -2,6 +2,7 @@ import { reactive } from 'vue'
 import { syncGuestAuthConfig } from '../api/guestConfig'
 import { autostartIsEnabled, autostartSetEnabled, runtimeCapabilities, runtimeConfig } from '../api/system'
 import { applyDesktopConnection, isDesktopConnectionShell } from '../desktop/connection'
+import { installDesktopTelemetry } from '../desktop/telemetry'
 import { hideMainWindow, launchedSilent } from '../platform/electron'
 import { isDesktopShell } from '../platform/shell'
 import { useAppStore, type AppSettings } from '../store'
@@ -41,7 +42,7 @@ export async function bootstrapApp(): Promise<void> {
     if (cache) {
       store().setSubscribe({ subscribeUrl: cache.subscribeUrl, nodes: cache.nodes })
       store().setSubscriptionState(cache.subscription)
-      store().setRouting(cache.routing)
+      store().setRouting({ ...cache.routing, rules: cache.routing.rules ?? cache.routing.rulesPreview ?? [] })
     }
   }
 
@@ -51,6 +52,7 @@ export async function bootstrapApp(): Promise<void> {
   const capabilities = await runtimeCapabilities()
   store().setCapabilities(capabilities)
   store().setProfile({ paymentEnabled: true })
+  installDesktopTelemetry()
 
   if (!capabilities.system_proxy) store().setSettings({ autoApplyProxy: false })
   if (capabilities.vpn) store().setSettings({ autoApplyProxy: false })

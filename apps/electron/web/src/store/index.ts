@@ -1,4 +1,5 @@
 import type { RuntimeCapabilities, RuntimeConfig } from '../api/system'
+import type { AerionLogEntry } from '../platform/electron-api'
 import {
   DEFAULT_DIRECT_DNS,
   DEFAULT_NODE_DNS,
@@ -6,6 +7,9 @@ import {
   DEFAULT_OVERSEAS_DNS,
   DEFAULT_VIRTUAL_DNS_POOL,
 } from '../nodes'
+
+export const DEFAULT_SYSTEM_PROXY_BYPASS =
+  '<local>;localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.2*;172.30.*;172.31.*;192.168.*;[::1]'
 
 export interface AppNode {
   protocol: string
@@ -38,6 +42,7 @@ export interface RouteRoutingState {
   proxyGroupCount: number
   ruleProviderCount: number
   rulesPreview: string[]
+  rules: string[]
   routeConfigYaml: string | null
 }
 
@@ -50,6 +55,9 @@ export interface AppSettings {
   routingMode: RoutingMode
   tunEnabled: boolean
   systemProxyEnabled: boolean
+  proxyPort: number
+  allowLan: boolean
+  systemProxyBypass: string
   nodeDns: string
   overseasDns: string
   directDns: string
@@ -116,6 +124,11 @@ interface AppState {
   vpn: VpnSession | null
   preferredNodeIndex: number
   systemProxyActive: boolean
+  httpProxyAddr: string
+  uploadSpeedBps: number
+  downloadSpeedBps: number
+  activeSessions: number
+  logs: AerionLogEntry[]
   settings: AppSettings
   capabilities: RuntimeCapabilities | null
   buildConfig: RuntimeConfig | null
@@ -156,6 +169,11 @@ interface AppState {
   setVpn(session: VpnSession | null): void
   setPreferredNodeIndex(index: number): void
   setSystemProxyActive(active: boolean): void
+  setHttpProxyAddr(addr: string): void
+  setLiveSpeed(uploadSpeedBps: number, downloadSpeedBps: number): void
+  setActiveSessions(count: number): void
+  setLogs(logs: AerionLogEntry[]): void
+  appendLog(entry: AerionLogEntry): void
   updateVpnTraffic(sessionId: number, uploadBytes: number, downloadBytes: number): void
   setSettings(patch: Partial<AppSettings>): void
   setCapabilities(capabilities: RuntimeCapabilities): void
@@ -205,6 +223,7 @@ const EMPTY_ROUTING: RouteRoutingState = {
   proxyGroupCount: 0,
   ruleProviderCount: 0,
   rulesPreview: [],
+  rules: [],
   routeConfigYaml: null,
 }
 
@@ -238,6 +257,11 @@ const initialState: AppState = {
   vpn: null,
   preferredNodeIndex: 0,
   systemProxyActive: false,
+  httpProxyAddr: '',
+  uploadSpeedBps: 0,
+  downloadSpeedBps: 0,
+  activeSessions: 0,
+  logs: [],
   settings: {
     autoApplyProxy: true,
     autostart: false,
@@ -245,6 +269,9 @@ const initialState: AppState = {
     routingMode: 'rule',
     tunEnabled: false,
     systemProxyEnabled: true,
+    proxyPort: 0,
+    allowLan: false,
+    systemProxyBypass: DEFAULT_SYSTEM_PROXY_BYPASS,
     nodeDns: DEFAULT_NODE_DNS,
     overseasDns: DEFAULT_OVERSEAS_DNS,
     directDns: DEFAULT_DIRECT_DNS,
@@ -309,6 +336,14 @@ const initialState: AppState = {
   setVpn: (session) => set({ vpn: session }),
   setPreferredNodeIndex: (preferredNodeIndex) => set({ preferredNodeIndex }),
   setSystemProxyActive: (systemProxyActive) => set({ systemProxyActive }),
+  setHttpProxyAddr: (httpProxyAddr) => set({ httpProxyAddr }),
+  setLiveSpeed: (uploadSpeedBps, downloadSpeedBps) => set({ uploadSpeedBps, downloadSpeedBps }),
+  setActiveSessions: (activeSessions) => set({ activeSessions }),
+  setLogs: (logs) => set({ logs: logs.slice(-500) }),
+  appendLog: (entry) =>
+    set((state) => ({
+      logs: state.logs.length >= 500 ? [...state.logs.slice(state.logs.length - 499), entry] : [...state.logs, entry],
+    })),
   updateVpnTraffic: (sessionId, uploadBytes, downloadBytes) =>
     set((state) =>
       state.vpn && state.vpn.sessionId === sessionId
@@ -335,6 +370,10 @@ const initialState: AppState = {
       vpn: null,
       preferredNodeIndex: 0,
       systemProxyActive: false,
+      httpProxyAddr: '',
+      uploadSpeedBps: 0,
+      downloadSpeedBps: 0,
+      activeSessions: 0,
       balance: 0,
       commissionBalance: 0,
       panelExtensions: [],

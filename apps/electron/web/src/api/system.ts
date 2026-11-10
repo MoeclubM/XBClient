@@ -6,8 +6,10 @@ import {
   autostartSetEnabled as electronAutostartSetEnabled,
   invoke,
   onOAuthCallback as electronOnOAuthCallback,
+  openAppDir as electronOpenAppDir,
   openExternal as electronOpenExternal,
   openInAppBrowser as openInAppBrowserDesktop,
+  relaunchAsAdmin as electronRelaunchAsAdmin,
   takeOAuthCallback as electronTakeOAuthCallback,
 } from '../platform/electron'
 import { isDesktopShell, isElectronShell } from '../platform/shell'
@@ -72,6 +74,35 @@ export async function systemProxySet(host: string, port: number): Promise<void> 
 export async function systemProxyClear(): Promise<void> {
   if (!isDesktopShell()) throw new Error('systemProxyClear requires supported Electron desktop shell')
   await invoke('system_proxy_clear')
+}
+
+export interface LocalProxySyncParams {
+  host: string
+  port: number
+  enableSystemProxy: boolean
+  listenPort?: number
+  allowLan?: boolean
+  bypass?: string
+}
+
+export async function localProxySync(params: LocalProxySyncParams): Promise<{ httpPort: number; systemProxyOn: boolean }> {
+  if (!isDesktopShell()) throw new Error('localProxySync requires supported Electron desktop shell')
+  return invoke('local_proxy_sync', params)
+}
+
+export async function localProxyClear(): Promise<void> {
+  if (!isDesktopShell()) throw new Error('localProxyClear requires supported Electron desktop shell')
+  await invoke('local_proxy_clear', {})
+}
+
+export async function openAppDataDir(): Promise<string> {
+  if (!isDesktopShell()) throw new Error('openAppDataDir requires supported Electron desktop shell')
+  return electronOpenAppDir()
+}
+
+export async function relaunchElevated(): Promise<{ ok: boolean; cancelled?: boolean }> {
+  if (!isDesktopShell()) throw new Error('relaunchElevated requires supported Electron desktop shell')
+  return electronRelaunchAsAdmin()
 }
 
 export function parseSocksAddr(addr: string): { host: string; port: number } {

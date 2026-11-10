@@ -77,7 +77,21 @@ async fn run_aerion_listener(
         AerionProxyConfig::Naive(config) => {
             run_naive_client_listener_with_core(listener, config, core).await
         }
-        AerionProxyConfig::Route(config) => run_route_client_listener(listener, config).await,
+        AerionProxyConfig::Route(config) => {
+            if let Some(core) = core {
+                let state = aerion::RouteProxyState::new(
+                    aerion::RouteTable {
+                        default: config.default,
+                        ..aerion::RouteTable::default()
+                    },
+                    std::collections::BTreeMap::new(),
+                    Some(core),
+                );
+                aerion::run_route_proxy_with_state(listener, state).await
+            } else {
+                run_route_client_listener(listener, config).await
+            }
+        }
         AerionProxyConfig::Shadowsocks(config) => {
             run_shadowsocks_client_listener_with_core(listener, config, core).await
         }

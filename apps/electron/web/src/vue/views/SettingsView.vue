@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getVersion } from '../../platform/electron'
 import { isDesktopShell } from '../../platform/shell'
 import { autostartSetEnabled, openInAppBrowser, parseSocksAddr, systemProxyClear, systemProxySet } from '../../api/system'
+import { reapplyLocalProxySettings } from '../../desktop/connection'
+import { DEFAULT_SYSTEM_PROXY_BYPASS } from '../../store'
 import { appState, persistSettings, t } from '../state'
 import AppearanceControls from '../components/AppearanceControls.vue'
 
@@ -20,6 +22,10 @@ const vpnDnsMode = ref(appState.settings.vpnDnsMode)
 const virtualDnsPool = ref(appState.settings.virtualDnsPool)
 const nodeTestTarget = ref(appState.settings.nodeTestTarget)
 const geoipDir = ref(appState.settings.geoipDir)
+const proxyPortInput = ref(String(appState.settings.proxyPort))
+const allowLan = ref(appState.settings.allowLan)
+const systemProxyBypass = ref(appState.settings.systemProxyBypass)
+const isWindows = computed(() => appState.capabilities?.platform === 'windows')
 
 watch(() => appState.settings, (s) => {
   nodeDns.value = s.nodeDns
@@ -29,6 +35,9 @@ watch(() => appState.settings, (s) => {
   virtualDnsPool.value = s.virtualDnsPool
   nodeTestTarget.value = s.nodeTestTarget
   geoipDir.value = s.geoipDir
+  proxyPortInput.value = String(s.proxyPort)
+  allowLan.value = s.allowLan
+  systemProxyBypass.value = s.systemProxyBypass
 }, { deep: true })
 
 onMounted(async () => {
@@ -64,12 +73,51 @@ async function saveGeoipDir() {
   await persistSettings({ geoipDir: geoipDir.value.trim() })
 }
 
+function parseProxyPort(): number | null {
+  const raw = String(proxyPortInput.value ?? '').trim()
+  const parsed = raw === '' ? 0 : Number(raw)
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 65535) return null
+  return parsed
+}
+
+async function syncLocalProxyConfig(nextAllowLan = allowLan.value) {
+  error.value = ''
+  message.value = ''
+  const port = parseProxyPort()
+  if (port === null) {
+    error.value = t('invalid_proxy_port')
+    return false
+  }
+  allowLan.value = nextAllowLan
+  proxyPortInput.value = String(port)
+  await persistSettings({
+    proxyPort: port,
+    allowLan: nextAllowLan,
+    systemProxyBypass: systemProxyBypass.value.trim(),
+  })
+  const proxyErr = await reapplyLocalProxySettings()
+  if (proxyErr) {
+    error.value = proxyErr
+    return false
+  }
+  return true
+}
+
+async function resetProxyBypass() {
+  systemProxyBypass.value = DEFAULT_SYSTEM_PROXY_BYPASS
+  await syncLocalProxyConfig()
+}
+
 async function saveDnsSettings() {
   error.value = ''
   message.value = ''
   if (!nodeDns.value.trim() || !overseasDns.value.trim() || !directDns.value.trim() || !nodeTestTarget.value.trim() || !virtualDnsPool.value.trim()) {
     error.value = t('dns_fields_required')
     return
+  }
+  if (isDesktop && appState.capabilities?.system_proxy) {
+    const ok = await syncLocalProxyConfig()
+    if (!ok) return
   }
   await persistSettings({
     nodeDns: nodeDns.value.trim(),
@@ -83,11 +131,11 @@ async function saveDnsSettings() {
   setTimeout(() => { message.value = '' }, 2000)
 }
 
-const dnsModeOptions = [
+const dnsModeOptions = computed(() => [
   { value: 'over_tcp', label: t('dns_mode_over_tcp') },
   { value: 'virtual', label: t('dns_mode_virtual') },
   { value: 'direct', label: t('dns_mode_direct') },
-]
+])
 </script>
 
 <template>
@@ -111,8 +159,7 @@ const dnsModeOptions = [
         <v-card-text>
           <div class="appearance-row">
             <div>
-              <p class="text-body-2 font-weight-bold mb-1">{{ t('language') }} · {{ t('theme') }}</p>
-              <p class="muted mb-0">{{ t('page_settings_subtitle') }}</p>
+              <p class="text-body-2 font-weight-bold mb-0">{{ t('language') }} · {{ t('theme') }}</p>
             </div>
             <AppearanceControls />
           </div>
@@ -146,6 +193,48 @@ const dnsModeOptions = [
             persistent-hint
             @change="saveGeoipDir"
           />
+        </v-card-text>
+      </v-card>
+    </div>
+
+    <div v-if="isDesktop && appState.capabilities?.system_proxy" class="page-section">
+      <p class="section-label">{{ t('section_local_proxy') }}</p>
+      <v-card class="panel-card">
+        <v-card-text>
+          <v-text-field
+            v-model="proxyPortInput"
+            type="number"
+            min="0"
+            max="65535"
+            :label="t('proxy_port_label')"
+            variant="outlined"
+            density="compact"
+            hide-details
+            @change="syncLocalProxyConfig()"
+          />
+          <v-switch
+            color="primary"
+            density="compact"
+            class="mt-2"
+            :model-value="allowLan"
+            :label="t('allow_lan')"
+            :hint="t('allow_lan_desc')"
+            persistent-hint
+            @update:model-value="syncLocalProxyConfig($event === true)"
+          />
+          <div v-if="isWindows" class="proxy-bypass-row mt-3">
+            <v-text-field
+              v-model="systemProxyBypass"
+              :label="t('system_proxy_bypass')"
+              variant="outlined"
+              density="compact"
+              hide-details
+              @change="syncLocalProxyConfig()"
+            />
+            <v-btn variant="outlined" size="small" @click="resetProxyBypass">
+              {{ t('restore_default') }}
+            </v-btn>
+          </div>
         </v-card-text>
       </v-card>
     </div>

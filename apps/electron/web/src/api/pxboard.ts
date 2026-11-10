@@ -42,17 +42,17 @@ export async function syncPxBoard(): Promise<string | null> {
   const expiredAt = account?.expiresAt ? Date.parse(account.expiresAt) / 1000 : 0
   const blockReason = !account ? 'no_plan' : account.status !== 'active' ? 'suspended' : expiredAt && expiredAt <= Date.now() / 1000 ? 'expired' : !account.unlimited && used >= total ? 'traffic_exceeded' : ''
   let nodes: ReturnType<typeof toAppNode>[] = []
-  let routing = { has_rules: false, rule_count: 0, proxy_group_count: 0, rule_provider_count: 0, rules_preview: [] as string[], route_config_yaml: null as string | null }
+  let routing = { has_rules: false, rule_count: 0, proxy_group_count: 0, rule_provider_count: 0, rules_preview: [] as string[], rules: [] as string[], route_config_yaml: null as string | null }
   if (!blockReason) {
     const response = await subscriptionFetch(current.baseUrl.replace(/\/$/, '') + '/api/v1/extensions/subscriptions/configuration?format=aerion', 'aerion', 'Bearer ' + auth.replace(/^PxBoard /, ''))
     if (!response.ok || !response.routing || !response.nodes) throw new Error(response.error || 'Subscription routing missing')
-    routing = response.routing
+    routing = { ...response.routing, rules: response.routing.rules ?? response.routing.rules_preview }
     nodes = response.nodes.map(toAppNode)
   }
   if (useAppStore.getState().authData !== auth) return null
   current.setProfile({ panelExtensions: plugins.filter(p => p.enabled).map(p => p.id) })
   current.setSubscribe({ subscribeUrl: '', nodes })
-  current.setRouting({ hasRules: routing.has_rules, ruleCount: routing.rule_count, proxyGroupCount: routing.proxy_group_count, ruleProviderCount: routing.rule_provider_count, rulesPreview: routing.rules_preview, routeConfigYaml: routing.route_config_yaml })
+  current.setRouting({ hasRules: routing.has_rules, ruleCount: routing.rule_count, proxyGroupCount: routing.proxy_group_count, ruleProviderCount: routing.rule_provider_count, rulesPreview: routing.rules_preview, rules: routing.rules, routeConfigYaml: routing.route_config_yaml })
   const subscription: SubscriptionState = { summary: [formatTrafficBytes(used) + ' / ' + (account?.unlimited ? '∞' : formatTrafficBytes(total)), expiredAt ? formatUnixDate(expiredAt) : ''].filter(Boolean).join(' · '), blockReason, trafficUsedBytes: used, trafficTotalBytes: total, planName: '', expiredAt }
   current.setSubscriptionState(subscription)
   current.setSession({ baseUrl: current.baseUrl, authData: auth, email: user.email })

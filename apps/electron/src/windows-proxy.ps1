@@ -34,9 +34,9 @@ public static class XBClientInternet {
     }
     [DllImport("wininet.dll", SetLastError = true, CharSet = CharSet.Unicode, ExactSpelling = true)]
     public static extern bool InternetSetOptionW(IntPtr handle, int option, IntPtr buffer, int length);
-    public static void SetProxy(string server) {
+    public static void SetProxy(string server, string bypassList) {
         var text = Marshal.StringToHGlobalUni(server);
-        var bypass = Marshal.StringToHGlobalUni("<local>;localhost;127.*;[::1]");
+        var bypass = Marshal.StringToHGlobalUni(bypassList);
         var size = Marshal.SizeOf(typeof(Option));
         var values = Marshal.AllocHGlobal(size * 3);
         var list = new Options { Size = Marshal.SizeOf(typeof(Options)), Count = 3, Values = values };
@@ -62,7 +62,7 @@ public static class XBClientInternet {
 
 try {
     if ($Action -eq 'set') {
-        [XBClientInternet]::SetProxy("http=127.0.0.1:$Port;https=127.0.0.1:$Port")
+        [XBClientInternet]::SetProxy("http=127.0.0.1:$Port;https=127.0.0.1:$Port", $Bypass)
     } else {
         foreach ($name in $names) {
             if ($saved.GetValueNames() -contains $name) {

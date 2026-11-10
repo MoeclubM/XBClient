@@ -1,3 +1,6 @@
+import type { AerionLogEntry } from './electron-api'
+export type { AerionLogEntry }
+
 export function assertElectronAPI() {
   if (!window.electronAPI) throw new Error('electronAPI is missing')
   return window.electronAPI
@@ -29,6 +32,26 @@ export function onBackendError(handler: (message: string) => void): () => void {
 
 export function onAeronEvent(handler: (payload: string) => void): () => void {
   return assertElectronAPI().onAeronEvent(handler)
+}
+
+export function onAerionLog(handler: (entry: AerionLogEntry) => void): () => void {
+  return assertElectronAPI().onAerionLog(handler)
+}
+
+export async function getLogs(): Promise<AerionLogEntry[]> {
+  return assertElectronAPI().getLogs()
+}
+
+export async function clearLogs(): Promise<void> {
+  await assertElectronAPI().clearLogs()
+}
+
+export async function openAppDir(): Promise<string> {
+  return assertElectronAPI().openAppDir()
+}
+
+export async function relaunchAsAdmin(): Promise<{ ok: boolean; cancelled?: boolean }> {
+  return assertElectronAPI().relaunchAsAdmin()
 }
 
 export async function getVersion(): Promise<string> {

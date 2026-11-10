@@ -3,6 +3,7 @@ import { reportVpnSession } from './electron'
 import { isDesktopShell } from './shell'
 
 export interface TrayNodeSnapshot {
+  protocol: string
   name: string
   host: string
   port: number
@@ -23,6 +24,7 @@ export interface TrayStateSnapshot {
     routingMode?: 'rule' | 'global' | 'direct'
   } | null
   systemProxyOn: boolean
+  httpProxyAddr: string
   useVpn: boolean
   routingMode: 'rule' | 'global' | 'direct'
   settings: {
@@ -35,6 +37,9 @@ export interface TrayStateSnapshot {
     routingMode: 'rule' | 'global' | 'direct'
     tunEnabled: boolean
     systemProxyEnabled: boolean
+    proxyPort: number
+    allowLan: boolean
+    systemProxyBypass: string
     routeConfigYaml: string
     geoipDir: string
   }
@@ -56,6 +61,7 @@ export interface TrayStatePushFromMain {
     routingMode?: 'rule' | 'global' | 'direct'
   } | null
   systemProxyOn?: boolean
+  httpProxyAddr?: string
 }
 
 function buildTraySnapshot(): TrayStateSnapshot {
@@ -64,6 +70,7 @@ function buildTraySnapshot(): TrayStateSnapshot {
   const selectedNodeIndex = state.vpn?.nodeIndex ?? state.preferredNodeIndex
   return {
     nodes: state.nodes.map((node) => ({
+      protocol: node.protocol,
       name: node.name,
       host: node.host,
       port: node.port,
@@ -83,6 +90,7 @@ function buildTraySnapshot(): TrayStateSnapshot {
         }
       : null,
     systemProxyOn: state.systemProxyActive,
+    httpProxyAddr: state.httpProxyAddr,
     routingMode: state.settings.routingMode,
     useVpn: state.settings.tunEnabled,
     settings: {
@@ -95,6 +103,9 @@ function buildTraySnapshot(): TrayStateSnapshot {
       routingMode: state.settings.routingMode,
       tunEnabled: state.settings.tunEnabled,
       systemProxyEnabled: state.settings.systemProxyEnabled,
+      proxyPort: state.settings.proxyPort,
+      allowLan: state.settings.allowLan,
+      systemProxyBypass: state.settings.systemProxyBypass,
       routeConfigYaml: state.settings.routeConfigYaml,
       geoipDir: state.settings.geoipDir,
     },
@@ -113,6 +124,9 @@ function applyTrayPush(patch: TrayStatePushFromMain): void {
   }
   if (patch.systemProxyOn !== undefined) {
     store.setSystemProxyActive(patch.systemProxyOn)
+  }
+  if (patch.httpProxyAddr !== undefined) {
+    store.setHttpProxyAddr(patch.httpProxyAddr)
   }
   if ('vpn' in patch) {
     if (patch.vpn) {
@@ -140,10 +154,15 @@ export function installElectronTraySync(): () => void {
   if (!api?.syncTrayState) return () => {}
 
   let pushing = false
+  let lastSignature = ''
   const push = () => {
     if (pushing) return
+    const snapshot = buildTraySnapshot()
+    const signature = JSON.stringify(snapshot)
+    if (signature === lastSignature) return
+    lastSignature = signature
     pushing = true
-    void api.syncTrayState(buildTraySnapshot()).finally(() => {
+    void api.syncTrayState(snapshot).finally(() => {
       pushing = false
     })
   }

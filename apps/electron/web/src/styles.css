@@ -483,6 +483,249 @@ button {
   max-width: none;
 }
 
+.desktop-app .liquid-main--desktop .liquid-page {
+  width: min(100%, 64rem);
+  padding: 16px 20px 20px;
+}
+
+.desktop-app .liquid-main--desktop .liquid-page--wide {
+  width: 100%;
+  max-width: none;
+}
+
+.desktop-app .page-header {
+  margin-bottom: 14px;
+}
+
+.desktop-app .page-header-content h1 {
+  font-size: 1.25rem;
+}
+
+.desktop-app .page-header-bar {
+  height: 24px;
+}
+
+.desktop-app .page-header-bar.subtitle {
+  height: 36px;
+}
+
+.desktop-app .page-section {
+  margin-bottom: 14px;
+}
+
+.desktop-app .section-label {
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+}
+
+.desktop-app .panel-card {
+  border-radius: 12px !important;
+}
+
+.desktop-app .panel-card .v-card-text {
+  padding: 14px 16px;
+}
+
+.desktop-app .metric-cell {
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.desktop-app *,
+.desktop-app .liquid-main--desktop,
+.desktop-app .log-stream,
+.desktop-app .rule-list-box {
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline-variant) transparent;
+}
+
+.desktop-app *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  display: block;
+}
+
+.desktop-app *::-webkit-scrollbar-thumb {
+  background: var(--outline-variant);
+  border-radius: 999px;
+}
+
+.desktop-app *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mono-text {
+  font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.desktop-conn-card {
+  width: 100%;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--outline);
+  flex-shrink: 0;
+}
+
+.status-dot--on {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+}
+
+.desktop-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.desktop-toggle-item {
+  border: 1px solid var(--outline-variant);
+  border-radius: 10px;
+  padding: 6px 12px 8px;
+  background: var(--surface-container-low);
+}
+
+.metric-grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 980px) {
+  .metric-grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .desktop-toggle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.node-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.node-search {
+  flex: 1 1 220px;
+  max-width: 340px;
+}
+
+.rule-tester-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rule-tester-input {
+  flex: 1 1 240px;
+}
+
+.rule-search {
+  flex: 0 1 260px;
+  min-width: 180px;
+}
+
+.rule-list-box {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--outline-variant);
+  border-radius: 10px;
+  background: var(--surface-container-low);
+  padding: 6px 10px;
+}
+
+.rule-list-row {
+  padding: 3px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--outline-variant) 45%, transparent);
+  word-break: break-all;
+}
+
+.rule-list-row:last-child {
+  border-bottom: 0;
+}
+
+.proxy-bypass-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.diag-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 980px) {
+  .diag-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.log-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.log-search {
+  flex: 1 1 180px;
+  min-width: 160px;
+}
+
+.log-stream {
+  max-height: calc(100vh - 285px);
+  min-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--outline-variant);
+  border-radius: 10px;
+  background: var(--surface-container-low);
+  padding: 6px 8px;
+  font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.log-row {
+  display: grid;
+  grid-template-columns: auto 52px minmax(0, 1fr);
+  gap: 8px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  word-break: break-word;
+}
+
+.log-row:hover {
+  background: var(--surface-container-high);
+}
+
+.log-row__time {
+  color: var(--on-surface-variant);
+  white-space: nowrap;
+}
+
+.log-row__level {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.log-row--warn .log-row__level {
+  color: #d97706;
+}
+
+.log-row--error .log-row__level,
+.log-row--error .log-row__msg {
+  color: var(--error);
+}
+
 /* Bottom navigation — pill style matching Kotlin */
 .liquid-bottom-nav {
   position: fixed !important;
@@ -829,12 +1072,12 @@ button {
 }
 
 .desktop-sidebar {
-  width: 220px;
+  width: 204px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 20px 12px;
+  gap: 4px;
+  padding: 14px 10px;
   border-right: 1px solid var(--outline-variant);
   background: var(--surface-container-low);
 }
@@ -842,14 +1085,14 @@ button {
 .desktop-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 4px 8px 16px;
-  margin-bottom: 8px;
+  gap: 10px;
+  padding: 2px 8px 10px;
+  margin-bottom: 4px;
 }
 
 .desktop-brand img {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   object-fit: contain;
 }
 
@@ -861,8 +1104,9 @@ button {
 
 .desktop-nav-btn {
   justify-content: flex-start !important;
-  min-height: 44px !important;
-  padding-inline: 12px !important;
+  min-height: 38px !important;
+  padding-inline: 10px !important;
+  border-radius: 10px !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
   color: var(--on-surface-variant) !important;
@@ -877,6 +1121,35 @@ button {
 .desktop-nav-btn--active {
   background: var(--primary-container) !important;
   color: var(--on-primary-container) !important;
+}
+
+.desktop-sidebar-status {
+  margin-top: auto;
+  border: 1px solid var(--outline-variant);
+  border-radius: 10px;
+  background: var(--surface-container);
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+  font-size: 0.75rem;
+}
+
+.desktop-sidebar-status__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+  font-weight: 700;
+  color: var(--on-surface);
+}
+
+.desktop-sidebar-status__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--on-surface-variant);
 }
 
 .desktop-main {

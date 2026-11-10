@@ -4,6 +4,7 @@ import { useRoute, RouterView, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { installElectronTraySync } from '../platform/electron-tray-sync'
 import { isDesktopShell } from '../platform/shell'
+import { formatSpeedBps } from '../format'
 import { appState, applyDocumentTheme, bootstrapApp, preventDesktopZoom, t } from './state'
 import DesktopTitleBar from './components/DesktopTitleBar.vue'
 import { isPxBoard } from '../api/pxboard'
@@ -43,6 +44,7 @@ const NAV_ITEMS = computed(() => [
   { path: '/plans', icon: '◫', label: () => t('nav_plans') },
   { path: '/profile', icon: '◉', label: () => t('nav_profile') },
   { path: '/services', icon: '✦', label: () => t('nav_services') },
+  ...(isDesktop ? [{ path: '/logs', icon: '≡', label: () => t('nav_logs') }] : []),
   { path: '/settings', icon: '⚙', label: () => t('nav_settings') },
 ].filter(item => !isPxBoard() || item.path !== '/services' && (item.path !== '/plans' || appState.panelExtensions.includes('commerce'))))
 
@@ -71,6 +73,18 @@ function navActive(itemPath: string): boolean {
   if (itemPath === '/nodes') return route.path === '/nodes'
   return route.path === itemPath
 }
+
+const activeModeLabel = computed(() => {
+  const mode = appState.vpn?.routingMode || appState.settings.routingMode
+  if (mode === 'global') return t('routing_mode_global')
+  if (mode === 'direct') return t('routing_mode_direct')
+  return t('routing_mode_rule')
+})
+
+const sidebarHttpPort = computed(() => {
+  if (!appState.httpProxyAddr) return ''
+  return `:${appState.httpProxyAddr.split(':').pop()}`
+})
 
 onMounted(async () => {
   cleanupZoom = preventDesktopZoom()
@@ -143,6 +157,16 @@ onUnmounted(() => {
             <span class="nav-symbol">{{ item.icon }}</span>
             <span>{{ item.label() }}</span>
           </v-btn>
+          <div v-if="appState.vpn" class="desktop-sidebar-status">
+            <div class="desktop-sidebar-status__row">
+              <span>↑ {{ formatSpeedBps(appState.uploadSpeedBps) }}</span>
+              <span>↓ {{ formatSpeedBps(appState.downloadSpeedBps) }}</span>
+            </div>
+            <div class="desktop-sidebar-status__meta">
+              <span>{{ activeModeLabel }}</span>
+              <span v-if="sidebarHttpPort" class="mono-text">HTTP {{ sidebarHttpPort }}</span>
+            </div>
+          </div>
         </aside>
         <div class="desktop-main">
           <v-main class="liquid-main liquid-main--desktop">

@@ -48,6 +48,42 @@ export async function aerionStopRoute(sessionId: number): Promise<{ ok: boolean;
   return invoke('aerion_stop_route', { sessionId })
 }
 
+export interface RouteTestRequest {
+  config_yaml: string
+  geoip_dir?: string
+  global_proxy?: string
+  selected_proxy?: string
+  target: string
+  network?: 'tcp' | 'udp'
+}
+
+export interface RouteTestResult {
+  ok: boolean
+  target: string
+  network: string
+  decision: 'DIRECT' | 'REJECT' | 'PROXY'
+  outbound?: string | null
+  matched_rule: string
+}
+
+export async function aerionTestRoute(request: RouteTestRequest): Promise<RouteTestResult> {
+  return invoke<RouteTestResult>('aerion_test_route', request)
+}
+
+export interface RouteInspectResult {
+  ok: boolean
+  has_rules: boolean
+  rule_count: number
+  proxy_group_count: number
+  rule_provider_count: number
+  rules_preview: string[]
+  rules?: string[]
+}
+
+export async function aerionInspectRoute(configYaml: string): Promise<RouteInspectResult> {
+  return invoke<RouteInspectResult>('aerion_inspect_route', { config_yaml: configYaml })
+}
+
 export async function aerionStop(sessionId: number): Promise<{ ok: boolean; session_id: number }> {
   return invoke('aerion_stop', { sessionId })
 }
@@ -64,6 +100,7 @@ export interface VpnHandle {
 
 export interface VpnStartRequest {
   node: unknown
+  route?: RouteStartRequest
   mtu: number
   dns: string
   dns_addr: string

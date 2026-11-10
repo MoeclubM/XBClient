@@ -6,7 +6,15 @@ export interface ElectronRuntimeCapabilities {
   tray: boolean
   local_socks: boolean
   vpn: boolean
+  tun_elevated?: boolean
   payment: boolean
+}
+
+export interface AerionLogEntry {
+  id: number
+  timestamp: number
+  level: string
+  message: string
 }
 
 export interface ElectronAPIInvoke {
@@ -32,6 +40,11 @@ export interface ElectronAPI {
   takeOAuthCallback: () => Promise<string | null>
   onOAuthCallback: (handler: (url: string) => void) => () => void
   onAeronEvent: (handler: (payload: string) => void) => () => void
+  onAerionLog: (handler: (entry: AerionLogEntry) => void) => () => void
+  getLogs: () => Promise<AerionLogEntry[]>
+  clearLogs: () => Promise<boolean>
+  openAppDir: () => Promise<string>
+  relaunchAsAdmin: () => Promise<{ ok: boolean; cancelled?: boolean }>
   autostartIsEnabled: () => Promise<boolean>
   autostartSetEnabled: (value: boolean, silent?: boolean) => Promise<boolean>
   launchedSilent: () => boolean

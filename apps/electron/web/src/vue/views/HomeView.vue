@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { aerionStartSocks, aerionStartVpn, aerionStop, aerionStopVpn } from '../../api/aerion'
 import { applyDesktopConnection, isDesktopConnectionShell } from '../../desktop/connection'
 import { onAeronEvent, reportVpnSession } from '../../platform/electron'
+import { isElectronShell } from '../../platform/shell'
 import {
   parseSocksAddr,
   resolveAppNode,
@@ -36,6 +37,7 @@ const progressPercent = computed(() =>
 
 onMounted(async () => {
   await refresh()
+  if (isElectronShell()) return
   unlistenEvent = onAeronEvent((payload) => {
     try {
       const data = JSON.parse(payload) as {

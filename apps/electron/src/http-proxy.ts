@@ -5,9 +5,31 @@ import type { Duplex } from 'node:stream'
 import { SocksClient } from 'socks'
 import { SocksProxyAgent } from 'socks-proxy-agent'
 
-export async function startHttpProxy(host: string, port: number) {
+export interface HttpProxyOptions {
+  listenPort?: number
+  allowLan?: boolean
+}
+
+export interface HttpProxyBridge {
+  port: number
+  listenPort: number
+  allowLan: boolean
+  setUpstream: (host: string, port: number) => void
+  close: () => Promise<void>
+}
+
+function buildSocksAgent(host: string, port: number) {
+  return new SocksProxyAgent(`socks5h://${host.includes(':') ? `[${host}]` : host}:${port}`, { keepAlive: true })
+}
+
+export async function startHttpProxy(host: string, port: number, options: HttpProxyOptions = {}): Promise<HttpProxyBridge> {
+  const listenPort = options.listenPort && options.listenPort > 0 ? options.listenPort : 0
+  const allowLan = Boolean(options.allowLan)
+  const listenHost = allowLan ? '0.0.0.0' : '127.0.0.1'
   const sockets = new Set<Socket>()
-  const agent = new SocksProxyAgent(`socks5h://${host.includes(':') ? `[${host}]` : host}:${port}`, { keepAlive: true })
+  let upstreamHost = host
+  let upstreamPort = port
+  let agent = buildSocksAgent(host, port)
   function forward(request: http.IncomingMessage) {
     const target = new URL(request.url!, `http://${request.headers.host}`)
     if (target.protocol === 'ws:') target.protocol = 'http:'
@@ -62,7 +84,7 @@ export async function startHttpProxy(host: string, port: number) {
     void (async () => {
       const target = new URL(`https://${request.url}`)
       const { socket } = await SocksClient.createConnection({
-        proxy: { host, port, type: 5 },
+        proxy: { host: upstreamHost, port: upstreamPort, type: 5 },
         command: 'connect',
         destination: { host: target.hostname.replace(/^\[|\]$/g, ''), port: Number(target.port) || 443 },
       })
@@ -99,14 +121,31 @@ export async function startHttpProxy(host: string, port: number) {
   })
   server.on('clientError', (_error, socket) => socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n'))
   await new Promise<void>((resolve, reject) => {
-    server.once('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      server.off('error', reject)
+    const onError = (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE' && listenPort > 0) {
+        reject(new Error(`本地 HTTP 代理端口 ${listenPort} 已被占用，请在设置中更换端口或设为 0 自动分配`))
+        return
+      }
+      reject(error)
+    }
+    server.once('error', onError)
+    server.listen(listenPort, listenHost, () => {
+      server.off('error', onError)
       resolve()
     })
   })
   return {
     port: (server.address() as { port: number }).port,
+    listenPort,
+    allowLan,
+    setUpstream: (nextHost: string, nextPort: number) => {
+      if (upstreamHost === nextHost && upstreamPort === nextPort) return
+      upstreamHost = nextHost
+      upstreamPort = nextPort
+      const previous = agent
+      agent = buildSocksAgent(nextHost, nextPort)
+      previous.destroy()
+    },
     close: async () => {
       agent.destroy()
       for (const socket of sockets) socket.destroy()

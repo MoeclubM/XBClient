@@ -31,7 +31,7 @@ dependencies = [
 [[package]]
 name = "aerion"
 version = "0.1.0"
-source = "git+https://github.com/MoeclubM/Aerion.git?rev=3b62f8fb67fa68184877611d7457e71b1c99b427#3b62f8fb67fa68184877611d7457e71b1c99b427"
+source = "git+https://github.com/MoeclubM/Aerion.git?rev=7075baa0cbc5c988fe963c3838bf55bca3381a53#7075baa0cbc5c988fe963c3838bf55bca3381a53"
 dependencies = [
  "aes 0.8.4",
  "aes-gcm 0.10.3",
@@ -58,6 +58,7 @@ dependencies = [
  "rand 0.9.5",
  "rcgen",
  "regex",
+ "ring",
  "rustls",
  "rustls-pemfile",
  "serde",

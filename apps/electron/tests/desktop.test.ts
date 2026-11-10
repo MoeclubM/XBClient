@@ -134,14 +134,58 @@ test('WebSocket HTTP upgrade passes through the actual SOCKS listener', { timeou
 test('Windows proxy replacement restores manual, automatic and binary connection settings', { skip: process.platform !== 'win32', timeout: 60000 }, async () => {
   const original = await proxySnapshot()
   try {
-    await setWindowsSystemProxy('127.0.0.1', socksPort)
+    await setWindowsSystemProxy('127.0.0.1', socksPort, { bypass: '<local>;localhost;127.*;192.168.*;*.corp.internal' })
     const enabled = await proxySnapshot()
     assert.equal(enabled.ProxyEnable, 1)
     assert.match(enabled.ProxyServer, /^http=127\.0\.0\.1:\d+;https=127\.0\.0\.1:\d+$/)
+    assert.match(enabled.ProxyOverride, /corp\.internal/)
     await setWindowsSystemProxy('127.0.0.1', socksPort)
     await clearWindowsSystemProxy()
     assert.deepEqual(await proxySnapshot(), original)
   } finally {
     await clearWindowsSystemProxy()
   }
+})
+
+test('HTTP proxy bridge rejects occupied fixed port explicitly', { timeout: 15000 }, async () => {
+  const blocker = net.createServer()
+  blocker.listen(0, '127.0.0.1')
+  await once(blocker, 'listening')
+  const occupiedPort = (blocker.address() as net.AddressInfo).port
+  try {
+    await assert.rejects(
+      () => startHttpProxy('127.0.0.1', socksPort, { listenPort: occupiedPort }),
+      new RegExp(String(occupiedPort)),
+    )
+  } finally {
+    await new Promise<void>((resolve) => blocker.close(() => resolve()))
+  }
+})
+
+test('aerion_test_route evaluates real Mihomo rules and returns matched rule', { timeout: 15000 }, async () => {
+  const configYaml = [
+    'proxies: []',
+    'rules:',
+    '  - DOMAIN-SUFFIX,openai.com,Proxy',
+    '  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve',
+    '  - MATCH,Proxy',
+  ].join('\n')
+  const hit = await invoke('aerion_test_route', {
+    config_yaml: configYaml,
+    selected_proxy: 'Tokyo-01',
+    target: 'https://api.openai.com/v1',
+    network: 'tcp',
+  })
+  assert.equal(hit.decision, 'PROXY')
+  assert.equal(hit.outbound, 'Tokyo-01')
+  assert.equal(hit.matched_rule, 'DOMAIN-SUFFIX,openai.com,Tokyo-01')
+
+  const lan = await invoke('aerion_test_route', {
+    config_yaml: configYaml,
+    selected_proxy: 'Tokyo-01',
+    target: '192.168.1.10:8080',
+    network: 'tcp',
+  })
+  assert.equal(lan.decision, 'DIRECT')
+  assert.equal(lan.matched_rule, 'IP-CIDR,192.168.0.0/16,DIRECT,no-resolve')
 })

@@ -553,6 +553,22 @@ async fn aerion_stop_route(params: &Value) -> Result<Value> {
     serde_json::from_str(&output).context("parse aerion_stop_route response")
 }
 
+fn aerion_test_route(params: &Value) -> Result<Value> {
+    let input = serde_json::to_string(params)?;
+    let output = aerion_core::test_route_from_json(&input).context("test Aerion route")?;
+    serde_json::from_str(&output).context("parse aerion_test_route response")
+}
+
+fn aerion_inspect_route(params: &Value) -> Result<Value> {
+    let config_yaml = params
+        .get("config_yaml")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("aerion_inspect_route missing config_yaml"))?;
+    let output =
+        aerion_core::inspect_route_config_yaml(config_yaml).context("inspect Aerion route")?;
+    serde_json::from_str(&output).context("parse aerion_inspect_route response")
+}
+
 async fn aerion_stop(params: &Value) -> Result<Value> {
     let session_id = params
         .get("sessionId")
@@ -759,6 +775,22 @@ async fn main() -> Result<()> {
                     let params = req.params.clone();
                     let resp =
                         spawn_aerion_value(async move { aerion_stop_route(&params).await }).await?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: resp,
+                    })
+                }
+                "aerion_test_route" => {
+                    let resp = aerion_test_route(&req.params)?;
+                    Ok(RpcResponseOk {
+                        id: req.id,
+                        ok: true,
+                        result: resp,
+                    })
+                }
+                "aerion_inspect_route" => {
+                    let resp = aerion_inspect_route(&req.params)?;
                     Ok(RpcResponseOk {
                         id: req.id,
                         ok: true,

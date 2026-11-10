@@ -34,6 +34,18 @@ export function formatTrafficBytes(value: number): string {
   return `${size.toFixed(2)} ${units[index]}`
 }
 
+export function formatSpeedBps(bytesPerSec: number): string {
+  if (bytesPerSec <= 0) return '0 B/s'
+  const units = ['B/s', 'KB/s', 'MB/s', 'GB/s']
+  let size = bytesPerSec
+  let index = 0
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024
+    index++
+  }
+  return `${size >= 100 || index === 0 ? Math.round(size) : size.toFixed(1)} ${units[index]}`
+}
+
 export function formatUnixDate(seconds: number): string {
   if (seconds <= 0) return ''
   const d = new Date(seconds * 1000)

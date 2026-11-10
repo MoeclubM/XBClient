@@ -22,6 +22,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('aerion-event', listener)
     return () => ipcRenderer.removeListener('aerion-event', listener)
   },
+  onAerionLog: (handler) => {
+    const listener = (_, entry) => handler(entry)
+    ipcRenderer.on('aerion-log', listener)
+    return () => ipcRenderer.removeListener('aerion-log', listener)
+  },
+  getLogs: () => ipcRenderer.invoke('electron-get-logs'),
+  clearLogs: () => ipcRenderer.invoke('electron-clear-logs'),
+  openAppDir: () => ipcRenderer.invoke('electron-open-app-dir'),
+  relaunchAsAdmin: () => ipcRenderer.invoke('electron-relaunch-admin'),
   autostartIsEnabled: () => ipcRenderer.invoke('electron-autostart-is-enabled'),
   autostartSetEnabled: (value, silent) => ipcRenderer.invoke('electron-autostart-set-enabled', { value, silent }),
   launchedSilent: () => ipcRenderer.sendSync('electron-launched-silent'),

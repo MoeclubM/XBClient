@@ -1,14 +1,15 @@
 import { aerionStartRoute, aerionStartSocks, aerionStartVpn, aerionStop, aerionStopRoute, aerionStopVpn } from '../api/aerion'
 import {
+  localProxyClear,
+  localProxySync,
   parseSocksAddr,
   resolveAppNode,
-  systemProxyClear,
-  systemProxySet,
 } from '../api/system'
 import {
   dnsAddressForVpn,
 } from '../nodes'
 import { publicErrorText } from '../format'
+import { translate } from '../i18n'
 import { reportVpnSession } from '../platform/electron'
 import { isDesktopShell } from '../platform/shell'
 import { useAppStore, type AppNode } from '../store'
@@ -39,23 +40,30 @@ async function applySessionSystemProxy(): Promise<void> {
   const state = useAppStore.getState()
   const session = state.vpn
   const socksAddr = session?.socksAddr || session?.tunSocksAddr || ''
-  if (state.settings.systemProxyEnabled) {
-    if (!socksAddr) throw new Error('session SOCKS address is required for system proxy')
-    const parsed = parseSocksAddr(socksAddr)
-    await systemProxySet(parsed.host, parsed.port)
-    state.setSystemProxyActive(true)
-  } else if (state.systemProxyActive) {
-    await systemProxyClear()
+  if (!socksAddr) {
+    await localProxyClear()
     state.setSystemProxyActive(false)
+    state.setHttpProxyAddr('')
+    return
   }
+  const parsed = parseSocksAddr(socksAddr)
+  const synced = await localProxySync({
+    host: parsed.host,
+    port: parsed.port,
+    enableSystemProxy: state.settings.systemProxyEnabled,
+    listenPort: state.settings.proxyPort,
+    allowLan: state.settings.allowLan,
+    bypass: state.settings.systemProxyBypass,
+  })
+  state.setSystemProxyActive(synced.systemProxyOn)
+  state.setHttpProxyAddr(`127.0.0.1:${synced.httpPort}`)
 }
 
 async function disconnectSession(): Promise<void> {
   const state = useAppStore.getState()
-  if (state.systemProxyActive) {
-    await systemProxyClear()
-    state.setSystemProxyActive(false)
-  }
+  await localProxyClear()
+  state.setSystemProxyActive(false)
+  state.setHttpProxyAddr('')
   const session = state.vpn
   if (!session) return
   const useTun = !session.routeMode && !session.socksAddr
@@ -69,12 +77,27 @@ async function disconnectSession(): Promise<void> {
 async function startTun(index: number): Promise<void> {
   const state = useAppStore.getState()
   const resolved = await connectionNode(index)
+  const node = state.nodes[index]
+  const configYaml = (state.settings.routeConfigYaml.trim() || state.routing.routeConfigYaml || '').trim()
+  if (state.settings.routingMode === 'rule' && !configYaml) {
+    throw new Error(translate('routing_rules_missing', state.settings.appLanguage))
+  }
   const dnsMode = state.settings.vpnDnsMode
   const dns_addr = dnsAddressForVpn(
     dnsMode === 'direct' ? state.settings.directDns : state.settings.overseasDns,
   )
   const handle = await aerionStartVpn({
     node: resolved,
+    ...(state.settings.routingMode === 'rule' && node
+      ? {
+          route: {
+            config_yaml: configYaml,
+            geoip_dir: state.settings.geoipDir.trim() || undefined,
+            selected_proxy: node.name,
+            selected_node: resolved,
+          },
+        }
+      : {}),
     mtu: 1500,
     dns: dnsMode,
     dns_addr,
@@ -119,7 +142,7 @@ async function startRoute(index: number): Promise<void> {
   if (!node?.connectSupported) throw new Error('unsupported_protocol')
   const resolved = await resolvedNode(node)
   const configYaml = state.settings.routeConfigYaml.trim() || state.routing.routeConfigYaml
-  if (!configYaml?.trim()) throw new Error('routing_rules_missing')
+  if (!configYaml?.trim()) throw new Error(translate('routing_rules_missing', state.settings.appLanguage))
   const request = {
     config_yaml: configYaml,
     geoip_dir: state.settings.geoipDir.trim() || undefined,
@@ -128,7 +151,6 @@ async function startRoute(index: number): Promise<void> {
     selected_node: state.settings.routingMode === 'rule' ? resolved : undefined,
   }
   const handle = await aerionStartRoute(request)
-  const parsed = parseSocksAddr(handle.socks_addr)
   state.setPreferredNodeIndex(index)
   state.setVpn({
     sessionId: handle.session_id,
@@ -139,10 +161,7 @@ async function startRoute(index: number): Promise<void> {
     routeMode: true,
     routingMode: state.settings.routingMode,
   })
-  if (state.settings.systemProxyEnabled) {
-    await systemProxySet(parsed.host, parsed.port)
-    state.setSystemProxyActive(true)
-  }
+  await applySessionSystemProxy()
 }
 
 function queueConnection(action: () => Promise<string | null>): Promise<string | null> {
@@ -194,10 +213,8 @@ async function syncDesktopConnection(): Promise<string | null> {
       if (!routeSession || session?.nodeIndex !== nodeIndex || modeChanged) {
         if (session) await disconnectSession()
         await startRoute(nodeIndex)
-      } else if (!state.systemProxyActive && session.socksAddr) {
-        const parsed = parseSocksAddr(session.socksAddr)
-        await systemProxySet(parsed.host, parsed.port)
-        state.setSystemProxyActive(true)
+      } else if (session.socksAddr) {
+        await applySessionSystemProxy()
       }
       return null
     }
@@ -205,6 +222,10 @@ async function syncDesktopConnection(): Promise<string | null> {
     if (routeSession) await disconnectSession()
 
     if (wantTun) {
+      if (state.capabilities?.tun_elevated === false) {
+        if (session) await disconnectSession()
+        return null
+      }
       if (socksSession || routeSession) await disconnectSession()
       if (!tunSession || session?.nodeIndex !== nodeIndex || modeChanged) {
         if (session) await disconnectSession()
@@ -220,16 +241,15 @@ async function syncDesktopConnection(): Promise<string | null> {
       if (!socksSession || session?.nodeIndex !== nodeIndex || modeChanged) {
         if (session) await disconnectSession()
         await startSocks(nodeIndex)
-      } else if (!state.systemProxyActive && session.socksAddr) {
-        const parsed = parseSocksAddr(session.socksAddr)
-        await systemProxySet(parsed.host, parsed.port)
-        state.setSystemProxyActive(true)
+      } else if (session.socksAddr) {
+        await applySessionSystemProxy()
       }
     } else if (session) {
       await disconnectSession()
-    } else if (state.systemProxyActive) {
-      await systemProxyClear()
+    } else if (state.systemProxyActive || state.httpProxyAddr) {
+      await localProxyClear()
       state.setSystemProxyActive(false)
+      state.setHttpProxyAddr('')
     }
     return null
   } catch (err) {
@@ -258,6 +278,34 @@ export async function setSystemProxyEnabled(enabled: boolean): Promise<string | 
   const state = useAppStore.getState()
   state.setSettings({ systemProxyEnabled: enabled })
   return applyDesktopConnection()
+}
+
+export function reapplyLocalProxySettings(): Promise<string | null> {
+  return queueConnection(async () => {
+    if (!isDesktopConnectionShell() || !useAppStore.getState().vpn) return null
+    try {
+      await applySessionSystemProxy()
+      return null
+    } catch (err) {
+      return publicErrorText(err)
+    }
+  })
+}
+
+export function buildTerminalProxyCommand(shell: 'powershell' | 'cmd' | 'bash'): string | null {
+  const state = useAppStore.getState()
+  const httpAddr = state.httpProxyAddr
+  const socksAddr = state.vpn?.socksAddr || state.vpn?.tunSocksAddr || ''
+  if (!httpAddr && !socksAddr) return null
+  const httpUrl = httpAddr ? `http://${httpAddr}` : `socks5://${socksAddr}`
+  const socksUrl = socksAddr ? `socks5://${socksAddr}` : httpUrl
+  if (shell === 'powershell') {
+    return `$env:HTTP_PROXY="${httpUrl}"; $env:HTTPS_PROXY="${httpUrl}"; $env:ALL_PROXY="${socksUrl}"`
+  }
+  if (shell === 'cmd') {
+    return `set HTTP_PROXY=${httpUrl} && set HTTPS_PROXY=${httpUrl} && set ALL_PROXY=${socksUrl}`
+  }
+  return `export http_proxy="${httpUrl}" https_proxy="${httpUrl}" all_proxy="${socksUrl}"`
 }
 
 export function desktopConnectionBusy(): boolean {
