@@ -821,9 +821,7 @@ async function traySetRoutingMode(mode) {
     pushTrayStateToWeb({ settings: { routingMode: mode } })
     if (previousMode !== mode) await trayApplyConnection()
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    dialog.showErrorBox('路由模式', message)
-    throw err
+    await reportTrayFailure('路由模式', err)
   } finally {
     trayBusy = false
     rebuildTrayMenu()
@@ -841,9 +839,7 @@ async function trayToggleVpn() {
     pushTrayStateToWeb({ settings: { tunEnabled: trayState.useVpn } })
     await trayApplyConnection()
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    dialog.showErrorBox('TUN 模式', message)
-    throw err
+    await reportTrayFailure('TUN 模式', err)
   } finally {
     trayBusy = false
     rebuildTrayMenu()
@@ -860,9 +856,7 @@ async function trayToggleSystemProxy() {
     pushTrayStateToWeb({ settings: { systemProxyEnabled: trayState.settings.systemProxyEnabled } })
     await trayApplyConnection()
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    dialog.showErrorBox('系统代理', message)
-    throw err
+    await reportTrayFailure('系统代理', err)
   } finally {
     trayBusy = false
     rebuildTrayMenu()
@@ -894,9 +888,7 @@ async function traySelectNode(index) {
     if (wasConnected) await trayConnect(index)
     else pushTrayStateToWeb({ selectedNodeIndex: index })
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    dialog.showErrorBox('选择节点', message)
-    throw err
+    await reportTrayFailure('选择节点', err)
   } finally {
     trayBusy = false
     rebuildTrayMenu()
@@ -1104,6 +1096,17 @@ function notifyBackendError(err) {
   }
 }
 
+async function reportTrayFailure(title, error) {
+  let message = error instanceof Error ? error.message : String(error)
+  try {
+    await trayDisconnect()
+  } catch (cleanupError) {
+    message += `\n断开连接失败：${cleanupError.message}`
+  }
+  console.error('[tray]', message)
+  dialog.showErrorBox(title, message)
+}
+
 async function resetConnectionAfterFailure(error) {
   try {
     if (process.platform === 'win32' || trayState.systemProxyOn) {
@@ -1177,6 +1180,9 @@ if (instanceLock) {
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
     })
+  }).catch((error) => {
+    notifyBackendError(error)
+    app.exit(1)
   })
 
   app.on('window-all-closed', () => {

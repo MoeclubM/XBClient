@@ -29,9 +29,9 @@ const tunNeedsElevation = computed(
 onUnmounted(() => { if (durationTimer) window.clearInterval(durationTimer) })
 
 watch(
-  () => appState.vpn,
-  (session) => {
-    if (session) {
+  () => appState.vpn?.sessionId,
+  (sessionId) => {
+    if (sessionId != null) {
       connectedAt = Date.now()
       duration.value = 0
       if (durationTimer) window.clearInterval(durationTimer)

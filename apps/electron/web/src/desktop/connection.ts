@@ -233,7 +233,11 @@ async function syncDesktopConnection(): Promise<string | null> {
     }
     return null
   } catch (err) {
-    await disconnectSession()
+    try {
+      await disconnectSession()
+    } catch (cleanupError) {
+      return `${publicErrorText(err)}\n${publicErrorText(cleanupError)}`
+    }
     return publicErrorText(err)
   }
 }
