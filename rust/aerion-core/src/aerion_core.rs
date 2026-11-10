@@ -729,6 +729,7 @@ mod platform {
 
     struct VpnSession {
         shutdown: TunCancellationToken,
+        finished: tokio::sync::oneshot::Receiver<std::result::Result<(), String>>,
         proxy_task: JoinHandle<Result<()>>,
         _log_task: Option<JoinHandle<()>>,
         _event_task: Option<JoinHandle<()>>,
@@ -783,8 +784,18 @@ mod platform {
         tun_config.verbosity = TunVerbosity::Info;
 
         let log_bridge = aerion::LogBridge::new();
-        let runtime = spawn_tun(tun_config).context("spawn Aerion TUN runtime")?;
+        let runtime = match spawn_tun(tun_config) {
+            Ok(runtime) => runtime,
+            Err(error) => {
+                if let Some(core) = core {
+                    core.cancel_all_sessions();
+                }
+                proxy_task.abort();
+                return Err(error).context("spawn Aerion TUN runtime");
+            }
+        };
         let shutdown = runtime.shutdown_token();
+        let (finished_tx, finished_rx) = tokio::sync::oneshot::channel();
         let session_id = NEXT_VPN_SESSION_ID.fetch_add(1, Ordering::SeqCst);
 
         let log_task = {
@@ -812,6 +823,7 @@ mod platform {
                 session_id,
                 VpnSession {
                     shutdown: shutdown.clone(),
+                    finished: finished_rx,
                     proxy_task,
                     _log_task: log_task,
                     _event_task: event_task,
@@ -820,9 +832,11 @@ mod platform {
             );
 
         tokio::spawn(async move {
-            if let Err(error) = runtime.wait().await {
-                log::error!("Aerion TUN runtime exited with error: {error:?}");
-            }
+            let result = runtime
+                .wait()
+                .await
+                .map(|_| ())
+                .map_err(|error| format!("{error:#}"));
             if let Some(session) = VPN_SESSIONS
                 .lock()
                 .expect("VPN session map lock poisoned")
@@ -838,7 +852,16 @@ mod platform {
                 if let Some(task) = session._event_task {
                     task.abort();
                 }
+                on_event(
+                    &json!({
+                        "type": "vpn_stopped",
+                        "wrapper_session_id": session_id,
+                        "error": result.as_ref().err(),
+                    })
+                    .to_string(),
+                );
             }
+            let _ = finished_tx.send(result);
         });
 
         Ok(json!({
@@ -872,7 +895,25 @@ mod platform {
         if let Some(task) = session._event_task {
             task.abort();
         }
+        session
+            .finished
+            .await
+            .context("wait for TUN shutdown")?
+            .map_err(anyhow::Error::msg)?;
         Ok(json!({"ok": true, "session_id": session_id}).to_string())
+    }
+
+    pub async fn shutdown() -> Result<()> {
+        let session_ids: Vec<_> = VPN_SESSIONS
+            .lock()
+            .expect("VPN session map lock poisoned")
+            .keys()
+            .copied()
+            .collect();
+        for session_id in session_ids {
+            stop(session_id).await?;
+        }
+        Ok(())
     }
 }
 
@@ -897,6 +938,11 @@ pub async fn start_vpn_from_json(input: &str) -> Result<String> {
 
 pub async fn stop_vpn(session_id: u64) -> Result<String> {
     platform::stop(session_id).await
+}
+
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+pub async fn shutdown_vpns() -> Result<()> {
+    platform::shutdown().await
 }
 
 #[cfg(test)]

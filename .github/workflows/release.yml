@@ -183,6 +183,8 @@ jobs:
         run: |
           pnpm install --frozen-lockfile=false
           pnpm --filter xbclient-electron dist:win
+          test -f apps/electron/dist/win-unpacked/resources/bin/wintun.dll
+          pnpm --filter xbclient-electron test:desktop
           rm -f apps/electron/dist/*portable*.exe
           installer="$(find apps/electron/dist -maxdepth 1 -type f -name '*-win-x64.exe' -print -quit)"
           test -n "$installer"
@@ -267,6 +269,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile=false
           pnpm --filter xbclient-electron dist:linux:deb
+          pnpm --filter xbclient-electron test:desktop
           deb="$(find apps/electron/dist -maxdepth 1 -type f -name '*.deb' -print -quit)"
           test -n "$deb"
           mv "$deb" "${deb%.deb}-${GITHUB_RUN_ID}.deb"

@@ -5,6 +5,7 @@ import { failureText, parseUserCurrencyConfig } from '../../api/helpers'
 import { xboardRequest, type XboardBody } from '../../api/xboard'
 import { formatMoney, numericValue, publicErrorText } from '../../format'
 import { clearSession } from '../../store/persist'
+import { disconnectDesktopConnection } from '../../desktop/connection'
 import { appState, store, t } from '../state'
 
 const router = useRouter()
@@ -41,9 +42,14 @@ async function loadProfile() {
 }
 
 async function logout() {
-  store().reset()
-  await clearSession()
-  await router.replace('/login')
+  try {
+    await disconnectDesktopConnection()
+    store().reset()
+    await clearSession()
+    await router.replace('/login')
+  } catch (err) {
+    error.value = publicErrorText(err)
+  }
 }
 
 onMounted(loadProfile)

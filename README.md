@@ -40,6 +40,7 @@
 
 - Android：安装 APK，按系统提示允许安装未知来源（如需要）。
 - Windows：运行安装程序。使用 TUN 时请右键「以管理员身份运行」。
+- Windows 系统代理无需管理员权限，详细行为与恢复方式见 [Windows 使用说明](docs/windows.md)。
 - Linux：安装 deb 后，TUN 需要能访问 `/dev/net/tun`。
 
 ### 2. 登录

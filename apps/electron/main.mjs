@@ -1,11 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, Tray, Menu, nativeImage } from 'electron'
 import path from 'node:path'
-import { spawn, execSync } from 'node:child_process'
+import { spawn, execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import readline from 'node:readline'
 import fs from 'node:fs'
 import AutoLaunch from 'auto-launch'
 import { setupAutoUpdater } from './updater.mjs'
+import { clearWindowsSystemProxy, setWindowsSystemProxy } from './runtime/system-proxy.js'
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform')
@@ -13,6 +14,7 @@ if (process.platform === 'linux') {
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const electronDir = __dirname
 const repoRoot = path.resolve(__dirname, '../..')
 
 /** Electron 桌面端当前仅支持 Windows / Linux；macOS 预留，移动端不使用 Electron。 */
@@ -32,6 +34,7 @@ let viteProc = null
 let pendingOAuthUrl = null
 const oauthBrowserWindows = new Set()
 let activeVpnSessionId = null
+const stoppedVpnSessions = new Map()
 let backendIsReady = false
 let backendStderr = ''
 let backendBootPromise = null
@@ -44,7 +47,7 @@ const trayState = {
   selectedNodeIndex: 0,
   vpn: null,
   systemProxyOn: false,
-  useVpn: true,
+  useVpn: false,
   routingMode: 'rule',
   settings: {
     nodeDns: '',
@@ -54,8 +57,8 @@ const trayState = {
     virtualDnsPool: '',
     vpnIpv6Enabled: false,
     routingMode: 'rule',
-    tunEnabled: true,
-    systemProxyEnabled: false,
+    tunEnabled: false,
+    systemProxyEnabled: true,
     routeConfigYaml: '',
     geoipDir: '',
   },
@@ -163,7 +166,7 @@ function desktopRuntimeConfig() {
 function isProcessElevated() {
   if (process.platform === 'win32') {
     try {
-      execSync('net session', { stdio: 'ignore' })
+      execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { exit 1 }'], { stdio: 'ignore', windowsHide: true })
       return true
     } catch {
       return false
@@ -280,7 +283,7 @@ function backendStart() {
     for (const [, pending] of backendPending.entries()) pending.reject(error)
     backendPending.clear()
     if (!quitRequested) {
-      console.error('[backend:exit]', error.message)
+      void resetConnectionAfterFailure(error)
     }
   })
 
@@ -298,6 +301,12 @@ function backendStart() {
       const msg = JSON.parse(text)
       if (msg?.type === 'event') {
         if (mainWindow) mainWindow.webContents.send('aerion-event', msg.payload)
+        const event = JSON.parse(msg.payload)
+        if (event.type === 'vpn_stopped') {
+          const error = new Error(event.error || 'TUN 连接已停止')
+          if (event.wrapper_session_id === activeVpnSessionId) void resetConnectionAfterFailure(error)
+          else stoppedVpnSessions.set(event.wrapper_session_id, error)
+        }
         return
       }
       if (msg?.type === 'log') {
@@ -363,6 +372,10 @@ async function waitBackendReady() {
 }
 
 function backendInvoke(method, params, timeoutMs = 120_000) {
+  if (process.platform === 'win32') {
+    if (method === 'system_proxy_set') return setWindowsSystemProxy(params.host, params.port)
+    if (method === 'system_proxy_clear') return clearWindowsSystemProxy()
+  }
   if (!backendProc?.stdin) return Promise.reject(new Error('backend not started'))
 
   const id = backendNextId++
@@ -380,6 +393,15 @@ function backendInvoke(method, params, timeoutMs = 120_000) {
     backendPending.set(id, {
       resolve: (value) => {
         if (timer) clearTimeout(timer)
+        if (method === 'aerion_start_vpn') {
+          const error = stoppedVpnSessions.get(value.session_id)
+          if (error) {
+            stoppedVpnSessions.delete(value.session_id)
+            reject(error)
+            return
+          }
+          activeVpnSessionId = value.session_id
+        }
         resolve(value)
       },
       reject: (error) => {
@@ -619,6 +641,10 @@ async function trayResolveNode(node) {
 }
 
 async function trayDisconnect() {
+  if (trayState.systemProxyOn) {
+    await backendInvoke('system_proxy_clear', {})
+    trayState.systemProxyOn = false
+  }
   if (!trayState.vpn) return
   const useTun = !trayState.vpn.routeMode && !trayState.vpn.socksAddr
   if (trayState.vpn.routeMode) {
@@ -628,10 +654,6 @@ async function trayDisconnect() {
     activeVpnSessionId = null
   } else {
     await backendInvoke('aerion_stop', { sessionId: trayState.vpn.sessionId })
-  }
-  if (trayState.systemProxyOn) {
-    await backendInvoke('system_proxy_clear', {})
-    trayState.systemProxyOn = false
   }
   trayState.vpn = null
   pushTrayStateToWeb({ vpn: null, systemProxyOn: trayState.systemProxyOn })
@@ -1082,6 +1104,38 @@ function notifyBackendError(err) {
   }
 }
 
+async function resetConnectionAfterFailure(error) {
+  try {
+    if (process.platform === 'win32' || trayState.systemProxyOn) {
+      await backendInvoke('system_proxy_clear', {})
+      trayState.systemProxyOn = false
+    }
+  } catch (cleanupError) {
+    error = new AggregateError([error, cleanupError], `${error.message}\n恢复系统代理失败：${cleanupError.message}`)
+  }
+  trayState.vpn = null
+  activeVpnSessionId = null
+  pushTrayStateToWeb({ vpn: null, systemProxyOn: trayState.systemProxyOn })
+  rebuildTrayMenu()
+  notifyBackendError(error)
+}
+
+async function cleanupConnections() {
+  if (process.platform === 'win32' || trayState.systemProxyOn) {
+    await backendInvoke('system_proxy_clear', {})
+    trayState.systemProxyOn = false
+  }
+  if (trayState.vpn) {
+    const session = trayState.vpn
+    const stopCmd = session.routeMode ? 'aerion_stop_route' : session.socksAddr ? 'aerion_stop' : 'aerion_stop_vpn'
+    await backendInvoke(stopCmd, { sessionId: session.sessionId })
+  } else if (activeVpnSessionId != null) {
+    await backendInvoke('aerion_stop_vpn', { sessionId: activeVpnSessionId })
+  }
+  trayState.vpn = null
+  activeVpnSessionId = null
+}
+
 async function startBackendInBackground() {
   try {
     if (isDev) await startViteDevServer()
@@ -1108,6 +1162,7 @@ if (instanceLock) {
     }
     if (process.platform === 'win32') {
       app.setAppUserModelId('moe.telecom.xbclient')
+      await clearWindowsSystemProxy()
     }
     autoLauncherInstance = setupAutoLaunch(appName)
 
@@ -1116,7 +1171,7 @@ if (instanceLock) {
     startHttpHandlers()
     createMainWindow()
     setupTray(appName)
-    setupAutoUpdater()
+    setupAutoUpdater(cleanupConnections)
     void startBackendInBackground()
 
     app.on('activate', () => {
@@ -1134,20 +1189,7 @@ if (instanceLock) {
     event.preventDefault()
     if (quitCleanupStarted) return
     quitCleanupStarted = true
-    const cleanupTasks = []
-    if (trayState.vpn) {
-      const stopCmd = trayState.vpn.routeMode ? 'aerion_stop_route' : trayState.useVpn ? 'aerion_stop_vpn' : 'aerion_stop'
-      cleanupTasks.push(backendInvoke(stopCmd, { sessionId: trayState.vpn.sessionId }))
-      trayState.vpn = null
-      activeVpnSessionId = null
-    } else if (activeVpnSessionId != null) {
-      cleanupTasks.push(backendInvoke('aerion_stop_vpn', { sessionId: activeVpnSessionId }))
-      activeVpnSessionId = null
-    }
-    if (trayState.systemProxyOn) {
-      cleanupTasks.push(backendInvoke('system_proxy_clear', {}))
-    }
-    Promise.all(cleanupTasks)
+    cleanupConnections()
       .then(() => {
         quitCleanupComplete = true
         app.quit()
@@ -1156,7 +1198,8 @@ if (instanceLock) {
         const message = err instanceof Error ? err.message : String(err)
         console.error('[before-quit]', message)
         dialog.showErrorBox('退出清理失败', message)
-        app.exit(1)
+        quitCleanupStarted = false
+        quitRequested = false
       })
   })
 

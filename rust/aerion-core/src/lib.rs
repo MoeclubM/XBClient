@@ -11,6 +11,8 @@ pub use aerion_core::{
     stop_vpn, test_node_from_json,
 };
 pub use aerion_route::{inspect_route_config_yaml, start_route_from_json, stop_route};
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+pub use aerion_core::shutdown_vpns;
 
 use anyhow::{Context, Result};
 use jni::errors::{Result as JniResult, ThrowRuntimeExAndDefault};

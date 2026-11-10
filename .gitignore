@@ -23,6 +23,7 @@ apps/*/src-tauri/gen/schemas/
 # Node / Web
 node_modules/
 apps/electron/web/dist/
+apps/electron/runtime/
 apps/electron/build/electron-builder.generated.yml
 apps/electron/resources/config/build-config.json
 

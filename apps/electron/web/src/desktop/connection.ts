@@ -12,9 +12,10 @@ import { publicErrorText } from '../format'
 import { reportVpnSession } from '../platform/electron'
 import { isDesktopShell } from '../platform/shell'
 import { useAppStore, type AppNode } from '../store'
+import { ref } from 'vue'
 
-let syncToken = 0
-let syncing = false
+const pendingSyncs = ref(0)
+let syncTail: Promise<string | null> = Promise.resolve(null)
 
 export function isDesktopConnectionShell(): boolean {
   return isDesktopShell() && Boolean(useAppStore.getState().capabilities?.vpn)
@@ -51,16 +52,16 @@ async function applySessionSystemProxy(): Promise<void> {
 
 async function disconnectSession(): Promise<void> {
   const state = useAppStore.getState()
+  if (state.systemProxyActive) {
+    await systemProxyClear()
+    state.setSystemProxyActive(false)
+  }
   const session = state.vpn
   if (!session) return
   const useTun = !session.routeMode && !session.socksAddr
   if (session.routeMode) await aerionStopRoute(session.sessionId)
   else if (useTun) await aerionStopVpn(session.sessionId)
   else await aerionStop(session.sessionId)
-  if (state.systemProxyActive) {
-    await systemProxyClear()
-    state.setSystemProxyActive(false)
-  }
   state.setVpn(null)
   await reportVpnSession(null)
 }
@@ -144,16 +145,35 @@ async function startRoute(index: number): Promise<void> {
   }
 }
 
-export async function applyDesktopConnection(): Promise<string | null> {
+function queueConnection(action: () => Promise<string | null>): Promise<string | null> {
+  pendingSyncs.value++
+  const next = syncTail.then(action).finally(() => { pendingSyncs.value-- })
+  syncTail = next.catch(() => null)
+  return next
+}
+
+export function applyDesktopConnection(): Promise<string | null> {
+  return queueConnection(syncDesktopConnection)
+}
+
+export async function disconnectDesktopConnection(): Promise<void> {
+  await queueConnection(async () => {
+    await disconnectSession()
+    return null
+  })
+}
+
+async function syncDesktopConnection(): Promise<string | null> {
   if (!isDesktopConnectionShell()) return null
   const state = useAppStore.getState()
-  if (state.subscription.blockReason) return null
-  const nodeIndex = state.vpn?.nodeIndex ?? state.preferredNodeIndex
+  if (state.subscription.blockReason || !state.authData) {
+    await disconnectSession()
+    return null
+  }
+  const nodeIndex = state.preferredNodeIndex
   const node = state.nodes[nodeIndex]
   if (state.settings.routingMode !== 'direct' && !node?.connectSupported) return null
 
-  const token = ++syncToken
-  syncing = true
   try {
     const routeConfigYaml = state.settings.routeConfigYaml.trim() || state.routing.routeConfigYaml || ''
     const useRuleRouting =
@@ -213,9 +233,8 @@ export async function applyDesktopConnection(): Promise<string | null> {
     }
     return null
   } catch (err) {
+    await disconnectSession()
     return publicErrorText(err)
-  } finally {
-    if (token === syncToken) syncing = false
   }
 }
 
@@ -238,5 +257,5 @@ export async function setSystemProxyEnabled(enabled: boolean): Promise<string | 
 }
 
 export function desktopConnectionBusy(): boolean {
-  return syncing
+  return pendingSyncs.value > 0
 }

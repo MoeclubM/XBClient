@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import {
   desktopConnectionBusy,
   setRoutingMode,
@@ -25,6 +25,8 @@ const busy = computed(() => desktopConnectionBusy())
 const tunNeedsElevation = computed(
   () => appState.settings.tunEnabled && appState.capabilities?.vpn && appState.capabilities.tun_elevated === false,
 )
+
+onUnmounted(() => { if (durationTimer) window.clearInterval(durationTimer) })
 
 watch(
   () => appState.vpn,

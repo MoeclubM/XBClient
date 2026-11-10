@@ -3,7 +3,7 @@ import electronUpdater from 'electron-updater'
 
 const { autoUpdater } = electronUpdater
 
-export function setupAutoUpdater() {
+export function setupAutoUpdater(beforeInstall) {
   if (!app.isPackaged || process.platform !== 'win32') return
 
   autoUpdater.autoDownload = true
@@ -23,12 +23,17 @@ export function setupAutoUpdater() {
         defaultId: 0,
         cancelId: 1,
       })
-      .then(({ response }) => {
-        if (response === 0) autoUpdater.quitAndInstall()
+      .then(async ({ response }) => {
+        if (response !== 0) return
+        await beforeInstall()
+        autoUpdater.quitAndInstall()
+      })
+      .catch((error) => {
+        dialog.showErrorBox('更新失败', error.message)
       })
   })
 
   setTimeout(() => {
-    void autoUpdater.checkForUpdatesAndNotify()
+    void autoUpdater.checkForUpdatesAndNotify().catch((error) => console.error('[updater]', error))
   }, 5000)
 }

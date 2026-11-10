@@ -13,6 +13,8 @@ files:
   - preload.cjs
   - updater.mjs
   - package.json
+  - runtime/**
+  - src/windows-proxy.ps1
 extraResources:
   - from: build/icon.png
     to: icon.png
@@ -38,7 +40,10 @@ win:
         - x64
   icon: build/icon.ico
   executableName: XBClient
-  requestedExecutionLevel: requireAdministrator
+  requestedExecutionLevel: asInvoker
+  extraResources:
+    - from: backend/target/release/wintun.dll
+      to: bin/wintun.dll
 nsis:
   oneClick: false
   perMachine: false

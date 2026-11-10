@@ -789,5 +789,6 @@ async fn main() -> Result<()> {
         emit_rpc_response(req.id, out);
     }
 
+    aerion_core::shutdown_vpns().await?;
     Ok(())
 }

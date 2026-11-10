@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { disconnectDesktopConnection } from '../../desktop/connection'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { openPxBoardPortal, pxboardRequest } from '../../api/pxboard'
@@ -16,7 +17,7 @@ async function open() {
   finally { busy.value = false }
 }
 async function logout() {
-  try { await pxboardRequest('/auth/logout', {}); store().reset(); await clearSession(); await router.replace('/login') }
+  try { await disconnectDesktopConnection(); await pxboardRequest('/auth/logout', {}); store().reset(); await clearSession(); await router.replace('/login') }
   catch (e) { error.value = e instanceof Error ? e.message : String(e) }
 }
 </script>

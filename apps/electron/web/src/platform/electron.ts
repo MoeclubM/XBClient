@@ -6,12 +6,17 @@ export function assertElectronAPI() {
 export async function invoke<T = unknown>(cmd: string, args?: unknown, timeoutMs = 60_000): Promise<T> {
   const call = assertElectronAPI().invoke<T>(cmd, args)
   if (!timeoutMs) return call
-  return Promise.race([
-    call,
-    new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error('后端请求超时')), timeoutMs)
-    }),
-  ])
+  let timer: ReturnType<typeof setTimeout>
+  try {
+    return await Promise.race([
+      call,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('后端请求超时')), timeoutMs)
+      }),
+    ])
+  } finally {
+    clearTimeout(timer!)
+  }
 }
 
 export function onBackendReady(handler: () => void): () => void {
