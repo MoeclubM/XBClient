@@ -94,7 +94,7 @@ object PxBoardApi {
             )
         }
         val reqBuilder = Request.Builder()
-            .url("${baseUrl()}/rpc/v1/$batch")
+            .url("${baseUrl()}/rpc/v1/\$batch")
             .header("User-Agent", BuildConfig.USER_AGENT)
             .header("Accept", "application/json")
             .post(JSONObject().put("calls", array).toString().toRequestBody(jsonMediaType))

@@ -454,8 +454,15 @@ async fn dial_socks5_connect(
     handshake::Request::new(methods).write_to_buf(&mut out);
     server.write_all(&out).await?;
 
-    let hs = handshake::Response::retrieve_from_async_stream(&mut server).await?;
-    match hs.method {
+    let mut hs_buf = [0_u8; 2];
+    server.read_exact(&mut hs_buf).await?;
+    if hs_buf[0] != 0x05 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid SOCKS version in handshake response",
+        ));
+    }
+    match AuthMethod::from(hs_buf[1]) {
         AuthMethod::NoAuth => {}
         AuthMethod::UserPass => {
             let creds = credentials.ok_or_else(|| {
@@ -471,11 +478,17 @@ async fn dial_socks5_connect(
                 creds.username.clone()
             };
             out.clear();
-            password_method::Request::new(username, &creds.password).write_to_buf(&mut out);
+            password_method::Request::new(&username, &creds.password).write_to_buf(&mut out);
             server.write_all(&out).await?;
-            let auth_resp =
-                password_method::Response::retrieve_from_async_stream(&mut server).await?;
-            if auth_resp.status != password_method::Status::Succeeded {
+            let mut auth_buf = [0_u8; 2];
+            server.read_exact(&mut auth_buf).await?;
+            if auth_buf[0] != 0x01 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "invalid SOCKS password auth version",
+                ));
+            }
+            if password_method::Status(auth_buf[1]) != password_method::Status::Succeeded {
                 return Ok(SocksDialOutcome::Reply(0x02));
             }
         }
@@ -490,11 +503,19 @@ async fn dial_socks5_connect(
     protocol::Request::new(Command::Connect, target).write_to_buf(&mut out);
     server.write_all(&out).await?;
 
-    let resp = protocol::Response::retrieve_from_async_stream(&mut server).await?;
-    if resp.reply == protocol::Reply::Succeeded {
+    let mut resp_hdr = [0_u8; 3];
+    server.read_exact(&mut resp_hdr).await?;
+    if resp_hdr[0] != 0x05 || resp_hdr[2] != 0x00 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid SOCKS response header",
+        ));
+    }
+    let _bound_addr = Address::retrieve_from_async_stream(&mut server).await?;
+    if protocol::Reply(resp_hdr[1]) == protocol::Reply::Succeeded {
         Ok(SocksDialOutcome::Connected(server))
     } else {
-        Ok(SocksDialOutcome::Reply(resp.reply.0))
+        Ok(SocksDialOutcome::Reply(resp_hdr[1]))
     }
 }
 

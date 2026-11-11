@@ -39,7 +39,6 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
-import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -393,18 +392,19 @@ internal fun PxBoardPlansScreen(state: XbClientUiState, viewModel: XbClientViewM
                 )
             } else {
                 if (due > 0) {
-                    RadioButtonPreference(
-                        title = "账户余额（${formatMoney(state.balance, state.currencySymbol, state.currencyUnit)}）",
-                        selected = payMethod == "wallet",
-                        onClick = { payMethod = "wallet" },
-                    )
-                    for (ch in portal.channels) {
-                        RadioButtonPreference(
-                            title = ch.name,
-                            selected = payMethod == ch.id,
-                            onClick = { payMethod = ch.id },
-                        )
+                    val paymentOptions = buildList {
+                        add("wallet" to "账户余额（${formatMoney(state.balance, state.currencySymbol, state.currencyUnit)}）")
+                        for (ch in portal.channels) {
+                            add(ch.id to ch.name)
+                        }
                     }
+                    val selectedPayIdx = paymentOptions.indexOfFirst { it.first == payMethod }.coerceAtLeast(0)
+                    OverlayDropdownPreference(
+                        title = "支付方式",
+                        items = paymentOptions.map { it.second },
+                        selectedIndex = selectedPayIdx,
+                        onSelectedIndexChange = { idx -> payMethod = paymentOptions[idx].first },
+                    )
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -605,19 +605,6 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
                     }
                 }
             }
-        }
-    }
-}
-            Spacer(Modifier.height(12.dp))
-            Text(state.subscriptionSummary)
-            Spacer(Modifier.height(20.dp))
-        }
-        Button(onClick = { viewModel.openPxBoardPortal(if (plans) "/user/plans" else "/user") }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColorsPrimary()) {
-            Text(stringResource(if (plans) R.string.nav_plans else R.string.panel_user_center))
-        }
-        if (!plans) {
-            Spacer(Modifier.height(12.dp))
-            Button(onClick = viewModel::logout, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.common_logout)) }
         }
     }
 }
