@@ -13,7 +13,15 @@ import { clearWindowsSystemProxy, setWindowsSystemProxy } from '../runtime/syste
 
 const execute = promisify(execFile)
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const backend = spawn(path.join(root, 'backend/target/release', `xbclient-electron-backend${process.platform === 'win32' ? '.exe' : ''}`), [], { stdio: ['pipe', 'pipe', 'inherit'] })
+const routeAssetsDir = path.resolve(root, '../../rust/aerion-core/assets/route')
+const backend = spawn(
+  path.join(root, 'backend/target/release', `xbclient-electron-backend${process.platform === 'win32' ? '.exe' : ''}`),
+  [],
+  {
+    stdio: ['pipe', 'pipe', 'inherit'],
+    env: { ...process.env, XBCLIENT_ROUTE_ASSETS_DIR: routeAssetsDir },
+  },
+)
 const replies = new Map<number, { resolve: (value: any) => void; reject: (error: Error) => void }>()
 let nextId = 0
 const lines = readline.createInterface({ input: backend.stdout })
