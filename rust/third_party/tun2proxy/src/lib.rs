@@ -18,10 +18,12 @@ use std::{
     collections::VecDeque,
     io::ErrorKind,
     net::{IpAddr, SocketAddr},
+    pin::Pin,
     sync::Arc,
+    task::{Context, Poll},
 };
 use tokio::{
-    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf},
     net::{TcpSocket, TcpStream, UdpSocket},
     sync::{Mutex, mpsc::Receiver},
 };
@@ -55,6 +57,7 @@ mod proxy_handler;
 mod session_info;
 pub mod socket_transfer;
 mod socks;
+mod tcp_gate;
 mod traffic_status;
 #[cfg(feature = "udpgw")]
 pub mod udpgw;
@@ -124,6 +127,51 @@ impl SocketQueue {
         .recv()
         .await
         .ok_or(ErrorKind::Other.into())
+    }
+}
+
+enum TunDeviceWrapper<D> {
+    Passthrough(D),
+    Gated(tcp_gate::StackDevice),
+}
+
+impl<D: AsyncRead + Unpin> AsyncRead for TunDeviceWrapper<D> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Passthrough(dev) => Pin::new(dev).poll_read(cx, buf),
+            Self::Gated(dev) => Pin::new(dev).poll_read(cx, buf),
+        }
+    }
+}
+
+impl<D: AsyncWrite + Unpin> AsyncWrite for TunDeviceWrapper<D> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        match self.get_mut() {
+            Self::Passthrough(dev) => Pin::new(dev).poll_write(cx, buf),
+            Self::Gated(dev) => Pin::new(dev).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Passthrough(dev) => Pin::new(dev).poll_flush(cx),
+            Self::Gated(dev) => Pin::new(dev).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Passthrough(dev) => Pin::new(dev).poll_shutdown(cx),
+            Self::Gated(dev) => Pin::new(dev).poll_shutdown(cx),
+        }
     }
 }
 
@@ -224,11 +272,28 @@ where
     let socket_queue = None;
 
     use socks5_impl::protocol::Version::{V4, V5};
+    let gate_credentials = args.proxy.credentials.clone();
     let mgr: Arc<dyn ProxyHandlerManager> = match args.proxy.proxy_type {
         ProxyType::Socks5 => Arc::new(SocksProxyManager::new(server_addr, V5, key)),
         ProxyType::Socks4 => Arc::new(SocksProxyManager::new(server_addr, V4, key)),
         ProxyType::Http => Arc::new(HttpManager::new(server_addr, key)),
         ProxyType::None => Arc::new(NoProxyManager::new()),
+    };
+
+    let (wrapped_device, tcp_gate) = if args.proxy.proxy_type == ProxyType::Socks5 {
+        let (gated_dev, gate) = tcp_gate::attach(
+            device,
+            mtu,
+            server_addr,
+            gate_credentials,
+            args.tcp_timeout,
+            virtual_dns.clone(),
+            socket_queue.clone(),
+            shutdown_token.clone(),
+        );
+        (TunDeviceWrapper::Gated(gated_dev), Some(gate))
+    } else {
+        (TunDeviceWrapper::Passthrough(device), None)
     };
 
     let mut ipstack_config = ipstack::IpStackConfig::default();
@@ -238,7 +303,7 @@ where
     ipstack_config.with_tcp_config(tcp_cfg);
     ipstack_config.udp_timeout(std::time::Duration::from_secs(args.udp_timeout));
 
-    let mut ip_stack = ipstack::IpStack::new(ipstack_config, device);
+    let mut ip_stack = ipstack::IpStack::new(ipstack_config, wrapped_device);
 
     #[cfg(feature = "udpgw")]
     let udpgw_client = args.udpgw_server.map(|addr| {
@@ -298,8 +363,9 @@ where
                 };
                 let proxy_handler = mgr.new_proxy_handler(info, domain_name, false).await?;
                 let socket_queue = socket_queue.clone();
+                let tcp_gate = tcp_gate.clone();
                 tokio::spawn(async move {
-                    if let Err(err) = handle_tcp_session(tcp, proxy_handler, socket_queue).await {
+                    if let Err(err) = handle_tcp_session(tcp, proxy_handler, socket_queue, tcp_gate).await {
                         log::error!("{info} error \"{err}\"");
                     }
                     log::trace!("Session count {}", task_count.fetch_sub(1, Relaxed).saturating_sub(1));
@@ -452,6 +518,7 @@ async fn handle_tcp_session(
     mut tcp_stack: IpStackTcpStream,
     proxy_handler: Arc<Mutex<dyn ProxyHandler>>,
     socket_queue: Option<Arc<SocketQueue>>,
+    tcp_gate: Option<Arc<tcp_gate::TcpGate>>,
 ) -> crate::Result<()> {
     let (session_info, server_addr) = {
         let handler = proxy_handler.lock().await;
@@ -459,17 +526,39 @@ async fn handle_tcp_session(
         (handler.get_session_info(), handler.get_server_addr())
     };
 
-    let mut server = create_tcp_stream(&socket_queue, server_addr).await?;
-
     log::info!("Beginning {session_info}");
 
-    if let Err(e) = handle_proxy_session(&mut server, proxy_handler).await {
-        tcp_stack.shutdown().await?;
-        return Err(e);
-    }
+    let server = if let Some(ready) = tcp_gate
+        .as_ref()
+        .and_then(|gate| gate.take_ready_stream(session_info.src, session_info.dst))
+    {
+        ready
+    } else {
+        let mut server = match create_tcp_stream(&socket_queue, server_addr).await {
+            Ok(stream) => stream,
+            Err(err) => {
+                if let Some(gate) = &tcp_gate {
+                    gate.abort_with_rst(session_info.src, session_info.dst);
+                } else {
+                    let _ = tcp_stack.shutdown().await;
+                }
+                return Err(err.into());
+            }
+        };
+        if let Err(e) = handle_proxy_session(&mut server, proxy_handler).await {
+            if let Some(gate) = &tcp_gate {
+                gate.abort_with_rst(session_info.src, session_info.dst);
+            } else {
+                let _ = tcp_stack.shutdown().await;
+            }
+            return Err(e);
+        }
+        server
+    };
 
     let (mut t_rx, mut t_tx) = tokio::io::split(tcp_stack);
     let (mut s_rx, mut s_tx) = tokio::io::split(server);
+    let gate_for_rx = tcp_gate.clone();
 
     let res = tokio::join!(
         async move {
@@ -481,8 +570,20 @@ async fn handle_tcp_session(
         },
         async move {
             let r = copy_and_record_traffic(&mut s_rx, &mut t_tx, false).await;
-            if let Err(err) = t_tx.shutdown().await {
-                log::trace!("{session_info} t_tx shutdown error {err}");
+            match &r {
+                Ok(_) => {
+                    if let Err(err) = t_tx.shutdown().await {
+                        log::trace!("{session_info} t_tx shutdown error {err}");
+                    }
+                }
+                Err(err) => {
+                    log::debug!("{session_info} downstream read error \"{err}\", sending TCP RST");
+                    if let Some(gate) = &gate_for_rx {
+                        gate.abort_with_rst(session_info.src, session_info.dst);
+                    } else if let Err(shutdown_err) = t_tx.shutdown().await {
+                        log::trace!("{session_info} t_tx shutdown error {shutdown_err}");
+                    }
+                }
             }
             r
         },

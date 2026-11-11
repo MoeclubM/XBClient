@@ -10,6 +10,7 @@ pub use aerion_core::{
     set_event_callback, set_log_callback, start_socks_from_json, start_vpn_from_json, stop_socks,
     stop_vpn, test_node_from_json,
 };
+pub use aerion_mihomo_sanitize::sanitize_mihomo_route_yaml;
 pub use aerion_route::{
     inspect_route_config_yaml, start_route_from_json, stop_route, test_route_from_json,
 };

@@ -3,11 +3,148 @@ package moe.telecom.xbclient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
+import java.util.UUID
+import kotlin.math.roundToInt
+import kotlin.math.roundToLong
+
+internal data class PxBoardPeriod(
+    val id: String,
+    val label: String,
+    val price: Int,
+)
+
+internal data class PxBoardPlan(
+    val id: String,
+    val name: String,
+    val description: String,
+    val quotaGiB: Double,
+    val unlimited: Boolean,
+    val periods: List<PxBoardPeriod>,
+)
+
+internal data class PxBoardPaymentChannel(
+    val id: String,
+    val name: String,
+)
+
+internal data class PxBoardQuote(
+    val amount: Int,
+    val discount: Int,
+    val surplusAmount: Int,
+    val surplusCredit: Int,
+)
+
+internal data class PxBoardOrder(
+    val id: String,
+    val number: String,
+    val planName: String,
+    val kind: String,
+    val amount: Int,
+    val discount: Int,
+    val surplusAmount: Int,
+    val surplusCredit: Int,
+    val status: String,
+    val createdAt: String,
+)
+
+internal data class PxBoardLedgerEntry(
+    val id: String,
+    val amount: Int,
+    val reason: String,
+    val createdAt: String,
+)
+
+internal data class PxBoardSubLink(
+    val id: String,
+    val name: String,
+    val shareUrl: String,
+    val boundClient: String,
+)
+
+internal data class PxBoardClaim(
+    val id: String,
+    val name: String,
+    val summary: String,
+    val status: String,
+    val timestamp: String,
+)
+
+internal data class PxBoardTicketMsg(
+    val id: String,
+    val author: String,
+    val content: String,
+    val createdAt: String,
+)
+
+internal data class PxBoardTicket(
+    val id: String,
+    val subject: String,
+    val status: String,
+    val updatedAt: String,
+    val thread: String,
+    val messages: List<PxBoardTicketMsg>,
+)
+
+internal data class PxBoardArticle(
+    val id: String,
+    val title: String,
+    val content: String,
+)
+
+internal data class PxBoardAffiliateSummary(
+    val availableAmount: Int = 0,
+    val pendingAmount: Int = 0,
+    val totalAmount: Int = 0,
+    val invitedCount: Int = 0,
+    val commissionPercent: Int = 0,
+    val commissionHoldDays: Int = 0,
+    val commissionMode: String = "",
+    val referralUrl: String = "",
+)
+
+internal data class PxBoardCommission(
+    val id: String,
+    val amount: Int,
+    val status: String,
+    val createdAt: String,
+)
+
+internal data class PxBoardWithdrawal(
+    val id: String,
+    val amount: Int,
+    val method: String,
+    val status: String,
+    val createdAt: String,
+)
+
+internal data class PxBoardPortalUiState(
+    val busy: Boolean = false,
+    val plans: List<PxBoardPlan> = emptyList(),
+    val channels: List<PxBoardPaymentChannel> = emptyList(),
+    val quote: PxBoardQuote? = null,
+    val quoting: Boolean = false,
+    val activeOrder: PxBoardOrder? = null,
+    val orders: List<PxBoardOrder> = emptyList(),
+    val ledger: List<PxBoardLedgerEntry> = emptyList(),
+    val links: List<PxBoardSubLink> = emptyList(),
+    val claims: List<PxBoardClaim> = emptyList(),
+    val tickets: List<PxBoardTicket> = emptyList(),
+    val selectedTicketId: String = "",
+    val articles: List<PxBoardArticle> = emptyList(),
+    val affiliate: PxBoardAffiliateSummary = PxBoardAffiliateSummary(),
+    val commissions: List<PxBoardCommission> = emptyList(),
+    val withdrawals: List<PxBoardWithdrawal> = emptyList(),
+    val expireReminder: Boolean = true,
+    val trafficReminder: Boolean = true,
+    val expireEnabled: Boolean = false,
+    val trafficEnabled: Boolean = false,
+)
 
 internal class PxBoardSession(
     private val scope: CoroutineScope,
@@ -16,55 +153,783 @@ internal class PxBoardSession(
     private val message: (String) -> Unit,
     private val open: (String) -> Unit,
 ) {
+    private val _portalState = MutableStateFlow(PxBoardPortalUiState())
+    val portalState = _portalState.asStateFlow()
+    private var cachedRevisionAuth = ""
+    private var cachedRevision = ""
+
+    fun reset() {
+        cachedRevisionAuth = ""
+        cachedRevision = ""
+        _portalState.value = PxBoardPortalUiState()
+    }
+
     fun portal(path: String) {
         scope.launch(Dispatchers.IO) {
             try {
-                val link = PxBoardApi.request("/auth/browser-link", state.value.authData, JSONObject().put("redirectPath", path)) as JSONObject
-                open(link.getString("url"))
+                val link = PxBoardApi.rpc(
+                    "core",
+                    "auth.browserLink",
+                    state.value.authData,
+                    JSONObject().put("redirectPath", path),
+                ) as JSONObject
+                open(PxBoardApi.publicUrl(link.getString("url")))
             } catch (e: Exception) { message(e.message ?: e.toString()) }
         }
     }
-    fun refresh() {
-        if (state.value.nodesLoading || state.value.authData.isEmpty()) return
-        val auth = state.value.authData
+
+    private fun periodLabel(item: JSONObject): String {
+        val explicit = item.optString("label")
+        if (explicit.isNotEmpty()) return explicit
+        return when (item.optString("kind")) {
+            "reset" -> "重置流量"
+            "traffic" -> "流量包"
+            else -> if (item.optString("durationUnit") == "permanent") {
+                "长期"
+            } else {
+                "${item.optInt("durationValue", 0)} " + if (item.optString("durationUnit") == "month") "个月" else "天"
+            }
+        }
+    }
+
+    private fun parseOrder(obj: JSONObject): PxBoardOrder =
+        PxBoardOrder(
+            id = obj.optString("id"),
+            number = obj.optString("number"),
+            planName = obj.optString("planName"),
+            kind = obj.optString("kind"),
+            amount = obj.optDouble("amount", 0.0).roundToInt(),
+            discount = obj.optDouble("discount", 0.0).roundToInt(),
+            surplusAmount = obj.optDouble("surplusAmount", 0.0).roundToInt(),
+            surplusCredit = obj.optDouble("surplusCredit", 0.0).roundToInt(),
+            status = obj.optString("status"),
+            createdAt = obj.optString("createdAt"),
+        )
+
+    private fun parseLinks(arr: JSONArray?): List<PxBoardSubLink> {
+        if (arr == null) return emptyList()
+        return List(arr.length()) { idx ->
+            val item = arr.getJSONObject(idx)
+            val share = item.optString("shareUrl")
+            PxBoardSubLink(
+                id = item.optString("id"),
+                name = item.optString("name").ifEmpty { "默认订阅" },
+                shareUrl = if (share.isNotEmpty()) PxBoardApi.publicUrl(share) else "",
+                boundClient = item.optString("boundClient"),
+            )
+        }
+    }
+
+    fun refresh(force: Boolean = false) {
+        val current = state.value
+        if (current.nodesLoading || current.authData.isEmpty()) return
+        val auth = current.authData
+        val useKnownRevision = !force &&
+            cachedRevisionAuth == auth &&
+            cachedRevision.isNotEmpty() &&
+            (current.anyTlsNodes.isNotEmpty() || current.subscriptionBlockReason.isNotEmpty())
         state.update { it.copy(nodesLoading = true) }
         scope.launch(Dispatchers.IO) {
             try {
-                val user = PxBoardApi.request("/me", auth) as JSONObject
-                val plugins = PxBoardApi.request("/plugins", auth) as JSONArray
-                val extensions = (0 until plugins.length()).map { plugins.getJSONObject(it) }.filter { it.getBoolean("enabled") }.map { it.getString("id") }.toSet()
-                val accounts = PxBoardApi.request("/extensions/access/accounts?mine=1", auth) as JSONArray
-                val account = if (accounts.length() == 0) null else accounts.getJSONObject(0)
-                val used = (account?.getDouble("usedGiB") ?: 0.0) * 1073741824.0
-                val quota = (account?.getDouble("quotaGiB") ?: 0.0) * 1073741824.0
-                val expiry = account?.optString("expiresAt").orEmpty()
-                val blocked = when {
-                    account == null -> SUBSCRIPTION_BLOCK_NO_PLAN
-                    account.getString("status") != "active" -> "suspended"
-                    expiry.isNotEmpty() && !Instant.parse(expiry).isAfter(Instant.now()) -> SUBSCRIPTION_BLOCK_EXPIRED
-                    !account.getBoolean("unlimited") && used >= quota -> SUBSCRIPTION_BLOCK_TRAFFIC
-                    else -> ""
-                }
-                var nodes = emptyList<AnyTlsNode>()
-                var routing = JSONObject().put("route_config_yaml", "").put("rule_count", 0).put("rules_preview", JSONArray())
-                if (blocked.isEmpty()) {
-                    val result = Subscriptions.fetch(PxBoardApi.configurationUrl(), "aerion", PxBoardApi.authorization(auth))
-                    if (!result.getBoolean("ok")) throw IllegalStateException(resultError(result))
-                    routing = result.getJSONObject("routing")
-                    nodes = result.getJSONArray("nodes").toAnyTlsNodeList()
+                val profileInput = JSONObject()
+                if (useKnownRevision) profileInput.put("knownRevision", cachedRevision)
+                val batch = PxBoardApi.batch(
+                    listOf(
+                        PxBoardBatchCall("me", "core", "account.me"),
+                        PxBoardBatchCall("plugins", "core", "plugins.list"),
+                        PxBoardBatchCall("profile", "subscriptions", "client.profile", profileInput),
+                        PxBoardBatchCall("wallet", "commerce", "wallet.get"),
+                        PxBoardBatchCall("announcements", "support", "announcements.list"),
+                        PxBoardBatchCall("affiliate", "affiliate", "summary.get"),
+                    ),
+                    auth,
+                )
+                val meRes = batch["me"]
+                if (meRes?.status != 200 || meRes.data !is JSONObject) {
+                    throw IllegalStateException(meRes?.errorMessage?.ifEmpty { "读取账户信息失败" } ?: "读取账户信息失败")
                 }
                 if (state.value.authData != auth) return@launch
-                val summary = buildList {
-                    add("${formatTrafficBytes(used)} / " + if (account?.optBoolean("unlimited") == true) "∞" else formatTrafficBytes(quota))
-                    if (expiry.isNotEmpty()) add(formatUnixDate(Instant.parse(expiry).epochSecond))
-                }.joinToString(" · ")
-                state.update { it.copy(userEmail = user.getString("email"), nativeExtensions = extensions, subscriptionSummary = summary, subscriptionBlockReason = blocked,
-                    subscriptionTrafficUsedBytes = used.toLong(), subscriptionTrafficTotalBytes = quota.toLong(), anyTlsNodes = nodes, nodesLoading = false,
-                    selectedNodeIndex = it.selectedNodeIndex.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)), nodeTestResults = emptyMap(),
-                    nodesUpdatedAt = System.currentTimeMillis(), routeConfigYaml = routing.optString("route_config_yaml").takeUnless { value -> value == "null" }.orEmpty(),
-                    routeRuleCount = routing.getInt("rule_count"), routeRulesPreview = routing.getJSONArray("rules_preview").let { values -> List(values.length()) { index -> values.getString(index) } }) }
+
+                val user = meRes.data
+                val plugins = batch["plugins"]?.data as? JSONArray ?: JSONArray()
+                val extensions = (0 until plugins.length())
+                    .map { plugins.getJSONObject(it) }
+                    .filter { it.optBoolean("enabled") }
+                    .map { it.getString("id") }
+                    .toSet()
+
+                val wallet = batch["wallet"]?.takeIf { it.status == 200 }?.data as? JSONObject
+                val affiliate = batch["affiliate"]?.takeIf { it.status == 200 }?.data as? JSONObject
+                val notices = (batch["announcements"]?.takeIf { it.status == 200 }?.data as? JSONArray)?.let { arr ->
+                    val items = ArrayList<NoticeItem>()
+                    for (i in 0 until arr.length()) {
+                        val row = arr.getJSONObject(i)
+                        if (!row.optBoolean("published", true)) continue
+                        val ts = row.optString("createdAt").takeIf { it.isNotEmpty() }?.let {
+                            runCatching { Instant.parse(it).epochSecond }.getOrDefault(0L)
+                        } ?: 0L
+                        items.add(NoticeItem(id = items.size + 1, title = row.optString("title"), content = row.optString("content"), createdAt = ts))
+                    }
+                    items
+                }
+
+                var nodes = state.value.anyTlsNodes
+                var routeConfigYaml = state.value.routeConfigYaml
+                var routeRuleCount = state.value.routeRuleCount
+                var routeRulesPreview = state.value.routeRulesPreview
+                var subscribeUrl = state.value.subscribeUrl
+                var summary = state.value.subscriptionSummary
+                var blocked = state.value.subscriptionBlockReason
+                var usedBytes = state.value.subscriptionTrafficUsedBytes
+                var totalBytes = state.value.subscriptionTrafficTotalBytes
+
+                val profileRes = batch["profile"]
+                if (profileRes?.status == 200 && profileRes.data is JSONObject) {
+                    val profile = profileRes.data
+                    val acc = profile.optJSONObject("account") ?: JSONObject()
+                    usedBytes = if (acc.has("usedBytes")) acc.optLong("usedBytes") else (acc.optDouble("usedGiB", 0.0) * 1073741824.0).roundToLong()
+                    totalBytes = if (acc.has("quotaBytes")) acc.optLong("quotaBytes") else (acc.optDouble("quotaGiB", 0.0) * 1073741824.0).roundToLong()
+                    val expiredAtUnix = acc.optLong("expiredAtUnix", 0L).let { v ->
+                        if (v > 0L) v else acc.optString("expiresAt").takeIf { it.isNotEmpty() }?.let {
+                            runCatching { Instant.parse(it).epochSecond }.getOrDefault(0L)
+                        } ?: 0L
+                    }
+                    val rawBlock = profile.optString("blockReason")
+                    blocked = when (rawBlock) {
+                        "", SUBSCRIPTION_BLOCK_NO_PLAN, SUBSCRIPTION_BLOCK_EXPIRED, SUBSCRIPTION_BLOCK_TRAFFIC, "suspended" -> rawBlock
+                        else -> "suspended"
+                    }
+                    summary = if (!acc.optBoolean("exists", true)) {
+                        ""
+                    } else {
+                        buildList {
+                            add("${formatTrafficBytes(usedBytes.toDouble())} / " + if (acc.optBoolean("unlimited")) "∞" else formatTrafficBytes(totalBytes.toDouble()))
+                            if (expiredAtUnix > 0L) add(formatUnixDate(expiredAtUnix))
+                        }.joinToString(" · ")
+                    }
+                    val links = parseLinks(profile.optJSONArray("links"))
+                    subscribeUrl = links.firstOrNull { it.shareUrl.isNotEmpty() }?.shareUrl.orEmpty()
+                    _portalState.update { it.copy(links = links) }
+
+                    if (!profile.optBoolean("unchanged", false)) {
+                        if (blocked.isNotEmpty()) {
+                            nodes = emptyList()
+                            routeConfigYaml = ""
+                            routeRuleCount = 0
+                            routeRulesPreview = emptyList()
+                        } else {
+                            val parsedNodes = ArrayList<AnyTlsNode>()
+                            val rawNodes = profile.optJSONArray("nodes") ?: JSONArray()
+                            for (i in 0 until rawNodes.length()) {
+                                runCatching { rawNodes.getJSONObject(i).toAnyTlsNode() }
+                                    .onSuccess { parsedNodes.add(it) }
+                                    .onFailure { message(it.message ?: it.toString()) }
+                            }
+                            nodes = parsedNodes
+                            val r = profile.optJSONObject("routing") ?: JSONObject()
+                            routeConfigYaml = r.optString("routeConfigYaml").takeUnless { it == "null" }.orEmpty()
+                            routeRuleCount = r.optInt("ruleCount", 0)
+                            val previewArr = r.optJSONArray("rulesPreview") ?: r.optJSONArray("rules") ?: JSONArray()
+                            routeRulesPreview = List(previewArr.length().coerceAtMost(20)) { idx -> previewArr.getString(idx) }
+                        }
+                        cachedRevisionAuth = auth
+                        cachedRevision = profile.optString("revision")
+                    }
+                } else if (profileRes != null && profileRes.status != 404) {
+                    message(profileRes.errorMessage.ifEmpty { "订阅同步异常（HTTP ${profileRes.status}）" })
+                }
+
+                if (affiliate != null) {
+                    _portalState.update {
+                        it.copy(
+                            affiliate = PxBoardAffiliateSummary(
+                                availableAmount = affiliate.optDouble("availableAmount", 0.0).roundToInt(),
+                                pendingAmount = affiliate.optDouble("pendingAmount", 0.0).roundToInt(),
+                                totalAmount = affiliate.optDouble("totalAmount", 0.0).roundToInt(),
+                                invitedCount = affiliate.optInt("invitedCount", 0),
+                                commissionPercent = affiliate.optInt("commissionPercent", 0),
+                                commissionHoldDays = affiliate.optInt("commissionHoldDays", 0),
+                                commissionMode = affiliate.optString("commissionMode"),
+                                referralUrl = affiliate.optString("referralPath").takeIf { p -> p.isNotEmpty() }?.let(PxBoardApi::publicUrl).orEmpty(),
+                            ),
+                        )
+                    }
+                }
+
+                state.update { cur ->
+                    cur.copy(
+                        userEmail = user.getString("email"),
+                        nativeExtensions = extensions,
+                        paymentEnabled = "commerce" in extensions,
+                        balance = wallet?.optDouble("balance", 0.0)?.roundToInt() ?: cur.balance,
+                        currencySymbol = wallet?.optString("currencySymbol") ?: cur.currencySymbol,
+                        currencyUnit = wallet?.optString("currencyName") ?: cur.currencyUnit,
+                        commissionBalance = affiliate?.optDouble("availableAmount", 0.0)?.roundToInt() ?: cur.commissionBalance,
+                        inviteCommissionBalance = affiliate?.optDouble("availableAmount", 0.0)?.roundToInt() ?: cur.inviteCommissionBalance,
+                        inviteCommissionRate = affiliate?.optInt("commissionPercent", cur.inviteCommissionRate) ?: cur.inviteCommissionRate,
+                        notices = notices ?: cur.notices,
+                        subscribeUrl = subscribeUrl,
+                        subscriptionSummary = summary,
+                        subscriptionBlockReason = blocked,
+                        subscriptionTrafficUsedBytes = usedBytes,
+                        subscriptionTrafficTotalBytes = totalBytes,
+                        anyTlsNodes = nodes,
+                        nodesLoading = false,
+                        selectedNodeIndex = cur.selectedNodeIndex.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)),
+                        nodesUpdatedAt = System.currentTimeMillis(),
+                        routeConfigYaml = routeConfigYaml,
+                        routeRuleCount = routeRuleCount,
+                        routeRulesPreview = routeRulesPreview,
+                    )
+                }
                 persist(state.value)
             } catch (e: Exception) { state.update { it.copy(nodesLoading = false) }; message(e.message ?: e.toString()) }
+        }
+    }
+
+    fun loadScreenData(screen: PassScreen) {
+        val auth = state.value.authData
+        if (auth.isEmpty()) return
+        val ext = state.value.nativeExtensions
+        scope.launch(Dispatchers.IO) {
+            try {
+                when (screen) {
+                    PassScreen.PLANS -> {
+                        val calls = mutableListOf(
+                            PxBoardBatchCall("plans", "commerce", "plans.list", JSONObject().put("scope", "mine")),
+                            PxBoardBatchCall("wallet", "commerce", "wallet.get"),
+                        )
+                        if ("payments" in ext) calls.add(PxBoardBatchCall("channels", "payments", "channels.list"))
+                        val batch = PxBoardApi.batch(calls, auth)
+                        val planArr = batch["plans"]?.data as? JSONArray ?: JSONArray()
+                        val plans = ArrayList<PxBoardPlan>()
+                        for (i in 0 until planArr.length()) {
+                            val row = planArr.getJSONObject(i)
+                            val pArr = row.optJSONArray("periods") ?: JSONArray()
+                            val periods = List(pArr.length()) { pIdx ->
+                                val p = pArr.getJSONObject(pIdx)
+                                PxBoardPeriod(p.optString("id"), periodLabel(p), p.optDouble("price", 0.0).roundToInt())
+                            }
+                            if (periods.isNotEmpty()) {
+                                plans.add(
+                                    PxBoardPlan(
+                                        id = row.optString("id"),
+                                        name = row.optString("name"),
+                                        description = row.optString("description"),
+                                        quotaGiB = row.optDouble("quotaGiB", 0.0),
+                                        unlimited = row.optBoolean("unlimited", false),
+                                        periods = periods,
+                                    ),
+                                )
+                            }
+                        }
+                        val chArr = batch["channels"]?.data as? JSONArray ?: JSONArray()
+                        val channels = (0 until chArr.length())
+                            .map { chArr.getJSONObject(it) }
+                            .filter { it.optBoolean("enabled", true) }
+                            .map { PxBoardPaymentChannel(it.optString("id"), it.optString("name")) }
+                        _portalState.update { it.copy(plans = plans, channels = channels) }
+                    }
+                    PassScreen.PROFILE -> {
+                        if ("subscriptions" in ext || ext.isEmpty()) {
+                            val arr = PxBoardApi.rpc("subscriptions", "links.list", auth, JSONObject().put("mine", true)) as? JSONArray
+                            if (arr != null) _portalState.update { it.copy(links = parseLinks(arr)) }
+                        }
+                    }
+                    PassScreen.GIFT_CARDS -> {
+                        val calls = mutableListOf<PxBoardBatchCall>()
+                        if ("redeem" in ext) calls.add(PxBoardBatchCall("claims", "redeem", "claims.list", JSONObject().put("mine", true)))
+                        if ("commerce" in ext) {
+                            calls.add(PxBoardBatchCall("orders", "commerce", "orders.list", JSONObject().put("mine", true)))
+                            calls.add(PxBoardBatchCall("ledger", "commerce", "ledger.list", JSONObject().put("mine", true)))
+                        }
+                        if ("payments" in ext) calls.add(PxBoardBatchCall("channels", "payments", "channels.list"))
+                        if (calls.isEmpty()) return@launch
+                        val batch = PxBoardApi.batch(calls, auth)
+                        val claimsArr = batch["claims"]?.data as? JSONArray ?: JSONArray()
+                        val claims = List(claimsArr.length()) { i ->
+                            val c = claimsArr.getJSONObject(i)
+                            PxBoardClaim(
+                                id = c.optString("id"),
+                                name = c.optString("name"),
+                                summary = c.optString("summary"),
+                                status = c.optString("status"),
+                                timestamp = c.optString("redeemedAt").ifEmpty { c.optString("createdAt") },
+                            )
+                        }
+                        val orderArr = batch["orders"]?.data as? JSONArray ?: JSONArray()
+                        val orders = List(orderArr.length()) { i -> parseOrder(orderArr.getJSONObject(i)) }
+                        val ledgerArr = batch["ledger"]?.data as? JSONArray ?: JSONArray()
+                        val ledger = List(ledgerArr.length()) { i ->
+                            val l = ledgerArr.getJSONObject(i)
+                            PxBoardLedgerEntry(l.optString("id"), l.optDouble("amount", 0.0).roundToInt(), l.optString("reason"), l.optString("createdAt"))
+                        }
+                        val chArr = batch["channels"]?.data as? JSONArray ?: JSONArray()
+                        val channels = (0 until chArr.length())
+                            .map { chArr.getJSONObject(it) }
+                            .filter { it.optBoolean("enabled", true) }
+                            .map { PxBoardPaymentChannel(it.optString("id"), it.optString("name")) }
+                        _portalState.update { it.copy(claims = claims, orders = orders, ledger = ledger, channels = channels) }
+                    }
+                    PassScreen.ACCOUNT_SECURITY -> {
+                        if ("access" in ext) {
+                            val prefs = PxBoardApi.rpc("access", "preferences.get", auth) as? JSONObject
+                            if (prefs != null) {
+                                _portalState.update {
+                                    it.copy(
+                                        expireReminder = prefs.optBoolean("expireReminder", true),
+                                        trafficReminder = prefs.optBoolean("trafficReminder", true),
+                                        expireEnabled = prefs.optBoolean("expireEnabled", false),
+                                        trafficEnabled = prefs.optBoolean("trafficEnabled", false),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> {
+                        val batch = PxBoardApi.batch(
+                            listOf(
+                                PxBoardBatchCall("tickets", "support", "tickets.list", JSONObject().put("mine", true)),
+                                PxBoardBatchCall("articles", "support", "articles.list"),
+                            ),
+                            auth,
+                        )
+                        val tArr = batch["tickets"]?.data as? JSONArray ?: JSONArray()
+                        val tickets = List(tArr.length()) { i ->
+                            val row = tArr.getJSONObject(i)
+                            val mArr = row.optJSONArray("messages") ?: JSONArray()
+                            val msgs = List(mArr.length()) { mIdx ->
+                                val m = mArr.getJSONObject(mIdx)
+                                PxBoardTicketMsg(m.optString("id", "$mIdx"), m.optString("author", "用户"), m.optString("content"), m.optString("createdAt"))
+                            }
+                            PxBoardTicket(row.optString("id"), row.optString("subject"), row.optString("status"), row.optString("updatedAt"), row.optString("thread"), msgs)
+                        }
+                        val aArr = batch["articles"]?.data as? JSONArray ?: JSONArray()
+                        val articles = (0 until aArr.length())
+                            .map { aArr.getJSONObject(it) }
+                            .filter { it.optBoolean("published", true) }
+                            .map { PxBoardArticle(it.optString("id"), it.optString("title"), it.optString("content")) }
+                        _portalState.update { cur ->
+                            cur.copy(
+                                tickets = tickets,
+                                selectedTicketId = cur.selectedTicketId.takeIf { id -> tickets.any { it.id == id } } ?: tickets.firstOrNull()?.id.orEmpty(),
+                                articles = articles,
+                            )
+                        }
+                    }
+                    PassScreen.INVITE_DETAILS -> {
+                        val batch = PxBoardApi.batch(
+                            listOf(
+                                PxBoardBatchCall("summary", "affiliate", "summary.get"),
+                                PxBoardBatchCall("commissions", "affiliate", "commissions.list", JSONObject().put("mine", true)),
+                                PxBoardBatchCall("withdrawals", "affiliate", "withdrawals.list", JSONObject().put("mine", true)),
+                            ),
+                            auth,
+                        )
+                        val s = batch["summary"]?.data as? JSONObject
+                        val cArr = batch["commissions"]?.data as? JSONArray ?: JSONArray()
+                        val wArr = batch["withdrawals"]?.data as? JSONArray ?: JSONArray()
+                        _portalState.update { cur ->
+                            cur.copy(
+                                affiliate = if (s != null) {
+                                    PxBoardAffiliateSummary(
+                                        availableAmount = s.optDouble("availableAmount", 0.0).roundToInt(),
+                                        pendingAmount = s.optDouble("pendingAmount", 0.0).roundToInt(),
+                                        totalAmount = s.optDouble("totalAmount", 0.0).roundToInt(),
+                                        invitedCount = s.optInt("invitedCount", 0),
+                                        commissionPercent = s.optInt("commissionPercent", 0),
+                                        commissionHoldDays = s.optInt("commissionHoldDays", 0),
+                                        commissionMode = s.optString("commissionMode"),
+                                        referralUrl = s.optString("referralPath").takeIf { p -> p.isNotEmpty() }?.let(PxBoardApi::publicUrl).orEmpty(),
+                                    )
+                                } else cur.affiliate,
+                                commissions = List(cArr.length()) { i ->
+                                    val row = cArr.getJSONObject(i)
+                                    PxBoardCommission(row.optString("id"), row.optDouble("amount", 0.0).roundToInt(), row.optString("status"), row.optString("createdAt"))
+                                },
+                                withdrawals = List(wArr.length()) { i ->
+                                    val row = wArr.getJSONObject(i)
+                                    PxBoardWithdrawal(row.optString("id"), row.optDouble("amount", 0.0).roundToInt(), row.optString("method"), row.optString("status"), row.optString("createdAt"))
+                                },
+                            )
+                        }
+                    }
+                    else -> Unit
+                }
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            }
+        }
+    }
+
+    fun clearActiveCheckout() {
+        _portalState.update { it.copy(quote = null, quoting = false, activeOrder = null) }
+    }
+
+    fun quoteOrder(planId: String, periodId: String, coupon: String) {
+        val auth = state.value.authData
+        if (auth.isEmpty() || planId.isEmpty() || periodId.isEmpty()) return
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(quoting = true, quote = null) }
+            try {
+                val res = PxBoardApi.rpc(
+                    "commerce",
+                    "orders.quote",
+                    auth,
+                    JSONObject().put("planId", planId).put("periodId", periodId).put("coupon", coupon.trim()),
+                ) as JSONObject
+                _portalState.update {
+                    it.copy(
+                        quoting = false,
+                        quote = PxBoardQuote(
+                            amount = res.optDouble("amount", 0.0).roundToInt(),
+                            discount = res.optDouble("discount", 0.0).roundToInt(),
+                            surplusAmount = res.optDouble("surplusAmount", 0.0).roundToInt(),
+                            surplusCredit = res.optDouble("surplusCredit", 0.0).roundToInt(),
+                        ),
+                    )
+                }
+            } catch (e: Exception) {
+                _portalState.update { it.copy(quoting = false, quote = null) }
+                message(e.message ?: e.toString())
+            }
+        }
+    }
+
+    fun createPlanOrder(planId: String, periodId: String, coupon: String) {
+        if (_portalState.value.busy) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                val res = PxBoardApi.rpc(
+                    "commerce",
+                    "orders.create",
+                    auth,
+                    JSONObject()
+                        .put("planId", planId)
+                        .put("periodId", periodId)
+                        .put("coupon", coupon.trim())
+                        .put("requestId", UUID.randomUUID().toString()),
+                ) as JSONObject
+                _portalState.update { it.copy(activeOrder = parseOrder(res)) }
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun payOrderWithWallet(orderId: String, onCompleted: () -> Unit = {}) {
+        if (_portalState.value.busy) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                val res = PxBoardApi.rpc("commerce", "orders.pay", auth, JSONObject().put("id", orderId)) as JSONObject
+                _portalState.update { it.copy(activeOrder = null, quote = null) }
+                message(if (res.optString("status") == "fulfilled") "支付完成，权益已更新" else "订单正在处理")
+                refresh(force = true)
+                loadScreenData(state.value.screen)
+                onCompleted()
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun checkoutOrderOnline(orderId: String, channelId: String, onOpened: () -> Unit = {}) {
+        if (_portalState.value.busy) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                val res = PxBoardApi.rpc(
+                    "payments",
+                    "checkout",
+                    auth,
+                    JSONObject().put("orderId", orderId).put("channelId", channelId),
+                ) as JSONObject
+                val redirect = res.optString("redirectUrl")
+                check(redirect.isNotEmpty()) { "支付渠道未返回跳转链接" }
+                open(redirect)
+                _portalState.update { it.copy(activeOrder = null, quote = null) }
+                onOpened()
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun cancelOrder(orderId: String) {
+        if (_portalState.value.busy) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                PxBoardApi.rpc("commerce", "orders.cancel", auth, JSONObject().put("id", orderId))
+                message("订单已取消")
+                loadScreenData(PassScreen.GIFT_CARDS)
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun rechargeWallet(amountCents: Int, channelId: String) {
+        if (_portalState.value.busy || amountCents <= 0 || channelId.isEmpty()) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                val order = PxBoardApi.rpc(
+                    "commerce",
+                    "orders.create",
+                    auth,
+                    JSONObject().put("kind", "recharge").put("amount", amountCents).put("requestId", UUID.randomUUID().toString()),
+                ) as JSONObject
+                val checkout = PxBoardApi.rpc(
+                    "payments",
+                    "checkout",
+                    auth,
+                    JSONObject().put("orderId", order.getString("id")).put("channelId", channelId),
+                ) as JSONObject
+                open(checkout.getString("redirectUrl"))
+                loadScreenData(PassScreen.GIFT_CARDS)
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun createSubLink(name: String, bindUa: Boolean) {
+        if (_portalState.value.busy) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                PxBoardApi.rpc("subscriptions", "links.create", auth, JSONObject().put("name", name.trim()).put("bindUserAgent", bindUa))
+                message("订阅链接已创建")
+                loadScreenData(PassScreen.PROFILE)
+                refresh(force = true)
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun mutateSubLink(id: String, action: String) {
+        if (_portalState.value.busy) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                PxBoardApi.rpc("subscriptions", "links.$action", auth, JSONObject().put("id", id))
+                message(if (action == "rotate") "订阅链接已重置" else "订阅链接已删除")
+                loadScreenData(PassScreen.PROFILE)
+                refresh(force = true)
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun redeemCode(code: String, onRedeemed: () -> Unit = {}) {
+        val trimmed = code.trim()
+        if (_portalState.value.busy || trimmed.isEmpty()) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                val res = PxBoardApi.rpc(
+                    "redeem",
+                    "redeem.create",
+                    auth,
+                    JSONObject().put("code", trimmed).put("requestId", UUID.randomUUID().toString()),
+                ) as JSONObject
+                message(res.optString("message").ifEmpty { if (res.optString("status") == "redeemed") "兑换成功" else "兑换已登记" })
+                onRedeemed()
+                refresh(force = true)
+                loadScreenData(PassScreen.GIFT_CARDS)
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun selectTicket(ticketId: String) {
+        _portalState.update { it.copy(selectedTicketId = ticketId) }
+        state.update { it.copy(screen = PassScreen.TICKET_DETAIL) }
+    }
+
+    fun createTicket(subject: String, content: String, onCreated: () -> Unit = {}) {
+        if (_portalState.value.busy || subject.isBlank() || content.isBlank()) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                val res = PxBoardApi.rpc(
+                    "support",
+                    "tickets.create",
+                    auth,
+                    JSONObject().put("subject", subject.trim()).put("content", content.trim()),
+                ) as JSONObject
+                _portalState.update { it.copy(selectedTicketId = res.optString("id")) }
+                message("工单已提交")
+                onCreated()
+                loadScreenData(PassScreen.TICKETS)
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun replyTicket(ticketId: String, reply: String, onSent: () -> Unit = {}) {
+        if (_portalState.value.busy || reply.isBlank()) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                PxBoardApi.rpc("support", "tickets.reply", auth, JSONObject().put("id", ticketId).put("message", reply.trim()))
+                onSent()
+                loadScreenData(PassScreen.TICKET_DETAIL)
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun closeTicket(ticketId: String) {
+        if (_portalState.value.busy) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                PxBoardApi.rpc("support", "tickets.close", auth, JSONObject().put("id", ticketId))
+                message("工单已关闭")
+                loadScreenData(PassScreen.TICKET_DETAIL)
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun uploadTicketAttachment(base64Data: String, onUploaded: (String) -> Unit) {
+        if (_portalState.value.busy || base64Data.isEmpty()) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                val res = PxBoardApi.rpc("support", "attachments.create", auth, JSONObject().put("data", base64Data)) as JSONObject
+                val url = PxBoardApi.publicUrl(res.getString("url"))
+                onUploaded("![图片]($url)")
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun createWithdrawal(amountCents: Int, method: String, payoutAccount: String, onDone: () -> Unit = {}) {
+        if (_portalState.value.busy || amountCents <= 0) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                val body = JSONObject()
+                    .put("amount", amountCents)
+                    .put("method", method)
+                    .put("requestId", UUID.randomUUID().toString())
+                if (method == "cash") body.put("payoutAccount", payoutAccount.trim())
+                PxBoardApi.rpc("affiliate", "withdrawals.create", auth, body)
+                message("结算申请已提交")
+                onDone()
+                refresh(force = true)
+                loadScreenData(PassScreen.INVITE_DETAILS)
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun mutateWithdrawal(id: String, action: String) {
+        if (_portalState.value.busy) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                PxBoardApi.rpc("affiliate", "withdrawals.$action", auth, JSONObject().put("id", id))
+                refresh(force = true)
+                loadScreenData(PassScreen.INVITE_DETAILS)
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun saveReminders(expire: Boolean, traffic: Boolean) {
+        if (_portalState.value.busy) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true, expireReminder = expire, trafficReminder = traffic) }
+            try {
+                PxBoardApi.rpc(
+                    "access",
+                    "preferences.update",
+                    auth,
+                    JSONObject().put("expireReminder", expire).put("trafficReminder", traffic),
+                )
+                message("提醒设置已保存")
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun changePassword(currentPassword: String, code: String, newPassword: String, onSuccess: () -> Unit) {
+        if (_portalState.value.busy || currentPassword.isEmpty() || newPassword.length < 10) return
+        val auth = state.value.authData
+        scope.launch(Dispatchers.IO) {
+            _portalState.update { it.copy(busy = true) }
+            try {
+                val body = JSONObject().put("currentPassword", currentPassword).put("password", newPassword)
+                if (code.trim().isNotEmpty()) body.put("code", code.trim())
+                PxBoardApi.rpc("core", "account.changePassword", auth, body)
+                message("密码已更新，请重新登录")
+                onSuccess()
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                _portalState.update { it.copy(busy = false) }
+            }
         }
     }
 }

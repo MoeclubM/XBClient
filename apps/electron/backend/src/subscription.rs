@@ -97,7 +97,9 @@ fn with_subscription_query(url: &str, flag: &str) -> Result<reqwest::Url> {
 }
 
 fn clash_routing_meta(text: &str) -> Result<(Value, Option<Value>)> {
-    let root: Value = serde_yaml::from_str::<serde_yaml::Value>(text)
+    let sanitized = aerion_core::sanitize_mihomo_route_yaml(text)
+        .context("sanitize clash-meta routing YAML")?;
+    let root: Value = serde_yaml::from_str::<serde_yaml::Value>(&sanitized)
         .context("parse clash-meta routing YAML")
         .and_then(yaml_to_json)?;
     let nodes = root
@@ -152,7 +154,7 @@ fn clash_routing_meta(text: &str) -> Result<(Value, Option<Value>)> {
             "rule_provider_count": rule_provider_count,
             "rules_preview": preview,
             "rules": rule_strings,
-            "route_config_yaml": if rule_strings.is_empty() { Value::Null } else { Value::String(text.to_string()) },
+            "route_config_yaml": if rule_strings.is_empty() { Value::Null } else { Value::String(sanitized) },
         }),
         nodes,
     ))

@@ -13,6 +13,7 @@ import {
 } from '../../api/system'
 import DesktopConnectionPanel from '../components/DesktopConnectionPanel.vue'
 import SubscriptionBlockedPanel from '../components/SubscriptionBlockedPanel.vue'
+import { isPxBoard } from '../../api/pxboard'
 import { displayNodeName, dnsAddressForVpn } from '../../nodes'
 import { formatDuration, formatTrafficBytes, publicErrorText } from '../../format'
 import { syncSubscription } from '../../subscription-sync'
@@ -253,19 +254,20 @@ function formatUnixTime(value: number): string {
     </div>
 
     <!-- Traffic Section -->
-    <div v-if="!appState.subscription.blockReason && appState.subscription.trafficTotalBytes > 0" class="page-section">
+    <div v-if="!appState.subscription.blockReason && (appState.subscription.trafficTotalBytes > 0 || Boolean(appState.subscription.summary))" class="page-section">
       <p class="section-label">{{ t('section_traffic') }}</p>
       <v-card class="panel-card">
         <v-card-text>
-          <p class="muted mb-2">{{ appState.subscription.summary }}</p>
+          <p class="muted" :class="{ 'mb-2': appState.subscription.trafficTotalBytes > 0 }">{{ appState.subscription.summary }}</p>
           <v-progress-linear
+            v-if="appState.subscription.trafficTotalBytes > 0"
             color="primary"
             height="8"
             rounded
             :model-value="progressPercent"
             bg-color="surface-container-high"
           />
-          <v-btn variant="tonal" color="primary" class="mt-4" @click="router.push('/traffic')">
+          <v-btn v-if="!isPxBoard()" variant="tonal" color="primary" class="mt-4" @click="router.push('/traffic')">
             {{ t('nav_traffic_logs') }}
           </v-btn>
         </v-card-text>

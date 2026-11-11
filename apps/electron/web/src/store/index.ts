@@ -361,8 +361,8 @@ const initialState: AppState = {
   setNotices: (notices) => set({ notices }),
   setSubscriptionState: (subscription) => set({ subscription }),
   reset: () =>
-    set({
-      baseUrl: '',
+    set((current) => ({
+      baseUrl: current.buildConfig?.default_api_url ?? '',
       authData: '',
       email: '',
       subscribeUrl: '',
@@ -404,7 +404,7 @@ const initialState: AppState = {
       notices: [],
       subscription: EMPTY_SUBSCRIPTION,
       routing: EMPTY_ROUTING,
-    }),
+    })),
 }
 
 state = initialState

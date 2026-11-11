@@ -43,6 +43,12 @@ const NAV_ITEMS = computed(() => [
   { path: '/nodes', icon: '◎', label: () => t('nav_nodes') },
   { path: '/plans', icon: '◫', label: () => t('nav_plans') },
   { path: '/profile', icon: '◉', label: () => t('nav_profile') },
+  ...(isPxBoard() && isDesktop && appState.panelExtensions.includes('support')
+    ? [{ path: '/tickets', icon: '✉', label: () => t('ticket_center') }]
+    : []),
+  ...(isPxBoard() && isDesktop && appState.panelExtensions.includes('affiliate')
+    ? [{ path: '/promotion', icon: '◈', label: () => t('nav_promotion') }]
+    : []),
   { path: '/services', icon: '✦', label: () => t('nav_services') },
   ...(isDesktop ? [{ path: '/logs', icon: '≡', label: () => t('nav_logs') }] : []),
   { path: '/settings', icon: '⚙', label: () => t('nav_settings') },
@@ -52,6 +58,9 @@ const activeNavIndex = computed(() => {
   const idx = NAV_ITEMS.value.findIndex((item) => {
     if (item.path === '/settings') return route.path.startsWith('/settings')
     if (item.path === '/services') return ['/services', '/tickets', '/promotion', '/traffic'].includes(route.path)
+    if (item.path === '/profile' && isPxBoard() && !isDesktop) {
+      return ['/profile', '/tickets', '/promotion'].includes(route.path)
+    }
     if (item.path === '/nodes') return route.path === '/nodes'
     return route.path === item.path
   })
@@ -70,6 +79,9 @@ const navPillStyle = computed(() => {
 function navActive(itemPath: string): boolean {
   if (itemPath === '/settings') return route.path.startsWith('/settings')
   if (itemPath === '/services') return ['/services', '/tickets', '/promotion', '/traffic'].includes(route.path)
+    if (itemPath === '/profile' && isPxBoard() && !isDesktop) {
+      return ['/profile', '/tickets', '/promotion'].includes(route.path)
+    }
   if (itemPath === '/nodes') return route.path === '/nodes'
   return route.path === itemPath
 }

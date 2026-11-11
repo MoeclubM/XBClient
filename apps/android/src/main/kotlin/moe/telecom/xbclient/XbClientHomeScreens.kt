@@ -121,7 +121,14 @@ internal fun HomeScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             }
             Spacer(Modifier.height(14.dp))
             Button(
-                onClick = { if (PxBoardApi.enabled) viewModel.openPxBoardPortal() else viewModel.openScreen(PassScreen.PLANS) },
+                onClick = {
+                    val target = when {
+                        !PxBoardApi.enabled || "commerce" in state.nativeExtensions -> PassScreen.PLANS
+                        "redeem" in state.nativeExtensions -> PassScreen.GIFT_CARDS
+                        else -> PassScreen.PROFILE
+                    }
+                    viewModel.openScreen(target)
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColorsPrimary()
             ) {
@@ -370,7 +377,14 @@ internal fun NodeSelectScreen(state: XbClientUiState, viewModel: XbClientViewMod
                     Text(blockDescription, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                     Spacer(Modifier.height(14.dp))
                     Button(
-                        onClick = { if (PxBoardApi.enabled) viewModel.openPxBoardPortal() else viewModel.openScreen(PassScreen.PLANS) },
+                        onClick = {
+                            val target = when {
+                                !PxBoardApi.enabled || "commerce" in state.nativeExtensions -> PassScreen.PLANS
+                                "redeem" in state.nativeExtensions -> PassScreen.GIFT_CARDS
+                                else -> PassScreen.PROFILE
+                            }
+                            viewModel.openScreen(target)
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColorsPrimary()
                     ) {

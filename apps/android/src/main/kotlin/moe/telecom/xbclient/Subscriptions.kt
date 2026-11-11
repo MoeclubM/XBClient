@@ -72,7 +72,7 @@ object Subscriptions {
         for ((key, value) in parsedRoot) {
             root[key] = value
         }
-        val rules = (root["rules"] as? List<*>
+        var rules = (root["rules"] as? List<*>
             ?: throw IllegalStateException("clash-meta routing YAML missing rules array"))
             .map { it.toString() }
         val proxyGroupCount = when (val proxyGroups = root["proxy-groups"]) {
@@ -85,6 +85,7 @@ object Subscriptions {
             root.containsKey("rule_providers") -> "rule_providers"
             else -> null
         }
+        val strippedProviders = linkedSetOf<String>()
         val ruleProviderCount = if (ruleProvidersKey == null) {
             0
         } else {
@@ -99,25 +100,39 @@ object Subscriptions {
                     ?: throw IllegalStateException("clash-meta rule-provider $name missing behavior")
                 val type = provider["type"]?.toString()?.trim()?.lowercase(Locale.US)
                     ?: throw IllegalStateException("clash-meta rule-provider $name missing type")
-                val expandedProvider = when (type) {
+                val format = provider["format"]?.toString()?.trim()?.lowercase(Locale.US).orEmpty()
+                val rawUrl = provider["url"]?.toString()?.trim().orEmpty()
+                val isMrs = format == "mrs" || rawUrl.substringBefore('?').lowercase(Locale.US).endsWith(".mrs")
+                when (type) {
                     "inline" -> {
                         mihomoRuleProviderPayload(name, provider["payload"])
-                        provider
+                        expanded[name] = provider
                     }
                     "http" -> {
-                        val payload = fetchMihomoRuleProviderPayload(name, provider, subscriptionHttpUrl)
-                        linkedMapOf(
-                            "type" to "inline",
-                            "behavior" to behavior,
-                            "payload" to payload
-                        )
+                        if (isMrs) {
+                            strippedProviders.add(name)
+                        } else {
+                            val payload = fetchMihomoRuleProviderPayload(name, provider, subscriptionHttpUrl)
+                            expanded[name] = linkedMapOf(
+                                "type" to "inline",
+                                "behavior" to behavior,
+                                "payload" to payload
+                            )
+                        }
                     }
                     else -> throw IllegalStateException("clash-meta rule-provider $name type $type is not supported")
                 }
-                expanded[name] = expandedProvider
             }
-            root[ruleProvidersKey] = expanded
-            providers.size
+            if (expanded.isEmpty()) {
+                root.remove(ruleProvidersKey)
+            } else {
+                root[ruleProvidersKey] = expanded
+            }
+            expanded.size
+        }
+        if (strippedProviders.isNotEmpty()) {
+            rules = rewriteStrippedRuleSets(rules, strippedProviders)
+            root["rules"] = rules
         }
         val nodes = root["proxies"]?.let { value ->
             val proxies = value as List<*>
@@ -130,7 +145,8 @@ object Subscriptions {
                 }
             }
         }
-        val routeConfigYaml = if (rules.isEmpty()) JSONObject.NULL else if (ruleProviderCount > 0) yaml.dump(root) else text
+        val rewritten = ruleProviderCount > 0 || strippedProviders.isNotEmpty()
+        val routeConfigYaml = if (rules.isEmpty()) JSONObject.NULL else if (rewritten) yaml.dump(root) else text
         return JSONObject()
             .put("ok", true)
             .put("status", status)
@@ -189,5 +205,38 @@ object Subscriptions {
             throw IllegalStateException("clash-meta rule-provider $name payload is empty")
         }
         return cleaned
+    }
+
+    private fun rewriteStrippedRuleSets(rules: List<String>, stripped: Set<String>): List<String> {
+        var hasCnDomain = rules.any { raw ->
+            val upper = raw.trim().uppercase(Locale.US)
+            upper.startsWith("DOMAIN-SUFFIX,CN,") || upper.startsWith("GEOSITE,CN,")
+        }
+        var hasGeoipCn = rules.any { raw ->
+            raw.trim().uppercase(Locale.US).startsWith("GEOIP,CN,")
+        }
+        val out = ArrayList<String>(rules.size)
+        for (raw in rules) {
+            val trimmed = raw.trim()
+            if (trimmed.isEmpty()) continue
+            val parts = trimmed.split(',').map { it.trim() }
+            if (parts.size >= 3 && parts[0].equals("RULE-SET", ignoreCase = true)) {
+                val setName = parts[1]
+                val target = parts[2]
+                if (setName in stripped) {
+                    val lower = setName.lowercase(Locale.US)
+                    if (!hasCnDomain && (lower == "cn-domain" || (lower.contains("cn") && lower.contains("domain")))) {
+                        out.add("DOMAIN-SUFFIX,cn,$target")
+                        hasCnDomain = true
+                    } else if (!hasGeoipCn && (lower == "cn-ip" || (lower.contains("cn") && lower.contains("ip")))) {
+                        out.add("GEOIP,CN,$target,no-resolve")
+                        hasGeoipCn = true
+                    }
+                    continue
+                }
+            }
+            out.add(trimmed)
+        }
+        return out
     }
 }

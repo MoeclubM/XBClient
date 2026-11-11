@@ -189,3 +189,88 @@ test('aerion_test_route evaluates real Mihomo rules and returns matched rule', {
   assert.equal(lan.decision, 'DIRECT')
   assert.equal(lan.matched_rule, 'IP-CIDR,192.168.0.0/16,DIRECT,no-resolve')
 })
+
+test('HTTP and HTTPS CONNECT surface real connection_refused Proxy-Status on closed port', { timeout: 15000 }, async () => {
+  const ephemeral = net.createServer()
+  ephemeral.listen(0, '127.0.0.1')
+  await once(ephemeral, 'listening')
+  const closedPort = (ephemeral.address() as net.AddressInfo).port
+  await new Promise<void>((resolve) => ephemeral.close(() => resolve()))
+
+  const httpResult = await new Promise<{ statusCode: number; proxyStatus: string }>((resolve, reject) => {
+    const req = http.request(
+      { host: '127.0.0.1', port: proxy.port, path: `http://127.0.0.1:${closedPort}/probe`, method: 'GET' },
+      (res) => {
+        res.resume()
+        resolve({
+          statusCode: res.statusCode ?? 0,
+          proxyStatus: String(res.headers['proxy-status'] ?? ''),
+        })
+      },
+    )
+    req.on('error', reject)
+    req.end()
+  })
+  assert.equal(httpResult.statusCode, 502)
+  assert.match(httpResult.proxyStatus, /error=connection_refused/)
+
+  const connectResult = await new Promise<{ statusCode: number; proxyStatus: string }>((resolve, reject) => {
+    const req = http.request({
+      host: '127.0.0.1',
+      port: proxy.port,
+      method: 'CONNECT',
+      path: `127.0.0.1:${closedPort}`,
+    })
+    req.on('connect', (res, socket) => {
+      socket.destroy()
+      resolve({
+        statusCode: res.statusCode ?? 0,
+        proxyStatus: String(res.headers['proxy-status'] ?? ''),
+      })
+    })
+    req.on('error', reject)
+    req.end()
+  })
+  assert.equal(connectResult.statusCode, 502)
+  assert.match(connectResult.proxyStatus, /error=connection_refused/)
+})
+
+test('aerion_test_route sanitizes binary mrs rule-providers and rewrites cn rules', { timeout: 15000 }, async () => {
+  const configYaml = [
+    'proxies: []',
+    'rule-providers:',
+    '  cn-domain:',
+    '    type: http',
+    '    behavior: domain',
+    '    format: mrs',
+    '    url: https://example.com/cn-domain.mrs',
+    '    path: ./ruleset/cn-domain.mrs',
+    '  cn-ip:',
+    '    type: http',
+    '    behavior: ipcidr',
+    '    format: mrs',
+    '    url: https://example.com/cn-ip.mrs',
+    '    path: ./ruleset/cn-ip.mrs',
+    'rules:',
+    '  - RULE-SET,cn-domain,DIRECT',
+    '  - RULE-SET,cn-ip,DIRECT,no-resolve',
+    '  - MATCH,Proxy',
+  ].join('\n')
+  const cnHit = await invoke('aerion_test_route', {
+    config_yaml: configYaml,
+    selected_proxy: 'Tokyo-01',
+    target: 'https://www.gov.cn',
+    network: 'tcp',
+  })
+  assert.equal(cnHit.decision, 'DIRECT')
+  assert.equal(cnHit.matched_rule, 'DOMAIN-SUFFIX,cn,DIRECT')
+
+  const proxyHit = await invoke('aerion_test_route', {
+    config_yaml: configYaml,
+    selected_proxy: 'Tokyo-01',
+    target: 'https://api.openai.com',
+    network: 'tcp',
+  })
+  assert.equal(proxyHit.decision, 'PROXY')
+  assert.equal(proxyHit.outbound, 'Tokyo-01')
+})

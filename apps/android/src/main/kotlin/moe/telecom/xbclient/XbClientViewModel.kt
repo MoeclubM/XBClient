@@ -171,7 +171,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private val _events = MutableSharedFlow<XbClientEvent>()
     val events = _events.asSharedFlow()
     private val nativePanel = PxBoardSession(viewModelScope, _uiState, ::persistStoredState, ::emitMessage) { emitEvent(XbClientEvent.OpenExternalUrl(it)) }
-    private val pxboardAuth = PxBoardAuthAdapter(app.getString(R.string.app_name), viewModelScope, _uiState, ::persistStoredState, ::emitMessage, { emitEvent(XbClientEvent.OpenExternalUrl(it)) }, nativePanel::refresh)
+    private val pxboardAuth = PxBoardAuthAdapter(app.getString(R.string.app_name), viewModelScope, _uiState, ::persistStoredState, ::emitMessage, { emitEvent(XbClientEvent.OpenExternalUrl(it)) }, { nativePanel.refresh(force = true) })
+    internal val pxboardSession get() = nativePanel
+    internal val pxboardAuthAdapter get() = pxboardAuth
     private val xboardAuth = XboardAuthAdapter(viewModelScope, _uiState, ::defaultApiUrl, ::persistStoredState, ::emitMessage, { emitEvent(XbClientEvent.OpenExternalUrl(it)) }) {
         refreshSubscriptionAndNodes(force = true)
         refreshUserInfo()
@@ -255,7 +257,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun openScreen(screen: PassScreen) {
-        if (PxBoardApi.enabled) { _uiState.update { it.copy(screen = screen) }; nativePanel.refresh(); return }
+        if (PxBoardApi.enabled) {
+            _uiState.update { it.copy(screen = screen) }
+            nativePanel.refresh()
+            nativePanel.loadScreenData(screen)
+            return
+        }
         _uiState.update { it.copy(screen = screen) }
         when (screen) {
             PassScreen.PROFILE -> Unit
@@ -281,7 +288,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshCurrentPage() {
-        if (PxBoardApi.enabled) { nativePanel.refresh(); return }
+        if (PxBoardApi.enabled) {
+            nativePanel.refresh(force = true)
+            nativePanel.loadScreenData(_uiState.value.screen)
+            return
+        }
         when (_uiState.value.screen) {
             PassScreen.PROFILE -> {
                 refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
@@ -473,9 +484,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun logout() {
         pxboardAuth.cancelLogin()
         val current = _uiState.value
-        if (PxBoardApi.enabled && current.authData.isNotEmpty()) viewModelScope.launch(Dispatchers.IO) {
-            try { PxBoardApi.request("/auth/logout", current.authData, JSONObject()) }
-            catch (error: Exception) { emitMessage(error.message ?: error.toString()) }
+        if (PxBoardApi.enabled) {
+            nativePanel.reset()
+            if (current.authData.isNotEmpty()) viewModelScope.launch(Dispatchers.IO) {
+                try { PxBoardApi.rpc("core", "auth.logout", current.authData, JSONObject()) }
+                catch (error: Exception) { emitMessage(error.message ?: error.toString()) }
+            }
         }
         val next = XbClientUiState(
             loaded = true,
