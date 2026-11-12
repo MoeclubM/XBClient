@@ -1710,7 +1710,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             } else if (node.protocol != "direct" && node.protocol != "block") {
                 val originalHost = normalizeNodeHost(testNode.getString("host"))
                 val resolvedHost = XboardApi.resolveNodeHost(_uiState.value.nodeDns, originalHost)
-                if (resolvedHost != originalHost && (!testNode.has("sni") || testNode.getString("sni").isBlank())) {
+                if (resolvedHost != originalHost && (testNode.isNull("sni") || testNode.optString("sni").isBlank())) {
                     testNode.put("sni", originalHost)
                 }
                 testNode.put("host", resolvedHost)

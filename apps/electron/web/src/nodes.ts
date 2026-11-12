@@ -58,14 +58,20 @@ const CONNECT_SUPPORTED = new Set([
 
 export function toAppNode(raw: RawNode): AppNode {
   if (typeof raw.type !== 'string' || !raw.type.trim()) throw new Error('XBClient 节点缺少 type。')
-  if (typeof raw.host !== 'string' || !raw.host.trim()) throw new Error('XBClient 节点缺少 host。')
+  const rawHost =
+    typeof raw.host === 'string' && raw.host.trim()
+      ? raw.host
+      : typeof raw.server === 'string' && raw.server.trim()
+        ? raw.server
+        : ''
+  if (!rawHost) throw new Error('XBClient 节点缺少 host。')
   if (typeof raw.name !== 'string' || !raw.name.trim()) throw new Error('XBClient 节点缺少 name。')
   const port = Number(raw.port)
   if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error('XBClient 节点 port 无效。')
   const protocol = raw.type.trim().toLowerCase()
-  const host = normalizeNodeHost(raw.host)
+  const host = normalizeNodeHost(rawHost)
   const normalized: RawNode = { ...raw, type: protocol, host }
-  const tls = raw.tls as Record<string, unknown> | undefined
+  const tls = raw.tls && typeof raw.tls === 'object' ? (raw.tls as Record<string, unknown>) : undefined
   const currentSni = normalizeNodeHost(String(normalized.sni ?? ''))
   if (!currentSni || isIpLiteral(currentSni)) {
     const sni = [
@@ -75,7 +81,7 @@ export function toAppNode(raw: RawNode): AppNode {
       tls && typeof tls.servername === 'string' ? tls.servername.trim() : '',
     ].find((value) => value && !isIpLiteral(value))
     if (sni) normalized.sni = sni
-    else if (currentSni) delete normalized.sni
+    else delete normalized.sni
   }
   return {
     protocol,
@@ -109,6 +115,7 @@ export function aerionNodeWithResolvedHost(node: AppNode, resolvedHost: string):
     raw.sni = originalHost
   }
   raw.host = resolvedHost
+  if ('server' in raw) raw.server = resolvedHost
   return raw
 }
 

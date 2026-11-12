@@ -260,7 +260,7 @@ class XbClientVpnService : VpnService() {
         } else if (protocol != "direct" && protocol != "block") {
             val originalHost = normalizeNodeHost(node.getString("host"))
             val resolvedHost = XboardApi.resolveNodeHost(nodeDns, originalHost)
-            if (resolvedHost != originalHost && (!node.has("sni") || node.getString("sni").isBlank())) {
+            if (resolvedHost != originalHost && (node.isNull("sni") || node.optString("sni").isBlank())) {
                 node.put("sni", originalHost)
             }
             node.put("host", resolvedHost)

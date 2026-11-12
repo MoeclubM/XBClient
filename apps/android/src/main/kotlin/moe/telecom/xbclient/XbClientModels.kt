@@ -217,7 +217,7 @@ data class NoticeItem(
 
 fun JSONObject.toAnyTlsNode(): AnyTlsNode =
     getString("type").lowercase(Locale.US).let { rawProtocol ->
-        val host = normalizeNodeHost(getString("host"))
+        val host = normalizeNodeHost(optString("host").ifBlank { getString("server") })
         AnyTlsNode(
             protocol = rawProtocol,
             name = getString("name").trim(),
@@ -254,24 +254,24 @@ fun nodeTags(node: JSONObject): List<String> {
 
 private fun JSONObject.normalizedNodeJson(protocol: String): String {
     val node = JSONObject(toString())
-    val host = normalizeNodeHost(node.getString("host"))
+    val host = normalizeNodeHost(node.optString("host").ifBlank { node.getString("server") })
     node.put("host", host)
     node.put("server", host)
-    val currentSni = normalizeNodeHost(node.optString("sni"))
+    val currentSni = if (node.isNull("sni")) "" else normalizeNodeHost(node.optString("sni"))
     if (currentSni.isBlank() || isIpLiteral(currentSni)) {
         val sni = listOf("server_name", "servername", "server-name").firstNotNullOfOrNull { key ->
-            node.optString(key).trim().takeIf { it.isNotEmpty() && !isIpLiteral(it) }
+            if (node.isNull(key)) null else node.optString(key).trim().takeIf { it.isNotEmpty() && !isIpLiteral(it) }
         } ?: if (node.opt("tls") is JSONObject) {
             val tls = node.getJSONObject("tls")
             listOf("server_name", "servername", "server-name").firstNotNullOfOrNull { key ->
-                tls.optString(key).trim().takeIf { it.isNotEmpty() && !isIpLiteral(it) }
+                if (tls.isNull(key)) null else tls.optString(key).trim().takeIf { it.isNotEmpty() && !isIpLiteral(it) }
             }
         } else {
             null
         }
         if (sni != null) {
             node.put("sni", sni)
-        } else if (currentSni.isNotBlank()) {
+        } else {
             node.remove("sni")
         }
     }
