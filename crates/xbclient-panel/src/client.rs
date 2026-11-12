@@ -2,7 +2,7 @@ use crate::config::{BuildConfig, normalize_base_url};
 use crate::http::{open_external_url, pxboard_rpc, xboard_get, xboard_post};
 use crate::models::{PanelSession, PanelStateSnapshot};
 use crate::{pxboard, xboard};
-use anyhow::{Context, Result, anyhow, bail, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use neto_core::{NetoController, build_profile_from_raw_nodes};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};

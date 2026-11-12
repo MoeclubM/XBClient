@@ -234,9 +234,10 @@ pub async fn sync_all(
                     .or_else(|| b.get("data"))
                     .and_then(Value::as_array)
                     .cloned()
-            });
+            })
+            .filter(|arr| !arr.is_empty());
             let final_payload = match (plugin_nodes, sub_parsed) {
-                (Some(raw_nodes), Some(sp)) if !raw_nodes.is_empty() => build_profile_from_raw_nodes(
+                (Some(raw_nodes), Some(sp)) => build_profile_from_raw_nodes(
                     raw_nodes,
                     sp.route_config_yaml,
                     sp.rules_preview,
