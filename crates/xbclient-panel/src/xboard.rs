@@ -2,7 +2,7 @@ use crate::config::BuildConfig;
 use crate::http::{open_external_url, xboard_get, xboard_post};
 use crate::models::{
     CommercialPeriod, CommercialPlan, NoticeEntry, OAuthProviderEntry, PanelStateSnapshot,
-    TicketEntry, TicketMessage, format_bytes_brief,
+    PaymentChannel, TicketEntry, TicketMessage, format_bytes_brief,
 };
 use anyhow::{Context, Result, bail, ensure};
 use neto_core::{
@@ -136,11 +136,32 @@ pub async fn sync_all(
         snap.currency_unit = d.get("currency").and_then(Value::as_str).unwrap_or("").to_string();
     }
 
-    if let Ok(ad_cfg) =
-        xboard_get(&snap.base_url, &cfg.user_agent, auth_data, "/api/v1/admob/user/config", &[]).await
-        && let Some(d) = ad_cfg.get("data")
-    {
-        snap.payment_enabled = d.get("payment_enabled").and_then(Value::as_bool).unwrap_or(false);
+    snap.payment_enabled = cfg.app_payment_enabled;
+    if cfg.app_payment_enabled {
+        if let Ok(mbody) = xboard_get(
+            &snap.base_url,
+            &cfg.user_agent,
+            auth_data,
+            "/api/v1/user/order/getPaymentMethod",
+            &[],
+        )
+        .await
+            && let Some(arr) = mbody.get("data").and_then(Value::as_array)
+        {
+            snap.payment_channels = arr
+                .iter()
+                .filter_map(|m| {
+                    let id = num_f64(m.get("id")) as i64;
+                    let name = m.get("name")?.as_str()?.trim().to_string();
+                    (id > 0 && !name.is_empty()).then(|| PaymentChannel {
+                        id: id.to_string(),
+                        name,
+                    })
+                })
+                .collect();
+        }
+    } else {
+        snap.payment_channels.clear();
     }
 
     let sub = xboard_get(
@@ -361,44 +382,57 @@ pub async fn purchase_plan(
     payment_enabled: bool,
     plan_id: &str,
     period_id: &str,
+    coupon: &str,
+    channel_id: &str,
 ) -> Result<Option<String>> {
     let pid: i64 = plan_id.parse().context("无效套餐 ID")?;
-    if payment_enabled {
-        let body = xboard_post(
-            base_url,
-            &cfg.user_agent,
-            auth_data,
-            "/api/v1/admob/user/plan-payment",
-            json!({ "plan_id": pid }),
-        )
-        .await?;
-        let url = body
-            .get("data")
-            .and_then(Value::as_str)
-            .filter(|s| !s.is_empty())
-            .context("未返回套餐购买链接")?
-            .to_string();
-        let _ = open_external_url(&url);
-        return Ok(Some(url));
+    let mut save_body = json!({ "plan_id": pid, "period": period_id });
+    if !coupon.trim().is_empty() {
+        save_body["coupon_code"] = Value::String(coupon.trim().to_string());
     }
     let save = xboard_post(
         base_url,
         &cfg.user_agent,
         auth_data,
         "/api/v1/user/order/save",
-        json!({ "plan_id": pid, "period": period_id }),
+        save_body,
     )
     .await?;
     let trade_no = save
         .get("data")
         .and_then(Value::as_str)
         .context("创建订单未返回 trade_no")?;
+    if !payment_enabled || channel_id.is_empty() || channel_id == "wallet" {
+        let checkout = xboard_post(
+            base_url,
+            &cfg.user_agent,
+            auth_data,
+            "/api/v1/user/order/checkout",
+            json!({ "trade_no": trade_no }),
+        )
+        .await;
+        if let Ok(ref res) = checkout
+            && num_f64(res.get("type")) as i64 == -1
+        {
+            return Ok(None);
+        }
+        let _ = xboard_post(
+            base_url,
+            &cfg.user_agent,
+            auth_data,
+            "/api/v1/user/order/cancel",
+            json!({ "trade_no": trade_no }),
+        )
+        .await;
+        bail!("账户余额不足以抵扣该套餐");
+    }
+    let method_id: i64 = channel_id.parse().context("无效支付渠道")?;
     let checkout = xboard_post(
         base_url,
         &cfg.user_agent,
         auth_data,
         "/api/v1/user/order/checkout",
-        json!({ "trade_no": trade_no }),
+        json!({ "trade_no": trade_no, "method": method_id }),
     )
     .await?;
     if num_f64(checkout.get("type")) as i64 == -1 {
@@ -408,7 +442,7 @@ pub async fn purchase_plan(
         let _ = open_external_url(url);
         return Ok(Some(url.to_string()));
     }
-    bail!("账户余额不足以抵扣该套餐")
+    bail!("支付渠道未返回有效收银台链接")
 }
 
 pub async fn redeem_gift_card(

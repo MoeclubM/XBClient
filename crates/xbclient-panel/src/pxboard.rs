@@ -300,7 +300,7 @@ pub async fn sync_all(
             .filter(|p| p.get("enabled").and_then(Value::as_bool).unwrap_or(false))
             .filter_map(|p| p.get("id").and_then(Value::as_str).map(ToString::to_string))
             .collect();
-        snap.payment_enabled = snap.extensions.iter().any(|e| e == "commerce");
+        snap.payment_enabled = cfg.app_payment_enabled && snap.extensions.iter().any(|e| e == "commerce");
     }
 
     if batch.pointer("/wallet/status").and_then(Value::as_u64) == Some(200)
@@ -385,7 +385,8 @@ pub async fn sync_all(
             .collect();
     }
 
-    if batch.pointer("/channels/status").and_then(Value::as_u64) == Some(200)
+    if cfg.app_payment_enabled
+        && batch.pointer("/channels/status").and_then(Value::as_u64) == Some(200)
         && let Some(arr) = batch.pointer("/channels/data").and_then(Value::as_array)
     {
         snap.payment_channels = arr
@@ -397,6 +398,8 @@ pub async fn sync_all(
                 })
             })
             .collect();
+    } else {
+        snap.payment_channels.clear();
     }
 
     if batch.pointer("/tickets/status").and_then(Value::as_u64) == Some(200)
@@ -573,6 +576,7 @@ pub async fn purchase_plan(
         .await?;
         return Ok(None);
     }
+    ensure!(cfg.app_payment_enabled, "当前客户端仅支持账户余额支付");
     let checkout = pxboard_rpc(
         base_url,
         &cfg.user_agent,

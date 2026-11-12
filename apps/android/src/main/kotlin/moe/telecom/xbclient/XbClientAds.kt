@@ -42,6 +42,12 @@ internal class XbClientAds(
     private var pendingRewardShow = false
     private var isShowingFullScreenAd = false
     private var skipNextAppOpen = false
+    private val hasConfiguredAds: Boolean
+        get() = BuildConfig.ADMOB_APP_ID.isNotEmpty() && (
+            BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty() ||
+                BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty() ||
+                BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty()
+            )
 
     private val rewardedPreloadCallback = object : PreloadCallback {
         override fun onAdPreloaded(preloadId: String, responseInfo: ResponseInfo) {
@@ -74,11 +80,13 @@ internal class XbClientAds(
     }
 
     fun start() {
+        if (!hasConfiguredAds) return
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         initializeAds()
     }
 
     fun release() {
+        if (!hasConfiguredAds) return
         ProcessLifecycleOwner.get().lifecycle.removeObserver(this)
         if (activity.isFinishing && adsInitialized) {
             replaceRewardedPreload(startedPlanAdUnitId, "")
@@ -91,6 +99,7 @@ internal class XbClientAds(
     }
 
     fun sync(state: XbClientUiState) {
+        if (!hasConfiguredAds) return
         if (!state.loaded || !state.isLoggedIn) {
             if (adsInitialized) {
                 replaceRewardedPreload(startedPlanAdUnitId, "")
@@ -116,7 +125,7 @@ internal class XbClientAds(
     }
 
     fun showRewardedAd(adUnitId: String, userId: String, customData: String) {
-        if (adUnitId.isEmpty() || activity.isFinishing || activity.isDestroyed) {
+        if (!hasConfiguredAds || adUnitId.isEmpty() || activity.isFinishing || activity.isDestroyed) {
             return
         }
         if (!adsInitialized) {
@@ -184,7 +193,7 @@ internal class XbClientAds(
     }
 
     private fun initializeAds() {
-        if (adsInitialized || adsInitializing) {
+        if (!hasConfiguredAds || adsInitialized || adsInitializing) {
             return
         }
         if (MobileAds.isInitialized) {

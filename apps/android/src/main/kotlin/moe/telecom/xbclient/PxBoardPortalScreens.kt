@@ -87,13 +87,13 @@ internal fun PxBoardRedeemAndBillingScreen(state: XbClientUiState, viewModel: Xb
     }
 
     if ("commerce" in ext) {
-        Section("余额与充值") {
+        Section(if (state.paymentEnabled && portal.channels.isNotEmpty()) "余额与充值" else "账户余额") {
             Panel {
                 Text(
                     stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)),
                     style = MiuixTheme.textStyles.title2,
                 )
-                if (portal.channels.isNotEmpty()) {
+                if (state.paymentEnabled && portal.channels.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
                     TextField(
                         value = rechargeText,
@@ -149,7 +149,7 @@ internal fun PxBoardRedeemAndBillingScreen(state: XbClientUiState, viewModel: Xb
                                         colors = ButtonDefaults.textButtonColorsPrimary(),
                                     )
                                 }
-                                if (portal.channels.isNotEmpty() && order.amount > 0) {
+                                if (state.paymentEnabled && portal.channels.isNotEmpty() && order.amount > 0) {
                                     val safeCh = portal.channels[channelIdx.coerceIn(0, portal.channels.lastIndex)]
                                     TextButton(
                                         text = "在线支付",

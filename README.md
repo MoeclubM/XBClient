@@ -4,7 +4,7 @@
 
 基于独立多端订阅客户端 [Neto](https://github.com/MoeclubM/Neto) 与 [Aerion](https://github.com/MoeclubM/Aerion) 内核构建，提供商业面板封装能力。登录面板账号后自动将节点与规则同步至共享连接内核，并在原生界面提供套餐购买、兑换码、返利、公告与工单功能。
 
-订阅同步使用独立的 Aerion 适配器：Xboard 请求 `flag=aerion`，PxBoard 请求 `format=aerion`。继续读取 YAML 节点和规则；Flux 等 Aerion 扩展不进入面板的普通 Mihomo 订阅适配器。
+节点与分流同步与普通 Mihomo 订阅隔离：PxBoard 通过统一 `/rpc/v1`（`subscriptions/client.profile`）同步节点、分流规则与配额，分享订阅使用 `format=aerion`；Xboard 请求 `flag=aerion`。Flux 等 Aerion 扩展协议不会混入面板普通 Mihomo 订阅。
 
 [![Release](https://img.shields.io/github/v/release/MoeclubM/XBClient?style=flat-square)](https://github.com/MoeclubM/XBClient/releases)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE)
@@ -22,7 +22,25 @@
 - **协议齐全**：Flux、Sudoku、AnyTLS、Hysteria2、Trojan、VLESS、VMess、Mieru、Naive、TUIC、Shadowsocks，以及 HTTP / SOCKS5。
 - **多语言**：中文、英语、日语、俄语、波斯语，可跟随系统。
 
-应用名、包名、站点地址和 API 在发布时注入，仓库里不存放默认品牌信息。通过 `XBCLIENT_PANEL_TYPE` 选择 Xboard 或 PxBoard；安装包指向发布者配置的站点。PxBoard 使用浏览器授权登录，节点与流量在应用内显示，套餐、支付、兑换码和工单复用站点用户前台。
+应用名、包名、站点地址以及商业与广告开关均在构建时通过 GitHub Secrets 固化注入，仓库不存放默认品牌信息，面板侧无需额外维护客户端开关插件。通过 `XBCLIENT_PANEL_TYPE` 选择 `xboard` 或 `pxboard`，两套面板均在应用内原生完成登录注册、第三方授权、套餐下单、余额抵扣、兑换码、返利与工单。
+
+## 构建参数固化
+
+所有构建参数保存在仓库 GitHub Secrets 中，完整说明与发版流程见 [docs/build.md](docs/build.md)：
+
+| Secret | 必填 | 作用 |
+| --- | --- | --- |
+| `XBCLIENT_PANEL_TYPE` | 否 | `xboard`（默认）或 `pxboard` |
+| `XBCLIENT_DEFAULT_API_URL` | 是 | 面板公开地址（不带 `/api/v1` 或 `/rpc/v1`） |
+| `XBCLIENT_APP_NAME` | 是 | 应用显示名称 |
+| `XBCLIENT_APPLICATION_ID` | Android | Android 包名（`applicationId`） |
+| `XBCLIENT_USER_AGENT` | 是 | 客户端请求与订阅标识 |
+| `XBCLIENT_APP_PAYMENT_ENABLED` | 否 | 默认 `true`。设为 `false` 时全平台隐藏在线支付渠道、在线充值与外部网页收银台/控制台跳转，仅保留账户余额抵扣与兑换码（适用于 Google Play 合规包） |
+| `XBCLIENT_ADMOB_APP_ID` | 按需 | 配置任一广告单元时必填；未配置任何广告单元时可留空且客户端不初始化 AdMob SDK |
+| `XBCLIENT_APP_OPEN_AD_UNIT_ID` | 否 | Android 开屏广告单元 ID，非空即启用，纯客户端生效（支持 `pxboard` 与 `xboard`，无需面板配合） |
+| `XBCLIENT_PLAN_REWARDED_AD_UNIT_ID` | 否 | Android 套餐页激励广告单元 ID（仅 `xboard`，需服务端 `Xboard-XBClient` 完成 AdMob SSV 验签发奖） |
+| `XBCLIENT_POINTS_REWARDED_AD_UNIT_ID` | 否 | Android 账户页积分激励广告单元 ID（仅 `xboard`，需服务端 `Xboard-XBClient` 完成 AdMob SSV 验签发奖） |
+| `XBCLIENT_OAUTH_CALLBACK_SCHEME` | 按需 | `xboard` 必填；`pxboard` 采用浏览器轮询授权，可省略 |
 
 ## 平台
 
@@ -69,7 +87,8 @@
 
 - [Neto](https://github.com/MoeclubM/Neto) — 独立多端原生订阅与连接客户端框架
 - [Aerion](https://github.com/MoeclubM/Aerion) — 协议、路由与 TUN 核心
-- [NodeRS](https://github.com/MoeclubM/NodeRS) — Xboard 机器节点
+- [NodeRS](https://github.com/MoeclubM/NodeRS) — PxBoard / Xboard 机器节点
+- [PxBoard](https://github.com/MoeClub-Open/PxBoard) — 插件化面板
 - [Xboard](https://github.com/cedar2025/Xboard) — 面板
 
 能力细节见 [Aerion](https://github.com/MoeclubM/Aerion)。自行编译安装包时，品牌、签名和站点配置说明见 [docs/build.md](docs/build.md)。

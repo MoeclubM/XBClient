@@ -16,6 +16,7 @@ pub struct PlansView {
     portal_btn: gtk::Button,
     px_opts_group: adw::PreferencesGroup,
     coupon_row: adw::EntryRow,
+    ch_row: adw::ActionRow,
     channel_dropdown: gtk::DropDown,
     channel_ids: Rc<RefCell<Vec<String>>>,
     feedback_label: gtk::Label,
@@ -103,6 +104,7 @@ impl PlansView {
             portal_btn,
             px_opts_group,
             coupon_row,
+            ch_row,
             channel_dropdown,
             channel_ids: Rc::new(RefCell::new(vec!["wallet".to_string()])),
             feedback_label,
@@ -120,10 +122,11 @@ impl PlansView {
             &snap.currency_symbol,
             &snap.currency_unit,
         ));
-        self.portal_btn.set_visible(is_px);
+        self.portal_btn.set_visible(is_px && snap.payment_enabled);
 
         let sig = format!(
-            "{is_px}:{}:{}:{}:{}",
+            "{is_px}:{}:{}:{}:{}:{}",
+            snap.payment_enabled,
             snap.currency_symbol,
             snap.currency_unit,
             snap.payment_channels
@@ -142,20 +145,22 @@ impl PlansView {
         }
         *self.last_sig.borrow_mut() = sig;
 
-        self.px_opts_group.set_visible(is_px);
-        if is_px {
-            let mut ids = vec!["wallet".to_string()];
-            let mut labels = vec!["余额支付".to_string()];
+        let show_channels = snap.payment_enabled && !snap.payment_channels.is_empty();
+        self.px_opts_group.set_visible(!snap.plans.is_empty());
+        self.ch_row.set_visible(show_channels);
+        let mut ids = vec!["wallet".to_string()];
+        let mut labels = vec!["余额支付".to_string()];
+        if show_channels {
             for ch in &snap.payment_channels {
                 ids.push(ch.id.clone());
                 labels.push(ch.name.clone());
             }
-            *self.channel_ids.borrow_mut() = ids;
-            let str_refs: Vec<&str> = labels.iter().map(String::as_str).collect();
-            self.channel_dropdown
-                .set_model(Some(&gtk::StringList::new(&str_refs)));
-            self.channel_dropdown.set_selected(0);
         }
+        *self.channel_ids.borrow_mut() = ids;
+        let str_refs: Vec<&str> = labels.iter().map(String::as_str).collect();
+        self.channel_dropdown
+            .set_model(Some(&gtk::StringList::new(&str_refs)));
+        self.channel_dropdown.set_selected(0);
 
         while let Some(c) = self.plans_box.first_child() {
             self.plans_box.remove(&c);
@@ -206,11 +211,11 @@ impl PlansView {
                 buy_btn.connect_clicked(move |btn| {
                     btn.set_sensitive(false);
                     let coupon = coupon_row.text().trim().to_string();
-                    let ch_id = if is_px {
+                    let ch_id = if show_channels {
                         let idx = dropdown.selected() as usize;
                         ch_ids.borrow().get(idx).cloned().unwrap_or_default()
                     } else {
-                        String::new()
+                        "wallet".to_string()
                     };
                     let p = p.clone();
                     let pid = plan_id.clone();

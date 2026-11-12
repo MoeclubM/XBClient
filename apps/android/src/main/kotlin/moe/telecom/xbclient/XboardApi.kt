@@ -39,6 +39,8 @@ object XboardApi {
             "plan_fetch" -> getAuth(normalizedBaseUrl, "/api/v1/user/plan/fetch", authData, emptyMap())
             "order_save" -> postAuth(normalizedBaseUrl, "/api/v1/user/order/save", authData, params)
             "order_checkout" -> postAuth(normalizedBaseUrl, "/api/v1/user/order/checkout", authData, params)
+            "order_cancel" -> postAuth(normalizedBaseUrl, "/api/v1/user/order/cancel", authData, params)
+            "quick_login_url" -> postAuth(normalizedBaseUrl, "/api/v1/user/getQuickLoginUrl", authData, params)
             "oauth_bindings" -> getAuth(normalizedBaseUrl, "/api/v1/user/oauth/bindings", authData, emptyMap())
             "oauth_bind_prepare" -> requestJson("POST", normalizedBaseUrl, "/api/v1/user/oauth/${params.getString("driver")}/bind", authData, optionalQuery(params, "redirect", "client", "app_scheme"), JSONObject())
             "oauth_unbind" -> postAuth(normalizedBaseUrl, "/api/v1/user/oauth/${params.getString("driver")}/unbind", authData, JSONObject())
@@ -57,7 +59,6 @@ object XboardApi {
             "user_config" -> getAuth(normalizedBaseUrl, "/api/v1/user/comm/config", authData, emptyMap())
             // Xboard 插件 API
             "admob_reward_config" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/config", authData, emptyMap())
-            "xbclient_plan_payment" -> postAuth(normalizedBaseUrl, "/api/v1/admob/user/plan-payment", authData, params)
             "xbclient_reward_history" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/reward-history", authData, emptyMap())
             "xbclient_reward_pending" -> postAuth(normalizedBaseUrl, "/api/v1/admob/user/reward-pending", authData, params)
             "xbclient_nodes" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/nodes", authData, emptyMap())

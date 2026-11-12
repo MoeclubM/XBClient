@@ -361,7 +361,7 @@ internal class PxBoardSession(
                     cur.copy(
                         userEmail = user.getString("email"),
                         nativeExtensions = extensions,
-                        paymentEnabled = "commerce" in extensions,
+                        paymentEnabled = BuildConfig.APP_PAYMENT_ENABLED && "commerce" in extensions,
                         balance = wallet?.optDouble("balance", 0.0)?.roundToInt() ?: cur.balance,
                         currencySymbol = wallet?.optString("currencySymbol") ?: cur.currencySymbol,
                         currencyUnit = wallet?.optString("currencyName") ?: cur.currencyUnit,
@@ -401,7 +401,9 @@ internal class PxBoardSession(
                             PxBoardBatchCall("plans", "commerce", "plans.list", JSONObject().put("scope", "mine")),
                             PxBoardBatchCall("wallet", "commerce", "wallet.get"),
                         )
-                        if ("payments" in ext) calls.add(PxBoardBatchCall("channels", "payments", "channels.list"))
+                        if (BuildConfig.APP_PAYMENT_ENABLED && "payments" in ext) {
+                            calls.add(PxBoardBatchCall("channels", "payments", "channels.list"))
+                        }
                         val batch = PxBoardApi.batch(calls, auth)
                         val planArr = batch["plans"]?.data as? JSONArray ?: JSONArray()
                         val plans = ArrayList<PxBoardPlan>()
@@ -426,10 +428,14 @@ internal class PxBoardSession(
                             }
                         }
                         val chArr = batch["channels"]?.data as? JSONArray ?: JSONArray()
-                        val channels = (0 until chArr.length())
-                            .map { chArr.getJSONObject(it) }
-                            .filter { it.optBoolean("enabled", true) }
-                            .map { PxBoardPaymentChannel(it.optString("id"), it.optString("name")) }
+                        val channels = if (BuildConfig.APP_PAYMENT_ENABLED) {
+                            (0 until chArr.length())
+                                .map { chArr.getJSONObject(it) }
+                                .filter { it.optBoolean("enabled", true) }
+                                .map { PxBoardPaymentChannel(it.optString("id"), it.optString("name")) }
+                        } else {
+                            emptyList()
+                        }
                         _portalState.update { it.copy(plans = plans, channels = channels) }
                     }
                     PassScreen.PROFILE -> {
@@ -445,7 +451,9 @@ internal class PxBoardSession(
                             calls.add(PxBoardBatchCall("orders", "commerce", "orders.list", JSONObject().put("mine", true)))
                             calls.add(PxBoardBatchCall("ledger", "commerce", "ledger.list", JSONObject().put("mine", true)))
                         }
-                        if ("payments" in ext) calls.add(PxBoardBatchCall("channels", "payments", "channels.list"))
+                        if (BuildConfig.APP_PAYMENT_ENABLED && "payments" in ext) {
+                            calls.add(PxBoardBatchCall("channels", "payments", "channels.list"))
+                        }
                         if (calls.isEmpty()) return@launch
                         val batch = PxBoardApi.batch(calls, auth)
                         val claimsArr = batch["claims"]?.data as? JSONArray ?: JSONArray()
@@ -467,10 +475,14 @@ internal class PxBoardSession(
                             PxBoardLedgerEntry(l.optString("id"), l.optDouble("amount", 0.0).roundToInt(), l.optString("reason"), l.optString("createdAt"))
                         }
                         val chArr = batch["channels"]?.data as? JSONArray ?: JSONArray()
-                        val channels = (0 until chArr.length())
-                            .map { chArr.getJSONObject(it) }
-                            .filter { it.optBoolean("enabled", true) }
-                            .map { PxBoardPaymentChannel(it.optString("id"), it.optString("name")) }
+                        val channels = if (BuildConfig.APP_PAYMENT_ENABLED) {
+                            (0 until chArr.length())
+                                .map { chArr.getJSONObject(it) }
+                                .filter { it.optBoolean("enabled", true) }
+                                .map { PxBoardPaymentChannel(it.optString("id"), it.optString("name")) }
+                        } else {
+                            emptyList()
+                        }
                         _portalState.update { it.copy(claims = claims, orders = orders, ledger = ledger, channels = channels) }
                     }
                     PassScreen.ACCOUNT_SECURITY -> {
@@ -649,6 +661,7 @@ internal class PxBoardSession(
         scope.launch(Dispatchers.IO) {
             _portalState.update { it.copy(busy = true) }
             try {
+                check(BuildConfig.APP_PAYMENT_ENABLED) { "当前客户端仅支持账户余额支付" }
                 val res = PxBoardApi.rpc(
                     "payments",
                     "checkout",
@@ -691,6 +704,7 @@ internal class PxBoardSession(
         scope.launch(Dispatchers.IO) {
             _portalState.update { it.copy(busy = true) }
             try {
+                check(BuildConfig.APP_PAYMENT_ENABLED) { "当前客户端仅支持兑换码与余额抵扣" }
                 val order = PxBoardApi.rpc(
                     "commerce",
                     "orders.create",

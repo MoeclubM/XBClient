@@ -38,6 +38,7 @@ impl XbPanelClient {
             app_name: cfg.app_name.clone(),
             base_url,
             email: session.email.clone(),
+            payment_enabled: cfg.app_payment_enabled,
             subscribe_url: session.subscribe_url.clone(),
             website_url: cfg.website_url.clone(),
             privacy_policy_url: cfg.privacy_policy_url.clone(),
@@ -278,6 +279,7 @@ impl XbPanelClient {
             panel_type: self.cfg.panel_type.clone(),
             app_name: self.cfg.app_name.clone(),
             base_url,
+            payment_enabled: self.cfg.app_payment_enabled,
             website_url: self.cfg.website_url.clone(),
             privacy_policy_url: self.cfg.privacy_policy_url.clone(),
             user_agreement_url: self.cfg.user_agreement_url.clone(),
@@ -296,14 +298,24 @@ impl XbPanelClient {
         coupon: &str,
         channel_id: &str,
     ) -> Result<(Option<String>, PanelStateSnapshot)> {
-        let (auth_data, base_url, payment_enabled) = {
+        let (auth_data, base_url) = {
             let g = self.inner.lock().expect("panel lock poisoned");
-            (g.session.auth_data.clone(), g.snapshot.base_url.clone(), g.snapshot.payment_enabled)
+            (g.session.auth_data.clone(), g.snapshot.base_url.clone())
         };
         let redirect = if self.cfg.is_pxboard() {
             pxboard::purchase_plan(&self.cfg, &base_url, &auth_data, plan_id, period_id, coupon, channel_id).await?
         } else {
-            xboard::purchase_plan(&self.cfg, &base_url, &auth_data, payment_enabled, plan_id, period_id).await?
+            xboard::purchase_plan(
+                &self.cfg,
+                &base_url,
+                &auth_data,
+                self.cfg.app_payment_enabled,
+                plan_id,
+                period_id,
+                coupon,
+                channel_id,
+            )
+            .await?
         };
         let snap = self.sync_all().await.unwrap_or_else(|_| self.snapshot());
         Ok((redirect, snap))
@@ -423,6 +435,7 @@ impl XbPanelClient {
     }
 
     pub async fn open_portal(&self, redirect_path: &str) -> Result<String> {
+        ensure!(self.cfg.app_payment_enabled, "当前客户端已关闭外部网页收银台");
         let (auth_data, base_url) = {
             let g = self.inner.lock().expect("panel lock poisoned");
             (g.session.auth_data.clone(), g.snapshot.base_url.clone())
@@ -583,6 +596,7 @@ fn save_session(data_dir: &Path, sess: &PanelSession) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::parse_bool_flag;
 
     #[test]
     fn test_panel_client_session_roundtrip() {
@@ -592,6 +606,7 @@ mod tests {
             default_api_url: "https://panel.example.com".into(),
             panel_type: "pxboard".into(),
             app_name: "XBClient".into(),
+            app_payment_enabled: false,
             user_agent: "AerionTest".into(),
             oauth_callback_scheme: "xbclient".into(),
             website_url: "https://example.com".into(),
@@ -603,6 +618,11 @@ mod tests {
         assert!(!snap.logged_in);
         assert_eq!(snap.panel_type, "pxboard");
         assert_eq!(snap.base_url, "https://panel.example.com");
+        assert!(!snap.payment_enabled);
+        assert!(parse_bool_flag("", true));
+        assert!(parse_bool_flag("true", false));
+        assert!(!parse_bool_flag("false", true));
+        assert!(!parse_bool_flag("0", true));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

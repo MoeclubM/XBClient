@@ -5,6 +5,18 @@ plugins {
 
 val panelType = providers.environmentVariable("XBCLIENT_PANEL_TYPE").orNull?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: "xboard"
 require(panelType in setOf("xboard", "pxboard")) { "XBCLIENT_PANEL_TYPE must be xboard or pxboard" }
+
+fun parseBoolSecret(name: String, default: Boolean): Boolean =
+    when (providers.environmentVariable(name).orNull?.trim()?.lowercase().orEmpty()) {
+        "" -> default
+        "true", "1", "yes", "on" -> true
+        "false", "0", "no", "off" -> false
+        else -> error("$name must be true or false")
+    }
+
+fun escapeBuildConfigString(value: String): String =
+    value.replace("\\", "\\\\").replace("\"", "\\\"")
+
 val appMinAndroidApi = 33
 val compileAndroidApi = 37
 val targetAndroidApi = 36
@@ -20,15 +32,24 @@ val appName = providers.environmentVariable("XBCLIENT_APP_NAME").orNull
 val androidApplicationId = providers.environmentVariable("XBCLIENT_APPLICATION_ID").orNull
     ?.trim()?.takeIf { it.isNotEmpty() }
     ?: error("XBCLIENT_APPLICATION_ID GitHub Secret is required")
-val admobAppId = providers.environmentVariable("XBCLIENT_ADMOB_APP_ID").orNull
-    ?.trim()?.takeIf { it.isNotEmpty() }
-    ?: error("XBCLIENT_ADMOB_APP_ID GitHub Secret is required")
+val appPaymentEnabled = parseBoolSecret("XBCLIENT_APP_PAYMENT_ENABLED", true)
+val appOpenAdUnitId = providers.environmentVariable("XBCLIENT_APP_OPEN_AD_UNIT_ID").orNull?.trim().orEmpty()
+val planRewardedAdUnitId = providers.environmentVariable("XBCLIENT_PLAN_REWARDED_AD_UNIT_ID").orNull?.trim().orEmpty()
+val pointsRewardedAdUnitId = providers.environmentVariable("XBCLIENT_POINTS_REWARDED_AD_UNIT_ID").orNull?.trim().orEmpty()
+require(panelType != "pxboard" || (planRewardedAdUnitId.isEmpty() && pointsRewardedAdUnitId.isEmpty())) {
+    "PxBoard does not support AdMob rewarded SSV; clear XBCLIENT_PLAN_REWARDED_AD_UNIT_ID and XBCLIENT_POINTS_REWARDED_AD_UNIT_ID"
+}
+val hasAnyAdUnit = appOpenAdUnitId.isNotEmpty() || planRewardedAdUnitId.isNotEmpty() || pointsRewardedAdUnitId.isNotEmpty()
+val admobAppId = providers.environmentVariable("XBCLIENT_ADMOB_APP_ID").orNull?.trim().orEmpty()
+if (hasAnyAdUnit && admobAppId.isEmpty()) {
+    error("XBCLIENT_ADMOB_APP_ID GitHub Secret is required when any AdMob ad unit ID is configured")
+}
 val userAgent = providers.environmentVariable("XBCLIENT_USER_AGENT").orNull
     ?.trim()?.takeIf { it.isNotEmpty() }
     ?: error("XBCLIENT_USER_AGENT GitHub Secret is required")
 val oauthCallbackScheme = providers.environmentVariable("XBCLIENT_OAUTH_CALLBACK_SCHEME").orNull
     ?.trim()?.takeIf { it.isNotEmpty() }
-    ?: error("XBCLIENT_OAUTH_CALLBACK_SCHEME GitHub Secret is required")
+    ?: if (panelType == "pxboard") "xbclient" else error("XBCLIENT_OAUTH_CALLBACK_SCHEME GitHub Secret is required")
 val websiteUrl = providers.environmentVariable("XBCLIENT_WEBSITE_URL").orNull.orEmpty()
 val privacyPolicyUrl = providers.environmentVariable("XBCLIENT_PRIVACY_POLICY_URL").orNull.orEmpty()
 val userAgreementUrl = providers.environmentVariable("XBCLIENT_USER_AGREEMENT_URL").orNull.orEmpty()
@@ -89,14 +110,18 @@ android {
         manifestPlaceholders["oauthCallbackScheme"] = oauthCallbackScheme
         manifestPlaceholders["admobAppId"] = admobAppId
         resValue("string", "app_name", appName)
-        buildConfigField("String", "ADMOB_APP_ID", "\"${admobAppId.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        buildConfigField("String", "DEFAULT_API_URL", "\"${defaultApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        buildConfigField("String", "USER_AGENT", "\"${userAgent.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("Boolean", "APP_PAYMENT_ENABLED", appPaymentEnabled.toString())
+        buildConfigField("String", "ADMOB_APP_ID", "\"${escapeBuildConfigString(admobAppId)}\"")
+        buildConfigField("String", "APP_OPEN_AD_UNIT_ID", "\"${escapeBuildConfigString(appOpenAdUnitId)}\"")
+        buildConfigField("String", "PLAN_REWARDED_AD_UNIT_ID", "\"${escapeBuildConfigString(planRewardedAdUnitId)}\"")
+        buildConfigField("String", "POINTS_REWARDED_AD_UNIT_ID", "\"${escapeBuildConfigString(pointsRewardedAdUnitId)}\"")
+        buildConfigField("String", "DEFAULT_API_URL", "\"${escapeBuildConfigString(defaultApiUrl)}\"")
+        buildConfigField("String", "USER_AGENT", "\"${escapeBuildConfigString(userAgent)}\"")
         buildConfigField("String", "PANEL_TYPE", "\"$panelType\"")
-        buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"${oauthCallbackScheme.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        buildConfigField("String", "WEBSITE_URL", "\"${websiteUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        buildConfigField("String", "PRIVACY_POLICY_URL", "\"${privacyPolicyUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        buildConfigField("String", "USER_AGREEMENT_URL", "\"${userAgreementUrl.trim().replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"${escapeBuildConfigString(oauthCallbackScheme)}\"")
+        buildConfigField("String", "WEBSITE_URL", "\"${escapeBuildConfigString(websiteUrl.trim())}\"")
+        buildConfigField("String", "PRIVACY_POLICY_URL", "\"${escapeBuildConfigString(privacyPolicyUrl.trim())}\"")
+        buildConfigField("String", "USER_AGREEMENT_URL", "\"${escapeBuildConfigString(userAgreementUrl.trim())}\"")
         buildConfigField(
             "String",
             "GITHUB_PROJECT_URL",

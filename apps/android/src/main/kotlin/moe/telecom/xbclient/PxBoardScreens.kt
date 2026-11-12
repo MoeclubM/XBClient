@@ -394,8 +394,10 @@ internal fun PxBoardPlansScreen(state: XbClientUiState, viewModel: XbClientViewM
                 if (due > 0) {
                     val paymentOptions = buildList {
                         add("wallet" to "账户余额（${formatMoney(state.balance, state.currencySymbol, state.currencyUnit)}）")
-                        for (ch in portal.channels) {
-                            add(ch.id to ch.name)
+                        if (state.paymentEnabled) {
+                            for (ch in portal.channels) {
+                                add(ch.id to ch.name)
+                            }
                         }
                     }
                     val selectedPayIdx = paymentOptions.indexOfFirst { it.first == payMethod }.coerceAtLeast(0)
@@ -423,7 +425,10 @@ internal fun PxBoardPlansScreen(state: XbClientUiState, viewModel: XbClientViewM
             val walletShort = activeOrder != null && due > 0 && payMethod == "wallet" && state.balance < due
             if (walletShort) {
                 Spacer(Modifier.height(4.dp))
-                Text("余额不足，请选择在线支付或前往账单充值", color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                Text(
+                    if (state.paymentEnabled) "余额不足，请选择在线支付或前往账单充值" else "账户余额不足，请先使用兑换码补充余额或兑换套餐",
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
             }
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
@@ -499,7 +504,11 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
     PreferenceCard {
         if ("commerce" in ext || "redeem" in ext) {
             ArrowPreference(
-                title = if ("commerce" in ext) "账单、充值与兑换码" else stringResource(R.string.page_gift_cards),
+                title = when {
+                    "commerce" !in ext -> stringResource(R.string.page_gift_cards)
+                    state.paymentEnabled -> "账单、充值与兑换码"
+                    else -> "账单与兑换码"
+                },
                 onClick = { viewModel.openScreen(PassScreen.GIFT_CARDS) },
             )
         }
@@ -523,11 +532,13 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
             title = stringResource(R.string.common_settings),
             onClick = { viewModel.openScreen(PassScreen.SETTINGS) },
         )
-        ArrowPreference(
-            title = stringResource(R.string.panel_user_center),
-            summary = "在浏览器打开完整网页控制台",
-            onClick = { viewModel.openPxBoardPortal("/user") },
-        )
+        if (state.paymentEnabled) {
+            ArrowPreference(
+                title = stringResource(R.string.panel_user_center),
+                summary = "在浏览器打开完整网页控制台",
+                onClick = { viewModel.openPxBoardPortal("/user") },
+            )
+        }
         ArrowPreference(
             title = stringResource(R.string.common_logout),
             onClick = viewModel::logout,

@@ -16,6 +16,7 @@ public sealed class AccountPageView
     private readonly TextBlock _emailText;
     private readonly TextBlock _quotaText;
     private readonly TextBlock _balanceText;
+    private readonly Button _portalBtn;
     private readonly Border _feedbackCard;
     private readonly TextBlock _feedbackText;
     private readonly TextBox _redeemBox;
@@ -58,13 +59,13 @@ public sealed class AccountPageView
         _balanceText = new TextBlock { FontSize = 12, Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray) };
         var accBtns = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         var syncBtn = new Button { Content = "同步账户" };
-        var portalBtn = new Button { Content = "网页中心" };
+        _portalBtn = new Button { Content = "网页中心" };
         var logoutBtn = new Button { Content = "退出登录" };
         syncBtn.Click += async (_, _) => await _panel.SyncAllAsync();
-        portalBtn.Click += async (_, _) => await _panel.OpenPortalAsync("/user");
+        _portalBtn.Click += async (_, _) => await _panel.OpenPortalAsync("/user");
         logoutBtn.Click += async (_, _) => await _panel.LogoutAsync();
         accBtns.Children.Add(syncBtn);
-        accBtns.Children.Add(portalBtn);
+        accBtns.Children.Add(_portalBtn);
         accBtns.Children.Add(logoutBtn);
         accStack.Children.Add(_emailText);
         accStack.Children.Add(_quotaText);
@@ -208,6 +209,7 @@ public sealed class AccountPageView
         var summary = string.IsNullOrEmpty(snap.SubscriptionSummary) ? "暂无套餐用量" : snap.SubscriptionSummary;
         _quotaText.Text = $"{summary} · 到期：{XbFormat.UnixDate(snap.ExpiredAtUnix)}";
         _balanceText.Text = $"余额 {XbFormat.Money(snap.Balance, snap.CurrencySymbol, snap.CurrencyUnit)} · 佣金 {XbFormat.Money(snap.CommissionBalance, snap.CurrencySymbol, snap.CurrencyUnit)}";
+        _portalBtn.Visibility = snap.PaymentEnabled ? Visibility.Visible : Visibility.Collapsed;
 
         var sig = string.Join("|",
             snap.IsPxBoard,

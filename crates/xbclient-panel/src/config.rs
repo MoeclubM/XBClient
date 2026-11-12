@@ -5,6 +5,7 @@ pub struct BuildConfig {
     pub default_api_url: String,
     pub panel_type: String,
     pub app_name: String,
+    pub app_payment_enabled: bool,
     pub user_agent: String,
     pub oauth_callback_scheme: String,
     pub website_url: String,
@@ -23,6 +24,15 @@ fn env_or_compile(compile_val: Option<&'static str>, runtime_key: &str, default:
         }
     }
     default.to_string()
+}
+
+pub fn parse_bool_flag(raw: &str, default: bool) -> bool {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "" => default,
+        "false" | "0" | "no" | "off" => false,
+        "true" | "1" | "yes" | "on" => true,
+        _ => default,
+    }
 }
 
 pub fn normalize_base_url(raw: &str) -> String {
@@ -55,6 +65,11 @@ impl BuildConfig {
         } else {
             "xboard".to_string()
         };
+        let payment_raw = env_or_compile(
+            option_env!("XBCLIENT_APP_PAYMENT_ENABLED"),
+            "XBCLIENT_APP_PAYMENT_ENABLED",
+            "true",
+        );
         Self {
             default_api_url: normalize_base_url(&raw_url),
             panel_type,
@@ -63,6 +78,7 @@ impl BuildConfig {
                 "XBCLIENT_APP_NAME",
                 "XBClient",
             ),
+            app_payment_enabled: parse_bool_flag(&payment_raw, true),
             user_agent: env_or_compile(
                 option_env!("XBCLIENT_USER_AGENT"),
                 "XBCLIENT_USER_AGENT",

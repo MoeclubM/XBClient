@@ -13,6 +13,7 @@ use xbclient_panel::{PanelStateSnapshot, TicketMessage, XbPanelClient, format_mo
 pub struct AccountView {
     pub root: gtk::ScrolledWindow,
     email_row: adw::ActionRow,
+    portal_btn: gtk::Button,
     balance_row: adw::ActionRow,
     feedback_label: gtk::Label,
     dynamic_box: gtk::Box,
@@ -277,6 +278,7 @@ impl AccountView {
         Rc::new(Self {
             root: scroll,
             email_row,
+            portal_btn,
             balance_row,
             feedback_label,
             dynamic_box,
@@ -288,6 +290,7 @@ impl AccountView {
     }
 
     pub fn apply_snapshot(&self, snap: &PanelStateSnapshot) {
+        self.portal_btn.set_visible(snap.payment_enabled);
         self.email_row.set_title(if snap.email.is_empty() {
             &snap.app_name
         } else {

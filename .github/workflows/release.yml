@@ -28,7 +28,11 @@ jobs:
       XBCLIENT_PANEL_TYPE: ${{ secrets.XBCLIENT_PANEL_TYPE }}
       XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
       XBCLIENT_APPLICATION_ID: ${{ secrets.XBCLIENT_APPLICATION_ID }}
+      XBCLIENT_APP_PAYMENT_ENABLED: ${{ secrets.XBCLIENT_APP_PAYMENT_ENABLED }}
       XBCLIENT_ADMOB_APP_ID: ${{ secrets.XBCLIENT_ADMOB_APP_ID }}
+      XBCLIENT_APP_OPEN_AD_UNIT_ID: ${{ secrets.XBCLIENT_APP_OPEN_AD_UNIT_ID }}
+      XBCLIENT_PLAN_REWARDED_AD_UNIT_ID: ${{ secrets.XBCLIENT_PLAN_REWARDED_AD_UNIT_ID }}
+      XBCLIENT_POINTS_REWARDED_AD_UNIT_ID: ${{ secrets.XBCLIENT_POINTS_REWARDED_AD_UNIT_ID }}
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
       XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
       XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
@@ -66,12 +70,21 @@ jobs:
       - name: Validate app build secrets
         shell: bash
         run: |
-          for name in XBCLIENT_DEFAULT_API_URL XBCLIENT_APP_NAME XBCLIENT_APPLICATION_ID XBCLIENT_ADMOB_APP_ID XBCLIENT_USER_AGENT XBCLIENT_OAUTH_CALLBACK_SCHEME; do
+          panel_type="$(printf '%s' "${XBCLIENT_PANEL_TYPE:-xboard}" | tr '[:upper:]' '[:lower:]')"
+          for name in XBCLIENT_DEFAULT_API_URL XBCLIENT_APP_NAME XBCLIENT_APPLICATION_ID XBCLIENT_USER_AGENT; do
             if [ -z "${!name}" ]; then
               echo "::error::$name is empty or not available to this workflow"
               exit 1
             fi
           done
+          if [ "$panel_type" != "pxboard" ] && [ -z "${XBCLIENT_OAUTH_CALLBACK_SCHEME:-}" ]; then
+            echo "::error::XBCLIENT_OAUTH_CALLBACK_SCHEME is empty or not available to this workflow"
+            exit 1
+          fi
+          if { [ -n "${XBCLIENT_APP_OPEN_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_PLAN_REWARDED_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_POINTS_REWARDED_AD_UNIT_ID:-}" ]; } && [ -z "${XBCLIENT_ADMOB_APP_ID:-}" ]; then
+            echo "::error::XBCLIENT_ADMOB_APP_ID is required when any AdMob ad unit ID is configured"
+            exit 1
+          fi
 
       - name: Prepare release keystore
         shell: bash
@@ -146,6 +159,7 @@ jobs:
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
       XBCLIENT_PANEL_TYPE: ${{ secrets.XBCLIENT_PANEL_TYPE }}
       XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
+      XBCLIENT_APP_PAYMENT_ENABLED: ${{ secrets.XBCLIENT_APP_PAYMENT_ENABLED }}
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
       XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
       XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}
@@ -221,6 +235,7 @@ jobs:
       XBCLIENT_DEFAULT_API_URL: ${{ secrets.XBCLIENT_DEFAULT_API_URL }}
       XBCLIENT_PANEL_TYPE: ${{ secrets.XBCLIENT_PANEL_TYPE }}
       XBCLIENT_APP_NAME: ${{ secrets.XBCLIENT_APP_NAME }}
+      XBCLIENT_APP_PAYMENT_ENABLED: ${{ secrets.XBCLIENT_APP_PAYMENT_ENABLED }}
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
       XBCLIENT_OAUTH_CALLBACK_SCHEME: ${{ secrets.XBCLIENT_OAUTH_CALLBACK_SCHEME }}
       XBCLIENT_WEBSITE_URL: ${{ secrets.XBCLIENT_WEBSITE_URL }}

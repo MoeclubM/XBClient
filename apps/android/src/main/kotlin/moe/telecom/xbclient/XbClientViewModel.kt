@@ -109,13 +109,13 @@ data class XbClientUiState(
     val noticesLoading: Boolean = false,
     val installedApps: List<InstalledAppItem> = emptyList(),
     val appSearchQuery: String = "",
-    val paymentEnabled: Boolean = false,
-    val planRewardAdEnabled: Boolean = false,
-    val planRewardedAdUnitId: String = "",
-    val pointsRewardAdEnabled: Boolean = false,
-    val pointsRewardedAdUnitId: String = "",
-    val appOpenAdEnabled: Boolean = false,
-    val appOpenAdUnitId: String = "",
+    val paymentEnabled: Boolean = BuildConfig.APP_PAYMENT_ENABLED,
+    val planRewardAdEnabled: Boolean = !PxBoardApi.enabled && BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty(),
+    val planRewardedAdUnitId: String = if (!PxBoardApi.enabled) BuildConfig.PLAN_REWARDED_AD_UNIT_ID else "",
+    val pointsRewardAdEnabled: Boolean = !PxBoardApi.enabled && BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty(),
+    val pointsRewardedAdUnitId: String = if (!PxBoardApi.enabled) BuildConfig.POINTS_REWARDED_AD_UNIT_ID else "",
+    val appOpenAdEnabled: Boolean = BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty(),
+    val appOpenAdUnitId: String = BuildConfig.APP_OPEN_AD_UNIT_ID,
     val adRewardLogs: List<AdRewardLogItem> = emptyList(),
     val adRewardLogsLoading: Boolean = false,
     val updateAvailable: Boolean = false,
@@ -200,6 +200,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private var nodeAutoRefreshStarted = false
     private var pendingRewardScene = ""
     private var pendingRewardStartedAt = 0L
+    private val hasBuildRewardAds: Boolean
+        get() = !PxBoardApi.enabled && (
+            BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty() ||
+                BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty()
+            )
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -480,13 +485,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
         val next = XbClientUiState(
             loaded = true,
-            paymentEnabled = current.paymentEnabled,
-            planRewardAdEnabled = current.planRewardAdEnabled,
-            planRewardedAdUnitId = current.planRewardedAdUnitId,
-            pointsRewardAdEnabled = current.pointsRewardAdEnabled,
-            pointsRewardedAdUnitId = current.pointsRewardedAdUnitId,
-            appOpenAdEnabled = current.appOpenAdEnabled,
-            appOpenAdUnitId = current.appOpenAdUnitId,
             appLanguage = current.appLanguage,
             themeMode = current.themeMode,
             enableBlur = current.enableBlur,
@@ -1050,7 +1048,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshRewardConfig() {
-        if (PxBoardApi.enabled) return
+        if (!hasBuildRewardAds) return
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
             return
@@ -1065,7 +1063,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshAdRewardHistory(showLoading: Boolean = false) {
-        if (PxBoardApi.enabled) return
+        if (!hasBuildRewardAds) return
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
             return
@@ -1125,7 +1123,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     )
                 }
                 persistStoredState(_uiState.value)
-                refreshAdRewardHistory()
+                if (hasBuildRewardAds) refreshAdRewardHistory()
             } catch (error: Exception) {
                 _uiState.update { it.copy(userLoading = false) }
                 if (showErrors) {
@@ -1136,6 +1134,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun requestRewardAd(scene: String) {
+        if (!hasBuildRewardAds) return
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
             return
@@ -1145,6 +1144,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val config = loadRewardConfig(authData, scene)
                 if (config.first.isEmpty()) {
                     throw IllegalStateException("广告场景未启用：$scene")
+                }
+                if (config.second.isEmpty() || config.third.isEmpty()) {
+                    throw IllegalStateException("服务端激励广告 SSV 未就绪：$scene")
                 }
                 pendingRewardScene = scene
                 emitEvent(XbClientEvent.ShowRewardAd(config.first, config.second, config.third))
@@ -1179,6 +1181,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun openPlanPage(context: Context, planId: Int) {
+        if (!BuildConfig.APP_PAYMENT_ENABLED) {
+            emitMessage("当前客户端仅支持账户余额与兑换码。")
+            return
+        }
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
             return
@@ -1186,10 +1192,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = XboardApi.request(
-                    "xbclient_plan_payment",
+                    "quick_login_url",
                     defaultApiUrl(),
                     authData,
-                    JSONObject().put("plan_id", planId)
+                    JSONObject().put("redirect", "plan/$planId")
                 )
                 val body = requireSuccessfulBody("网页登录", result)
                 val loginUrl = body.getString("data")
@@ -1232,17 +1238,25 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     )
                 )
                 val tradeNo = saveBody.getString("data")
-                val checkoutBody = requireSuccessfulBody(
-                    "账户金额支付",
-                    XboardApi.request(
-                        "order_checkout",
-                        defaultApiUrl(),
-                        authData,
-                        JSONObject().put("trade_no", tradeNo)
-                    )
-                )
-                if (checkoutBody.getInt("type") != -1) {
-                    throw IllegalStateException("订单未完成账户金额抵扣。")
+                val checkoutBody = try {
+                    requireSuccessfulBody(
+                        "账户金额支付",
+                        XboardApi.request(
+                            "order_checkout",
+                            defaultApiUrl(),
+                            authData,
+                            JSONObject().put("trade_no", tradeNo)
+                        )
+                    ).also { body ->
+                        if (body.getInt("type") != -1) {
+                            throw IllegalStateException("订单未完成账户金额抵扣。")
+                        }
+                    }
+                } catch (checkoutErr: Exception) {
+                    runCatching {
+                        XboardApi.request("order_cancel", defaultApiUrl(), authData, JSONObject().put("trade_no", tradeNo))
+                    }
+                    throw checkoutErr
                 }
                 emitMessage("账户金额支付成功。")
                 refreshSubscriptionAndNodes(force = true)
@@ -1262,22 +1276,19 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val body = result.getJSONObject("body")
         body.requireNotXboardFail()
         val data = body.getJSONObject("data")
-        val paymentEnabled = data.getBoolean("payment_enabled")
-        val appOpenEnabled = data.getBoolean("app_open_ad_enabled")
-        val appOpenAdUnitId = if (appOpenEnabled) data.getString("app_open_ad_unit_id") else ""
-        val planEnabled = data.getBoolean("plan_reward_ad_enabled")
-        val planAdUnitId = if (planEnabled) data.getString("plan_rewarded_ad_unit_id") else ""
-        val planUserId = if (planEnabled) data.getString("plan_ssv_user_id") else ""
-        val planCustomData = if (planEnabled) data.getString("plan_ssv_custom_data") else ""
-        val pointsEnabled = data.getBoolean("points_reward_ad_enabled")
-        val pointsAdUnitId = if (pointsEnabled) data.getString("points_rewarded_ad_unit_id") else ""
-        val pointsUserId = if (pointsEnabled) data.getString("points_ssv_user_id") else ""
-        val pointsCustomData = if (pointsEnabled) data.getString("points_ssv_custom_data") else ""
+        val planAdUnitId = BuildConfig.PLAN_REWARDED_AD_UNIT_ID
+        val planEnabled = planAdUnitId.isNotEmpty()
+        val planUserId = if (planEnabled) data.optString("plan_ssv_user_id") else ""
+        val planCustomData = if (planEnabled) data.optString("plan_ssv_custom_data") else ""
+        val pointsAdUnitId = BuildConfig.POINTS_REWARDED_AD_UNIT_ID
+        val pointsEnabled = pointsAdUnitId.isNotEmpty()
+        val pointsUserId = if (pointsEnabled) data.optString("points_ssv_user_id") else ""
+        val pointsCustomData = if (pointsEnabled) data.optString("points_ssv_custom_data") else ""
         _uiState.update {
             it.copy(
-                paymentEnabled = paymentEnabled,
-                appOpenAdEnabled = appOpenEnabled,
-                appOpenAdUnitId = appOpenAdUnitId,
+                paymentEnabled = BuildConfig.APP_PAYMENT_ENABLED,
+                appOpenAdEnabled = BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty(),
+                appOpenAdUnitId = BuildConfig.APP_OPEN_AD_UNIT_ID,
                 planRewardAdEnabled = planEnabled,
                 planRewardedAdUnitId = planAdUnitId,
                 pointsRewardAdEnabled = pointsEnabled,
@@ -1564,13 +1575,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             routeRuleCount = prefs[Keys.ROUTE_RULE_COUNT] ?: 0,
             routeRulesPreview = prefs[Keys.ROUTE_RULES_PREVIEW].orEmpty().lines().filter { it.isNotBlank() },
             vpnRequested = prefs[Keys.VPN_RUNNING] ?: false,
-            paymentEnabled = false,
-            planRewardAdEnabled = prefs[Keys.PLAN_REWARD_AD_ENABLED] ?: false,
-            planRewardedAdUnitId = prefs[Keys.PLAN_REWARDED_AD_UNIT_ID].orEmpty(),
-            pointsRewardAdEnabled = prefs[Keys.POINTS_REWARD_AD_ENABLED] ?: false,
-            pointsRewardedAdUnitId = prefs[Keys.POINTS_REWARDED_AD_UNIT_ID].orEmpty(),
-            appOpenAdEnabled = prefs[Keys.APP_OPEN_AD_ENABLED] ?: false,
-            appOpenAdUnitId = prefs[Keys.APP_OPEN_AD_UNIT_ID].orEmpty(),
+            paymentEnabled = BuildConfig.APP_PAYMENT_ENABLED,
+            planRewardAdEnabled = !PxBoardApi.enabled && BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty(),
+            planRewardedAdUnitId = if (!PxBoardApi.enabled) BuildConfig.PLAN_REWARDED_AD_UNIT_ID else "",
+            pointsRewardAdEnabled = !PxBoardApi.enabled && BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty(),
+            pointsRewardedAdUnitId = if (!PxBoardApi.enabled) BuildConfig.POINTS_REWARDED_AD_UNIT_ID else "",
+            appOpenAdEnabled = BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty(),
+            appOpenAdUnitId = BuildConfig.APP_OPEN_AD_UNIT_ID,
             adRewardLogs = emptyList(),
             appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
             themeMode = prefs[Keys.THEME_MODE].orEmpty(),
@@ -1585,9 +1596,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         )
         _uiState.value = state.copy(
             anyTlsNodes = if (sessionMatches) state.anyTlsNodes else emptyList(),
-            appOpenAdEnabled = !PxBoardApi.enabled && state.appOpenAdEnabled,
-            planRewardAdEnabled = !PxBoardApi.enabled && state.planRewardAdEnabled,
-            pointsRewardAdEnabled = !PxBoardApi.enabled && state.pointsRewardAdEnabled,
             routeConfigYaml = if (sessionMatches) state.routeConfigYaml else "",
             subscribeUrl = if (sessionMatches) state.subscribeUrl else "",
             vpnRequested = sessionMatches && state.vpnRequested,

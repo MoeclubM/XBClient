@@ -82,10 +82,11 @@ public sealed class PlansPageView
     {
         _balanceText.Text = $"账户余额 {XbFormat.Money(snap.Balance, snap.CurrencySymbol, snap.CurrencyUnit)}";
         _refreshBtn.IsEnabled = !_panel.Busy;
-        _portalBtn.Visibility = snap.IsPxBoard ? Visibility.Visible : Visibility.Collapsed;
+        _portalBtn.Visibility = snap.IsPxBoard && snap.PaymentEnabled ? Visibility.Visible : Visibility.Collapsed;
 
         var sig = string.Join("|",
             snap.IsPxBoard,
+            snap.PaymentEnabled,
             snap.CurrencySymbol,
             snap.CurrencyUnit,
             string.Join(",", snap.PaymentChannels.Select(c => c.Id + ":" + c.Name)),
@@ -94,15 +95,17 @@ public sealed class PlansPageView
         if (_lastSig == sig) return;
         _lastSig = sig;
 
-        _checkoutOptionsRow.Visibility = snap.IsPxBoard ? Visibility.Visible : Visibility.Collapsed;
-        if (snap.IsPxBoard)
+        var showChannels = snap.PaymentEnabled && snap.PaymentChannels.Count > 0;
+        _checkoutOptionsRow.Visibility = snap.Plans.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        _channelCombo.Visibility = showChannels ? Visibility.Visible : Visibility.Collapsed;
+        _channelOptions = [("wallet", "余额支付")];
+        if (showChannels)
         {
-            _channelOptions = [("wallet", "余额支付")];
             foreach (var ch in snap.PaymentChannels) _channelOptions.Add((ch.Id, ch.Name));
-            _channelCombo.Items.Clear();
-            foreach (var (_, label) in _channelOptions) _channelCombo.Items.Add(label);
-            _channelCombo.SelectedIndex = 0;
         }
+        _channelCombo.Items.Clear();
+        foreach (var (_, label) in _channelOptions) _channelCombo.Items.Add(label);
+        _channelCombo.SelectedIndex = 0;
 
         _plansList.Children.Clear();
         if (snap.Plans.Count == 0)
@@ -169,9 +172,9 @@ public sealed class PlansPageView
                 {
                     var idx = Math.Clamp(periodCombo.SelectedIndex, 0, currentPlan.Periods.Count - 1);
                     var period = currentPlan.Periods[idx];
-                    var channelId = snap.IsPxBoard && _channelCombo.SelectedIndex >= 0 && _channelCombo.SelectedIndex < _channelOptions.Count
+                    var channelId = showChannels && _channelCombo.SelectedIndex >= 0 && _channelCombo.SelectedIndex < _channelOptions.Count
                         ? _channelOptions[_channelCombo.SelectedIndex].Id
-                        : "";
+                        : "wallet";
                     buyBtn.IsEnabled = false;
                     try
                     {
