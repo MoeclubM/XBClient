@@ -221,6 +221,14 @@ public sealed class AccountPageView
         _ticketReplyBtn = new Button { Content = "发送回复" };
         NetoUiFactory.ApplyPrimaryButton(_ticketReplyBtn, true);
         _ticketCloseBtn = new Button { Content = "关闭工单" };
+        detailBtns.Children.Add(_ticketCloseBtn);
+        detailBtns.Children.Add(_ticketReplyBtn);
+        detailStack.Children.Add(_ticketDetailTitle);
+        detailStack.Children.Add(_ticketMessagesPanel);
+        detailStack.Children.Add(_ticketReplyBox);
+        detailStack.Children.Add(detailBtns);
+        _ticketDetailCard = NetoUiFactory.CreateCard(detailStack);
+        _ticketDetailCard.Visibility = Visibility.Collapsed;
         _ticketReplyBtn.Click += async (_, _) =>
         {
             if (_selectedTicketId == null || string.IsNullOrWhiteSpace(_ticketReplyBox.Text)) return;
@@ -236,14 +244,6 @@ public sealed class AccountPageView
             await _panel.CloseTicketAsync(id);
             _ticketDetailCard.Visibility = Visibility.Collapsed;
         };
-        detailBtns.Children.Add(_ticketCloseBtn);
-        detailBtns.Children.Add(_ticketReplyBtn);
-        detailStack.Children.Add(_ticketDetailTitle);
-        detailStack.Children.Add(_ticketMessagesPanel);
-        detailStack.Children.Add(_ticketReplyBox);
-        detailStack.Children.Add(detailBtns);
-        _ticketDetailCard = NetoUiFactory.CreateCard(detailStack);
-        _ticketDetailCard.Visibility = Visibility.Collapsed;
         _ticketsSection.Children.Add(_ticketDetailCard);
         outer.Children.Add(_ticketsSection);
 

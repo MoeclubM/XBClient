@@ -1,7 +1,6 @@
 #![cfg(target_os = "linux")]
 
 use adw::prelude::*;
-use gtk::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -330,14 +329,14 @@ impl AuthView {
                 let is_reg = m == "register";
                 btn.set_sensitive(false);
                 mlbl.set_visible(false);
-                let p = p.clone();
+                let p_spawn = p.clone();
                 let (tx, rx) = std::sync::mpsc::channel();
                 handle.spawn(async move {
                     let res = if is_reg {
-                        p.register_account(&email, &pw, &invite, &code).await
+                        p_spawn.register_account(&email, &pw, &invite, &code).await
                     } else {
                         let code_opt = (!mfa.is_empty()).then_some(mfa.as_str());
-                        p.login_password(&email, &pw, code_opt).await
+                        p_spawn.login_password(&email, &pw, code_opt).await
                     };
                     let _ = tx.send(res.map_err(|e| format!("{e:#}")));
                 });

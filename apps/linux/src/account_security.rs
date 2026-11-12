@@ -2,7 +2,6 @@
 
 use crate::account_view::{AccountView, build_copy_row};
 use adw::prelude::*;
-use gtk::prelude::*;
 use std::collections::HashSet;
 use std::rc::Rc;
 use std::time::Duration;

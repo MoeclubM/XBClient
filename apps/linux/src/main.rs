@@ -21,7 +21,6 @@ fn main() -> anyhow::Result<()> {
     use crate::helpers::describe_block_reason;
     use crate::plans_view::PlansView;
     use adw::prelude::*;
-    use gtk::prelude::*;
     use neto_core::{NetoController, init_rustls_provider};
     use neto_platform_linux::{
         LinuxWaylandPlatformHooks, WaylandTrayAction, WaylandTrayHandle, WaylandTrayState,
