@@ -29,6 +29,8 @@ enum class AuthMode {
 }
 
 enum class PassScreen {
+    CONNECT,
+    DASHBOARD,
     NODES,
     PLANS,
     PROFILE,
@@ -40,7 +42,6 @@ enum class PassScreen {
     TICKET_DETAIL,
     SETTINGS,
     THEME,
-    NODE_SELECT,
     APP_RULES,
     OPEN_SOURCE_LICENSES
 }
@@ -678,33 +679,6 @@ fun subscriptionBlockReason(data: JSONObject): String {
         return SUBSCRIPTION_BLOCK_TRAFFIC
     }
     return ""
-}
-
-fun readableNodeTestError(error: String): String {
-    val normalized = error.lowercase(Locale.US)
-    if (error.contains("read AnyTLS frame header")) {
-        return "失败：AnyTLS 服务器断开连接（$error）"
-    }
-    if (error.contains("Hysteria2 target test")) {
-        return "失败：Hysteria2 连接失败（$error）"
-    }
-    if (
-        normalized.contains("read socks greeting response") ||
-        normalized.contains("os error 10054") ||
-        error.contains("远程主机强迫关闭")
-    ) {
-        return "失败：节点代理握手中断（$error）"
-    }
-    if (
-        normalized.contains("timed out") ||
-        normalized.contains("timeout") ||
-        normalized.contains("socks connect failed: general failure") ||
-        normalized.contains("read socks connect response") ||
-        normalized.contains("early eof")
-    ) {
-        return "失败：连接超时"
-    }
-    return "失败：$error"
 }
 
 fun numericValue(value: Any?): Double = when (value) {

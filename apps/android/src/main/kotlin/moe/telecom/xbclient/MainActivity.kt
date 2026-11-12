@@ -1,14 +1,10 @@
 package moe.telecom.xbclient
 
 import android.Manifest
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.res.Configuration
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -26,14 +22,12 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val viewModel: XbClientViewModel by viewModels()
     private lateinit var ads: XbClientAds
-    private var pendingVpnNodeIndex = 0
-    private var receiverRegistered = false
     private var redirectedToAuth = false
 
     private val vpnPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
-                viewModel.beginVpn(this, pendingVpnNodeIndex)
+                viewModel.startNetoVpn()
             } else {
                 Toast.makeText(this, getString(R.string.vpn_permission_denied), Toast.LENGTH_SHORT).show()
             }
@@ -41,19 +35,6 @@ class MainActivity : ComponentActivity() {
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
-
-    private val vpnStateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action != XbClientVpnService.ACTION_STATE) {
-                return
-            }
-            viewModel.onVpnStateChanged(
-                running = intent.getBooleanExtra(XbClientVpnService.EXTRA_RUNNING, false),
-                nodeIndex = intent.getIntExtra(XbClientVpnService.EXTRA_NODE_INDEX, -1),
-                error = intent.getStringExtra(XbClientVpnService.EXTRA_ERROR).orEmpty()
-            )
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,7 +51,7 @@ class MainActivity : ComponentActivity() {
                 viewModel.events.collect { event ->
                     when (event) {
                         is XbClientEvent.Message -> Toast.makeText(this@MainActivity, event.text, Toast.LENGTH_SHORT).show()
-                        is XbClientEvent.RequestVpnPermission -> requestVpnPermission(event.nodeIndex)
+                        is XbClientEvent.RequestVpnPermission -> requestVpnPermission()
                         is XbClientEvent.ShowRewardAd -> ads.showRewardedAd(event.adUnitId, event.userId, event.customData)
                         is XbClientEvent.OpenExternalUrl -> BrowserOpener.open(this@MainActivity, event.url)
                     }
@@ -111,29 +92,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        val filter = IntentFilter(XbClientVpnService.ACTION_STATE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(vpnStateReceiver, filter, RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(vpnStateReceiver, filter)
-        }
-        receiverRegistered = true
         val state = viewModel.uiState.value
         if (state.loaded) {
             viewModel.syncAppearanceSettings()
-            val running = getSharedPreferences(XBCLIENT_PREFS, MODE_PRIVATE).getBoolean("vpn_running", false)
-            if (state.vpnRequested != running) {
-                viewModel.onVpnStateChanged(running, -1, "")
-            }
         }
-    }
-
-    override fun onStop() {
-        if (receiverRegistered) {
-            unregisterReceiver(vpnStateReceiver)
-            receiverRegistered = false
-        }
-        super.onStop()
     }
 
     override fun onDestroy() {
@@ -143,7 +105,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handleLaunchIntent(intent: Intent?) {
         if (intent?.action == ACTION_SELECT_NODE) {
-            viewModel.requestNodeSwitchDialog(connectAfterSelect = true)
+            viewModel.openScreen(PassScreen.NODES)
             return
         }
         val uri = intent?.data
@@ -171,13 +133,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestVpnPermission(nodeIndex: Int) {
-        pendingVpnNodeIndex = nodeIndex
-        val prepare = VpnService.prepare(this)
+    private fun requestVpnPermission() {
+        val prepare = viewModel.netoClient.prepareVpnPermission()
         if (prepare != null) {
             vpnPermissionLauncher.launch(prepare)
         } else {
-            viewModel.beginVpn(this, pendingVpnNodeIndex)
+            viewModel.startNetoVpn()
         }
     }
 

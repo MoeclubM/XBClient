@@ -13,4 +13,9 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "XBClient"
+includeBuild("deps/neto") {
+    dependencySubstitution {
+        substitute(module("moe.telecom.neto:sdk-android")).using(project(":sdk:android"))
+    }
+}
 include(":apps:android")

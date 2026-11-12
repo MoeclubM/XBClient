@@ -1,7 +1,7 @@
 name: Shared core tests
 on:
   push:
-    branches: ['codex/**']
+    branches: ['main', 'codex/**']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -11,5 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
       - run: sudo apt-get update && sudo apt-get install -y cmake pkg-config libclang-dev
-      - run: cargo test --locked --manifest-path rust/aerion-core/Cargo.toml
+      - run: cargo test --workspace --exclude xbclient-linux

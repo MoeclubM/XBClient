@@ -8,18 +8,12 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
-import java.util.Locale
-import java.util.concurrent.Callable
-import java.util.concurrent.ExecutionException
-import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 object XboardApi {
+    private const val SUBSCRIPTION_NODE_TYPES =
+        "anytls,hysteria,trojan,vless,vmess,mieru,sudoku,flux,naive,shadowsocks,tuic,http,socks5,direct,block"
     private val userAgent: String
         get() = BuildConfig.USER_AGENT
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -72,183 +66,31 @@ object XboardApi {
         }
     }
 
-
-    fun resolveNodeHost(dns: String, host: String): String {
-        val nodeHost = normalizeNodeHost(host)
-        if (isIpLiteral(nodeHost)) {
-            return nodeHost
-        }
-        val resolver = dns.trim()
-        if (!resolver.startsWith("http://") && !resolver.startsWith("https://")) {
-            throw IllegalStateException("节点 DNS 必须是 DoH 地址。")
-        }
-        for (type in arrayOf("A", "AAAA")) {
-            val url = Uri.parse(resolver)
-                .buildUpon()
-                .appendQueryParameter("name", nodeHost)
-                .appendQueryParameter("type", type)
-                .build()
-                .toString()
-            val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 10000
-                readTimeout = 10000
-                setRequestProperty("User-Agent", userAgent)
-                setRequestProperty("Accept", "application/dns-json")
-            }
-            val status = connection.responseCode
-            val text = readBody(connection)
-            if (status !in 200..299) {
-                throw IllegalStateException("节点 DNS 请求失败：HTTP $status")
-            }
-            val body = parseJson(text)
-            if (body !is JSONObject) {
-                throw IllegalStateException("节点 DNS 响应不是 JSON。")
-            }
-            val answers = when (val value = body.opt("Answer")) {
-                null, JSONObject.NULL -> continue
-                is JSONArray -> value
-                else -> throw IllegalStateException("节点 DNS 响应 Answer 必须是数组。")
-            }
-            for (index in 0 until answers.length()) {
-                val data = answers.getJSONObject(index).getString("data")
-                if (data.matches(Regex("^[0-9.]+$")) || data.matches(Regex("^[0-9A-Fa-f:.]+$")) && data.contains(":")) {
-                    return data
+    fun fetchSubscriptionYaml(subscribeUrl: String): String {
+        val parsed = Uri.parse(subscribeUrl.trim())
+        val builder = parsed.buildUpon().clearQuery()
+        for (name in parsed.queryParameterNames) {
+            if (name != "flag" && name != "types") {
+                for (v in parsed.getQueryParameters(name)) {
+                    builder.appendQueryParameter(name, v)
                 }
             }
         }
-        throw IllegalStateException("节点 DNS 无可用 A/AAAA 记录。")
-    }
-
-    private fun queryDohFamily(resolver: String, host: String, recordType: String): List<String> {
-        val url = Uri.parse(resolver)
-            .buildUpon()
-            .appendQueryParameter("name", host)
-            .appendQueryParameter("type", recordType)
+        builder.appendQueryParameter("types", SUBSCRIPTION_NODE_TYPES)
+        builder.appendQueryParameter("flag", "aerion")
+        val req = Request.Builder()
+            .url(builder.build().toString())
+            .header("User-Agent", userAgent)
+            .header("Accept", "text/yaml, application/yaml, text/plain;q=0.9, */*;q=0.8")
+            .get()
             .build()
-            .toString()
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = 10000
-            readTimeout = 10000
-            setRequestProperty("User-Agent", userAgent)
-            setRequestProperty("Accept", "application/dns-json")
-        }
-        val status = connection.responseCode
-        val text = readBody(connection)
-        if (status !in 200..299) {
-            throw IllegalStateException("节点 DNS 请求失败：HTTP $status")
-        }
-        val body = parseJson(text)
-        if (body !is JSONObject) {
-            throw IllegalStateException("节点 DNS 响应不是 JSON。")
-        }
-        val answers = when (val value = body.opt("Answer")) {
-            null, JSONObject.NULL -> return emptyList()
-            is JSONArray -> value
-            else -> throw IllegalStateException("节点 DNS 响应 Answer 必须是数组。")
-        }
-        val out = ArrayList<String>()
-        for (index in 0 until answers.length()) {
-            val data = answers.getJSONObject(index).optString("data").trim()
-            val valid = if (recordType == "A") {
-                data.matches(Regex("^[0-9.]+$"))
-            } else {
-                data.matches(Regex("^[0-9A-Fa-f:.]+$")) && data.contains(":")
+        httpClient.newCall(req).execute().use { resp ->
+            val body = resp.body?.string().orEmpty().trim()
+            if (!resp.isSuccessful) {
+                throw IllegalStateException("HTTP ${resp.code}")
             }
-            if (valid && !out.contains(data)) {
-                out.add(data)
-            }
+            return body
         }
-        return out
-    }
-
-    private fun channelEffectiveHost(ch: JSONObject, mainHost: String): String =
-        listOf("server", "connect_host", "connect-host", "connectHost", "host")
-            .firstNotNullOfOrNull { key -> ch.optString(key).trim().takeIf { it.isNotEmpty() } }
-            ?.let(::normalizeNodeHost)
-            ?: mainHost
-
-    fun resolveFluxNode(dns: String, node: JSONObject) {
-        val mainHost = normalizeNodeHost(node.optString("host").ifBlank { node.optString("server") })
-        val channels = node.optJSONArray("channels") ?: node.optJSONObject("flux")?.optJSONArray("channels")
-        val domains = LinkedHashSet<String>()
-        if (channels == null || channels.length() == 0) {
-            if (!isIpLiteral(mainHost)) domains.add(mainHost)
-        } else {
-            for (index in 0 until channels.length()) {
-                val ch = channels.optJSONObject(index) ?: continue
-                if (!ch.optBoolean("enabled", true)) continue
-                val host = channelEffectiveHost(ch, mainHost)
-                if (!isIpLiteral(host)) domains.add(host)
-            }
-        }
-        val resolver = dns.trim()
-        require(domains.isEmpty() || resolver.startsWith("https://") || resolver.startsWith("http://")) { "Flux DNS 必须是 DoH 地址" }
-        val pool = Executors.newFixedThreadPool((domains.size * 2).coerceIn(2, 8))
-        val resolved = LinkedHashMap<String, Pair<List<String>, List<String>>>()
-        try {
-            val futures = domains.associateWith { host ->
-                pool.submit(Callable { queryDohFamily(resolver, host, "A") }) to
-                    pool.submit(Callable { queryDohFamily(resolver, host, "AAAA") })
-            }
-            for ((host, pair) in futures) {
-                fun family(future: java.util.concurrent.Future<List<String>>): List<String> = try {
-                    future.get()
-                } catch (error: ExecutionException) {
-                    android.util.Log.w("Flux", "DNS query failed for $host", error.cause ?: error)
-                    emptyList()
-                }
-                resolved[host] = family(pair.first) to family(pair.second)
-            }
-        } finally {
-            pool.shutdownNow()
-        }
-        if (channels == null || channels.length() == 0) {
-            resolved[mainHost]?.let { (v4, v6) ->
-                check(v4.isNotEmpty() || v6.isNotEmpty()) { "Flux DNS 无可用地址：$mainHost" }
-                node.put("resolved_v4", JSONArray(v4))
-                node.put("resolved_v6", JSONArray(v6))
-            }
-        } else {
-            var usable = 0
-            for (index in 0 until channels.length()) {
-                val ch = channels.optJSONObject(index) ?: continue
-                if (!ch.optBoolean("enabled", true)) continue
-                val host = channelEffectiveHost(ch, mainHost)
-                val addresses = resolved[host]
-                if (addresses != null) {
-                    val (v4, v6) = addresses
-                    val family = ch.optString("ip-version").ifBlank { ch.optString("ip_version").ifBlank { ch.optString("ipVersion", "auto") } }
-                    if ((v4.isEmpty() || family == "ipv6") && (v6.isEmpty() || family == "ipv4")) {
-                        ch.put("enabled", false)
-                        android.util.Log.w("Flux", "Channel unavailable after DNS resolution: $host")
-                        continue
-                    }
-                    ch.put("resolved_v4", JSONArray(v4))
-                    ch.put("resolved_v6", JSONArray(v6))
-                }
-                usable++
-            }
-            check(usable > 0) { "Flux 没有可用入口地址" }
-            node.optJSONObject("flux")?.remove("channels")
-            node.put("channels", channels)
-        }
-    }
-
-    fun dnsAddressForVpn(value: String): String {
-        val dns = normalizeNodeHost(value)
-        if (isIpLiteral(dns)) {
-            return dns
-        }
-        val lower = dns.lowercase()
-        if (lower.contains("cloudflare-dns.com") || lower.contains("1.1.1.1")) {
-            return "1.1.1.1"
-        }
-        if (lower.contains("dns.alidns.com") || lower.contains("223.5.5.5")) {
-            return "223.5.5.5"
-        }
-        throw IllegalStateException("海外 DNS 需填写普通 DNS 地址，或已支持的 DoH 地址。")
     }
 
     private fun post(baseUrl: String, path: String, authData: String, params: JSONObject): JSONObject =
@@ -302,20 +144,6 @@ object XboardApi {
                     it.put("error", "HTTP $status")
                 }
             }
-    }
-
-    private fun readBody(connection: HttpURLConnection): String {
-        val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
-        if (stream == null) throw IllegalStateException("HTTP response stream is required")
-        return BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { reader ->
-            val builder = StringBuilder()
-            var line = reader.readLine()
-            while (line != null) {
-                builder.append(line).append('\n')
-                line = reader.readLine()
-            }
-            builder.toString().trim()
-        }
     }
 
     private fun parseJson(text: String): Any {

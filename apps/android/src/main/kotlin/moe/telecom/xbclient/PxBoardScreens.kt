@@ -520,6 +520,10 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
             onClick = { viewModel.openScreen(PassScreen.ACCOUNT_SECURITY) },
         )
         ArrowPreference(
+            title = stringResource(R.string.common_settings),
+            onClick = { viewModel.openScreen(PassScreen.SETTINGS) },
+        )
+        ArrowPreference(
             title = stringResource(R.string.panel_user_center),
             summary = "在浏览器打开完整网页控制台",
             onClick = { viewModel.openPxBoardPortal("/user") },

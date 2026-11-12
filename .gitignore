@@ -2,8 +2,6 @@
 .gradle/
 .kotlin/
 **/build/
-!apps/electron/build/
-!apps/electron/build/**
 local.properties
 *.local.properties
 *.local.txt
@@ -14,18 +12,15 @@ local.properties
 *.keystore
 *.p12
 
-# Rust
-rust/*/target/
-apps/electron/backend/target/
-apps/*/src-tauri/target/
-apps/*/src-tauri/gen/schemas/
-
-# Node / Web
-node_modules/
-apps/electron/web/dist/
-apps/electron/runtime/
-apps/electron/build/electron-builder.generated.yml
-apps/electron/resources/config/build-config.json
+# Rust / Native / Desktop
+.cargo/
+target/
+dist/
+**/node_modules/
+apps/electron/
+apps/windows/bin/
+apps/windows/obj/
+apps/windows/native/
 
 # IDE
 .idea/

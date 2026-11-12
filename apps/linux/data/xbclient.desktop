@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=XBClient
+Exec=xbclient
+Icon=network-vpn
+Terminal=false
+Categories=Network;
+StartupNotify=true

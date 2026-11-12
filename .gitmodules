@@ -1,0 +1,3 @@
+[submodule "deps/neto"]
+	path = deps/neto
+	url = https://github.com/MoeclubM/Neto.git

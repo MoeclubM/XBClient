@@ -3,7 +3,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val minAndroidApi = 26
 val panelType = providers.environmentVariable("XBCLIENT_PANEL_TYPE").orNull?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: "xboard"
 require(panelType in setOf("xboard", "pxboard")) { "XBCLIENT_PANEL_TYPE must be xboard or pxboard" }
 val appMinAndroidApi = 33
@@ -12,8 +11,6 @@ val targetAndroidApi = 36
 val latestBuildTools = "36.1.0"
 val androidNdkVersion = "28.2.13676358"
 val miuixVersion = "0.9.4"
-extensions.extraProperties["aerionMinAndroidApi"] = minAndroidApi
-extensions.extraProperties["aerionAndroidNdkVersion"] = androidNdkVersion
 val defaultApiUrl = providers.environmentVariable("XBCLIENT_DEFAULT_API_URL").orNull
     ?.trim()?.takeIf { it.isNotEmpty() }
     ?: error("XBCLIENT_DEFAULT_API_URL GitHub Secret is required")
@@ -167,10 +164,6 @@ kotlin {
     }
 }
 
-android.sourceSets.getByName("main").jniLibs.directories.add(layout.buildDirectory.file("generated/aerionJniLibs").get().asFile.absolutePath)
-android.sourceSets.getByName("main").assets.srcDir(rootProject.file("rust/aerion-core/assets"))
-apply(from = rootProject.file("gradle/aerion-native.gradle.kts"))
-
 val validateSharedSigning = tasks.register("validateSharedSigning") {
     doLast {
         val storePath = releaseStoreFile
@@ -198,6 +191,7 @@ tasks.matching {
 }
 
 dependencies {
+    implementation("moe.telecom.neto:sdk-android:0.1.0")
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.browser:browser:1.10.0")
@@ -211,7 +205,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0")
     implementation("com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:1.6.0")
     implementation("com.squareup.okhttp3:okhttp:5.5.1")
-    implementation("org.yaml:snakeyaml:2.7")
     implementation("top.yukonga.miuix.kmp:miuix-ui-android:$miuixVersion")
     implementation("top.yukonga.miuix.kmp:miuix-preference-android:$miuixVersion")
     implementation("top.yukonga.miuix.kmp:miuix-icons-android:$miuixVersion")

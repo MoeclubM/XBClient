@@ -276,11 +276,10 @@ private fun handleOAuthWebUrl(uri: Uri, viewModel: XbClientViewModel): Boolean {
 
 @Composable
 private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, backProgress: Float) {
-    val visibleScreen = if (state.subscriptionBlocked && state.screen == PassScreen.NODE_SELECT) PassScreen.NODES else state.screen
+    val visibleScreen = state.screen
     val backTargetScreen = when (visibleScreen) {
-        PassScreen.NODE_SELECT -> PassScreen.NODES
         PassScreen.TICKET_DETAIL -> PassScreen.TICKETS
-        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> PassScreen.PROFILE
+        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.SETTINGS -> PassScreen.PROFILE
         PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> PassScreen.SETTINGS
         else -> null
     }
@@ -294,32 +293,34 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
     val floatingBarColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surfaceContainer
     Scaffold(
         topBar = {
-            BlurredBar(backdrop) {
-                TopAppBar(
-                    color = barColor,
-                    title = screenTitle(visibleScreen),
-                    navigationIcon = {
-                        if (visibleScreen !in MainTabScreens) {
-                            IconButton(onClick = viewModel::navigateBack) {
+            if (visibleScreen != PassScreen.CONNECT) {
+                BlurredBar(backdrop) {
+                    TopAppBar(
+                        color = barColor,
+                        title = screenTitle(visibleScreen),
+                        navigationIcon = {
+                            if (visibleScreen !in MainTabScreens) {
+                                IconButton(onClick = viewModel::navigateBack) {
+                                    Icon(
+                                        imageVector = MiuixIcons.Back,
+                                        contentDescription = stringResource(R.string.common_close),
+                                        tint = MiuixTheme.colorScheme.onBackground
+                                    )
+                                }
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = viewModel::showNotices) {
                                 Icon(
-                                    imageVector = MiuixIcons.Back,
-                                    contentDescription = stringResource(R.string.common_close),
+                                    imageVector = ImageVector.vectorResource(R.drawable.ic_notice),
+                                    contentDescription = stringResource(R.string.section_announcement),
                                     tint = MiuixTheme.colorScheme.onBackground
                                 )
                             }
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = viewModel::showNotices) {
-                            Icon(
-                                imageVector = ImageVector.vectorResource(R.drawable.ic_notice),
-                                contentDescription = stringResource(R.string.section_announcement),
-                                tint = MiuixTheme.colorScheme.onBackground
-                            )
-                        }
-                    },
-                    scrollBehavior = scrollBehavior
-                )
+                        },
+                        scrollBehavior = scrollBehavior
+                    )
+                }
             }
         },
         bottomBar = {
@@ -395,12 +396,13 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
 @Composable
 private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewModel, color: Color, floating: Boolean) {
     val selected = when (state.screen) {
-        PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> PassScreen.SETTINGS
-        PassScreen.PROFILE, PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> PassScreen.PROFILE
+        PassScreen.PROFILE, PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL, PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
-        else -> PassScreen.NODES
+        PassScreen.NODES -> PassScreen.NODES
+        PassScreen.DASHBOARD -> PassScreen.DASHBOARD
+        PassScreen.CONNECT -> PassScreen.CONNECT
     }
-    val navScreens = listOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS).filter { !PxBoardApi.enabled || it != PassScreen.PLANS || "commerce" in state.nativeExtensions }
+    val navScreens = listOf(PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE).filter { !PxBoardApi.enabled || it != PassScreen.PLANS || "commerce" in state.nativeExtensions }
     if (floating) {
         FloatingNavigationBar(
             color = color,
@@ -433,9 +435,10 @@ private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewMod
 private fun navIcon(screen: PassScreen): ImageVector =
     ImageVector.vectorResource(
         when (screen) {
+            PassScreen.DASHBOARD -> R.drawable.ic_nav_dashboard
+            PassScreen.NODES -> R.drawable.ic_nav_nodes
             PassScreen.PLANS -> R.drawable.ic_nav_plans
             PassScreen.PROFILE -> R.drawable.ic_nav_profile
-            PassScreen.SETTINGS -> R.drawable.ic_nav_settings
             else -> R.drawable.ic_nav_home
         }
     )
@@ -444,9 +447,10 @@ private fun navIcon(screen: PassScreen): ImageVector =
 private fun navLabel(screen: PassScreen): String =
     stringResource(
         id = when (screen) {
+            PassScreen.DASHBOARD -> R.string.nav_dashboard
+            PassScreen.NODES -> R.string.nav_nodes
             PassScreen.PLANS -> R.string.nav_plans
             PassScreen.PROFILE -> R.string.nav_profile
-            PassScreen.SETTINGS -> R.string.common_settings
             else -> R.string.nav_home
         }
     )
@@ -460,13 +464,33 @@ private fun MainScreenContent(
     extraBottom: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
+    val netoSnapshot by viewModel.netoClient.snapshot.collectAsStateWithLifecycle()
+    val netoActionError by viewModel.netoClient.actionError.collectAsStateWithLifecycle()
     val listModifier = modifier
         .fillMaxSize()
         .scrollEndHaptic()
         .overScrollVertical()
         .nestedScroll(scrollBehavior.nestedScrollConnection)
     when (screen) {
-        PassScreen.NODE_SELECT -> NodeSelectScreen(state, viewModel, listModifier)
+        PassScreen.CONNECT -> ConnectScreen(
+            state = state,
+            snapshot = netoSnapshot,
+            actionError = netoActionError,
+            viewModel = viewModel,
+            modifier = modifier.fillMaxSize().padding(bottom = extraBottom),
+        )
+        PassScreen.DASHBOARD -> DashboardScreen(
+            state = state,
+            snapshot = netoSnapshot,
+            viewModel = viewModel,
+            modifier = listModifier.padding(bottom = extraBottom),
+        )
+        PassScreen.NODES -> NodesScreen(
+            state = state,
+            snapshot = netoSnapshot,
+            viewModel = viewModel,
+            modifier = listModifier.padding(bottom = extraBottom),
+        )
         PassScreen.APP_RULES -> AppRulesScreen(state, viewModel, listModifier)
         PassScreen.OPEN_SOURCE_LICENSES -> OpenSourceLicensesScreen(listModifier)
         else -> LazyColumn(
@@ -486,7 +510,7 @@ private fun MainScreenContent(
                     PassScreen.PLANS -> if (PxBoardApi.enabled) PxBoardPlansScreen(state, viewModel) else PlansScreen(state, viewModel)
                     PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
                     PassScreen.THEME -> ThemeSettingsScreen(state, viewModel)
-                    else -> HomeScreen(state, viewModel)
+                    else -> Unit
                 }
             }
         }

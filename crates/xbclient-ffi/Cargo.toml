@@ -1,0 +1,16 @@
+[package]
+name = "xbclient-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "xbclient_ffi"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow.workspace = true
+neto-ffi = { path = "../../deps/neto/crates/neto-ffi" }
+once_cell.workspace = true
+serde_json.workspace = true
+xbclient-panel = { path = "../xbclient-panel" }

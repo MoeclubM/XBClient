@@ -2,7 +2,7 @@
 
 支持 [Xboard](https://github.com/cedar2025/Xboard) 与 [PxBoard](https://github.com/MoeClub-Open/PxBoard) 的 Android、Windows、Linux 客户端。
 
-登录面板账号后即可同步节点、套餐和流量；连接、分流和 TUN 由 [Aerion](https://github.com/MoeclubM/Aerion) 内核处理，和服务端 [NodeRS](https://github.com/MoeclubM/NodeRS) 使用同一套协议实现。
+基于独立多端订阅客户端 [Neto](https://github.com/MoeclubM/Neto) 与 [Aerion](https://github.com/MoeclubM/Aerion) 内核构建，提供商业面板封装能力。登录面板账号后自动将节点与规则同步至共享连接内核，并在原生界面提供套餐购买、兑换码、返利、公告与工单功能。
 
 订阅同步使用独立的 Aerion 适配器：Xboard 请求 `flag=aerion`，PxBoard 请求 `format=aerion`。继续读取 YAML 节点和规则；Flux 等 Aerion 扩展不进入面板的普通 Mihomo 订阅适配器。
 
@@ -10,16 +10,16 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE)
 
 <p align="center">
-  <img src="apps/electron/web/public/logo.png" width="96" alt="XBClient">
+  <img src="apps/android/src/main/res/drawable-nodpi/ic_launcher.png" width="96" alt="XBClient">
 </p>
 
 ## 特性
 
 - **面板一体**：登录 / 注册 / 第三方登录，套餐购买与兑换，工单，流量记录，邀请返利，站点公告。
-- **节点即用**：自动同步订阅节点，支持延迟测试，一键连接。
-- **TUN 与分流**：全局或规则分流（Clash / Mihomo YAML）；Android 可按应用黑白名单；桌面端可接管系统代理。
-- **协议齐全**：AnyTLS、Hysteria2、Trojan、VLESS、VMess、Mieru、Naive、TUIC、Shadowsocks，以及 HTTP / SOCKS5、直连 / 阻断。
-- **多平台**：Android 使用系统 VPN；Windows / Linux 提供托盘、静默启动和应用内更新。
+- **全平台原生 UI**：Android 采用 Jetpack Compose + Miuix，Windows 采用 WinUI 3（.NET 9），Linux Wayland 采用 GTK4 + libadwaita，无 Electron / WebView 壳开销。
+- **连接与节点分离**：独立无标题连接页、独立底栏节点页、支持自定义卡片与排序的 FlClash 风格主页仪表盘。
+- **TUN 与分流**：全局、规则或直连模式；Android 支持分应用代理；Windows 与 Linux Wayland 支持系统代理与 TUN 双接管及系统托盘。
+- **协议齐全**：Flux、Sudoku、AnyTLS、Hysteria2、Trojan、VLESS、VMess、Mieru、Naive、TUIC、Shadowsocks，以及 HTTP / SOCKS5。
 - **多语言**：中文、英语、日语、俄语、波斯语，可跟随系统。
 
 应用名、包名、站点地址和 API 在发布时注入，仓库里不存放默认品牌信息。通过 `XBCLIENT_PANEL_TYPE` 选择 Xboard 或 PxBoard；安装包指向发布者配置的站点。PxBoard 使用浏览器授权登录，节点与流量在应用内显示，套餐、支付、兑换码和工单复用站点用户前台。
@@ -28,9 +28,9 @@
 
 | 平台 | 安装包 | 连接方式 |
 | --- | --- | --- |
-| Android | arm64 APK | 系统 VPN（`VpnService`） |
-| Windows | 安装包 | TUN（需管理员）或系统代理 |
-| Linux | deb（x64 / arm64） | TUN 或系统代理 |
+| Android | arm64 APK / Play AAB | 系统 VPN（`NetoVpnService`） |
+| Windows | WinUI 3 x64 独立压缩包 | 系统代理或 Wintun TUN（需管理员） |
+| Linux Wayland | GTK4 deb（amd64 / arm64） | 系统代理或 TUN + StatusNotifierItem 托盘 |
 
 ## 使用教程
 
@@ -67,6 +67,7 @@
 
 ## 相关项目
 
+- [Neto](https://github.com/MoeclubM/Neto) — 独立多端原生订阅与连接客户端框架
 - [Aerion](https://github.com/MoeclubM/Aerion) — 协议、路由与 TUN 核心
 - [NodeRS](https://github.com/MoeclubM/NodeRS) — Xboard 机器节点
 - [Xboard](https://github.com/cedar2025/Xboard) — 面板

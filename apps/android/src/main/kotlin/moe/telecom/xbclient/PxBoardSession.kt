@@ -150,6 +150,7 @@ internal class PxBoardSession(
     private val scope: CoroutineScope,
     private val state: MutableStateFlow<XbClientUiState>,
     private val persist: suspend (XbClientUiState) -> Unit,
+    private val onSyncNeto: suspend (XbClientUiState) -> Unit,
     private val message: (String) -> Unit,
     private val open: (String) -> Unit,
 ) {
@@ -383,6 +384,7 @@ internal class PxBoardSession(
                     )
                 }
                 persist(state.value)
+                onSyncNeto(state.value)
             } catch (e: Exception) { state.update { it.copy(nodesLoading = false) }; message(e.message ?: e.toString()) }
         }
     }

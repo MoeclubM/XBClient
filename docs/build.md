@@ -40,7 +40,7 @@ PxBoard 需要部署客户端认证接口及新版 `subscriptions` 插件，详�
 | 平台 | PxBoard | XBoard + OAuth 插件 |
 | --- | --- | --- |
 | Android | `PxBoardAuthAdapter.kt` | `XboardAuthAdapter.kt` |
-| Windows / Linux | `api/auth/pxboard.ts` | `api/auth/xboard.ts` |
+| Windows / Linux | `crates/xbclient-panel/src/pxboard.rs` | `crates/xbclient-panel/src/xboard.rs` |
 
 PxBoard 登录页从 `/api/v1/setup` 确认 OAuth 插件是否启用，再从 `/api/v1/extensions/oauth/providers` 读取可用登录服务。点击提供方后，在系统浏览器打开本站授权申请并传递 `provider` 提示；本站处理第三方登录、人机验证、首次注册和动态验证码，随后仍需用户明确批准客户端访问。浏览器已经登录时直接显示批准页面。客户端用自己保存的校验串领取会话，不接收 XBoard 的 `verify` 回调。未安装 OAuth 插件时保留普通浏览器登录入口。
 

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
@@ -28,7 +27,6 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -110,29 +108,6 @@ internal fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewMode
             onClick = viewModel::dismissNotices,
             modifier = Modifier.fillMaxWidth()
         )
-    }
-    OverlayDialog(
-        show = state.nodeSwitchSheet,
-        title = stringResource(id = if (state.nodeSwitchConnect) R.string.sheet_change_node else R.string.sheet_select_node),
-        onDismissRequest = viewModel::dismissNodeSwitchDialog
-    ) {
-        LazyColumn(Modifier.heightIn(max = 520.dp)) {
-            itemsIndexed(state.anyTlsNodes, key = { index, node -> "${node.displayName(index)}-$index" }) { index, node ->
-                val visibleTestText = visibleNodeTestText(state.nodeTestResults[index])
-                val tagsText = node.tags.joinToString(" · ").takeIf { it.isNotEmpty() }
-                val supportingText = listOfNotNull(node.protocolLabel, tagsText, visibleTestText).joinToString(" · ")
-                ArrowPreference(
-                    title = node.displayName(index, stringResource(R.string.node_default_name, index + 1)),
-                    summary = supportingText,
-                    onClick = { viewModel.chooseNodeFromDialog(index) },
-                    endActions = {
-                        if (index == state.selectedNodeIndex) {
-                            Text(stringResource(R.string.common_selected), color = MiuixTheme.colorScheme.primary)
-                        }
-                    }
-                )
-            }
-        }
     }
 }
 

@@ -65,6 +65,7 @@ internal fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     PreferenceCard {
         ArrowPreference(title = stringResource(R.string.page_account_security), onClick = { viewModel.openScreen(PassScreen.ACCOUNT_SECURITY) })
         ArrowPreference(title = stringResource(R.string.page_gift_cards), onClick = { viewModel.openScreen(PassScreen.GIFT_CARDS) })
+        ArrowPreference(title = stringResource(R.string.common_settings), onClick = { viewModel.openScreen(PassScreen.SETTINGS) })
         ArrowPreference(title = stringResource(R.string.common_logout), onClick = viewModel::logout)
     }
     RewardAdSection(

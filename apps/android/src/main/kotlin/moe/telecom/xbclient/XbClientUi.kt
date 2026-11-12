@@ -77,7 +77,7 @@ internal val ThemeOptions = listOf(
     "dark" to R.string.theme_dark
 )
 
-internal val MainTabScreens = setOf(PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS)
+internal val MainTabScreens = setOf(PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE)
 
 internal val OnboardingLanguageTitles = mapOf(
     "" to "Choose language\n选择语言",
@@ -357,21 +357,6 @@ internal fun plainNoticeText(value: String): String =
         .replace("&gt;", ">")
         .trim()
 
-internal fun visibleNodeTestText(text: String?): String? =
-    text?.takeIf { it.isNotBlank() && it != "测试中" }
-
-internal fun formatDuration(durationMs: Long): String {
-    val seconds = durationMs / 1000
-    val hours = seconds / 3600
-    val minutes = seconds % 3600 / 60
-    val restSeconds = seconds % 60
-    return if (hours > 0) {
-        String.format(Locale.US, "%d:%02d:%02d", hours, minutes, restSeconds)
-    } else {
-        String.format(Locale.US, "%02d:%02d", minutes, restSeconds)
-    }
-}
-
 internal fun formatMoney(amount: Int, symbol: String, unit: String): String =
     (symbol + String.format(Locale.US, "%.2f", amount / 100.0) + if (unit.isBlank()) "" else " $unit").trim()
 
@@ -469,24 +454,26 @@ internal fun AnimatedContentTransitionScope<PassScreen>.screenTransition(): Cont
 
 private fun screenOrder(screen: PassScreen): Int =
     when (screen) {
-        PassScreen.NODES -> 0
-        PassScreen.NODE_SELECT -> 1
-        PassScreen.PLANS -> 2
-        PassScreen.PROFILE -> 3
-        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 4
-        PassScreen.SETTINGS -> 4
-        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> 5
+        PassScreen.CONNECT -> 0
+        PassScreen.DASHBOARD -> 1
+        PassScreen.NODES -> 2
+        PassScreen.PLANS -> 3
+        PassScreen.PROFILE -> 4
+        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 5
+        PassScreen.SETTINGS -> 5
+        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> 6
     }
 
 @Composable
 internal fun screenTitle(screen: PassScreen): String =
     when (screen) {
-        PassScreen.NODES -> stringResource(R.string.nav_home)
+        PassScreen.CONNECT -> ""
+        PassScreen.DASHBOARD -> stringResource(R.string.nav_dashboard)
+        PassScreen.NODES -> stringResource(R.string.nav_nodes)
         PassScreen.PLANS -> stringResource(R.string.nav_plans)
         PassScreen.PROFILE -> stringResource(R.string.nav_profile)
         PassScreen.SETTINGS -> stringResource(R.string.common_settings)
         PassScreen.THEME -> stringResource(R.string.page_theme)
-        PassScreen.NODE_SELECT -> stringResource(R.string.section_available_nodes)
         PassScreen.APP_RULES -> stringResource(R.string.section_app_rules)
         PassScreen.OPEN_SOURCE_LICENSES -> stringResource(R.string.about_open_source_licenses)
         PassScreen.GIFT_CARDS -> if (PxBoardApi.enabled) "账单与兑换" else stringResource(R.string.page_gift_cards)

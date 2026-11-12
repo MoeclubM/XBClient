@@ -4,9 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.net.TrafficStats
 import android.os.Build
-import android.util.Log
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -24,7 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import moe.telecom.neto.sdk.NetoControllerClient
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -33,20 +31,16 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.net.InetSocketAddress
-import java.net.Proxy
-import java.net.Socket
 
 private val Context.passVpnDataStore by preferencesDataStore(name = XBCLIENT_PREFS)
 private const val NODE_AUTO_REFRESH_INTERVAL_MS = 30L * 60L * 1000L
-private const val NODE_TEST_TIMEOUT_MS = 8000L
 
 data class XbClientUiState(
     val loaded: Boolean = false,
     val nativeLoginPending: Boolean = false,
     val nativeExtensions: Set<String> = emptySet(),
     val authMode: AuthMode = AuthMode.LOGIN,
-    val screen: PassScreen = PassScreen.NODES,
+    val screen: PassScreen = PassScreen.CONNECT,
     val authData: String = "",
     val subscribeToken: String = "",
     val subscribeUrl: String = "",
@@ -114,8 +108,6 @@ data class XbClientUiState(
     val noticesLoading: Boolean = false,
     val installedApps: List<InstalledAppItem> = emptyList(),
     val appSearchQuery: String = "",
-    val nodeSwitchSheet: Boolean = false,
-    val nodeSwitchConnect: Boolean = false,
     val paymentEnabled: Boolean = false,
     val planRewardAdEnabled: Boolean = false,
     val planRewardedAdUnitId: String = "",
@@ -159,18 +151,19 @@ data class XbClientUiState(
 
 sealed interface XbClientEvent {
     data class Message(val text: String) : XbClientEvent
-    data class RequestVpnPermission(val nodeIndex: Int) : XbClientEvent
+    data object RequestVpnPermission : XbClientEvent
     data class ShowRewardAd(val adUnitId: String, val userId: String, val customData: String) : XbClientEvent
     data class OpenExternalUrl(val url: String) : XbClientEvent
 }
 
 class XbClientViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application
+    val netoClient = NetoControllerClient(application, app.getString(R.string.app_name), BuildConfig.USER_AGENT)
     private val _uiState = MutableStateFlow(XbClientUiState())
     val uiState = _uiState.asStateFlow()
     private val _events = MutableSharedFlow<XbClientEvent>()
     val events = _events.asSharedFlow()
-    private val nativePanel = PxBoardSession(viewModelScope, _uiState, ::persistStoredState, ::emitMessage) { emitEvent(XbClientEvent.OpenExternalUrl(it)) }
+    private val nativePanel = PxBoardSession(viewModelScope, _uiState, ::persistStoredState, ::syncStateToNeto, ::emitMessage) { emitEvent(XbClientEvent.OpenExternalUrl(it)) }
     private val pxboardAuth = PxBoardAuthAdapter(app.getString(R.string.app_name), viewModelScope, _uiState, ::persistStoredState, ::emitMessage, { emitEvent(XbClientEvent.OpenExternalUrl(it)) }, { nativePanel.refresh(force = true) })
     internal val pxboardSession get() = nativePanel
     internal val pxboardAuthAdapter get() = pxboardAuth
@@ -203,12 +196,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun unbindOAuth(driver: String) { if (PxBoardApi.enabled) nativePanel.portal("/user/account") else xboardAuth.unbindOAuth(driver) }
     fun openPxBoardPortal(path: String = "/user") = nativePanel.portal(path)
 
-    private var pendingNodeSwitchConnect: Boolean? = null
     private var nodeAutoRefreshStarted = false
     private var pendingRewardScene = ""
     private var pendingRewardStartedAt = 0L
-    private var vpnBaseRxBytes = 0L
-    private var vpnBaseTxBytes = 0L
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -276,11 +266,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             PassScreen.TICKETS -> refreshTickets(showLoading = true, showErrors = true)
             PassScreen.TICKET_DETAIL -> Unit
             PassScreen.PLANS -> Unit
-            PassScreen.NODE_SELECT -> refreshSubscriptionAndNodes()
             PassScreen.APP_RULES -> Unit
             PassScreen.OPEN_SOURCE_LICENSES -> Unit
             PassScreen.SETTINGS, PassScreen.THEME -> Unit
-            PassScreen.NODES -> {
+            PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES -> {
                 refreshSubscriptionAndNodes()
                 refreshNotices()
             }
@@ -318,13 +307,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshRewardConfig()
                 refreshUserInfo(showErrors = true)
             }
-            PassScreen.NODE_SELECT -> {
-                refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
-                refreshUserInfo(showErrors = true)
-            }
             PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.THEME -> refreshUserInfo(showErrors = true)
             PassScreen.OPEN_SOURCE_LICENSES -> Unit
-            PassScreen.NODES -> {
+            PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES -> {
                 refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
                 refreshUserInfo(showErrors = true)
                 refreshNotices(force = true, showLoading = true, showErrors = true)
@@ -350,11 +335,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             return
         }
         when (state.screen) {
-            PassScreen.NODE_SELECT -> openScreen(PassScreen.NODES)
             PassScreen.TICKET_DETAIL -> openScreen(PassScreen.TICKETS)
             PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> openScreen(PassScreen.PROFILE)
             PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> openScreen(PassScreen.SETTINGS)
-            PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE, PassScreen.SETTINGS -> Unit
+            PassScreen.SETTINGS -> openScreen(PassScreen.PROFILE)
+            PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE -> Unit
         }
     }
 
@@ -369,7 +354,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val data = body.getJSONObject("data")
                 val next = _uiState.value.copy(
                     authMode = AuthMode.LOGIN,
-                    screen = PassScreen.NODES,
+                    screen = PassScreen.CONNECT,
                     authData = data.getString("auth_data"),
                     subscribeToken = data.optString("token"),
                     subscribeUrl = data.optString("subscribe_url")
@@ -403,7 +388,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val data = body.getJSONObject("data")
                 val next = _uiState.value.copy(
                     authMode = AuthMode.LOGIN,
-                    screen = PassScreen.NODES,
+                    screen = PassScreen.CONNECT,
                     authData = data.getString("auth_data"),
                     subscribeToken = data.optString("token"),
                     subscribeUrl = data.optString("subscribe_url")
@@ -484,6 +469,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun logout() {
         pxboardAuth.cancelLogin()
         val current = _uiState.value
+        netoClient.stopVpn()
         if (PxBoardApi.enabled) {
             nativePanel.reset()
             if (current.authData.isNotEmpty()) viewModelScope.launch(Dispatchers.IO) {
@@ -513,6 +499,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         )
         _uiState.value = next
         persistState(next)
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { syncStateToNeto(next) }
+        }
     }
 
     fun refreshSubscriptionAndNodes(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
@@ -537,25 +526,28 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 var subscriptionRouteConfigYaml = ""
                 var subscriptionRouteRuleCount = 0
                 var subscriptionRouteRulesPreview = emptyList<String>()
-                var metaNodesResult: JSONObject? = null
                 if (blockReason.isEmpty() && subscribeUrl.isNotEmpty()) {
-                    metaNodesResult = Subscriptions.fetch(subscribeUrl, "aerion")
-                    if (metaNodesResult.getBoolean("ok")) {
-                        val routing = metaNodesResult.getJSONObject("routing")
-                        subscriptionRouteConfigYaml = if (routing.isNull("route_config_yaml")) "" else routing.getString("route_config_yaml")
-                        subscriptionRouteRuleCount = routing.getInt("rule_count")
-                        subscriptionRouteRulesPreview = routing.getJSONArray("rules_preview").let { array ->
-                            List(array.length()) { index -> array.getString(index) }.filter { it.isNotBlank() }
-                        }
-                    } else {
-                        throw IllegalStateException(resultError(metaNodesResult))
-                    }
+                    netoClient.syncManagedSubscription(
+                        id = "managed-default",
+                        name = app.getString(R.string.app_name),
+                        url = subscribeUrl,
+                        flag = "aerion",
+                        userAgent = BuildConfig.USER_AGENT,
+                    )
+                    subscriptionRouteConfigYaml = runCatching { XboardApi.fetchSubscriptionYaml(subscribeUrl) }.getOrDefault("")
+                    val syncedSnap = netoClient.snapshot.value
+                    subscriptionRouteRuleCount = syncedSnap.ruleCount
+                    subscriptionRouteRulesPreview = syncedSnap.rulesPreview
                 }
+                var pluginNodesLoaded = false
                 val baseNodes = if (blockReason.isEmpty()) {
                     val xbclientNodesResult = XboardApi.request("xbclient_nodes", defaultApiUrl(), current.authData, JSONObject())
                     if (xbclientNodesResult.getBoolean("ok")) {
                         val nodesBody = requireSuccessfulBody("XBClient 节点同步", xbclientNodesResult)
+                        pluginNodesLoaded = true
                         nodesBody.getJSONObject("data").getJSONArray("nodes").toAnyTlsNodeList()
+                    } else if (subscribeUrl.isNotEmpty()) {
+                        current.anyTlsNodes
                     } else {
                         throw IllegalStateException(resultError(xbclientNodesResult))
                     }
@@ -583,6 +575,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 )
                 _uiState.value = next
                 persistStoredState(next)
+                if (blockReason.isNotEmpty() || pluginNodesLoaded) {
+                    syncStateToNeto(next)
+                }
             } catch (error: Exception) {
                 if (showLoading) {
                     _uiState.update { it.copy(nodesLoading = false) }
@@ -1319,17 +1314,20 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 virtualDnsPool = virtualDnsPool.trim()
             )
         }
+        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
         emitMessage("设置已保存。")
     }
 
     fun saveRouteConfigYaml(value: String, geoipDir: String) {
         val routeAssetsDir = geoipDir.trim().ifEmpty { ensureBundledRouteAssets() }
         updateAndPersist { it.copy(customRouteConfigYaml = value.trim(), geoipDir = routeAssetsDir) }
+        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
         emitMessage("分流配置已保存。")
     }
 
     fun setIpv6Enabled(enabled: Boolean) {
         updateAndPersist { it.copy(vpnIpv6Enabled = enabled) }
+        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
     }
 
     fun setAppLanguage(language: String) {
@@ -1358,6 +1356,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             .putString("theme_mode", themeMode)
             .commit()
         updateAndPersist { it.copy(themeMode = themeMode) }
+        syncSettingsToNeto(_uiState.value)
     }
 
     fun setEnableBlur(enabled: Boolean) {
@@ -1410,6 +1409,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 state.copy(appRuleMode = MODE_EXCLUDE, excludedApps = current, allowedApps = "")
             }
         }
+        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
     }
 
     fun setAppSearchQuery(query: String) {
@@ -1431,6 +1431,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 state.copy(excludedApps = value, allowedApps = "")
             }
         }
+        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
     }
 
     fun clearSelectedApps() {
@@ -1441,322 +1442,81 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 state.copy(excludedApps = "")
             }
         }
+        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
     }
 
-    fun selectNode(index: Int, returnToNodes: Boolean) {
-        val nodes = _uiState.value.anyTlsNodes
-        if (index !in nodes.indices) {
+    fun toggleVpn() {
+        if (netoClient.snapshot.value.connection.connected) {
+            netoClient.stopVpn()
+            updateAndPersist { it.copy(vpnRequested = false) }
             return
         }
-        if (!nodes[index].connectSupported) {
-            emitMessage("当前内核暂不支持 ${nodes[index].protocolLabel} 节点。")
-            return
-        }
-        val reconnect = _uiState.value.vpnRequested && _uiState.value.selectedNodeIndex != index
-        updateAndPersist {
-            it.copy(
-                selectedNodeIndex = index,
-                screen = if (returnToNodes) PassScreen.NODES else it.screen,
-                nodeSwitchSheet = false
-            )
-        }
-        if (reconnect) {
-            beginVpn(app, index)
-        }
-    }
-
-    fun requestNodeSwitchDialog(connectAfterSelect: Boolean) {
         val state = _uiState.value
-        if (!state.loaded) {
-            pendingNodeSwitchConnect = connectAfterSelect
+        if (state.appRuleMode == MODE_ALLOW && selectedPackages(state).isEmpty()) {
+            emitMessage("白名单模式尚未选择应用。")
             return
         }
-        if (state.authData.isEmpty()) {
-            return
-        }
-        if (state.anyTlsNodes.isEmpty()) {
-            refreshSubscriptionAndNodes(force = true, showErrors = true)
-            emitMessage("节点正在同步，请稍后再试。")
-            return
-        }
-        _uiState.update { it.copy(nodeSwitchSheet = true, nodeSwitchConnect = connectAfterSelect) }
-    }
-
-    fun dismissNodeSwitchDialog() {
-        _uiState.update { it.copy(nodeSwitchSheet = false) }
-    }
-
-    fun chooseNodeFromDialog(index: Int) {
-        val connectAfterSelect = _uiState.value.nodeSwitchConnect
-        val node = _uiState.value.anyTlsNodes.getOrNull(index) ?: return
-        if (!node.connectSupported) {
-            emitMessage("当前内核暂不支持 ${node.protocolLabel} 节点。")
-            return
-        }
-        selectNode(index, returnToNodes = !connectAfterSelect)
-        if (connectAfterSelect && !_uiState.value.vpnRequested) {
-            requestStartVpn()
-        }
-    }
-
-    fun testNode(index: Int) {
-        val nodes = _uiState.value.anyTlsNodes
-        if (index !in nodes.indices) {
-            return
-        }
-        if (!nodes[index].connectSupported) {
-            _uiState.update { it.copy(nodeTestResults = it.nodeTestResults + (index to "当前内核暂不支持")) }
-            return
-        }
-        _uiState.update { it.copy(nodeTestResults = it.nodeTestResults + (index to "测试中")) }
-        val node = nodes[index]
-        viewModelScope.launch(Dispatchers.IO) {
-            val text = testNodeBlocking(node)
-            _uiState.update { it.copy(nodeTestResults = it.nodeTestResults + (index to text)) }
-        }
-    }
-
-    fun testAllNodes() {
-        val nodes = _uiState.value.anyTlsNodes
-        if (_uiState.value.nodesTesting || nodes.isEmpty()) {
-            return
-        }
-        _uiState.update { it.copy(nodesTesting = true, nodeTestResults = emptyMap()) }
-        viewModelScope.launch(Dispatchers.IO) {
-            for (index in nodes.indices) {
-                if (!nodes[index].connectSupported) {
-                    _uiState.update { it.copy(nodeTestResults = it.nodeTestResults + (index to "当前内核暂不支持")) }
-                    continue
-                }
-                _uiState.update { it.copy(nodeTestResults = it.nodeTestResults + (index to "测试中")) }
-                val text = testNodeBlocking(nodes[index])
-                _uiState.update { it.copy(nodeTestResults = it.nodeTestResults + (index to text)) }
-            }
-            _uiState.update { it.copy(nodesTesting = false) }
-            emitMessage("节点测试完成。")
-        }
-    }
-
-    fun requestStartVpn() {
-        try {
-            val state = _uiState.value
-            if (state.excludedApps.isNotEmpty() && state.allowedApps.isNotEmpty()) {
-                throw IllegalStateException("应用排除与应用白名单不能同时填写。")
-            }
-            if (state.appRuleMode == MODE_ALLOW && state.allowedApps.isEmpty()) {
-                throw IllegalStateException("白名单模式尚未选择应用。")
-            }
-            if (state.anyTlsNodes.isEmpty()) {
-                throw IllegalStateException("节点尚未同步完成。")
-            }
-            val selectedIndex = state.selectedNodeIndex.coerceIn(0, state.anyTlsNodes.size - 1)
-            val selectedNode = state.anyTlsNodes[selectedIndex]
-            if (!selectedNode.connectSupported) {
-                throw IllegalStateException("当前内核暂不支持 ${selectedNode.protocolLabel} 节点。")
-            }
-            updateAndPersist { it.copy(selectedNodeIndex = selectedIndex) }
-            emitEvent(XbClientEvent.RequestVpnPermission(selectedIndex))
-        } catch (error: Exception) {
-            emitMessage("连接启动失败：${error.message}")
-        }
-    }
-
-    fun beginVpn(context: Context, nodeIndex: Int) {
-        val state = _uiState.value
-        val selectedIndex = nodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0))
-        if (!state.vpnRequested) {
-            vpnBaseRxBytes = currentUidRxBytes()
-            vpnBaseTxBytes = currentUidTxBytes()
-        }
-        val intent = Intent(context, XbClientVpnService::class.java).apply {
-            action = XbClientVpnService.ACTION_START
-            putExtra(XbClientVpnService.EXTRA_NODE, state.anyTlsNodes[selectedIndex].rawJson)
-            putExtra(XbClientVpnService.EXTRA_NODES, nodesJson(state.anyTlsNodes))
-            putExtra(XbClientVpnService.EXTRA_NODE_INDEX, selectedIndex)
-            putExtra(XbClientVpnService.EXTRA_EXCLUDED_APPS, state.excludedApps)
-            putExtra(XbClientVpnService.EXTRA_ALLOWED_APPS, state.allowedApps)
-            putExtra(XbClientVpnService.EXTRA_NODE_DNS, state.nodeDns)
-            putExtra(XbClientVpnService.EXTRA_OVERSEAS_DNS, state.overseasDns)
-            putExtra(XbClientVpnService.EXTRA_DIRECT_DNS, state.directDns)
-            putExtra(XbClientVpnService.EXTRA_DNS_MODE, state.vpnDnsMode)
-            putExtra(XbClientVpnService.EXTRA_VIRTUAL_DNS_POOL, state.virtualDnsPool)
-            putExtra(XbClientVpnService.EXTRA_IPV6_ENABLED, state.vpnIpv6Enabled)
-            putExtra(XbClientVpnService.EXTRA_ROUTE_CONFIG_YAML, state.customRouteConfigYaml.ifBlank { state.routeConfigYaml })
-            putExtra(XbClientVpnService.EXTRA_GEOIP_DIR, state.geoipDir)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
+        if (netoClient.prepareVpnPermission() != null) {
+            emitEvent(XbClientEvent.RequestVpnPermission)
         } else {
-            context.startService(intent)
+            startNetoVpn()
         }
-        _uiState.update {
-            it.copy(
-                vpnStarting = true,
-                screen = PassScreen.NODES,
-                selectedNodeIndex = selectedIndex,
-                vpnConnectedAt = if (state.vpnRequested) it.vpnConnectedAt else 0L,
-                vpnSessionRxBytes = if (state.vpnRequested) it.vpnSessionRxBytes else 0L,
-                vpnSessionTxBytes = if (state.vpnRequested) it.vpnSessionTxBytes else 0L
+    }
+
+    fun startNetoVpn() {
+        netoClient.startVpn()
+        updateAndPersist { it.copy(vpnRequested = true) }
+    }
+
+    private fun syncSettingsToNeto(state: XbClientUiState, restartIfConnected: Boolean = false) {
+        val allowed = state.allowedApps.split(Regex("[,;\\s]+")).filter { it.isNotEmpty() }
+        val excluded = state.excludedApps.split(Regex("[,;\\s]+")).filter { it.isNotEmpty() }
+        val patch = JSONObject()
+            .put("node_dns", state.nodeDns)
+            .put("overseas_dns", state.overseasDns)
+            .put("direct_dns", state.directDns)
+            .put("node_test_url", state.nodeTestTarget)
+            .put("vpn_dns_mode", state.vpnDnsMode)
+            .put("virtual_dns_pool", state.virtualDnsPool)
+            .put("ipv6_enabled", state.vpnIpv6Enabled)
+            .put("custom_route_yaml", state.customRouteConfigYaml)
+            .put("geoip_dir", state.geoipDir)
+            .put("app_rule_mode", state.appRuleMode)
+            .put("allowed_apps", JSONArray(allowed))
+            .put("excluded_apps", JSONArray(excluded))
+            .put("theme_mode", state.themeMode.ifBlank { "system" })
+        netoClient.updateSettings(patch, restartIfConnected = restartIfConnected)
+    }
+
+    private suspend fun syncStateToNeto(state: XbClientUiState) {
+        val appTitle = app.getString(R.string.app_name)
+        if (!state.isLoggedIn || state.subscriptionBlocked) {
+            netoClient.upsertManagedProfile(
+                id = "managed-default",
+                name = appTitle,
+                url = state.subscribeUrl,
+                nodes = JSONArray(),
+                routeConfigYaml = null,
+                rulesPreview = emptyList(),
+                ruleCount = 0,
             )
-        }
-        emitMessage("连接请求已提交。")
-    }
-
-    fun stopVpn(context: Context) {
-        val intent = Intent(context, XbClientVpnService::class.java).apply {
-            action = XbClientVpnService.ACTION_STOP
-        }
-        context.startService(intent)
-        updateAndPersist { it.copy(vpnRequested = false) }
-        emitMessage("停止连接请求已提交。")
-    }
-
-    fun onVpnStateChanged(running: Boolean, nodeIndex: Int, error: String) {
-        updateAndPersist { state ->
-            val selected = if (nodeIndex >= 0 && state.anyTlsNodes.isNotEmpty()) {
-                nodeIndex.coerceIn(0, state.anyTlsNodes.size - 1)
-            } else {
-                state.selectedNodeIndex
+            if (netoClient.snapshot.value.connection.connected) {
+                netoClient.stopVpn()
             }
-            val connectedAt = if (running && !state.vpnRequested) {
-                vpnBaseRxBytes = currentUidRxBytes()
-                vpnBaseTxBytes = currentUidTxBytes()
-                val startedAt = System.currentTimeMillis()
-                app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
-                    .putLong("vpn_connected_at", startedAt)
-                    .putLong("vpn_base_rx_bytes", vpnBaseRxBytes)
-                    .putLong("vpn_base_tx_bytes", vpnBaseTxBytes)
-                    .apply()
-                startedAt
-            } else if (running) {
-                state.vpnConnectedAt
-            } else {
-                app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
-                    .remove("vpn_connected_at")
-                    .remove("vpn_base_rx_bytes")
-                    .remove("vpn_base_tx_bytes")
-                    .apply()
-                0L
-            }
-            state.copy(
-                vpnRequested = running,
-                vpnStarting = false,
-                selectedNodeIndex = selected,
-                vpnConnectedAt = connectedAt,
-                vpnSessionRxBytes = if (running) (currentUidRxBytes() - vpnBaseRxBytes).coerceAtLeast(0L) else 0L,
-                vpnSessionTxBytes = if (running) (currentUidTxBytes() - vpnBaseTxBytes).coerceAtLeast(0L) else 0L
-            )
+            return
         }
-        if (error.isNotEmpty()) {
-            emitMessage(error)
-        }
-    }
-
-    /**
-     * Refreshes the cumulative session traffic counters and returns the current
-     * (downloadBytes, uploadBytes) totals so callers can derive instantaneous
-     * speed without re-reading [TrafficStats].
-     */
-    fun refreshVpnSessionStats(): Pair<Long, Long> {
-        if (!_uiState.value.vpnRequested) {
-            return 0L to 0L
-        }
-        val rx = (currentUidRxBytes() - vpnBaseRxBytes).coerceAtLeast(0L)
-        val tx = (currentUidTxBytes() - vpnBaseTxBytes).coerceAtLeast(0L)
-        _uiState.update {
-            it.copy(vpnSessionRxBytes = rx, vpnSessionTxBytes = tx)
-        }
-        return rx to tx
-    }
-
-    suspend fun probeVpnConnectivityNow(): Int = withContext(Dispatchers.IO) {
-        if (!_uiState.value.vpnRequested) {
-            return@withContext -1
-        }
-        try {
-            // The app is excluded from its own VPN, so the probe must go through the
-            // tunnel's loopback SOCKS endpoint.
-            val proxy = vpnTunnelProxy() ?: throw IllegalStateException("VPN tunnel SOCKS endpoint is not ready.")
-            val target = InetSocketAddress("1.1.1.1", 443)
-            val startMs = System.currentTimeMillis()
-            Socket(proxy).use { socket ->
-                socket.connect(target, 1200)
-            }
-            val latencyMs = System.currentTimeMillis() - startMs
-            latencyMs.toInt()
-        } catch (error: Exception) {
-            Log.w("XBClient", "VPN latency probe failed", error)
-            -1
-        }
-    }
-
-    /** Resolves the tunnel's loopback SOCKS5 proxy published by the VPN service, if running. */
-    private fun vpnTunnelProxy(): Proxy? {
-        val addr = app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
-            .getString("vpn_socks_addr", "")
-            ?.takeIf { it.isNotBlank() }
-            ?: return null
-        val host = addr.substringBeforeLast(':', "")
-        val port = addr.substringAfterLast(':', "").toIntOrNull()
-        if (host.isEmpty() || port == null) return null
-        return Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
-    }
-
-    private fun testNodeBlocking(node: AnyTlsNode): String {
-        return try {
-            val testNode = JSONObject(node.rawJson)
-            if (node.protocol == "flux") {
-                XboardApi.resolveFluxNode(_uiState.value.nodeDns, testNode)
-            } else if (node.protocol != "direct" && node.protocol != "block") {
-                val originalHost = normalizeNodeHost(testNode.getString("host"))
-                val resolvedHost = XboardApi.resolveNodeHost(_uiState.value.nodeDns, originalHost)
-                if (resolvedHost != originalHost && (testNode.isNull("sni") || testNode.optString("sni").isBlank())) {
-                    testNode.put("sni", originalHost)
-                }
-                testNode.put("host", resolvedHost)
-                testNode.put("server", resolvedHost)
-            }
-            val (targetHost, targetPort, targetTls) = targetHostPort(_uiState.value.nodeTestTarget.trim())
-            val result = JSONObject(
-                AerionCore.testNode(
-                    JSONObject()
-                        .put("node", testNode)
-                        .put("target_host", targetHost)
-                        .put("target_port", targetPort)
-                        .put("target_tls", targetTls)
-                        .put("timeout_ms", NODE_TEST_TIMEOUT_MS)
-                        .toString()
-                )
-            )
-            if (result.getBoolean("ok")) {
-                "${result.getLong("latency_ms")} ms"
-            } else {
-                readableNodeTestError(result.getString("error"))
-            }
-        } catch (error: Exception) {
-            readableNodeTestError(error.toString())
-        }
-    }
-
-    private fun targetHostPort(target: String): Triple<String, Int, Boolean> {
-        var targetHost = target
-        var targetPort = 80
-        var targetTls = false
-        var schemeSpecified = false
-        if (target.startsWith("http://") || target.startsWith("https://")) {
-            val uri = Uri.parse(target)
-            targetHost = uri.host ?: throw IllegalStateException("测试目标地址无效。")
-            targetTls = uri.scheme == "https"
-            schemeSpecified = true
-            targetPort = if (uri.port > 0) uri.port else if (targetTls) 443 else 80
-        } else {
-            val colon = target.lastIndexOf(':')
-            if (colon > 0 && target.indexOf(':') == colon) {
-                targetHost = target.substring(0, colon)
-                targetPort = target.substring(colon + 1).toInt()
-            }
-        }
-        return Triple(targetHost, targetPort, if (schemeSpecified) targetTls else targetPort == 443)
+        netoClient.upsertManagedProfile(
+            id = "managed-default",
+            name = appTitle,
+            url = state.subscribeUrl,
+            nodes = JSONArray(nodesJson(state.anyTlsNodes)),
+            routeConfigYaml = state.routeConfigYaml.ifBlank { null },
+            rulesPreview = state.routeRulesPreview,
+            ruleCount = state.routeRuleCount,
+            usedUploadBytes = 0L,
+            usedDownloadBytes = state.subscriptionTrafficUsedBytes,
+            totalBytes = state.subscriptionTrafficTotalBytes,
+        )
     }
 
     private suspend fun loadStoredState() {
@@ -1822,11 +1582,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             registerCaptchaEnabled = prefs[Keys.REGISTER_CAPTCHA_ENABLED] ?: false,
             registerCaptchaType = prefs[Keys.REGISTER_CAPTCHA_TYPE].orEmpty()
         )
-        val runtimePrefs = app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
-        if (state.vpnRequested) {
-            vpnBaseRxBytes = runtimePrefs.getLong("vpn_base_rx_bytes", currentUidRxBytes())
-            vpnBaseTxBytes = runtimePrefs.getLong("vpn_base_tx_bytes", currentUidTxBytes())
-        }
         _uiState.value = state.copy(
             anyTlsNodes = if (sessionMatches) state.anyTlsNodes else emptyList(),
             appOpenAdEnabled = !PxBoardApi.enabled && state.appOpenAdEnabled,
@@ -1836,13 +1591,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             subscribeUrl = if (sessionMatches) state.subscribeUrl else "",
             vpnRequested = sessionMatches && state.vpnRequested,
             selectedNodeIndex = state.selectedNodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0)),
-            vpnConnectedAt = if (state.vpnRequested) runtimePrefs.getLong("vpn_connected_at", 0L) else 0L,
-            vpnSessionRxBytes = if (state.vpnRequested) (currentUidRxBytes() - vpnBaseRxBytes).coerceAtLeast(0L) else 0L,
-            vpnSessionTxBytes = if (state.vpnRequested) (currentUidTxBytes() - vpnBaseTxBytes).coerceAtLeast(0L) else 0L
         )
-        pendingNodeSwitchConnect?.let { connectAfterSelect ->
-            pendingNodeSwitchConnect = null
-            requestNodeSwitchDialog(connectAfterSelect)
+        syncSettingsToNeto(_uiState.value)
+        if (_uiState.value.isLoggedIn && (_uiState.value.anyTlsNodes.isNotEmpty() || _uiState.value.subscriptionBlocked)) {
+            runCatching { syncStateToNeto(_uiState.value) }
         }
         if (!PxBoardApi.enabled) xboardAuth.resumeCallback()
     }
@@ -2130,12 +1882,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val value = BuildConfig.DEFAULT_API_URL.trim()
         return if (value.startsWith("http://") || value.startsWith("https://")) value else "https://$value"
     }
-
-    private fun currentUidRxBytes(): Long =
-        TrafficStats.getUidRxBytes(app.applicationInfo.uid).coerceAtLeast(0L)
-
-    private fun currentUidTxBytes(): Long =
-        TrafficStats.getUidTxBytes(app.applicationInfo.uid).coerceAtLeast(0L)
 
     private fun emitMessage(text: String) {
         emitEvent(XbClientEvent.Message(text))
