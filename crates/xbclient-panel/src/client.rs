@@ -1,6 +1,6 @@
 use crate::config::{BuildConfig, normalize_base_url};
-use crate::http::{open_external_url, pxboard_rpc, xboard_get, xboard_post};
-use crate::models::{PanelSession, PanelStateSnapshot};
+use crate::http::{PxBoardRpcError, open_external_url, pxboard_rpc, xboard_get, xboard_post};
+use crate::models::{MfaSetupInfo, PanelSession, PanelStateSnapshot};
 use crate::{pxboard, xboard};
 use anyhow::{Context, Result, bail, ensure};
 use neto_core::{NetoController, build_profile_from_raw_nodes};
@@ -13,6 +13,33 @@ struct InnerState {
     session: PanelSession,
     snapshot: PanelStateSnapshot,
     auth_cancel: Arc<AtomicBool>,
+    bind_cancel: Arc<AtomicBool>,
+}
+
+pub fn extract_reset_token(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if (trimmed.starts_with("http://") || trimmed.starts_with("https://"))
+        && let Ok(parsed) = url::Url::parse(trimmed)
+        && let Some((_, tok)) = parsed.query_pairs().find(|(k, _)| k == "token")
+        && !tok.trim().is_empty()
+    {
+        return tok.trim().to_string();
+    }
+    trimmed.to_string()
+}
+
+pub fn extract_referral_code(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if (trimmed.starts_with("http://") || trimmed.starts_with("https://"))
+        && let Ok(parsed) = url::Url::parse(trimmed)
+        && let Some((_, code)) = parsed
+            .query_pairs()
+            .find(|(k, _)| k == "ref" || k == "code")
+        && !code.trim().is_empty()
+    {
+        return code.trim().to_string();
+    }
+    trimmed.to_string()
 }
 
 pub struct XbPanelClient {
@@ -43,6 +70,7 @@ impl XbPanelClient {
             website_url: cfg.website_url.clone(),
             privacy_policy_url: cfg.privacy_policy_url.clone(),
             user_agreement_url: cfg.user_agreement_url.clone(),
+            registration_enabled: true,
             ..Default::default()
         };
         Ok(Arc::new(Self {
@@ -53,6 +81,7 @@ impl XbPanelClient {
                 session,
                 snapshot,
                 auth_cancel: Arc::new(AtomicBool::new(false)),
+                bind_cancel: Arc::new(AtomicBool::new(false)),
             }),
         }))
     }
@@ -94,6 +123,11 @@ impl XbPanelClient {
         guard.snapshot.extensions = snap.extensions;
         guard.snapshot.oauth_providers = snap.oauth_providers;
         guard.snapshot.email_verify_required = snap.email_verify_required;
+        guard.snapshot.registration_enabled = snap.registration_enabled;
+        guard.snapshot.password_reset_enabled = snap.password_reset_enabled;
+        guard.snapshot.login_challenge_required = snap.login_challenge_required;
+        guard.snapshot.register_challenge_required = snap.register_challenge_required;
+        guard.snapshot.reset_challenge_required = snap.reset_challenge_required;
         Ok(guard.snapshot.clone())
     }
 
@@ -105,7 +139,19 @@ impl XbPanelClient {
     ) -> Result<PanelStateSnapshot> {
         let base_url = self.snapshot().base_url;
         let (auth_data, out_email) = if self.cfg.is_pxboard() {
-            pxboard::login_password(&self.cfg, &base_url, email, password, code).await?
+            match pxboard::login_password(&self.cfg, &base_url, email, password, code).await {
+                Ok(res) => res,
+                Err(err) => {
+                    if let Some(rpc_err) = err.downcast_ref::<PxBoardRpcError>()
+                        && rpc_err.code == "mfa_required"
+                    {
+                        let mut guard = self.inner.lock().expect("panel lock poisoned");
+                        guard.snapshot.mfa_required = true;
+                        guard.snapshot.last_error = Some(rpc_err.message.clone());
+                    }
+                    return Err(err);
+                }
+            }
         } else {
             xboard::login_password(&self.cfg, &base_url, email, password).await?
         };
@@ -121,15 +167,14 @@ impl XbPanelClient {
     ) -> Result<PanelStateSnapshot> {
         let base_url = self.snapshot().base_url;
         if self.cfg.is_pxboard() {
+            ensure!(password.len() >= 10, "密码至少 10 位");
             let mut body = json!({
                 "email": email.trim(),
                 "password": password,
             });
-            if !invite_code.trim().is_empty() {
-                body["inviteCode"] = Value::String(invite_code.trim().to_string());
-            }
-            if !email_code.trim().is_empty() {
-                body["code"] = Value::String(email_code.trim().to_string());
+            let referral = extract_referral_code(invite_code);
+            if !referral.is_empty() {
+                body["referral"] = Value::String(referral);
             }
             pxboard_rpc(&base_url, &self.cfg.user_agent, "", "registration", "register", body).await?;
             return self.login_password(email, password, None).await;
@@ -142,18 +187,49 @@ impl XbPanelClient {
     pub async fn send_email_code(&self, email: &str) -> Result<()> {
         let base_url = self.snapshot().base_url;
         if self.cfg.is_pxboard() {
-            pxboard_rpc(
-                &base_url,
-                &self.cfg.user_agent,
-                "",
-                "registration",
-                "sendCode",
-                json!({ "email": email.trim() }),
-            )
-            .await?;
-            return Ok(());
+            bail!("当前面板注册无需邮箱验证码");
         }
         xboard::send_email_verify(&self.cfg, &base_url, email).await
+    }
+
+    pub async fn request_password_reset(&self, email: &str) -> Result<String> {
+        let trimmed = email.trim();
+        ensure!(!trimmed.is_empty(), "请输入注册邮箱");
+        ensure!(self.cfg.is_pxboard(), "请在网页端找回密码");
+        let base_url = self.snapshot().base_url;
+        let res = pxboard_rpc(
+            &base_url,
+            &self.cfg.user_agent,
+            "",
+            "core",
+            "auth.resetRequest",
+            json!({ "email": trimmed }),
+        )
+        .await?;
+        Ok(res
+            .get("message")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .unwrap_or("如果该邮箱可用，将收到密码重置邮件")
+            .to_string())
+    }
+
+    pub async fn confirm_password_reset(&self, token_or_url: &str, new_password: &str) -> Result<()> {
+        let token = extract_reset_token(token_or_url);
+        ensure!(!token.is_empty(), "请输入邮件重置码或链接");
+        ensure!(new_password.len() >= 10, "新密码至少 10 位");
+        ensure!(self.cfg.is_pxboard(), "请在网页端找回密码");
+        let base_url = self.snapshot().base_url;
+        pxboard_rpc(
+            &base_url,
+            &self.cfg.user_agent,
+            "",
+            "core",
+            "auth.resetPassword",
+            json!({ "token": token, "password": new_password }),
+        )
+        .await?;
+        Ok(())
     }
 
     pub async fn browser_login(&self, provider_id: Option<&str>) -> Result<PanelStateSnapshot> {
@@ -218,6 +294,7 @@ impl XbPanelClient {
             guard.snapshot.logged_in = true;
             guard.snapshot.email = email;
             guard.snapshot.base_url = base_url;
+            guard.snapshot.mfa_required = false;
             guard.snapshot.last_error = None;
         }
         self.sync_all().await
@@ -263,6 +340,10 @@ impl XbPanelClient {
         if self.cfg.is_pxboard() && !auth_data.trim().is_empty() {
             let _ = pxboard_rpc(&base_url, &self.cfg.user_agent, &auth_data, "core", "auth.logout", json!({})).await;
         }
+        self.clear_local_session(base_url).await
+    }
+
+    async fn clear_local_session(&self, base_url: String) -> Result<PanelStateSnapshot> {
         if self.neto.snapshot().connection.connected {
             let _ = self.neto.disconnect().await;
         }
@@ -283,12 +364,17 @@ impl XbPanelClient {
             website_url: self.cfg.website_url.clone(),
             privacy_policy_url: self.cfg.privacy_policy_url.clone(),
             user_agreement_url: self.cfg.user_agreement_url.clone(),
+            registration_enabled: true,
             ..Default::default()
         };
-        let mut guard = self.inner.lock().expect("panel lock poisoned");
-        guard.session = empty_sess;
-        guard.snapshot = next_snap.clone();
-        Ok(next_snap)
+        {
+            let mut guard = self.inner.lock().expect("panel lock poisoned");
+            guard.auth_cancel.store(true, Ordering::Relaxed);
+            guard.bind_cancel.store(true, Ordering::Relaxed);
+            guard.session = empty_sess;
+            guard.snapshot = next_snap.clone();
+        }
+        Ok(self.load_guest_meta().await.unwrap_or(next_snap))
     }
 
     pub async fn purchase_plan(
@@ -448,21 +534,51 @@ impl XbPanelClient {
         Ok(url)
     }
 
-    pub async fn change_password(&self, old_password: &str, new_password: &str) -> Result<()> {
+    pub async fn recharge_wallet(
+        &self,
+        amount_cents: i64,
+        channel_id: &str,
+    ) -> Result<(String, PanelStateSnapshot)> {
+        ensure!(self.cfg.is_pxboard(), "请在套餐页或网页端完成充值");
+        let (auth_data, base_url) = {
+            let g = self.inner.lock().expect("panel lock poisoned");
+            (g.session.auth_data.clone(), g.snapshot.base_url.clone())
+        };
+        let redirect =
+            pxboard::recharge_wallet(&self.cfg, &base_url, &auth_data, amount_cents, channel_id).await?;
+        let snap = self.sync_all().await.unwrap_or_else(|_| self.snapshot());
+        Ok((redirect, snap))
+    }
+
+    pub async fn change_password(
+        &self,
+        old_password: &str,
+        new_password: &str,
+        code: Option<&str>,
+    ) -> Result<PanelStateSnapshot> {
         let (auth_data, base_url) = {
             let g = self.inner.lock().expect("panel lock poisoned");
             (g.session.auth_data.clone(), g.snapshot.base_url.clone())
         };
         if self.cfg.is_pxboard() {
+            ensure!(new_password.len() >= 10, "新密码至少 10 位");
+            let mut payload = json!({
+                "currentPassword": old_password,
+                "password": new_password,
+            });
+            if let Some(c) = code.map(str::trim).filter(|s| !s.is_empty()) {
+                payload["code"] = Value::String(c.to_string());
+            }
             pxboard_rpc(
                 &base_url,
                 &self.cfg.user_agent,
                 &auth_data,
                 "core",
                 "account.changePassword",
-                json!({ "currentPassword": old_password, "password": new_password }),
+                payload,
             )
             .await?;
+            return self.clear_local_session(base_url).await;
         } else {
             xboard_post(
                 &base_url,
@@ -473,7 +589,142 @@ impl XbPanelClient {
             )
             .await?;
         }
-        Ok(())
+        Ok(self.snapshot())
+    }
+
+    pub async fn mfa_setup(&self) -> Result<MfaSetupInfo> {
+        ensure!(self.cfg.is_pxboard(), "当前面板不支持原生两步验证");
+        let (auth_data, base_url) = {
+            let g = self.inner.lock().expect("panel lock poisoned");
+            (g.session.auth_data.clone(), g.snapshot.base_url.clone())
+        };
+        let res = pxboard_rpc(
+            &base_url,
+            &self.cfg.user_agent,
+            &auth_data,
+            "core",
+            "account.mfaSetup",
+            json!({}),
+        )
+        .await?;
+        Ok(MfaSetupInfo {
+            secret: res
+                .get("secret")
+                .and_then(Value::as_str)
+                .context("响应缺少两步验证密钥")?
+                .to_string(),
+            otpauth_url: res
+                .get("otpauthUrl")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            expires_at: res
+                .get("expiresAt")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+        })
+    }
+
+    pub async fn mfa_enable(&self, password: &str, code: &str) -> Result<PanelStateSnapshot> {
+        ensure!(self.cfg.is_pxboard(), "当前面板不支持原生两步验证");
+        ensure!(!password.is_empty(), "请输入当前登录密码");
+        ensure!(code.trim().len() == 6, "请输入 6 位动态验证码");
+        let (auth_data, base_url) = {
+            let g = self.inner.lock().expect("panel lock poisoned");
+            (g.session.auth_data.clone(), g.snapshot.base_url.clone())
+        };
+        pxboard_rpc(
+            &base_url,
+            &self.cfg.user_agent,
+            &auth_data,
+            "core",
+            "account.mfaEnable",
+            json!({ "password": password, "code": code.trim() }),
+        )
+        .await?;
+        self.sync_all().await
+    }
+
+    pub async fn mfa_disable(&self, password: &str, code: &str) -> Result<PanelStateSnapshot> {
+        ensure!(self.cfg.is_pxboard(), "当前面板不支持原生两步验证");
+        ensure!(!password.is_empty(), "请输入当前登录密码");
+        ensure!(code.trim().len() == 6, "请输入 6 位动态验证码");
+        let (auth_data, base_url) = {
+            let g = self.inner.lock().expect("panel lock poisoned");
+            (g.session.auth_data.clone(), g.snapshot.base_url.clone())
+        };
+        pxboard_rpc(
+            &base_url,
+            &self.cfg.user_agent,
+            &auth_data,
+            "core",
+            "account.mfaDisable",
+            json!({ "password": password, "code": code.trim() }),
+        )
+        .await?;
+        self.sync_all().await
+    }
+
+    pub async fn bind_oauth(&self, provider_id: &str) -> Result<PanelStateSnapshot> {
+        ensure!(self.cfg.is_pxboard(), "当前面板不支持此绑定流程");
+        let (auth_data, base_url, cancel) = {
+            let mut g = self.inner.lock().expect("panel lock poisoned");
+            g.bind_cancel.store(true, Ordering::Relaxed);
+            let next_cancel = Arc::new(AtomicBool::new(false));
+            g.bind_cancel = next_cancel.clone();
+            g.snapshot.oauth_bind_pending = true;
+            (
+                g.session.auth_data.clone(),
+                g.snapshot.base_url.clone(),
+                next_cancel,
+            )
+        };
+        let res = pxboard::bind_oauth_flow(&self.cfg, &base_url, &auth_data, provider_id, cancel).await;
+        {
+            let mut g = self.inner.lock().expect("panel lock poisoned");
+            g.snapshot.oauth_bind_pending = false;
+        }
+        res?;
+        self.sync_all().await
+    }
+
+    pub fn cancel_bind_oauth(&self) -> PanelStateSnapshot {
+        let mut g = self.inner.lock().expect("panel lock poisoned");
+        g.bind_cancel.store(true, Ordering::Relaxed);
+        g.snapshot.oauth_bind_pending = false;
+        g.snapshot.clone()
+    }
+
+    pub async fn unbind_oauth(
+        &self,
+        binding_id: &str,
+        password: &str,
+        code: &str,
+    ) -> Result<PanelStateSnapshot> {
+        ensure!(self.cfg.is_pxboard(), "当前面板不支持此解绑流程");
+        ensure!(!binding_id.trim().is_empty(), "缺少绑定记录 ID");
+        let (auth_data, base_url) = {
+            let g = self.inner.lock().expect("panel lock poisoned");
+            (g.session.auth_data.clone(), g.snapshot.base_url.clone())
+        };
+        let mut payload = json!({ "id": binding_id.trim() });
+        if !password.is_empty() {
+            payload["password"] = Value::String(password.to_string());
+        }
+        if !code.trim().is_empty() {
+            payload["code"] = Value::String(code.trim().to_string());
+        }
+        pxboard_rpc(
+            &base_url,
+            &self.cfg.user_agent,
+            &auth_data,
+            "oauth",
+            "bindings.delete",
+            payload,
+        )
+        .await?;
+        self.sync_all().await
     }
 
     pub async fn dispatch_json(&self, method: &str, params: Value) -> Result<Value> {
@@ -501,6 +752,17 @@ impl XbPanelClient {
                 let email = params.get("email").and_then(Value::as_str).unwrap_or("");
                 self.send_email_code(email).await?;
                 Ok(json!({ "sent": true }))
+            }
+            "request_password_reset" => {
+                let email = params.get("email").and_then(Value::as_str).unwrap_or("");
+                let msg = self.request_password_reset(email).await?;
+                Ok(json!({ "message": msg }))
+            }
+            "confirm_password_reset" => {
+                let token = params.get("token").and_then(Value::as_str).unwrap_or("");
+                let password = params.get("password").and_then(Value::as_str).unwrap_or("");
+                self.confirm_password_reset(token, password).await?;
+                Ok(json!({ "reset": true }))
             }
             "browser_login" => {
                 let provider = params.get("provider_id").and_then(Value::as_str);
@@ -564,8 +826,37 @@ impl XbPanelClient {
             "change_password" => {
                 let old_pw = params.get("old_password").and_then(Value::as_str).unwrap_or("");
                 let new_pw = params.get("new_password").and_then(Value::as_str).unwrap_or("");
-                self.change_password(old_pw, new_pw).await?;
-                Ok(json!({ "changed": true }))
+                let code = params.get("code").and_then(Value::as_str);
+                let snap = self.change_password(old_pw, new_pw, code).await?;
+                Ok(json!({ "changed": true, "snapshot": snap }))
+            }
+            "recharge_wallet" => {
+                let amount = params.get("amount_cents").and_then(Value::as_i64).unwrap_or(0);
+                let channel_id = params.get("channel_id").and_then(Value::as_str).unwrap_or("");
+                let (redirect, snap) = self.recharge_wallet(amount, channel_id).await?;
+                Ok(json!({ "redirect_url": redirect, "snapshot": snap }))
+            }
+            "mfa_setup" => Ok(serde_json::to_value(self.mfa_setup().await?)?),
+            "mfa_enable" => {
+                let pw = params.get("password").and_then(Value::as_str).unwrap_or("");
+                let code = params.get("code").and_then(Value::as_str).unwrap_or("");
+                Ok(serde_json::to_value(self.mfa_enable(pw, code).await?)?)
+            }
+            "mfa_disable" => {
+                let pw = params.get("password").and_then(Value::as_str).unwrap_or("");
+                let code = params.get("code").and_then(Value::as_str).unwrap_or("");
+                Ok(serde_json::to_value(self.mfa_disable(pw, code).await?)?)
+            }
+            "bind_oauth" => {
+                let provider_id = params.get("provider_id").and_then(Value::as_str).unwrap_or("");
+                Ok(serde_json::to_value(self.bind_oauth(provider_id).await?)?)
+            }
+            "cancel_bind_oauth" => Ok(serde_json::to_value(self.cancel_bind_oauth())?),
+            "unbind_oauth" => {
+                let id = params.get("id").and_then(Value::as_str).unwrap_or("");
+                let pw = params.get("password").and_then(Value::as_str).unwrap_or("");
+                let code = params.get("code").and_then(Value::as_str).unwrap_or("");
+                Ok(serde_json::to_value(self.unbind_oauth(id, pw, code).await?)?)
             }
             "open_url" => {
                 let url = params.get("url").and_then(Value::as_str).unwrap_or("");
@@ -623,6 +914,31 @@ mod tests {
         assert!(parse_bool_flag("true", false));
         assert!(!parse_bool_flag("false", true));
         assert!(!parse_bool_flag("0", true));
+        assert!(snap.registration_enabled);
+        assert!(!snap.email_verify_required);
+        assert_eq!(
+            extract_reset_token("https://panel.example.com/reset?token=abc123xyz&foo=1"),
+            "abc123xyz"
+        );
+        assert_eq!(extract_reset_token("  raw-token-99  "), "raw-token-99");
+        assert_eq!(
+            extract_referral_code("https://panel.example.com/register?ref=user-77"),
+            "user-77"
+        );
+        assert_eq!(extract_referral_code("  user-88  "), "user-88");
+        assert_eq!(pxboard::normalize_portal_path("/plans"), "/user/plans");
+        assert_eq!(pxboard::normalize_portal_path("/user/orders"), "/user/orders");
+        assert_eq!(pxboard::normalize_portal_path("/admin"), "/user");
+        let rpc_err: anyhow::Error = PxBoardRpcError {
+            status: 401,
+            code: "mfa_required".into(),
+            message: "请输入动态验证码".into(),
+        }
+        .into();
+        assert_eq!(
+            rpc_err.downcast_ref::<PxBoardRpcError>().map(|e| e.code.as_str()),
+            Some("mfa_required")
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

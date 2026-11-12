@@ -39,10 +39,25 @@ internal data class PxBoardAuthUiState(
     val passwordResetEnabled: Boolean = false,
     val loginChallengeRequired: Boolean = false,
     val registerChallengeRequired: Boolean = false,
+    val resetChallengeRequired: Boolean = false,
     val mfaRequired: Boolean = false,
     val resetSent: Boolean = false,
     val busy: Boolean = false,
 )
+
+internal fun extractQueryParamOrRaw(raw: String, vararg keys: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true)) {
+        val uri = runCatching { Uri.parse(trimmed) }.getOrNull()
+        if (uri != null) {
+            for (k in keys) {
+                val v = uri.getQueryParameter(k)?.trim()
+                if (!v.isNullOrEmpty()) return v
+            }
+        }
+    }
+    return trimmed
+}
 
 internal class PxBoardAuthAdapter(
     private val name: String,
@@ -113,6 +128,7 @@ internal class PxBoardAuthAdapter(
                         passwordResetEnabled = setup.optBoolean("passwordReset", false),
                         loginChallengeRequired = challengeEnabled && challenge?.optBoolean("login", false) == true,
                         registerChallengeRequired = challengeEnabled && challenge?.optBoolean("register", false) == true,
+                        resetChallengeRequired = challengeEnabled && challenge?.optBoolean("reset", false) == true,
                     )
                 }
             } catch (e: Exception) { message(e.message ?: e.toString()) }
@@ -198,14 +214,15 @@ internal class PxBoardAuthAdapter(
     }
 
     fun confirmReset(token: String, password: String, onSuccess: () -> Unit) {
-        if (token.trim().isEmpty() || password.length < 10 || _authState.value.busy) return
+        val resolvedToken = extractQueryParamOrRaw(token, "token")
+        if (resolvedToken.isEmpty() || password.length < 10 || _authState.value.busy) return
         scope.launch(Dispatchers.IO) {
             _authState.update { it.copy(busy = true) }
             try {
                 PxBoardApi.rpc(
                     "core",
                     "auth.resetPassword",
-                    body = JSONObject().put("token", token.trim()).put("password", password),
+                    body = JSONObject().put("token", resolvedToken).put("password", password),
                 )
                 _authState.update { it.copy(resetSent = false) }
                 message("密码已重置，请登录")

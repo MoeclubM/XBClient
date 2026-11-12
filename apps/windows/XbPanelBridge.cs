@@ -132,6 +132,38 @@ public sealed class XbPanelService
         }
     }
 
+    public async Task<string> RequestPasswordResetAsync(string email)
+    {
+        SetBusy(true, null);
+        try
+        {
+            var res = await XbPanelBridge.CallAsync("request_password_reset", new { email });
+            var msg = res["message"]?.GetValue<string>() ?? "如果该邮箱可用，将收到密码重置邮件";
+            SetBusy(false, null);
+            return msg;
+        }
+        catch (Exception ex)
+        {
+            SetBusy(false, ex.Message);
+            throw;
+        }
+    }
+
+    public async Task ConfirmPasswordResetAsync(string token, string password)
+    {
+        SetBusy(true, null);
+        try
+        {
+            await XbPanelBridge.CallAsync("confirm_password_reset", new { token, password });
+            SetBusy(false, null);
+        }
+        catch (Exception ex)
+        {
+            SetBusy(false, ex.Message);
+            throw;
+        }
+    }
+
     public async Task BrowserLoginAsync(string? providerId = null)
     {
         EnqueueUi(() =>
@@ -238,11 +270,101 @@ public sealed class XbPanelService
     public Task OpenPortalAsync(string path = "/user") =>
         XbPanelBridge.CallAsync("open_portal", new { path });
 
-    public Task ChangePasswordAsync(string oldPassword, string newPassword) =>
-        XbPanelBridge.CallAsync("change_password", new { old_password = oldPassword, new_password = newPassword });
+    public async Task ChangePasswordAsync(string oldPassword, string newPassword, string? code = null)
+    {
+        var res = await XbPanelBridge.CallAsync("change_password", new
+        {
+            old_password = oldPassword,
+            new_password = newPassword,
+            code,
+        });
+        var snap = res["snapshot"].Deserialize<PanelStateSnapshot>();
+        if (snap != null)
+        {
+            if (!snap.LoggedIn) await _refreshNeto();
+            EnqueueUi(() =>
+            {
+                Snapshot = snap;
+                SnapshotChanged?.Invoke(Snapshot);
+            });
+        }
+    }
+
+    public async Task<string> RechargeWalletAsync(long amountCents, string channelId)
+    {
+        var res = await XbPanelBridge.CallAsync("recharge_wallet", new
+        {
+            amount_cents = amountCents,
+            channel_id = channelId,
+        });
+        var redirect = res["redirect_url"]?.GetValue<string>() ?? "";
+        var snap = res["snapshot"].Deserialize<PanelStateSnapshot>();
+        if (snap != null)
+        {
+            EnqueueUi(() =>
+            {
+                Snapshot = snap;
+                SnapshotChanged?.Invoke(Snapshot);
+            });
+        }
+        return redirect;
+    }
+
+    public async Task<MfaSetupInfo> MfaSetupAsync()
+    {
+        var res = await XbPanelBridge.CallAsync("mfa_setup");
+        return res.Deserialize<MfaSetupInfo>() ?? new MfaSetupInfo();
+    }
+
+    public Task MfaEnableAsync(string password, string code) =>
+        CallSnapshotThrowAsync("mfa_enable", new { password, code });
+
+    public Task MfaDisableAsync(string password, string code) =>
+        CallSnapshotThrowAsync("mfa_disable", new { password, code });
+
+    public async Task BindOAuthAsync(string providerId)
+    {
+        EnqueueUi(() =>
+        {
+            Snapshot.OAuthBindPending = true;
+            SnapshotChanged?.Invoke(Snapshot);
+        });
+        try
+        {
+            await CallSnapshotThrowAsync("bind_oauth", new { provider_id = providerId });
+        }
+        catch
+        {
+            EnqueueUi(() =>
+            {
+                Snapshot.OAuthBindPending = false;
+                SnapshotChanged?.Invoke(Snapshot);
+            });
+            throw;
+        }
+    }
+
+    public Task CancelBindOAuthAsync() => RunSnapshotOpAsync("cancel_bind_oauth", null, syncNeto: false);
+
+    public Task UnbindOAuthAsync(string id, string password, string code) =>
+        CallSnapshotThrowAsync("unbind_oauth", new { id, password, code });
 
     public Task OpenUrlAsync(string url) =>
         XbPanelBridge.CallAsync("open_url", new { url });
+
+    private async Task CallSnapshotThrowAsync(string method, object? parameters)
+    {
+        var res = await XbPanelBridge.CallAsync(method, parameters);
+        var snap = res.Deserialize<PanelStateSnapshot>();
+        if (snap != null)
+        {
+            EnqueueUi(() =>
+            {
+                Snapshot = snap;
+                SnapshotChanged?.Invoke(Snapshot);
+            });
+        }
+    }
 
     private async Task RunSnapshotOpAsync(string method, object? parameters, bool syncNeto)
     {
@@ -261,7 +383,22 @@ public sealed class XbPanelService
         }
         catch (Exception ex)
         {
-            SetBusy(false, ex.Message);
+            PanelStateSnapshot? latest = null;
+            try
+            {
+                var snapNode = await XbPanelBridge.CallAsync("snapshot");
+                latest = snapNode.Deserialize<PanelStateSnapshot>();
+            }
+            catch
+            {
+            }
+            EnqueueUi(() =>
+            {
+                Busy = false;
+                LastError = ex.Message;
+                if (latest != null) Snapshot = latest;
+                SnapshotChanged?.Invoke(Snapshot);
+            });
         }
     }
 

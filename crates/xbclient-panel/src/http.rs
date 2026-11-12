@@ -3,6 +3,22 @@ use anyhow::{Context, Result, anyhow, bail, ensure};
 use neto_core::doh::SHARED_HTTP_CLIENT;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
 use serde_json::{Value, json};
+use std::fmt;
+
+#[derive(Debug, Clone)]
+pub struct PxBoardRpcError {
+    pub status: u16,
+    pub code: String,
+    pub message: String,
+}
+
+impl fmt::Display for PxBoardRpcError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for PxBoardRpcError {}
 
 #[derive(Clone)]
 pub struct BatchCall {
@@ -74,11 +90,22 @@ pub async fn pxboard_rpc(
     let status = resp.status();
     let body: Value = resp.json().await.unwrap_or_else(|_| json!({}));
     if !status.is_success() {
+        let code = body
+            .pointer("/error/code")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
         let msg = body
             .pointer("/error/message")
             .and_then(Value::as_str)
-            .unwrap_or("");
-        bail!("{}", if msg.is_empty() { format!("HTTP {}", status.as_u16()) } else { msg.to_string() });
+            .filter(|s| !s.is_empty())
+            .map(ToString::to_string)
+            .unwrap_or_else(|| format!("HTTP {}", status.as_u16()));
+        return Err(anyhow::Error::new(PxBoardRpcError {
+            status: status.as_u16(),
+            code,
+            message: msg,
+        }));
     }
     body.get("data")
         .cloned()
@@ -113,11 +140,22 @@ pub async fn pxboard_batch(
     let status = resp.status();
     let body: Value = resp.json().await.unwrap_or_else(|_| json!({}));
     if !status.is_success() {
+        let code = body
+            .pointer("/error/code")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
         let msg = body
             .pointer("/error/message")
             .and_then(Value::as_str)
-            .unwrap_or("");
-        bail!("{}", if msg.is_empty() { format!("HTTP {}", status.as_u16()) } else { msg.to_string() });
+            .filter(|s| !s.is_empty())
+            .map(ToString::to_string)
+            .unwrap_or_else(|| format!("HTTP {}", status.as_u16()));
+        return Err(anyhow::Error::new(PxBoardRpcError {
+            status: status.as_u16(),
+            code,
+            message: msg,
+        }));
     }
     body.get("data")
         .cloned()

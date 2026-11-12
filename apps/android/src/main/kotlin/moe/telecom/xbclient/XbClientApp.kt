@@ -402,7 +402,7 @@ private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewMod
         PassScreen.DASHBOARD -> PassScreen.DASHBOARD
         PassScreen.CONNECT -> PassScreen.CONNECT
     }
-    val navScreens = listOf(PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE).filter { !PxBoardApi.enabled || it != PassScreen.PLANS || "commerce" in state.nativeExtensions }
+    val navScreens = listOf(PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE).filter { !PxBoardApi.enabled || it != PassScreen.PLANS || "commerce" in state.nativeExtensions || state.planRewardAdEnabled }
     if (floating) {
         FloatingNavigationBar(
             color = color,

@@ -8,7 +8,7 @@ pub mod xboard;
 pub use client::XbPanelClient;
 pub use config::BuildConfig;
 pub use models::{
-    CommercialPeriod, CommercialPlan, NoticeEntry, OAuthProviderEntry, PanelSession,
-    PanelStateSnapshot, PaymentChannel, TicketEntry, TicketMessage, format_bytes_brief,
-    format_money_cents,
+    CommercialPeriod, CommercialPlan, MfaSetupInfo, NoticeEntry, OAuthBindingEntry,
+    OAuthProviderEntry, PanelSession, PanelStateSnapshot, PaymentChannel, TicketEntry,
+    TicketMessage, format_bytes_brief, format_money_cents,
 };

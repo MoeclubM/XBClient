@@ -59,6 +59,23 @@ public sealed class OAuthProviderEntry
     [JsonPropertyName("label")] public string Label { get; set; } = "";
 }
 
+public sealed class OAuthBindingEntry
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = "";
+    [JsonPropertyName("provider_id")] public string ProviderId { get; set; } = "";
+    [JsonPropertyName("provider_name")] public string ProviderName { get; set; } = "";
+    [JsonPropertyName("display_name")] public string DisplayName { get; set; } = "";
+    [JsonPropertyName("created_at")] public string CreatedAt { get; set; } = "";
+    [JsonPropertyName("requires_password")] public bool RequiresPassword { get; set; }
+}
+
+public sealed class MfaSetupInfo
+{
+    [JsonPropertyName("secret")] public string Secret { get; set; } = "";
+    [JsonPropertyName("otpauth_url")] public string OtpauthUrl { get; set; } = "";
+    [JsonPropertyName("expires_at")] public string ExpiresAt { get; set; } = "";
+}
+
 public sealed class PanelStateSnapshot
 {
     [JsonPropertyName("logged_in")] public bool LoggedIn { get; set; }
@@ -90,6 +107,15 @@ public sealed class PanelStateSnapshot
     [JsonPropertyName("user_agreement_url")] public string UserAgreementUrl { get; set; } = "";
     [JsonPropertyName("oauth_providers")] public List<OAuthProviderEntry> OAuthProviders { get; set; } = [];
     [JsonPropertyName("email_verify_required")] public bool EmailVerifyRequired { get; set; }
+    [JsonPropertyName("registration_enabled")] public bool RegistrationEnabled { get; set; } = true;
+    [JsonPropertyName("password_reset_enabled")] public bool PasswordResetEnabled { get; set; }
+    [JsonPropertyName("login_challenge_required")] public bool LoginChallengeRequired { get; set; }
+    [JsonPropertyName("register_challenge_required")] public bool RegisterChallengeRequired { get; set; }
+    [JsonPropertyName("reset_challenge_required")] public bool ResetChallengeRequired { get; set; }
+    [JsonPropertyName("mfa_enabled")] public bool MfaEnabled { get; set; }
+    [JsonPropertyName("mfa_required")] public bool MfaRequired { get; set; }
+    [JsonPropertyName("oauth_bindings")] public List<OAuthBindingEntry> OAuthBindings { get; set; } = [];
+    [JsonPropertyName("oauth_bind_pending")] public bool OAuthBindPending { get; set; }
     [JsonPropertyName("browser_login_pending")] public bool BrowserLoginPending { get; set; }
     [JsonPropertyName("last_error")] public string? LastError { get; set; }
 

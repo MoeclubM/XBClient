@@ -23,7 +23,15 @@ fn num_f64(v: Option<&Value>) -> f64 {
 
 pub async fn load_guest_meta(cfg: &BuildConfig, snap: &mut PanelStateSnapshot) -> Result<()> {
     let body = xboard_get(&snap.base_url, &cfg.user_agent, "", "/api/v1/guest/comm/config", &[]).await?;
+    snap.registration_enabled = true;
+    snap.password_reset_enabled = false;
+    snap.login_challenge_required = false;
+    snap.register_challenge_required = false;
+    snap.reset_challenge_required = false;
     if let Some(data) = body.get("data") {
+        snap.registration_enabled =
+            num_f64(data.get("is_stop_register")) as i64 == 0
+                && data.get("is_stop_register").and_then(Value::as_bool) != Some(true);
         snap.email_verify_required =
             num_f64(data.get("is_email_verify")) as i64 == 1
                 || data.get("is_email_verify").and_then(Value::as_bool).unwrap_or(false);

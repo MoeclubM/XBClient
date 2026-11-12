@@ -164,7 +164,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     val uiState = _uiState.asStateFlow()
     private val _events = MutableSharedFlow<XbClientEvent>()
     val events = _events.asSharedFlow()
-    private val nativePanel = PxBoardSession(viewModelScope, _uiState, ::persistStoredState, ::syncStateToNeto, ::emitMessage) { emitEvent(XbClientEvent.OpenExternalUrl(it)) }
+    private val nativePanel = PxBoardSession(viewModelScope, _uiState, ::persistStoredState, ::syncStateToNeto, ::notifyPendingRewardIfCredited, ::emitMessage) { emitEvent(XbClientEvent.OpenExternalUrl(it)) }
     private val pxboardAuth = PxBoardAuthAdapter(app.getString(R.string.app_name), viewModelScope, _uiState, ::persistStoredState, ::emitMessage, { emitEvent(XbClientEvent.OpenExternalUrl(it)) }, { nativePanel.refresh(force = true) })
     internal val pxboardSession get() = nativePanel
     internal val pxboardAuthAdapter get() = pxboardAuth
@@ -191,9 +191,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun confirmOAuthRegister() = xboardAuth.confirmOAuthRegister()
     fun clearOAuthConfirm() = xboardAuth.clearOAuthConfirm()
     fun refreshOAuthBindings(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
-        if (!PxBoardApi.enabled) xboardAuth.refreshOAuthBindings(force, showLoading, showErrors)
+        if (PxBoardApi.enabled) nativePanel.loadScreenData(PassScreen.ACCOUNT_SECURITY) else xboardAuth.refreshOAuthBindings(force, showLoading, showErrors)
     }
-    fun bindOAuth(driver: String) { if (PxBoardApi.enabled) nativePanel.portal("/user/account") else xboardAuth.bindOAuth(driver) }
+    fun bindOAuth(driver: String) { if (PxBoardApi.enabled) nativePanel.bindOAuthProvider(driver) else xboardAuth.bindOAuth(driver) }
     fun unbindOAuth(driver: String) { if (PxBoardApi.enabled) nativePanel.portal("/user/account") else xboardAuth.unbindOAuth(driver) }
     fun openPxBoardPortal(path: String = "/user") = nativePanel.portal(path)
 
@@ -201,10 +201,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private var pendingRewardScene = ""
     private var pendingRewardStartedAt = 0L
     private val hasBuildRewardAds: Boolean
-        get() = !PxBoardApi.enabled && (
-            BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty() ||
-                BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty()
-            )
+        get() = BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty() ||
+            BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty()
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -504,7 +502,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshSubscriptionAndNodes(force: Boolean = false, showLoading: Boolean = false, showErrors: Boolean = false) {
-        if (PxBoardApi.enabled) { nativePanel.refresh(); return }
+        if (PxBoardApi.enabled) { nativePanel.refresh(force = force); return }
         val current = _uiState.value
         if (current.authData.isEmpty() || current.nodesLoading) {
             return
@@ -1053,6 +1051,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (authData.isEmpty()) {
             return
         }
+        if (PxBoardApi.enabled) {
+            nativePanel.refreshRewardConfig()
+            return
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 loadRewardConfig(authData)
@@ -1066,6 +1068,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (!hasBuildRewardAds) return
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
+            return
+        }
+        if (PxBoardApi.enabled) {
+            nativePanel.refreshRewardHistory(showLoading)
             return
         }
         if (showLoading) {
@@ -1141,6 +1147,31 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                if (PxBoardApi.enabled) {
+                    val data = PxBoardApi.rpc(
+                        "admob",
+                        "reward.prepare",
+                        authData,
+                        JSONObject().put("scene", scene),
+                    ) as JSONObject
+                    val adUnitId: String
+                    val userId: String
+                    val customData: String
+                    if (scene == REWARD_SCENE_POINTS) {
+                        adUnitId = if (data.optBoolean("pointsRewardAdEnabled")) BuildConfig.POINTS_REWARDED_AD_UNIT_ID else ""
+                        userId = data.optString("pointsSsvUserId")
+                        customData = data.optString("pointsSsvCustomData")
+                    } else {
+                        adUnitId = if (data.optBoolean("planRewardAdEnabled")) BuildConfig.PLAN_REWARDED_AD_UNIT_ID else ""
+                        userId = data.optString("planSsvUserId")
+                        customData = data.optString("planSsvCustomData")
+                    }
+                    if (adUnitId.isEmpty()) throw IllegalStateException("广告场景未启用：$scene")
+                    if (userId.isEmpty() || customData.isEmpty()) throw IllegalStateException("服务端激励广告 SSV 未就绪：$scene")
+                    pendingRewardScene = scene
+                    emitEvent(XbClientEvent.ShowRewardAd(adUnitId, userId, customData))
+                    return@launch
+                }
                 val config = loadRewardConfig(authData, scene)
                 if (config.first.isEmpty()) {
                     throw IllegalStateException("广告场景未启用：$scene")
@@ -1160,6 +1191,30 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         pendingRewardStartedAt = System.currentTimeMillis() / 1000L - 10L
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                if (PxBoardApi.enabled) {
+                    val auth = _uiState.value.authData
+                    val data = PxBoardApi.rpc(
+                        "admob",
+                        "reward.pending",
+                        auth,
+                        JSONObject().put("customData", customData),
+                    ) as JSONObject
+                    if (data.optBoolean("credited")) {
+                        showRewardCreditedDialog(data.toPxBoardAdRewardLogItem().rewardContent)
+                        pendingRewardScene = ""
+                        pendingRewardStartedAt = 0L
+                        nativePanel.refresh(force = true)
+                        return@launch
+                    }
+                    nativePanel.refreshRewardHistory()
+                    for (attempt in 0 until 5) {
+                        delay(2000L)
+                        if (pendingRewardScene.isEmpty() || _uiState.value.authData != auth) break
+                        nativePanel.refreshRewardHistory()
+                    }
+                    nativePanel.refresh(force = true)
+                    return@launch
+                }
                 val result = XboardApi.request(
                     "xbclient_reward_pending",
                     defaultApiUrl(),

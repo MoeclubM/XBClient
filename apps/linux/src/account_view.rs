@@ -8,19 +8,31 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Handle;
-use xbclient_panel::{PanelStateSnapshot, TicketMessage, XbPanelClient, format_money_cents};
+use xbclient_panel::{
+    MfaSetupInfo, PanelStateSnapshot, TicketMessage, XbPanelClient, format_money_cents,
+};
 
 pub struct AccountView {
     pub root: gtk::ScrolledWindow,
     email_row: adw::ActionRow,
     portal_btn: gtk::Button,
     balance_row: adw::ActionRow,
-    feedback_label: gtk::Label,
+    sub_box: gtk::Box,
+    recharge_group: adw::PreferencesGroup,
+    recharge_channel_dropdown: gtk::DropDown,
+    recharge_channel_ids: Rc<RefCell<Vec<String>>>,
+    redeem_group: adw::PreferencesGroup,
+    pub(crate) feedback_label: gtk::Label,
     dynamic_box: gtk::Box,
     ticket_detail_box: gtk::Box,
-    last_sig: RefCell<String>,
-    panel: Arc<XbPanelClient>,
-    rt: Handle,
+    new_ticket_group: adw::PreferencesGroup,
+    pw_mfa_row: adw::EntryRow,
+    new_pw_row: adw::PasswordEntryRow,
+    pub(crate) security_box: gtk::Box,
+    pub(crate) mfa_setup: Rc<RefCell<Option<MfaSetupInfo>>>,
+    pub(crate) last_sig: RefCell<String>,
+    pub(crate) panel: Arc<XbPanelClient>,
+    pub(crate) rt: Handle,
 }
 
 impl AccountView {
@@ -46,6 +58,7 @@ impl AccountView {
         // Account overview
         let acc_group = adw::PreferencesGroup::builder().title("账户信息").build();
         let email_row = adw::ActionRow::new();
+        email_row.set_use_markup(false);
         let sync_btn = gtk::Button::with_label("同步");
         sync_btn.add_css_class("flat");
         sync_btn.set_valign(gtk::Align::Center);
@@ -60,8 +73,28 @@ impl AccountView {
         email_row.add_suffix(&logout_btn);
 
         let balance_row = adw::ActionRow::builder().title("资金与佣金").build();
+        balance_row.set_use_markup(false);
         acc_group.add(&email_row);
         acc_group.add(&balance_row);
+
+        let sub_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        sub_box.set_visible(false);
+
+        // Wallet recharge (PxBoard online payment)
+        let recharge_group = adw::PreferencesGroup::builder().title("余额充值").build();
+        recharge_group.set_visible(false);
+        let recharge_amount_row = adw::EntryRow::builder().title("充值金额（如 20）").build();
+        let recharge_ch_row = adw::ActionRow::builder().title("支付渠道").build();
+        let recharge_channel_dropdown = gtk::DropDown::from_strings(&[]);
+        recharge_channel_dropdown.set_valign(gtk::Align::Center);
+        let recharge_btn = gtk::Button::with_label("前往充值");
+        recharge_btn.add_css_class("suggested-action");
+        recharge_btn.set_valign(gtk::Align::Center);
+        recharge_ch_row.add_suffix(&recharge_channel_dropdown);
+        recharge_ch_row.add_suffix(&recharge_btn);
+        recharge_group.add(&recharge_amount_row);
+        recharge_group.add(&recharge_ch_row);
+        let recharge_channel_ids: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));
 
         // Redeem group
         let redeem_group = adw::PreferencesGroup::builder().title("兑换码").build();
@@ -90,20 +123,30 @@ impl AccountView {
         // Password change
         let pw_group = adw::PreferencesGroup::builder().title("修改密码").build();
         let old_pw_row = adw::PasswordEntryRow::builder().title("当前密码").build();
+        let pw_mfa_row = adw::EntryRow::builder()
+            .title("动态验证码（已启用时填写）")
+            .build();
+        pw_mfa_row.set_visible(false);
         let new_pw_row = adw::PasswordEntryRow::builder().title("新密码").build();
         let save_pw_btn = gtk::Button::with_label("更新");
         save_pw_btn.set_valign(gtk::Align::Center);
         new_pw_row.add_suffix(&save_pw_btn);
         pw_group.add(&old_pw_row);
+        pw_group.add(&pw_mfa_row);
         pw_group.add(&new_pw_row);
+
+        let security_box = gtk::Box::new(gtk::Orientation::Vertical, 12);
 
         outer.append(&feedback_label);
         outer.append(&acc_group);
+        outer.append(&sub_box);
+        outer.append(&recharge_group);
         outer.append(&redeem_group);
         outer.append(&dynamic_box);
         outer.append(&ticket_detail_box);
         outer.append(&new_ticket_group);
         outer.append(&pw_group);
+        outer.append(&security_box);
         clamp.set_child(Some(&outer));
         scroll.set_child(Some(&clamp));
 
@@ -134,6 +177,69 @@ impl AccountView {
                 let p = p.clone();
                 h.spawn(async move {
                     let _ = p.logout().await;
+                });
+            });
+        }
+        {
+            let p = panel.clone();
+            let h = rt.clone();
+            let amt_row = recharge_amount_row;
+            let dd = recharge_channel_dropdown.clone();
+            let ch_ids = recharge_channel_ids.clone();
+            let flbl = feedback_label.clone();
+            recharge_btn.connect_clicked(move |btn| {
+                let raw_amt = amt_row.text().trim().to_string();
+                let Ok(amount) = raw_amt.parse::<f64>() else {
+                    flbl.add_css_class("error");
+                    flbl.set_text("请输入有效的充值金额（最低 1.00）。");
+                    flbl.set_visible(true);
+                    return;
+                };
+                if amount < 1.0 {
+                    flbl.add_css_class("error");
+                    flbl.set_text("充值金额最低 1.00。");
+                    flbl.set_visible(true);
+                    return;
+                }
+                let idx = dd.selected() as usize;
+                let Some(ch_id) = ch_ids.borrow().get(idx).cloned() else {
+                    return;
+                };
+                let cents = (amount * 100.0).round() as i64;
+                btn.set_sensitive(false);
+                let p = p.clone();
+                let (tx, rx) = std::sync::mpsc::channel();
+                h.spawn(async move {
+                    let _ = tx.send(
+                        p.recharge_wallet(cents, &ch_id)
+                            .await
+                            .map_err(|e| format!("{e:#}")),
+                    );
+                });
+                let btn_c = btn.clone();
+                let amt_c = amt_row.clone();
+                let flbl_c = flbl.clone();
+                gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
+                    Ok(Ok(_)) => {
+                        btn_c.set_sensitive(true);
+                        amt_c.set_text("");
+                        flbl_c.remove_css_class("error");
+                        flbl_c.set_text("已打开外部收银台，完成支付后请点击同步。");
+                        flbl_c.set_visible(true);
+                        gtk::glib::ControlFlow::Break
+                    }
+                    Ok(Err(err)) => {
+                        btn_c.set_sensitive(true);
+                        flbl_c.add_css_class("error");
+                        flbl_c.set_text(&err);
+                        flbl_c.set_visible(true);
+                        gtk::glib::ControlFlow::Break
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
+                    Err(_) => {
+                        btn_c.set_sensitive(true);
+                        gtk::glib::ControlFlow::Break
+                    }
                 });
             });
         }
@@ -231,10 +337,12 @@ impl AccountView {
             let p = panel.clone();
             let h = rt.clone();
             let orow = old_pw_row;
-            let nrow = new_pw_row;
+            let mrow = pw_mfa_row.clone();
+            let nrow = new_pw_row.clone();
             let flbl = feedback_label.clone();
             save_pw_btn.connect_clicked(move |btn| {
                 let old_pw = orow.text().to_string();
+                let mfa_code = mrow.text().trim().to_string();
                 let new_pw = nrow.text().to_string();
                 if old_pw.is_empty() || new_pw.is_empty() {
                     return;
@@ -243,16 +351,23 @@ impl AccountView {
                 let p = p.clone();
                 let (tx, rx) = std::sync::mpsc::channel();
                 h.spawn(async move {
-                    let _ = tx.send(p.change_password(&old_pw, &new_pw).await.map_err(|e| format!("{e:#}")));
+                    let code_opt = (!mfa_code.is_empty()).then_some(mfa_code.as_str());
+                    let _ = tx.send(
+                        p.change_password(&old_pw, &new_pw, code_opt)
+                            .await
+                            .map_err(|e| format!("{e:#}")),
+                    );
                 });
                 let btn_c = btn.clone();
                 let orow_c = orow.clone();
+                let mrow_c = mrow.clone();
                 let nrow_c = nrow.clone();
                 let flbl_c = flbl.clone();
                 gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                    Ok(Ok(())) => {
+                    Ok(Ok(_)) => {
                         btn_c.set_sensitive(true);
                         orow_c.set_text("");
+                        mrow_c.set_text("");
                         nrow_c.set_text("");
                         flbl_c.remove_css_class("error");
                         flbl_c.set_text("密码已更新。");
@@ -280,17 +395,51 @@ impl AccountView {
             email_row,
             portal_btn,
             balance_row,
+            sub_box,
+            recharge_group,
+            recharge_channel_dropdown,
+            recharge_channel_ids,
+            redeem_group,
             feedback_label,
             dynamic_box,
             ticket_detail_box,
+            new_ticket_group,
+            pw_mfa_row,
+            new_pw_row,
+            security_box,
+            mfa_setup: Rc::new(RefCell::new(None)),
             last_sig: RefCell::new(String::new()),
             panel,
             rt,
         })
     }
 
-    pub fn apply_snapshot(&self, snap: &PanelStateSnapshot) {
+    pub fn apply_snapshot(self: &Rc<Self>, snap: &PanelStateSnapshot) {
+        let is_px = snap.panel_type == "pxboard";
         self.portal_btn.set_visible(snap.payment_enabled);
+        self.new_pw_row
+            .set_title(if is_px { "新密码（至少 10 位）" } else { "新密码" });
+        self.pw_mfa_row.set_visible(is_px && snap.mfa_enabled);
+
+        let has_ext = |name: &str| snap.extensions.iter().any(|e| e == name);
+        let show_redeem = !is_px || has_ext("redeem");
+        let show_invite = !is_px || has_ext("affiliate");
+        let show_tickets = !is_px || has_ext("support");
+        let show_recharge =
+            is_px && snap.payment_enabled && has_ext("commerce") && !snap.payment_channels.is_empty();
+        let show_oauth = is_px
+            && has_ext("oauth")
+            && (!snap.oauth_providers.is_empty() || !snap.oauth_bindings.is_empty());
+
+        self.redeem_group.set_visible(show_redeem);
+        self.recharge_group.set_visible(show_recharge);
+        self.new_ticket_group.set_visible(show_tickets);
+        if !show_tickets {
+            while let Some(c) = self.ticket_detail_box.first_child() {
+                self.ticket_detail_box.remove(&c);
+            }
+        }
+
         self.email_row.set_title(if snap.email.is_empty() {
             &snap.app_name
         } else {
@@ -307,60 +456,122 @@ impl AccountView {
             format_money_cents(snap.commission_balance, &snap.currency_symbol, &snap.currency_unit),
         ));
 
+        let mfa_secret = self
+            .mfa_setup
+            .borrow()
+            .as_ref()
+            .map(|s| s.secret.clone())
+            .unwrap_or_default();
         let sig = format!(
-            "{}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             snap.panel_type,
+            snap.payment_enabled,
+            snap.subscribe_url,
+            snap.mfa_enabled,
+            mfa_secret,
+            snap.oauth_bind_pending,
+            snap.extensions.join(","),
+            snap.payment_channels
+                .iter()
+                .map(|c| format!("{}:{}", c.id, c.name))
+                .collect::<Vec<_>>()
+                .join(","),
+            snap.oauth_providers
+                .iter()
+                .map(|p| format!("{}:{}", p.id, p.label))
+                .collect::<Vec<_>>()
+                .join(","),
+            snap.oauth_bindings
+                .iter()
+                .map(|b| format!("{}:{}", b.id, b.requires_password))
+                .collect::<Vec<_>>()
+                .join(","),
             snap.referral_url,
             snap.invite_commission_rate,
             snap.invite_codes.join(","),
-            snap.notices.iter().map(|n| format!("{}:{}", n.id, n.title)).collect::<Vec<_>>().join(","),
-            snap.tickets.iter().map(|t| format!("{}:{}:{}", t.id, t.status_text, t.messages.len())).collect::<Vec<_>>().join(","),
+            format!(
+                "{}#{}",
+                snap.notices
+                    .iter()
+                    .map(|n| format!("{}:{}", n.id, n.title))
+                    .collect::<Vec<_>>()
+                    .join(","),
+                snap.tickets
+                    .iter()
+                    .map(|t| format!("{}:{}:{}", t.id, t.status_text, t.messages.len()))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
         );
         if *self.last_sig.borrow() == sig {
             return;
         }
         *self.last_sig.borrow_mut() = sig;
-        let _ = &self.feedback_label;
+
+        // Subscription URL
+        while let Some(c) = self.sub_box.first_child() {
+            self.sub_box.remove(&c);
+        }
+        if !snap.subscribe_url.is_empty() {
+            let sub_group = adw::PreferencesGroup::builder().title("订阅地址").build();
+            sub_group.add(&build_copy_row("导入链接", &snap.subscribe_url));
+            self.sub_box.append(&sub_group);
+            self.sub_box.set_visible(true);
+        } else {
+            self.sub_box.set_visible(false);
+        }
+
+        // Recharge channels
+        if show_recharge {
+            let ids: Vec<String> = snap.payment_channels.iter().map(|c| c.id.clone()).collect();
+            let names: Vec<&str> = snap.payment_channels.iter().map(|c| c.name.as_str()).collect();
+            *self.recharge_channel_ids.borrow_mut() = ids;
+            self.recharge_channel_dropdown
+                .set_model(Some(&gtk::StringList::new(&names)));
+            self.recharge_channel_dropdown.set_selected(0);
+        }
 
         while let Some(c) = self.dynamic_box.first_child() {
             self.dynamic_box.remove(&c);
         }
 
         // Invite section
-        let invite_desc = if snap.invite_commission_rate > 0 {
-            format!("返利比例 {}%", snap.invite_commission_rate)
-        } else {
-            String::new()
-        };
-        let invite_group = adw::PreferencesGroup::builder()
-            .title("邀请返利")
-            .description(&invite_desc)
-            .build();
-        if !snap.referral_url.is_empty() {
-            invite_group.add(&build_copy_row("推广链接", &snap.referral_url));
-        }
-        for code in &snap.invite_codes {
-            let link = if snap.base_url.is_empty() {
-                code.clone()
+        if show_invite {
+            let invite_desc = if snap.invite_commission_rate > 0 {
+                format!("返利比例 {}%", snap.invite_commission_rate)
             } else {
-                format!("{}/#/register?code={code}", snap.base_url)
+                String::new()
             };
-            invite_group.add(&build_copy_row(code, &link));
-        }
-        if snap.panel_type != "pxboard" {
-            let gen_btn = gtk::Button::with_label("生成邀请码");
-            gen_btn.add_css_class("flat");
-            let p = self.panel.clone();
-            let h = self.rt.clone();
-            gen_btn.connect_clicked(move |_| {
-                let p = p.clone();
-                h.spawn(async move {
-                    let _ = p.generate_invite().await;
+            let invite_group = adw::PreferencesGroup::builder()
+                .title("邀请返利")
+                .description(&invite_desc)
+                .build();
+            if !snap.referral_url.is_empty() {
+                invite_group.add(&build_copy_row("推广链接", &snap.referral_url));
+            }
+            for code in &snap.invite_codes {
+                let link = if snap.base_url.is_empty() {
+                    code.clone()
+                } else {
+                    format!("{}/#/register?code={code}", snap.base_url)
+                };
+                invite_group.add(&build_copy_row(code, &link));
+            }
+            if !is_px {
+                let gen_btn = gtk::Button::with_label("生成邀请码");
+                gen_btn.add_css_class("flat");
+                let p = self.panel.clone();
+                let h = self.rt.clone();
+                gen_btn.connect_clicked(move |_| {
+                    let p = p.clone();
+                    h.spawn(async move {
+                        let _ = p.generate_invite().await;
+                    });
                 });
-            });
-            invite_group.set_header_suffix(Some(&gen_btn));
+                invite_group.set_header_suffix(Some(&gen_btn));
+            }
+            self.dynamic_box.append(&invite_group);
         }
-        self.dynamic_box.append(&invite_group);
 
         // Notices section
         if !snap.notices.is_empty() {
@@ -370,19 +581,21 @@ impl AccountView {
                     .title(&notice.title)
                     .subtitle(&plain_text(&notice.content))
                     .build();
+                row.set_use_markup(false);
                 n_group.add(&row);
             }
             self.dynamic_box.append(&n_group);
         }
 
         // Tickets list
-        if !snap.tickets.is_empty() {
+        if show_tickets && !snap.tickets.is_empty() {
             let t_group = adw::PreferencesGroup::builder().title("工单记录").build();
             for ticket in &snap.tickets {
                 let row = adw::ActionRow::builder()
                     .title(&ticket.subject)
                     .subtitle(&ticket.status_text)
                     .build();
+                row.set_use_markup(false);
                 let view_btn = gtk::Button::with_label("查看");
                 view_btn.add_css_class("flat");
                 view_btn.set_valign(gtk::Align::Center);
@@ -390,7 +603,6 @@ impl AccountView {
                 let tsubj = ticket.subject.clone();
                 let closed = ticket.closed;
                 let inline_msgs = ticket.messages.clone();
-                let is_px = snap.panel_type == "pxboard";
                 let p = self.panel.clone();
                 let h = self.rt.clone();
                 let detail_box = self.ticket_detail_box.clone();
@@ -411,11 +623,26 @@ impl AccountView {
             }
             self.dynamic_box.append(&t_group);
         }
+
+        // Native 2FA & OAuth Bindings (PxBoard)
+        while let Some(c) = self.security_box.first_child() {
+            self.security_box.remove(&c);
+        }
+        if is_px {
+            self.append_mfa_section(snap);
+        }
+        if show_oauth {
+            self.append_oauth_section(snap);
+        }
     }
 }
 
-fn build_copy_row(title: &str, value: &str) -> adw::ActionRow {
-    let row = adw::ActionRow::builder().title(title).subtitle(value).build();
+pub(crate) fn build_copy_row(title: &str, value: &str) -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .use_markup(false)
+        .title(title)
+        .subtitle(value)
+        .build();
     let copy_btn = gtk::Button::with_label("复制");
     copy_btn.add_css_class("flat");
     copy_btn.set_valign(gtk::Align::Center);
@@ -470,6 +697,7 @@ fn show_ticket_detail(
     let render_msgs = |holder: &adw::PreferencesGroup, msgs: &[TicketMessage]| {
         for m in msgs {
             let r = adw::ActionRow::builder()
+                .use_markup(false)
                 .title(&m.author)
                 .subtitle(&m.message)
                 .build();
@@ -494,6 +722,7 @@ fn show_ticket_detail(
             Ok(Ok(msgs)) => {
                 for m in &msgs {
                     let r = adw::ActionRow::builder()
+                        .use_markup(false)
                         .title(&m.author)
                         .subtitle(&m.message)
                         .build();

@@ -1,4 +1,6 @@
 #[cfg(target_os = "linux")]
+mod account_security;
+#[cfg(target_os = "linux")]
 mod account_view;
 #[cfg(target_os = "linux")]
 mod auth_view;

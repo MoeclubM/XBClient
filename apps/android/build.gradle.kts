@@ -36,9 +36,6 @@ val appPaymentEnabled = parseBoolSecret("XBCLIENT_APP_PAYMENT_ENABLED", true)
 val appOpenAdUnitId = providers.environmentVariable("XBCLIENT_APP_OPEN_AD_UNIT_ID").orNull?.trim().orEmpty()
 val planRewardedAdUnitId = providers.environmentVariable("XBCLIENT_PLAN_REWARDED_AD_UNIT_ID").orNull?.trim().orEmpty()
 val pointsRewardedAdUnitId = providers.environmentVariable("XBCLIENT_POINTS_REWARDED_AD_UNIT_ID").orNull?.trim().orEmpty()
-require(panelType != "pxboard" || (planRewardedAdUnitId.isEmpty() && pointsRewardedAdUnitId.isEmpty())) {
-    "PxBoard does not support AdMob rewarded SSV; clear XBCLIENT_PLAN_REWARDED_AD_UNIT_ID and XBCLIENT_POINTS_REWARDED_AD_UNIT_ID"
-}
 val hasAnyAdUnit = appOpenAdUnitId.isNotEmpty() || planRewardedAdUnitId.isNotEmpty() || pointsRewardedAdUnitId.isNotEmpty()
 val admobAppId = providers.environmentVariable("XBCLIENT_ADMOB_APP_ID").orNull?.trim().orEmpty()
 if (hasAnyAdUnit && admobAppId.isEmpty()) {

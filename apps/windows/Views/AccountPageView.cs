@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Neto.Sdk.Windows.Views;
+using System.Globalization;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
 
@@ -19,9 +20,17 @@ public sealed class AccountPageView
     private readonly Button _portalBtn;
     private readonly Border _feedbackCard;
     private readonly TextBlock _feedbackText;
+    private readonly StackPanel _subLinkSection;
+    private readonly StackPanel _subLinkContainer;
+    private readonly StackPanel _rechargeSection;
+    private readonly TextBox _rechargeAmountBox;
+    private readonly ComboBox _rechargeChannelCombo;
+    private readonly StackPanel _redeemSection;
     private readonly TextBox _redeemBox;
+    private readonly StackPanel _inviteSection;
     private readonly StackPanel _invitePanel;
     private readonly StackPanel _noticesPanel;
+    private readonly StackPanel _ticketsSection;
     private readonly TextBox _ticketSubjectBox;
     private readonly TextBox _ticketContentBox;
     private readonly StackPanel _ticketsList;
@@ -32,7 +41,14 @@ public sealed class AccountPageView
     private readonly Button _ticketReplyBtn;
     private readonly Button _ticketCloseBtn;
     private readonly PasswordBox _oldPasswordBox;
+    private readonly TextBox _pwMfaCodeBox;
     private readonly PasswordBox _newPasswordBox;
+    private readonly StackPanel _mfaSection;
+    private readonly StackPanel _mfaBody;
+    private readonly StackPanel _oauthSection;
+    private readonly StackPanel _oauthBody;
+    private List<(string Id, string Name)> _rechargeChannels = [];
+    private MfaSetupInfo? _mfaSetup;
     private string? _selectedTicketId;
     private string _lastSig = "";
 
@@ -73,8 +89,60 @@ public sealed class AccountPageView
         accStack.Children.Add(accBtns);
         outer.Children.Add(NetoUiFactory.CreateCard(accStack));
 
+        // Subscription URL
+        _subLinkSection = new StackPanel { Spacing = 8, Visibility = Visibility.Collapsed };
+        _subLinkSection.Children.Add(NetoUiFactory.CreateSectionHeader("订阅地址"));
+        _subLinkContainer = new StackPanel { Spacing = 6 };
+        _subLinkSection.Children.Add(NetoUiFactory.CreateCard(_subLinkContainer));
+        outer.Children.Add(_subLinkSection);
+
+        // Wallet recharge (PxBoard online payment)
+        _rechargeSection = new StackPanel { Spacing = 8, Visibility = Visibility.Collapsed };
+        _rechargeSection.Children.Add(NetoUiFactory.CreateSectionHeader("余额充值"));
+        var rechargeGrid = new Grid { ColumnSpacing = 8 };
+        rechargeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        rechargeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        rechargeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _rechargeAmountBox = new TextBox { PlaceholderText = "充值金额（如 20）" };
+        _rechargeChannelCombo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        var rechargeBtn = new Button { Content = "前往充值" };
+        NetoUiFactory.ApplyPrimaryButton(rechargeBtn, true);
+        rechargeBtn.Click += async (_, _) =>
+        {
+            if (!double.TryParse(_rechargeAmountBox.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var amount) || amount < 1.0)
+            {
+                ShowFeedback("请输入有效的充值金额（最低 1.00）。", error: true);
+                return;
+            }
+            if (_rechargeChannelCombo.SelectedIndex < 0 || _rechargeChannelCombo.SelectedIndex >= _rechargeChannels.Count) return;
+            var chId = _rechargeChannels[_rechargeChannelCombo.SelectedIndex].Id;
+            rechargeBtn.IsEnabled = false;
+            try
+            {
+                await _panel.RechargeWalletAsync((long)Math.Round(amount * 100.0), chId);
+                _rechargeAmountBox.Text = "";
+                ShowFeedback("已打开外部收银台，完成支付后请点击同步账户。", error: false);
+            }
+            catch (Exception ex)
+            {
+                ShowFeedback(ex.Message, error: true);
+            }
+            finally
+            {
+                rechargeBtn.IsEnabled = true;
+            }
+        };
+        Grid.SetColumn(_rechargeChannelCombo, 1);
+        Grid.SetColumn(rechargeBtn, 2);
+        rechargeGrid.Children.Add(_rechargeAmountBox);
+        rechargeGrid.Children.Add(_rechargeChannelCombo);
+        rechargeGrid.Children.Add(rechargeBtn);
+        _rechargeSection.Children.Add(NetoUiFactory.CreateCard(rechargeGrid));
+        outer.Children.Add(_rechargeSection);
+
         // Redeem card
-        outer.Children.Add(NetoUiFactory.CreateSectionHeader("兑换码"));
+        _redeemSection = new StackPanel { Spacing = 8 };
+        _redeemSection.Children.Add(NetoUiFactory.CreateSectionHeader("兑换码"));
         var redeemGrid = new Grid { ColumnSpacing = 8 };
         redeemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         redeemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -99,19 +167,23 @@ public sealed class AccountPageView
         Grid.SetColumn(redeemBtn, 1);
         redeemGrid.Children.Add(_redeemBox);
         redeemGrid.Children.Add(redeemBtn);
-        outer.Children.Add(NetoUiFactory.CreateCard(redeemGrid));
+        _redeemSection.Children.Add(NetoUiFactory.CreateCard(redeemGrid));
+        outer.Children.Add(_redeemSection);
 
         // Invite & referral
-        outer.Children.Add(NetoUiFactory.CreateSectionHeader("邀请返利"));
+        _inviteSection = new StackPanel { Spacing = 8 };
+        _inviteSection.Children.Add(NetoUiFactory.CreateSectionHeader("邀请返利"));
         _invitePanel = new StackPanel { Spacing = 8 };
-        outer.Children.Add(NetoUiFactory.CreateCard(_invitePanel));
+        _inviteSection.Children.Add(NetoUiFactory.CreateCard(_invitePanel));
+        outer.Children.Add(_inviteSection);
 
         // Notices
         _noticesPanel = new StackPanel { Spacing = 8 };
         outer.Children.Add(_noticesPanel);
 
         // Tickets
-        outer.Children.Add(NetoUiFactory.CreateSectionHeader("工单支持"));
+        _ticketsSection = new StackPanel { Spacing = 8 };
+        _ticketsSection.Children.Add(NetoUiFactory.CreateSectionHeader("工单支持"));
         var newTicketStack = new StackPanel { Spacing = 8 };
         _ticketSubjectBox = new TextBox { PlaceholderText = "工单主题" };
         _ticketContentBox = new TextBox
@@ -136,10 +208,10 @@ public sealed class AccountPageView
         newTicketStack.Children.Add(_ticketSubjectBox);
         newTicketStack.Children.Add(_ticketContentBox);
         newTicketStack.Children.Add(createTicketBtn);
-        outer.Children.Add(NetoUiFactory.CreateCard(newTicketStack));
+        _ticketsSection.Children.Add(NetoUiFactory.CreateCard(newTicketStack));
 
         _ticketsList = new StackPanel { Spacing = 6 };
-        outer.Children.Add(_ticketsList);
+        _ticketsSection.Children.Add(_ticketsList);
 
         var detailStack = new StackPanel { Spacing = 8 };
         _ticketDetailTitle = new TextBlock { FontWeight = FontWeights.SemiBold };
@@ -172,12 +244,20 @@ public sealed class AccountPageView
         detailStack.Children.Add(detailBtns);
         _ticketDetailCard = NetoUiFactory.CreateCard(detailStack);
         _ticketDetailCard.Visibility = Visibility.Collapsed;
-        outer.Children.Add(_ticketDetailCard);
+        _ticketsSection.Children.Add(_ticketDetailCard);
+        outer.Children.Add(_ticketsSection);
 
         // Password security
         outer.Children.Add(NetoUiFactory.CreateSectionHeader("修改密码"));
         var pwStack = new StackPanel { Spacing = 8 };
         _oldPasswordBox = new PasswordBox { Header = "当前密码" };
+        _pwMfaCodeBox = new TextBox
+        {
+            Header = "动态验证码（已启用时填写）",
+            PlaceholderText = "6 位动态验证码",
+            MaxLength = 6,
+            Visibility = Visibility.Collapsed,
+        };
         _newPasswordBox = new PasswordBox { Header = "新密码" };
         var changePwBtn = new Button { Content = "更新密码", HorizontalAlignment = HorizontalAlignment.Right };
         changePwBtn.Click += async (_, _) =>
@@ -185,8 +265,14 @@ public sealed class AccountPageView
             if (string.IsNullOrEmpty(_oldPasswordBox.Password) || string.IsNullOrEmpty(_newPasswordBox.Password)) return;
             try
             {
-                await _panel.ChangePasswordAsync(_oldPasswordBox.Password, _newPasswordBox.Password);
+                var code = _pwMfaCodeBox.Text.Trim();
+                await _panel.ChangePasswordAsync(
+                    _oldPasswordBox.Password,
+                    _newPasswordBox.Password,
+                    string.IsNullOrEmpty(code) ? null : code
+                );
                 _oldPasswordBox.Password = "";
+                _pwMfaCodeBox.Text = "";
                 _newPasswordBox.Password = "";
                 ShowFeedback("密码已更新。", error: false);
             }
@@ -196,9 +282,24 @@ public sealed class AccountPageView
             }
         };
         pwStack.Children.Add(_oldPasswordBox);
+        pwStack.Children.Add(_pwMfaCodeBox);
         pwStack.Children.Add(_newPasswordBox);
         pwStack.Children.Add(changePwBtn);
         outer.Children.Add(NetoUiFactory.CreateCard(pwStack));
+
+        // Native 2FA (PxBoard)
+        _mfaSection = new StackPanel { Spacing = 8, Visibility = Visibility.Collapsed };
+        _mfaSection.Children.Add(NetoUiFactory.CreateSectionHeader("两步验证"));
+        _mfaBody = new StackPanel { Spacing = 8 };
+        _mfaSection.Children.Add(NetoUiFactory.CreateCard(_mfaBody));
+        outer.Children.Add(_mfaSection);
+
+        // Native OAuth bindings (PxBoard)
+        _oauthSection = new StackPanel { Spacing = 8, Visibility = Visibility.Collapsed };
+        _oauthSection.Children.Add(NetoUiFactory.CreateSectionHeader("第三方账号绑定"));
+        _oauthBody = new StackPanel { Spacing = 8 };
+        _oauthSection.Children.Add(NetoUiFactory.CreateCard(_oauthBody));
+        outer.Children.Add(_oauthSection);
 
         Root = new ScrollViewer { Content = outer };
     }
@@ -210,9 +311,34 @@ public sealed class AccountPageView
         _quotaText.Text = $"{summary} · 到期：{XbFormat.UnixDate(snap.ExpiredAtUnix)}";
         _balanceText.Text = $"余额 {XbFormat.Money(snap.Balance, snap.CurrencySymbol, snap.CurrencyUnit)} · 佣金 {XbFormat.Money(snap.CommissionBalance, snap.CurrencySymbol, snap.CurrencyUnit)}";
         _portalBtn.Visibility = snap.PaymentEnabled ? Visibility.Visible : Visibility.Collapsed;
+        _newPasswordBox.Header = snap.IsPxBoard ? "新密码（至少 10 位）" : "新密码";
+        _pwMfaCodeBox.Visibility = snap.IsPxBoard && snap.MfaEnabled ? Visibility.Visible : Visibility.Collapsed;
+
+        var showRedeem = !snap.IsPxBoard || snap.Extensions.Contains("redeem");
+        var showInvite = !snap.IsPxBoard || snap.Extensions.Contains("affiliate");
+        var showTickets = !snap.IsPxBoard || snap.Extensions.Contains("support");
+        var showRecharge = snap.IsPxBoard && snap.PaymentEnabled && snap.Extensions.Contains("commerce") && snap.PaymentChannels.Count > 0;
+        var showMfa = snap.IsPxBoard;
+        var showOAuth = snap.IsPxBoard && snap.Extensions.Contains("oauth") && (snap.OAuthProviders.Count > 0 || snap.OAuthBindings.Count > 0);
+
+        _redeemSection.Visibility = showRedeem ? Visibility.Visible : Visibility.Collapsed;
+        _inviteSection.Visibility = showInvite ? Visibility.Visible : Visibility.Collapsed;
+        _ticketsSection.Visibility = showTickets ? Visibility.Visible : Visibility.Collapsed;
+        _rechargeSection.Visibility = showRecharge ? Visibility.Visible : Visibility.Collapsed;
+        _mfaSection.Visibility = showMfa ? Visibility.Visible : Visibility.Collapsed;
+        _oauthSection.Visibility = showOAuth ? Visibility.Visible : Visibility.Collapsed;
 
         var sig = string.Join("|",
             snap.IsPxBoard,
+            snap.PaymentEnabled,
+            snap.SubscribeUrl,
+            snap.MfaEnabled,
+            _mfaSetup?.Secret ?? "",
+            snap.OAuthBindPending,
+            string.Join(",", snap.Extensions),
+            string.Join(",", snap.PaymentChannels.Select(c => c.Id + ":" + c.Name)),
+            string.Join(",", snap.OAuthProviders.Select(p => p.Id + ":" + p.Label)),
+            string.Join(",", snap.OAuthBindings.Select(b => b.Id + ":" + b.RequiresPassword)),
             snap.ReferralUrl,
             snap.InviteCommissionRate,
             string.Join(",", snap.InviteCodes),
@@ -221,6 +347,30 @@ public sealed class AccountPageView
         );
         if (_lastSig == sig) return;
         _lastSig = sig;
+
+        // Subscription URL
+        _subLinkContainer.Children.Clear();
+        if (!string.IsNullOrEmpty(snap.SubscribeUrl))
+        {
+            _subLinkContainer.Children.Add(BuildCopyRow(snap.SubscribeUrl));
+            _subLinkSection.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            _subLinkSection.Visibility = Visibility.Collapsed;
+        }
+
+        // Recharge channels
+        if (showRecharge)
+        {
+            _rechargeChannels = snap.PaymentChannels.Select(c => (c.Id, c.Name)).ToList();
+            _rechargeChannelCombo.Items.Clear();
+            foreach (var (_, name) in _rechargeChannels) _rechargeChannelCombo.Items.Add(name);
+            if (_rechargeChannels.Count > 0) _rechargeChannelCombo.SelectedIndex = 0;
+        }
+
+        if (showMfa) RebuildMfaSection(snap);
+        if (showOAuth) RebuildOAuthSection(snap);
 
         // Invite section
         _invitePanel.Children.Clear();
@@ -319,6 +469,218 @@ public sealed class AccountPageView
         g.Children.Add(box);
         g.Children.Add(copyBtn);
         return g;
+    }
+
+    private void RebuildMfaSection(PanelStateSnapshot snap)
+    {
+        _mfaBody.Children.Clear();
+        if (snap.MfaEnabled)
+        {
+            _mfaSetup = null;
+            _mfaBody.Children.Add(new TextBlock
+            {
+                Text = "已启用 · 登录和敏感操作需输入 6 位动态验证码",
+                FontSize = 12,
+                Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+            });
+            var pwBox = new PasswordBox { Header = "当前登录密码" };
+            var codeBox = new TextBox { Header = "6 位动态验证码", MaxLength = 6 };
+            var disableBtn = new Button { Content = "关闭两步验证", HorizontalAlignment = HorizontalAlignment.Right };
+            disableBtn.Click += async (_, _) =>
+            {
+                if (string.IsNullOrEmpty(pwBox.Password) || codeBox.Text.Trim().Length != 6) return;
+                disableBtn.IsEnabled = false;
+                try
+                {
+                    await _panel.MfaDisableAsync(pwBox.Password, codeBox.Text.Trim());
+                    ShowFeedback("已关闭两步验证。", error: false);
+                }
+                catch (Exception ex)
+                {
+                    ShowFeedback(ex.Message, error: true);
+                }
+                finally
+                {
+                    disableBtn.IsEnabled = true;
+                }
+            };
+            _mfaBody.Children.Add(pwBox);
+            _mfaBody.Children.Add(codeBox);
+            _mfaBody.Children.Add(disableBtn);
+            return;
+        }
+
+        if (_mfaSetup == null)
+        {
+            _mfaBody.Children.Add(new TextBlock
+            {
+                Text = "未启用 · 使用身份验证器生成 6 位动态验证码",
+                FontSize = 12,
+                Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+            });
+            var setupBtn = new Button { Content = "设置两步验证" };
+            NetoUiFactory.ApplyPrimaryButton(setupBtn, true);
+            setupBtn.Click += async (_, _) =>
+            {
+                setupBtn.IsEnabled = false;
+                try
+                {
+                    _mfaSetup = await _panel.MfaSetupAsync();
+                    _lastSig = "";
+                    ApplySnapshot(_panel.Snapshot);
+                }
+                catch (Exception ex)
+                {
+                    ShowFeedback(ex.Message, error: true);
+                }
+                finally
+                {
+                    setupBtn.IsEnabled = true;
+                }
+            };
+            _mfaBody.Children.Add(setupBtn);
+            return;
+        }
+
+        _mfaBody.Children.Add(new TextBlock
+        {
+            Text = "在验证器中添加以下密钥或导入链接，再输入生成的 6 位验证码完成启用：",
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+        });
+        _mfaBody.Children.Add(BuildCopyRow(_mfaSetup.Secret));
+        if (!string.IsNullOrEmpty(_mfaSetup.OtpauthUrl))
+        {
+            _mfaBody.Children.Add(BuildCopyRow(_mfaSetup.OtpauthUrl));
+        }
+        var enablePwBox = new PasswordBox { Header = "当前登录密码" };
+        var enableCodeBox = new TextBox { Header = "6 位动态验证码", MaxLength = 6 };
+        var btnRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
+        var cancelBtn = new Button { Content = "取消" };
+        var confirmBtn = new Button { Content = "确认启用" };
+        NetoUiFactory.ApplyPrimaryButton(confirmBtn, true);
+        cancelBtn.Click += (_, _) =>
+        {
+            _mfaSetup = null;
+            _lastSig = "";
+            ApplySnapshot(_panel.Snapshot);
+        };
+        confirmBtn.Click += async (_, _) =>
+        {
+            if (string.IsNullOrEmpty(enablePwBox.Password) || enableCodeBox.Text.Trim().Length != 6) return;
+            confirmBtn.IsEnabled = false;
+            try
+            {
+                await _panel.MfaEnableAsync(enablePwBox.Password, enableCodeBox.Text.Trim());
+                _mfaSetup = null;
+                ShowFeedback("已启用两步验证。", error: false);
+            }
+            catch (Exception ex)
+            {
+                ShowFeedback(ex.Message, error: true);
+            }
+            finally
+            {
+                confirmBtn.IsEnabled = true;
+            }
+        };
+        btnRow.Children.Add(cancelBtn);
+        btnRow.Children.Add(confirmBtn);
+        _mfaBody.Children.Add(enablePwBox);
+        _mfaBody.Children.Add(enableCodeBox);
+        _mfaBody.Children.Add(btnRow);
+    }
+
+    private void RebuildOAuthSection(PanelStateSnapshot snap)
+    {
+        _oauthBody.Children.Clear();
+        var boundProviderIds = snap.OAuthBindings.Select(b => b.ProviderId).ToHashSet();
+        PasswordBox? unbindPwBox = null;
+        TextBox? unbindCodeBox = null;
+        if (snap.OAuthBindings.Any(b => b.RequiresPassword))
+        {
+            unbindPwBox = new PasswordBox { Header = "解绑最后一个登录方式时需输入当前登录密码" };
+            _oauthBody.Children.Add(unbindPwBox);
+            if (snap.MfaEnabled)
+            {
+                unbindCodeBox = new TextBox { Header = "6 位动态验证码", MaxLength = 6 };
+                _oauthBody.Children.Add(unbindCodeBox);
+            }
+        }
+
+        foreach (var b in snap.OAuthBindings)
+        {
+            var row = new Grid { ColumnSpacing = 8 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var title = string.IsNullOrEmpty(b.ProviderName) ? b.ProviderId : b.ProviderName;
+            var text = string.IsNullOrEmpty(b.DisplayName) ? $"{title} · 已绑定" : $"{title} · {b.DisplayName}";
+            row.Children.Add(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center });
+            var unbindBtn = new Button { Content = "解除绑定" };
+            var binding = b;
+            unbindBtn.Click += async (_, _) =>
+            {
+                var pw = unbindPwBox?.Password ?? "";
+                var code = unbindCodeBox?.Text.Trim() ?? "";
+                if (binding.RequiresPassword && string.IsNullOrEmpty(pw))
+                {
+                    ShowFeedback("解除最后一个登录绑定前请输入当前登录密码。", error: true);
+                    return;
+                }
+                unbindBtn.IsEnabled = false;
+                try
+                {
+                    await _panel.UnbindOAuthAsync(binding.Id, pw, code);
+                    ShowFeedback("已解除第三方账号绑定。", error: false);
+                }
+                catch (Exception ex)
+                {
+                    ShowFeedback(ex.Message, error: true);
+                }
+                finally
+                {
+                    unbindBtn.IsEnabled = true;
+                }
+            };
+            Grid.SetColumn(unbindBtn, 1);
+            row.Children.Add(unbindBtn);
+            _oauthBody.Children.Add(row);
+        }
+
+        if (snap.OAuthBindPending)
+        {
+            var cancelBtn = new Button { Content = "取消绑定授权" };
+            cancelBtn.Click += async (_, _) => await _panel.CancelBindOAuthAsync();
+            _oauthBody.Children.Add(cancelBtn);
+            return;
+        }
+
+        var unbound = snap.OAuthProviders.Where(p => !boundProviderIds.Contains(p.Id)).ToList();
+        if (unbound.Count > 0)
+        {
+            var btnWrap = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            foreach (var p in unbound)
+            {
+                var pid = p.Id;
+                var btn = new Button { Content = $"绑定 {p.Label}" };
+                btn.Click += async (_, _) =>
+                {
+                    ShowFeedback("请在已打开的系统浏览器中完成第三方账号授权。", error: false);
+                    try
+                    {
+                        await _panel.BindOAuthAsync(pid);
+                        ShowFeedback("第三方账号已绑定。", error: false);
+                    }
+                    catch (Exception ex)
+                    {
+                        ShowFeedback(ex.Message, error: true);
+                    }
+                };
+                btnWrap.Children.Add(btn);
+            }
+            _oauthBody.Children.Add(btnWrap);
+        }
     }
 
     private async Task LoadTicketDetailAsync(string ticketId)

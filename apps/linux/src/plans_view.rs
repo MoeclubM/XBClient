@@ -82,8 +82,13 @@ impl PlansView {
             let handle = rt.clone();
             portal_btn.connect_clicked(move |_| {
                 let p = p.clone();
+                let path = if p.snapshot().panel_type == "pxboard" {
+                    "/user/plans"
+                } else {
+                    "/plans"
+                };
                 handle.spawn(async move {
-                    let _ = p.open_portal("/plans").await;
+                    let _ = p.open_portal(path).await;
                 });
             });
         }

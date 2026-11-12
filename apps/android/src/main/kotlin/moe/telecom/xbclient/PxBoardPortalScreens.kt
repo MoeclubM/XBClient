@@ -453,10 +453,15 @@ internal fun PxBoardAffiliateScreen(state: XbClientUiState, viewModel: XbClientV
 
 @Composable
 internal fun PxBoardSecurityScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
     val portal by viewModel.pxboardSession.portalState.collectAsStateWithLifecycle()
     var oldPwd by rememberSaveable { mutableStateOf("") }
     var mfaCode by rememberSaveable { mutableStateOf("") }
     var newPwd by rememberSaveable { mutableStateOf("") }
+    var mfaActionPwd by rememberSaveable { mutableStateOf("") }
+    var mfaActionCode by rememberSaveable { mutableStateOf("") }
+    var unbindPwd by rememberSaveable { mutableStateOf("") }
+    var unbindCode by rememberSaveable { mutableStateOf("") }
 
     if ("access" in state.nativeExtensions && (portal.expireEnabled || portal.trafficEnabled)) {
         Section("邮件提醒") {
@@ -490,15 +495,17 @@ internal fun PxBoardSecurityScreen(state: XbClientUiState, viewModel: XbClientVi
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(10.dp))
-            TextField(
-                value = mfaCode,
-                onValueChange = { mfaCode = it },
-                label = "两步验证码（已启用时填写）",
-                useLabelAsPlaceholder = true,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (portal.mfaEnabled) {
+                Spacer(Modifier.height(10.dp))
+                TextField(
+                    value = mfaCode,
+                    onValueChange = { mfaCode = it },
+                    label = "6 位动态验证码",
+                    useLabelAsPlaceholder = true,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Spacer(Modifier.height(10.dp))
             TextField(
                 value = newPwd,
@@ -521,11 +528,223 @@ internal fun PxBoardSecurityScreen(state: XbClientUiState, viewModel: XbClientVi
         }
     }
 
-    PreferenceCard {
-        ArrowPreference(
-            title = "两步验证与第三方账号绑定",
-            summary = "在浏览器打开账户安全页",
-            onClick = { viewModel.openPxBoardPortal("/user/account") },
-        )
+    Section("两步验证") {
+        Panel {
+            val setup = portal.mfaSetup
+            if (portal.mfaEnabled) {
+                Text(
+                    "已启用 · 登录和敏感操作需输入 6 位动态验证码",
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                Spacer(Modifier.height(10.dp))
+                TextField(
+                    value = mfaActionPwd,
+                    onValueChange = { mfaActionPwd = it },
+                    label = "当前登录密码",
+                    useLabelAsPlaceholder = true,
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(10.dp))
+                TextField(
+                    value = mfaActionCode,
+                    onValueChange = { mfaActionCode = it },
+                    label = "6 位动态验证码",
+                    useLabelAsPlaceholder = true,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = {
+                        viewModel.pxboardSession.disableMfa(mfaActionPwd, mfaActionCode) {
+                            mfaActionPwd = ""
+                            mfaActionCode = ""
+                        }
+                    },
+                    enabled = !portal.busy && mfaActionPwd.isNotEmpty() && mfaActionCode.trim().length == 6,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("关闭两步验证")
+                }
+            } else if (setup != null) {
+                Text(
+                    "在身份验证器中添加密钥或导入链接，再输入生成的 6 位验证码完成启用：",
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(setup.secret, style = MiuixTheme.textStyles.title2)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    TextButton(
+                        text = "复制密钥",
+                        onClick = {
+                            context.getSystemService(ClipboardManager::class.java)
+                                .setPrimaryClip(ClipData.newPlainText("mfa_secret", setup.secret))
+                            Toast.makeText(context, "验证器密钥已复制", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                    if (setup.otpauthUrl.isNotEmpty()) {
+                        TextButton(
+                            text = "复制导入链接",
+                            onClick = {
+                                context.getSystemService(ClipboardManager::class.java)
+                                    .setPrimaryClip(ClipData.newPlainText("otpauth", setup.otpauthUrl))
+                                Toast.makeText(context, "导入链接已复制", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                TextField(
+                    value = mfaActionPwd,
+                    onValueChange = { mfaActionPwd = it },
+                    label = "当前登录密码",
+                    useLabelAsPlaceholder = true,
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(10.dp))
+                TextField(
+                    value = mfaActionCode,
+                    onValueChange = { mfaActionCode = it },
+                    label = "6 位动态验证码",
+                    useLabelAsPlaceholder = true,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    TextButton(
+                        text = stringResource(R.string.panel_cancel),
+                        onClick = { viewModel.pxboardSession.cancelMfaSetup() },
+                        enabled = !portal.busy,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Button(
+                        onClick = {
+                            viewModel.pxboardSession.enableMfa(mfaActionPwd, mfaActionCode) {
+                                mfaActionPwd = ""
+                                mfaActionCode = ""
+                            }
+                        },
+                        enabled = !portal.busy && mfaActionPwd.isNotEmpty() && mfaActionCode.trim().length == 6,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColorsPrimary(),
+                    ) {
+                        Text("确认启用")
+                    }
+                }
+            } else {
+                Text(
+                    "未启用 · 使用身份验证器生成 6 位动态验证码",
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { viewModel.pxboardSession.setupMfa() },
+                    enabled = !portal.busy,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColorsPrimary(),
+                ) {
+                    Text("设置两步验证")
+                }
+            }
+        }
+    }
+
+    if ("oauth" in state.nativeExtensions && (state.oauthProviders.isNotEmpty() || portal.oauthBindings.isNotEmpty())) {
+        Section("第三方账号绑定") {
+            Panel {
+                val boundIds = portal.oauthBindings.map { it.providerId }.toSet()
+                val needsPwd = portal.oauthBindings.any { it.requiresPassword }
+                if (needsPwd) {
+                    TextField(
+                        value = unbindPwd,
+                        onValueChange = { unbindPwd = it },
+                        label = "解绑最后一个登录方式时需输入当前密码",
+                        useLabelAsPlaceholder = true,
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (portal.mfaEnabled) {
+                        Spacer(Modifier.height(8.dp))
+                        TextField(
+                            value = unbindCode,
+                            onValueChange = { unbindCode = it },
+                            label = "6 位动态验证码",
+                            useLabelAsPlaceholder = true,
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+                for ((idx, binding) in portal.oauthBindings.withIndex()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                binding.providerName.ifEmpty { binding.providerId },
+                                style = MiuixTheme.textStyles.title2,
+                            )
+                            Text(
+                                binding.displayName.ifEmpty { "已绑定" },
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                        }
+                        TextButton(
+                            text = "解除绑定",
+                            onClick = {
+                                if (binding.requiresPassword && unbindPwd.isEmpty()) {
+                                    Toast.makeText(context, "解除最后一个登录绑定前请输入当前登录密码", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    viewModel.pxboardSession.unbindOAuthBinding(binding.id, unbindPwd, unbindCode) {
+                                        unbindPwd = ""
+                                        unbindCode = ""
+                                    }
+                                }
+                            },
+                            enabled = !portal.busy,
+                        )
+                    }
+                    if (idx != portal.oauthBindings.lastIndex) {
+                        HorizontalDivider(Modifier.padding(vertical = 10.dp))
+                    }
+                }
+                val unboundProviders = state.oauthProviders.filter { it.driver !in boundIds }
+                if (portal.oauthBindPending) {
+                    if (portal.oauthBindings.isNotEmpty()) Spacer(Modifier.height(12.dp))
+                    Text("请在已打开的系统浏览器中完成授权…", color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { viewModel.pxboardSession.cancelOAuthBind() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("取消绑定授权")
+                    }
+                } else if (unboundProviders.isNotEmpty()) {
+                    if (portal.oauthBindings.isNotEmpty()) Spacer(Modifier.height(12.dp))
+                    for ((idx, provider) in unboundProviders.withIndex()) {
+                        Button(
+                            onClick = { viewModel.pxboardSession.bindOAuthProvider(provider.driver) },
+                            enabled = !portal.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColorsPrimary(),
+                        ) {
+                            Text("绑定 ${provider.label}")
+                        }
+                        if (idx != unboundProviders.lastIndex) {
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
+        }
     }
 }

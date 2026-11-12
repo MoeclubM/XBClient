@@ -33,13 +33,13 @@ XBCLIENT_RELEASE_KEY_PASSWORD
 | `XBCLIENT_OAUTH_CALLBACK_SCHEME` | `pxboard` 下默认 `xbclient` | 全平台 | `XBCLIENT_PANEL_TYPE=xboard` 时必填；`pxboard` 使用浏览器授权轮询，无需依赖自定义回调 scheme |
 | `XBCLIENT_ADMOB_APP_ID` | 空 | Android | 当配置了任一 `*_AD_UNIT_ID` 时必填；全部广告单元留空时可省略，客户端不初始化 MobileAds SDK |
 | `XBCLIENT_APP_OPEN_AD_UNIT_ID` | 空 | Android | 非空即启用 AdMob 开屏广告，在 `pxboard` 与 `xboard` 下均纯客户端生效，无需面板配置 |
-| `XBCLIENT_PLAN_REWARDED_AD_UNIT_ID` | 空 | Android (`xboard`) | 非空即在套餐页展示激励广告入口；发奖入账依赖服务端 `Xboard-XBClient` 校验 Google AdMob SSV 签名 |
-| `XBCLIENT_POINTS_REWARDED_AD_UNIT_ID` | 空 | Android (`xboard`) | 非空即在账户页展示积分激励广告入口；发奖入账依赖服务端 `Xboard-XBClient` 校验 Google AdMob SSV 签名 |
+| `XBCLIENT_PLAN_REWARDED_AD_UNIT_ID` | 空 | Android | 非空且面板启用激励发放时在套餐页展示激励广告入口；`pxboard` 由官方 `admob` 插件校验 Google AdMob ECDSA SSV 回调（`/api/v1/extensions/admob/ssv`），`xboard` 由 `Xboard-XBClient` 校验 |
+| `XBCLIENT_POINTS_REWARDED_AD_UNIT_ID` | 空 | Android | 非空且面板启用激励发放时在账户页展示激励广告入口；`pxboard` 由官方 `admob` 插件校验 Google AdMob ECDSA SSV 回调，`xboard` 由 `Xboard-XBClient` 校验 |
 | `XBCLIENT_WEBSITE_URL` | 空 | 全平台 | 官网链接 |
 | `XBCLIENT_PRIVACY_POLICY_URL` | 空 | 全平台 | 隐私政策链接 |
 | `XBCLIENT_USER_AGREEMENT_URL` | 空 | 全平台 | 用户协议链接 |
 
-> **激励广告安全边界**：开屏广告与客户端支付展示开关可完全固化在构建参数中；但观看激励广告后增加账户余额或赠送套餐属于服务端账本变更，必须由服务端校验 Google AdMob ECDSA SSV 回调签名后入账，不能由客户端本地直接加款。`pxboard` 当前不包含 AdMob SSV 插件，因此在 `XBCLIENT_PANEL_TYPE=pxboard` 时若填写 `XBCLIENT_PLAN_REWARDED_AD_UNIT_ID` 或 `XBCLIENT_POINTS_REWARDED_AD_UNIT_ID`，构建会直接报错拒绝，避免出现无实际发奖的按钮。
+> **激励广告安全边界**：开屏广告与客户端支付展示开关完全固化在构建参数中；观看激励广告后增加账户余额或赠送套餐属于服务端账本变更，必须由服务端校验 Google AdMob ECDSA SSV 回调签名后入账，不能由客户端本地直接加款。`pxboard` 在面板启用官方 `admob` 插件并开启对应场景后展示激励广告入口，AdMob 控制台 SSV 回调地址填写 `https://<站点域名>/api/v1/extensions/admob/ssv`；`xboard` 则配合 `Xboard-XBClient` 插件完成验签发奖。
 
 平台是否可用，以对应 job 的最终结论为准。  
 Treat the finished Actions job as the source of truth for whether a platform build works.
@@ -48,7 +48,7 @@ Treat the finished Actions job as the source of truth for whether a platform bui
 
 `XBCLIENT_PANEL_TYPE` 放在 GitHub Secrets，支持 `xboard`（未设置时默认）与 `pxboard`。`XBCLIENT_DEFAULT_API_URL` 为对应面板公开地址，不要带 `/api/v1`。同一份代码包含两种面板对接，使用相同的连接内核和设备设置；当前发布包固定连接发布者选择的站点，不提供多站点账号管理。
 
-PxBoard 使用统一 `/rpc/v1` 接口完成原生交互：支持邮箱密码登录注册、浏览器一次性授权与第三方 OAuth 登录，通过 `subscriptions/client.profile` 增量同步节点、分流规则与套餐配额，并在客户端内原生提供套餐购买、优惠码试算、余额支付、在线收银台（受 `XBCLIENT_APP_PAYMENT_ENABLED` 控制）、兑换码、推广返佣与工单。界面模块自动跟随 PxBoard 已启用的插件（如未启用 `affiliate` 则自动隐藏返佣模块）。
+PxBoard 使用统一 `/rpc/v1` 接口完成全量原生交互：支持邮箱密码登录注册、找回密码、两步验证（TOTP 启用/关闭与登录挑战）、浏览器一次性授权、第三方 OAuth 登录与原生无 Cookie 账号绑定/解绑，通过 `subscriptions/client.profile` 增量同步节点、分流规则、套餐配额并自动初始化默认订阅链接，在客户端内原生提供套餐购买、优惠码试算、余额支付、在线收银台与余额充值（受 `XBCLIENT_APP_PAYMENT_ENABLED` 控制）、激励广告（配合 `admob` 插件）、兑换码、推广返佣与工单。界面模块自动跟随 PxBoard 已启用的插件（如未启用 `affiliate` 则自动隐藏返佣模块）。
 
 登录对接分别存放在独立适配器中：
 

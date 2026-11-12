@@ -44,6 +44,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun PxBoardLogin(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
     val authState by viewModel.pxboardAuthAdapter.authState.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf("login") }
     var email by rememberSaveable { mutableStateOf("") }
@@ -107,6 +108,7 @@ internal fun PxBoardLogin(state: XbClientUiState, viewModel: XbClientViewModel) 
                     }
                     if (!authState.registerChallengeRequired) {
                         for (field in regProvider.fields) {
+                            if (field.type == "hidden" && field.key != "referral") continue
                             if (field.type == "boolean") {
                                 SwitchPreference(
                                     title = field.label,
@@ -115,10 +117,15 @@ internal fun PxBoardLogin(state: XbClientUiState, viewModel: XbClientViewModel) 
                                 )
                             } else {
                                 val isPwd = field.type == "password" || field.key.contains("password", ignoreCase = true)
+                                val fieldLabel = if (field.key == "referral" && (field.type == "hidden" || field.label.isBlank())) {
+                                    "推广码（选填）"
+                                } else {
+                                    field.label
+                                }
                                 TextField(
                                     value = regValues[field.key].orEmpty(),
                                     onValueChange = { regValues[field.key] = it },
-                                    label = field.label,
+                                    label = fieldLabel,
                                     useLabelAsPlaceholder = true,
                                     singleLine = true,
                                     visualTransformation = if (isPwd) PasswordVisualTransformation() else VisualTransformation.None,
@@ -135,7 +142,7 @@ internal fun PxBoardLogin(state: XbClientUiState, viewModel: XbClientViewModel) 
                                     payload[f.key] = when (f.type) {
                                         "boolean" -> raw == "true"
                                         "number" -> raw.toDoubleOrNull() ?: 0.0
-                                        else -> raw.trim()
+                                        else -> if (f.key == "referral") extractQueryParamOrRaw(raw, "ref", "code") else raw.trim()
                                     }
                                 }
                                 viewModel.pxboardAuthAdapter.register(regProvider, payload) {
@@ -161,6 +168,15 @@ internal fun PxBoardLogin(state: XbClientUiState, viewModel: XbClientViewModel) 
                     }
                 }
                 "reset" -> {
+                    if (authState.resetChallengeRequired) {
+                        Button(
+                            onClick = { BrowserOpener.open(context, PxBoardApi.publicUrl("/forgot")) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColorsPrimary(),
+                        ) {
+                            Text("在浏览器中找回密码")
+                        }
+                    } else {
                     TextField(
                         value = resetEmail,
                         onValueChange = { resetEmail = it },
@@ -182,7 +198,7 @@ internal fun PxBoardLogin(state: XbClientUiState, viewModel: XbClientViewModel) 
                         TextField(
                             value = resetToken,
                             onValueChange = { resetToken = it },
-                            label = "邮件重置码",
+                            label = "邮件重置码或链接",
                             useLabelAsPlaceholder = true,
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
@@ -213,6 +229,7 @@ internal fun PxBoardLogin(state: XbClientUiState, viewModel: XbClientViewModel) 
                         ) {
                             Text("确认重置密码")
                         }
+                    }
                     }
                 }
                 else -> {
@@ -298,23 +315,36 @@ internal fun PxBoardPlansScreen(state: XbClientUiState, viewModel: XbClientViewM
     var selectedPeriodId by rememberSaveable { mutableStateOf("") }
     var coupon by rememberSaveable { mutableStateOf("") }
     var payMethod by rememberSaveable { mutableStateOf("wallet") }
+    val hasCommerce = "commerce" in state.nativeExtensions
 
-    Section(stringResource(R.string.section_plans)) {
-        Panel {
-            Text(
-                stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)),
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
+    RewardAdSection(
+        title = stringResource(R.string.reward_plan_title),
+        enabled = state.planRewardAdEnabled,
+        scene = REWARD_SCENE_PLAN,
+        state = state,
+        viewModel = viewModel,
+    )
+
+    if (hasCommerce) {
+        Section(stringResource(R.string.section_plans)) {
+            Panel {
+                Text(
+                    stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
         }
     }
 
     if (portal.plans.isEmpty()) {
-        PreferenceCard {
-            Text(
-                stringResource(id = if (state.nodesLoading) R.string.plans_loading else R.string.plans_empty),
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.padding(16.dp),
-            )
+        if (hasCommerce || !state.planRewardAdEnabled) {
+            PreferenceCard {
+                Text(
+                    stringResource(id = if (state.nodesLoading) R.string.plans_loading else R.string.plans_empty),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
         }
     } else {
         for (plan in portal.plans) {
@@ -544,6 +574,14 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
             onClick = viewModel::logout,
         )
     }
+
+    RewardAdSection(
+        title = stringResource(R.string.reward_points_title),
+        enabled = state.pointsRewardAdEnabled,
+        scene = REWARD_SCENE_POINTS,
+        state = state,
+        viewModel = viewModel,
+    )
 
     if ("subscriptions" in ext) {
         Section("订阅链接") {

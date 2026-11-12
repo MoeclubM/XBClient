@@ -64,6 +64,23 @@ pub struct OAuthProviderEntry {
     pub label: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OAuthBindingEntry {
+    pub id: String,
+    pub provider_id: String,
+    pub provider_name: String,
+    pub display_name: String,
+    pub created_at: String,
+    pub requires_password: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MfaSetupInfo {
+    pub secret: String,
+    pub otpauth_url: String,
+    pub expires_at: String,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PanelStateSnapshot {
     pub logged_in: bool,
@@ -95,6 +112,15 @@ pub struct PanelStateSnapshot {
     pub user_agreement_url: String,
     pub oauth_providers: Vec<OAuthProviderEntry>,
     pub email_verify_required: bool,
+    pub registration_enabled: bool,
+    pub password_reset_enabled: bool,
+    pub login_challenge_required: bool,
+    pub register_challenge_required: bool,
+    pub reset_challenge_required: bool,
+    pub mfa_enabled: bool,
+    pub mfa_required: bool,
+    pub oauth_bindings: Vec<OAuthBindingEntry>,
+    pub oauth_bind_pending: bool,
     pub browser_login_pending: bool,
     pub last_error: Option<String>,
 }

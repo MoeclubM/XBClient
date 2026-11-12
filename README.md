@@ -38,8 +38,8 @@
 | `XBCLIENT_APP_PAYMENT_ENABLED` | 否 | 默认 `true`。设为 `false` 时全平台隐藏在线支付渠道、在线充值与外部网页收银台/控制台跳转，仅保留账户余额抵扣与兑换码（适用于 Google Play 合规包） |
 | `XBCLIENT_ADMOB_APP_ID` | 按需 | 配置任一广告单元时必填；未配置任何广告单元时可留空且客户端不初始化 AdMob SDK |
 | `XBCLIENT_APP_OPEN_AD_UNIT_ID` | 否 | Android 开屏广告单元 ID，非空即启用，纯客户端生效（支持 `pxboard` 与 `xboard`，无需面板配合） |
-| `XBCLIENT_PLAN_REWARDED_AD_UNIT_ID` | 否 | Android 套餐页激励广告单元 ID（仅 `xboard`，需服务端 `Xboard-XBClient` 完成 AdMob SSV 验签发奖） |
-| `XBCLIENT_POINTS_REWARDED_AD_UNIT_ID` | 否 | Android 账户页积分激励广告单元 ID（仅 `xboard`，需服务端 `Xboard-XBClient` 完成 AdMob SSV 验签发奖） |
+| `XBCLIENT_PLAN_REWARDED_AD_UNIT_ID` | 否 | Android 套餐页激励广告单元 ID（`pxboard` 配合官方 `admob` 插件、`xboard` 配合 `Xboard-XBClient` 完成 AdMob SSV 验签发奖） |
+| `XBCLIENT_POINTS_REWARDED_AD_UNIT_ID` | 否 | Android 账户页余额/积分激励广告单元 ID（`pxboard` 配合官方 `admob` 插件、`xboard` 配合 `Xboard-XBClient` 完成 AdMob SSV 验签发奖） |
 | `XBCLIENT_OAUTH_CALLBACK_SCHEME` | 按需 | `xboard` 必填；`pxboard` 采用浏览器轮询授权，可省略 |
 
 ## 平台

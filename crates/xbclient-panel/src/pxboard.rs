@@ -1,8 +1,8 @@
 use crate::config::BuildConfig;
 use crate::http::{BatchCall, open_external_url, public_url, pxboard_batch, pxboard_rpc};
 use crate::models::{
-    CommercialPeriod, CommercialPlan, NoticeEntry, OAuthProviderEntry, PanelStateSnapshot,
-    PaymentChannel, TicketEntry, TicketMessage, format_bytes_brief,
+    CommercialPeriod, CommercialPlan, NoticeEntry, OAuthBindingEntry, OAuthProviderEntry,
+    PanelStateSnapshot, PaymentChannel, TicketEntry, TicketMessage, format_bytes_brief,
 };
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use neto_core::{NetoController, SubscriptionUserInfo, build_profile_from_raw_nodes};
@@ -62,14 +62,23 @@ pub async fn load_guest_meta(cfg: &BuildConfig, snap: &mut PanelStateSnapshot) -
         &snap.base_url,
         &cfg.user_agent,
         "",
-        &[BatchCall {
-            key: "setup",
-            service: "core",
-            method: "setup.get",
-            input: json!({}),
-        }],
+        &[
+            BatchCall {
+                key: "setup",
+                service: "core",
+                method: "setup.get",
+                input: json!({}),
+            },
+            BatchCall {
+                key: "challenge",
+                service: "core",
+                method: "auth.challenge",
+                input: json!({}),
+            },
+        ],
     )
     .await?;
+    snap.email_verify_required = false;
     if let Some(setup) = batch.pointer("/setup/data") {
         let exts = setup
             .get("extensions")
@@ -81,6 +90,14 @@ pub async fn load_guest_meta(cfg: &BuildConfig, snap: &mut PanelStateSnapshot) -
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
+        snap.registration_enabled = setup
+            .get("registration")
+            .and_then(Value::as_array)
+            .is_some_and(|arr| !arr.is_empty());
+        snap.password_reset_enabled = setup
+            .get("passwordReset")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         if exts.iter().any(|e| e == "oauth")
             && let Ok(rows) = pxboard_rpc(
                 &snap.base_url,
@@ -102,9 +119,31 @@ pub async fn load_guest_meta(cfg: &BuildConfig, snap: &mut PanelStateSnapshot) -
                     })
                 })
                 .collect();
+        } else {
+            snap.oauth_providers.clear();
         }
         snap.extensions = exts;
     }
+    let ch = batch.pointer("/challenge/data");
+    let ch_enabled = ch
+        .and_then(|d| d.get("enabled"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    snap.login_challenge_required = ch_enabled
+        && ch
+            .and_then(|d| d.get("login"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+    snap.register_challenge_required = ch_enabled
+        && ch
+            .and_then(|d| d.get("register"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+    snap.reset_challenge_required = ch_enabled
+        && ch
+            .and_then(|d| d.get("reset"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
     Ok(())
 }
 
@@ -210,19 +249,97 @@ pub async fn browser_authorize(
     bail!("浏览器登录授权超时")
 }
 
+pub async fn bind_oauth_flow(
+    cfg: &BuildConfig,
+    base_url: &str,
+    auth_data: &str,
+    provider_id: &str,
+    cancelled: Arc<AtomicBool>,
+) -> Result<()> {
+    ensure!(!provider_id.trim().is_empty(), "请选择第三方服务");
+    let proof = random_hex_32();
+    let flow = pxboard_rpc(
+        base_url,
+        &cfg.user_agent,
+        auth_data,
+        "oauth",
+        "authorize",
+        json!({
+            "providerId": provider_id.trim(),
+            "purpose": "bind",
+            "proof": proof,
+            "client": "native",
+        }),
+    )
+    .await?;
+    let flow_id = flow
+        .get("id")
+        .and_then(Value::as_str)
+        .context("缺少绑定会话 ID")?
+        .to_string();
+    let raw_auth_url = flow
+        .get("authorizationUrl")
+        .and_then(Value::as_str)
+        .context("缺少第三方授权地址")?;
+    let full_url = public_url(base_url, raw_auth_url);
+    open_external_url(&full_url)?;
+    let interval = flow
+        .get("intervalSeconds")
+        .and_then(Value::as_u64)
+        .unwrap_or(3)
+        .max(1);
+    for _ in 0..120 {
+        if cancelled.load(Ordering::Relaxed) {
+            bail!("已取消第三方账号绑定");
+        }
+        tokio::time::sleep(Duration::from_secs(interval)).await;
+        if cancelled.load(Ordering::Relaxed) {
+            bail!("已取消第三方账号绑定");
+        }
+        let res = pxboard_rpc(
+            base_url,
+            &cfg.user_agent,
+            auth_data,
+            "oauth",
+            "bindExchange",
+            json!({ "id": flow_id, "proof": proof }),
+        )
+        .await?;
+        match res.get("status").and_then(Value::as_str).unwrap_or("") {
+            "pending" => continue,
+            "bound" => return Ok(()),
+            other => bail!("第三方账号绑定未通过：{other}"),
+        }
+    }
+    bail!("第三方账号绑定超时，请重新发起")
+}
+
+pub fn normalize_portal_path(redirect_path: &str) -> &str {
+    match redirect_path.trim() {
+        "" | "/" => "/user",
+        "/plans" => "/user/plans",
+        "/orders" => "/user/orders",
+        "/wallet" => "/user/wallet",
+        "/account" => "/user/account",
+        p if p == "/user" || p.starts_with("/user/") || p.starts_with("/user?") => p,
+        _ => "/user",
+    }
+}
+
 pub async fn open_portal_url(
     cfg: &BuildConfig,
     base_url: &str,
     auth_data: &str,
     redirect_path: &str,
 ) -> Result<String> {
+    let target_path = normalize_portal_path(redirect_path);
     let res = pxboard_rpc(
         base_url,
         &cfg.user_agent,
         auth_data,
         "core",
         "auth.browserLink",
-        json!({ "redirectPath": redirect_path }),
+        json!({ "redirectPath": target_path }),
     )
     .await?;
     let rel = res
@@ -273,6 +390,8 @@ pub async fn sync_all(
             BatchCall { key: "plans", service: "commerce", method: "plans.list", input: json!({}) },
             BatchCall { key: "channels", service: "payments", method: "channels.list", input: json!({}) },
             BatchCall { key: "tickets", service: "support", method: "tickets.list", input: json!({ "mine": true }) },
+            BatchCall { key: "oauth_providers", service: "oauth", method: "providers.list", input: json!({}) },
+            BatchCall { key: "oauth_bindings", service: "oauth", method: "bindings.list", input: json!({}) },
         ],
     )
     .await?;
@@ -293,6 +412,10 @@ pub async fn sync_all(
     if let Some(email) = me_data.get("email").and_then(Value::as_str) {
         snap.email = email.to_string();
     }
+    snap.mfa_enabled = me_data
+        .get("mfaEnabled")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
     if let Some(arr) = batch.pointer("/plugins/data").and_then(Value::as_array) {
         snap.extensions = arr
@@ -301,6 +424,42 @@ pub async fn sync_all(
             .filter_map(|p| p.get("id").and_then(Value::as_str).map(ToString::to_string))
             .collect();
         snap.payment_enabled = cfg.app_payment_enabled && snap.extensions.iter().any(|e| e == "commerce");
+    }
+
+    if snap.extensions.iter().any(|e| e == "oauth") {
+        if batch.pointer("/oauth_providers/status").and_then(Value::as_u64) == Some(200)
+            && let Some(arr) = batch.pointer("/oauth_providers/data").and_then(Value::as_array)
+        {
+            snap.oauth_providers = arr
+                .iter()
+                .filter_map(|r| {
+                    Some(OAuthProviderEntry {
+                        id: r.get("id")?.as_str()?.to_string(),
+                        label: r.get("name")?.as_str()?.to_string(),
+                    })
+                })
+                .collect();
+        }
+        if batch.pointer("/oauth_bindings/status").and_then(Value::as_u64) == Some(200)
+            && let Some(arr) = batch.pointer("/oauth_bindings/data").and_then(Value::as_array)
+        {
+            snap.oauth_bindings = arr
+                .iter()
+                .filter_map(|r| {
+                    Some(OAuthBindingEntry {
+                        id: r.get("id")?.as_str()?.to_string(),
+                        provider_id: r.get("providerId")?.as_str()?.to_string(),
+                        provider_name: r.get("providerName").and_then(Value::as_str).unwrap_or("").to_string(),
+                        display_name: r.get("displayName").and_then(Value::as_str).unwrap_or("").to_string(),
+                        created_at: r.get("createdAt").and_then(Value::as_str).unwrap_or("").to_string(),
+                        requires_password: r.get("requiresPassword").and_then(Value::as_bool).unwrap_or(false),
+                    })
+                })
+                .collect();
+        }
+    } else {
+        snap.oauth_providers.clear();
+        snap.oauth_bindings.clear();
     }
 
     if batch.pointer("/wallet/status").and_then(Value::as_u64) == Some(200)
@@ -594,6 +753,52 @@ pub async fn purchase_plan(
         .to_string();
     let _ = open_external_url(&redirect);
     Ok(Some(redirect))
+}
+
+pub async fn recharge_wallet(
+    cfg: &BuildConfig,
+    base_url: &str,
+    auth_data: &str,
+    amount_cents: i64,
+    channel_id: &str,
+) -> Result<String> {
+    ensure!(cfg.app_payment_enabled, "当前客户端已关闭在线充值");
+    ensure!(amount_cents >= 100, "充值金额最低为 1.00");
+    ensure!(!channel_id.trim().is_empty(), "请选择支付渠道");
+    let order = pxboard_rpc(
+        base_url,
+        &cfg.user_agent,
+        auth_data,
+        "commerce",
+        "orders.create",
+        json!({
+            "kind": "recharge",
+            "amount": amount_cents,
+            "requestId": new_request_id(),
+        }),
+    )
+    .await?;
+    let order_id = order
+        .get("id")
+        .and_then(Value::as_str)
+        .context("创建充值订单缺少 id")?;
+    let checkout = pxboard_rpc(
+        base_url,
+        &cfg.user_agent,
+        auth_data,
+        "payments",
+        "checkout",
+        json!({ "orderId": order_id, "channelId": channel_id.trim() }),
+    )
+    .await?;
+    let redirect = checkout
+        .get("redirectUrl")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .context("支付渠道未返回跳转链接")?
+        .to_string();
+    let _ = open_external_url(&redirect);
+    Ok(redirect)
 }
 
 pub async fn redeem_code(

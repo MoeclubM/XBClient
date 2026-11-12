@@ -46,7 +46,7 @@ public sealed class PlansPageView
             FontWeight = FontWeights.SemiBold,
         };
         _portalBtn = new Button { Content = "网页商店" };
-        _portalBtn.Click += async (_, _) => await _panel.OpenPortalAsync("/plans");
+        _portalBtn.Click += async (_, _) => await _panel.OpenPortalAsync(_panel.Snapshot.IsPxBoard ? "/user/plans" : "/plans");
         _refreshBtn = new Button { Content = "刷新" };
         _refreshBtn.Click += async (_, _) => await _panel.SyncAllAsync();
 
