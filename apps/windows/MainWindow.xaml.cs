@@ -78,6 +78,11 @@ public sealed partial class MainWindow : Window
         _plansView = new PlansPageView(_panelService);
         _accountView = new AccountPageView(_panelService);
         _settingsView = new SettingsPageView(_netoClient, ApplyThemeMode);
+        _settingsView.ConfigureUpdater(
+            initialPanel.GithubRepo,
+            NetoWindowHelper.GetAppVersion(),
+            () => RootGrid.XamlRoot,
+            ExitApplication);
         AppendCommercialLinks(initialPanel);
         NavSettingsItem.Tapped += (_, _) => _settingsView.ResetToRoot();
         NavAccountItem.Tapped += (_, _) => _accountView.ResetToRoot();
@@ -123,6 +128,15 @@ public sealed partial class MainWindow : Window
             NetoWindowHelper.SetClipboardText(NetoWindowHelper.BuildTerminalProxyCommand(_netoClient.Snapshot));
         });
         _tray.CloseAllConnectionsRequested += () => DispatcherQueue.TryEnqueue(async () => await _netoClient.CloseAllConnectionsAsync());
+        _tray.CheckUpdateRequested += () => DispatcherQueue.TryEnqueue(async () =>
+        {
+            NetoWindowHelper.RestoreAndActivate(this, _appWindow, _hwnd);
+            if (_panelService.Snapshot.LoggedIn)
+            {
+                SwitchTab("settings");
+            }
+            await _settingsView.CheckForUpdatesAsync(true);
+        });
         _tray.SessionEnding += () => NetoNativeBridge.Shutdown();
         _tray.ExitRequested += () => DispatcherQueue.TryEnqueue(ExitApplication);
 
@@ -140,6 +154,16 @@ public sealed partial class MainWindow : Window
         if (StartedHidden)
         {
             _appWindow.Hide();
+        }
+        _ = TriggerStartupUpdateCheckAsync();
+    }
+
+    private async Task TriggerStartupUpdateCheckAsync()
+    {
+        await Task.Delay(4000);
+        if (!_quitting)
+        {
+            DispatcherQueue.TryEnqueue(async () => await _settingsView.CheckForUpdatesAsync(false));
         }
     }
 

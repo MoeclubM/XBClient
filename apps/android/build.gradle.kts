@@ -88,6 +88,17 @@ val appVersionName = gitExactTag.removePrefix("v").ifEmpty {
     }
 }
 val debugVersionNameSuffix = ".debug"
+val githubRepoSlug = providers.environmentVariable("XBCLIENT_GITHUB_REPO").orNull
+    ?.trim()?.takeIf { it.isNotEmpty() }
+    ?: providers.environmentVariable("GITHUB_REPOSITORY").orNull
+        ?.trim()?.takeIf { it.isNotEmpty() }
+    ?: "MoeclubM/XBClient"
+val githubProjectUrl = if (githubRepoSlug.startsWith("http://") || githubRepoSlug.startsWith("https://")) {
+    githubRepoSlug
+} else {
+    "https://github.com/$githubRepoSlug"
+}
+
 android {
     namespace = "moe.telecom.xbclient"
     compileSdk {
@@ -122,7 +133,7 @@ android {
         buildConfigField(
             "String",
             "GITHUB_PROJECT_URL",
-            "\"https://github.com/MoeclubM/XBClient\"",
+            "\"${escapeBuildConfigString(githubProjectUrl)}\"",
         )
     }
 
@@ -213,7 +224,7 @@ tasks.matching {
 }
 
 dependencies {
-    implementation("moe.telecom.neto:sdk-android:0.0.5")
+    implementation("moe.telecom.neto:sdk-android:0.0.6")
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.browser:browser:1.10.0")

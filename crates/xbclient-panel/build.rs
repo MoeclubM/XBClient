@@ -9,6 +9,8 @@ fn main() {
         "XBCLIENT_WEBSITE_URL",
         "XBCLIENT_PRIVACY_POLICY_URL",
         "XBCLIENT_USER_AGREEMENT_URL",
+        "XBCLIENT_GITHUB_REPO",
+        "GITHUB_REPOSITORY",
     ] {
         println!("cargo:rerun-if-env-changed={key}");
     }

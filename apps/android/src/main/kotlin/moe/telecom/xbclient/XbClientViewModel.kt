@@ -1545,7 +1545,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         !BuildConfig.SELF_UPDATE_ENABLED ||
             app.packageManager.getInstallSourceInfo(app.packageName).installingPackageName == "com.android.vending"
 
-    private fun checkGithubReleaseUpdate(projectUrl: String) {
+    fun checkForUpdatesManual() {
+        val projectUrl = BuildConfig.GITHUB_PROJECT_URL.trim()
+        if (projectUrl.isNotBlank()) {
+            checkGithubReleaseUpdate(projectUrl, manual = true)
+        }
+    }
+
+    private fun checkGithubReleaseUpdate(projectUrl: String, manual: Boolean = false) {
         if (isPlayInstallation()) {
             emitEvent(XbClientEvent.OpenExternalUrl("https://play.google.com/store/apps/details?id=${app.packageName}"))
             return
@@ -1556,80 +1563,30 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val slug = githubRepoSlug(value)
-                val connection = (URL("https://api.github.com/repos/$slug/releases/latest").openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    connectTimeout = 30000
-                    readTimeout = 30000
-                    setRequestProperty("User-Agent", BuildConfig.USER_AGENT)
-                    setRequestProperty("Accept", "application/vnd.github+json")
-                }
-                val status = connection.responseCode
-                val text = (if (status in 200..299) connection.inputStream else connection.errorStream)
-                    .bufferedReader(Charsets.UTF_8)
-                    .use { it.readText() }
-                if (status !in 200..299) {
-                    throw IllegalStateException("HTTP $status")
-                }
-                val release = JSONObject(text)
-                val latestVersion = release.getString("tag_name")
-                if (latestVersion.isEmpty()) {
-                    throw IllegalStateException("GitHub Release 缺少版本号。")
-                }
                 val currentVersion = BuildConfig.VERSION_NAME.removeSuffix(".debug")
-                if (normalizeVersion(latestVersion) == normalizeVersion(currentVersion)) {
+                val result = netoClient.checkUpdate(value, currentVersion)
+                if (!result.hasUpdate) {
+                    if (manual) {
+                        emitMessage("已是最新版本")
+                    }
                     return@launch
                 }
-                val releaseUrl = release.getString("html_url")
-                val assets = release.getJSONArray("assets")
-                var abiApkUrl = ""
-                var universalApkUrl = ""
-                for (index in 0 until assets.length()) {
-                    val asset = assets.getJSONObject(index)
-                    val name = asset.getString("name")
-                    val url = asset.getString("browser_download_url")
-                    if (!name.endsWith(".apk", ignoreCase = true)) {
-                        continue
-                    }
-                    if (abiApkUrl.isEmpty() && Build.SUPPORTED_ABIS.any { name.contains(it, ignoreCase = true) }) {
-                        abiApkUrl = url
-                    }
-                    if (name.contains("universal", ignoreCase = true)) {
-                        universalApkUrl = url
-                    }
-                }
-                val downloadUrl = universalApkUrl.ifEmpty { abiApkUrl }
-                if (downloadUrl.isEmpty()) {
-                    throw IllegalStateException("GitHub Release 缺少 universal 或当前 ABI 的 APK 资源。")
-                }
+                val downloadUrl = result.downloadUrl.ifEmpty { result.releaseUrl }
                 _uiState.update {
                     it.copy(
                         updateAvailable = true,
-                        latestReleaseVersion = latestVersion,
-                        latestReleaseUrl = releaseUrl,
+                        latestReleaseVersion = result.latestVersion,
+                        latestReleaseUrl = result.releaseUrl,
                         latestDownloadUrl = downloadUrl
                     )
                 }
             } catch (error: Exception) {
-                emitMessage("更新检查失败：${error.message}")
+                if (manual) {
+                    emitMessage("更新检查失败：${error.message}")
+                }
             }
         }
     }
-
-    private fun githubRepoSlug(projectUrl: String): String {
-        val trimmed = projectUrl.trim().removeSuffix(".git")
-        if (trimmed.matches(Regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"))) {
-            return trimmed
-        }
-        val uri = Uri.parse(trimmed)
-        if (uri.host != "github.com" || uri.pathSegments.size < 2) {
-            throw IllegalStateException("GitHub 项目地址无效。")
-        }
-        return uri.pathSegments[0] + "/" + uri.pathSegments[1]
-    }
-
-    private fun normalizeVersion(value: String): String =
-        value.trim().removePrefix("v").removePrefix("V").removeSuffix(".debug").substringBefore("-beta.")
 
     private fun defaultApiUrl(): String {
         val value = BuildConfig.DEFAULT_API_URL.trim()

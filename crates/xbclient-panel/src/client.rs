@@ -70,6 +70,7 @@ impl XbPanelClient {
             website_url: cfg.website_url.clone(),
             privacy_policy_url: cfg.privacy_policy_url.clone(),
             user_agreement_url: cfg.user_agreement_url.clone(),
+            github_repo: cfg.github_repo.clone(),
             registration_enabled: true,
             ..Default::default()
         };
@@ -364,6 +365,7 @@ impl XbPanelClient {
             website_url: self.cfg.website_url.clone(),
             privacy_policy_url: self.cfg.privacy_policy_url.clone(),
             user_agreement_url: self.cfg.user_agreement_url.clone(),
+            github_repo: self.cfg.github_repo.clone(),
             registration_enabled: true,
             ..Default::default()
         };
@@ -903,6 +905,7 @@ mod tests {
             website_url: "https://example.com".into(),
             privacy_policy_url: String::new(),
             user_agreement_url: String::new(),
+            github_repo: "MoeclubM/XBClient".into(),
         };
         let client = XbPanelClient::new(&dir, neto, cfg).unwrap();
         let snap = client.snapshot();

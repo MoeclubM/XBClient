@@ -95,6 +95,7 @@ internal fun SettingsScreen(
                     startAction = {
                         Icon(Icons.Rounded.Info, contentDescription = null, tint = MiuixTheme.colorScheme.onBackground, modifier = Modifier.padding(end = 6.dp))
                     },
+                    onClick = { viewModel.checkForUpdatesManual() },
                 )
                 val links = listOf(
                     R.string.about_website to BuildConfig.WEBSITE_URL.trim(),

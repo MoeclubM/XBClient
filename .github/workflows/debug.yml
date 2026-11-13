@@ -181,6 +181,8 @@ jobs:
       - name: Build xbclient_ffi & WinUI 3 app
         shell: bash
         run: |
+          latest_tag="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.14)"
+          base_ver="${latest_tag#v}"
           cargo build --release -p xbclient-ffi -p xbclient-service
           mkdir -p apps/windows/native dist
           cp target/release/xbclient_ffi.dll apps/windows/native/
@@ -189,6 +191,8 @@ jobs:
           dotnet publish apps/windows/XBClient.Windows.csproj \
             -c Release \
             -r win-x64 \
+            -p:Version="$base_ver" \
+            -p:InformationalVersion="${base_ver}-beta.${GITHUB_RUN_ID}" \
             -o dist/XBClient
           test -f dist/XBClient/XBClient.exe
           test -f dist/XBClient/XBClient.pri
@@ -201,13 +205,15 @@ jobs:
       - name: Build beta Windows installer (Inno Setup)
         shell: pwsh
         run: |
+          $latestTag = (git describe --tags --abbrev=0 2>$null); if (-not $latestTag) { $latestTag = "v0.0.14" }
+          $baseVer = $latestTag.TrimStart('v')
           $appName = $env:XBCLIENT_APP_NAME
           $outBase = "$appName-win-x64-beta-setup-$($env:GITHUB_RUN_ID)"
           $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
           if (-not (Test-Path $iscc)) {
             choco install innosetup --no-progress --yes
           }
-          & $iscc "/DMyAppName=$appName" "/DMyAppVersion=0.1.0-beta.$($env:GITHUB_RUN_ID)" "/DOutputBaseFilename=$outBase" 'apps/windows/installer/XBClient.iss'
+          & $iscc "/DMyAppName=$appName" "/DMyAppVersion=$baseVer-beta.$($env:GITHUB_RUN_ID)" "/DOutputBaseFilename=$outBase" 'apps/windows/installer/XBClient.iss'
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
           if (-not (Test-Path "dist/$outBase.exe")) { throw "dist/$outBase.exe missing" }
 

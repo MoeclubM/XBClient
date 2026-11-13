@@ -110,6 +110,7 @@ pub struct PanelStateSnapshot {
     pub website_url: String,
     pub privacy_policy_url: String,
     pub user_agreement_url: String,
+    pub github_repo: String,
     pub oauth_providers: Vec<OAuthProviderEntry>,
     pub email_verify_required: bool,
     pub registration_enabled: bool,

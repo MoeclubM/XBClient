@@ -139,6 +139,10 @@ fn main() -> anyhow::Result<()> {
         let plans_view = PlansView::new(panel_activate.clone(), handle_activate.clone());
         let account_view = AccountView::new(panel_activate.clone(), handle_activate.clone());
         let settings_view = SettingsView::new(ctrl_activate.clone());
+        settings_view.configure_updater(
+            &cfg_activate.github_repo,
+            option_env!("NETO_APP_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")),
+        );
 
         let links = [
             ("官方网站", cfg_activate.website_url.clone()),

@@ -191,6 +191,7 @@ jobs:
       - name: Build xbclient_ffi & WinUI 3 app
         shell: bash
         run: |
+          ver="${GITHUB_REF_NAME#v}"
           cargo build --release -p xbclient-ffi -p xbclient-service
           mkdir -p apps/windows/native dist
           cp target/release/xbclient_ffi.dll apps/windows/native/
@@ -199,6 +200,7 @@ jobs:
           dotnet publish apps/windows/XBClient.Windows.csproj \
             -c Release \
             -r win-x64 \
+            -p:Version="$ver" \
             -o dist/XBClient
           test -f dist/XBClient/XBClient.exe
           test -f dist/XBClient/XBClient.pri
@@ -290,7 +292,7 @@ jobs:
         shell: bash
         run: |
           ver="${GITHUB_REF_NAME#v}"
-          cargo build --release -p xbclient-linux
+          NETO_APP_VERSION="$ver" cargo build --release -p xbclient-linux
           pkg_root="dist/pkg-xbclient_${{ matrix.arch }}"
           mkdir -p "$pkg_root/DEBIAN" "$pkg_root/usr/bin" "$pkg_root/usr/share/applications" dist
           cp target/release/xbclient "$pkg_root/usr/bin/xbclient"

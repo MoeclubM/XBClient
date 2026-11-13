@@ -105,6 +105,7 @@ public sealed class PanelStateSnapshot
     [JsonPropertyName("website_url")] public string WebsiteUrl { get; set; } = "";
     [JsonPropertyName("privacy_policy_url")] public string PrivacyPolicyUrl { get; set; } = "";
     [JsonPropertyName("user_agreement_url")] public string UserAgreementUrl { get; set; } = "";
+    [JsonPropertyName("github_repo")] public string GithubRepo { get; set; } = "MoeclubM/XBClient";
     [JsonPropertyName("oauth_providers")] public List<OAuthProviderEntry> OAuthProviders { get; set; } = [];
     [JsonPropertyName("email_verify_required")] public bool EmailVerifyRequired { get; set; }
     [JsonPropertyName("registration_enabled")] public bool RegistrationEnabled { get; set; } = true;

@@ -11,6 +11,7 @@ pub struct BuildConfig {
     pub website_url: String,
     pub privacy_policy_url: String,
     pub user_agreement_url: String,
+    pub github_repo: String,
 }
 
 fn env_or_compile(compile_val: Option<&'static str>, runtime_key: &str, default: &str) -> String {
@@ -104,6 +105,22 @@ impl BuildConfig {
                 "XBCLIENT_USER_AGREEMENT_URL",
                 "",
             ),
+            github_repo: {
+                let custom = env_or_compile(
+                    option_env!("XBCLIENT_GITHUB_REPO"),
+                    "XBCLIENT_GITHUB_REPO",
+                    "",
+                );
+                if !custom.is_empty() {
+                    custom
+                } else {
+                    env_or_compile(
+                        option_env!("GITHUB_REPOSITORY"),
+                        "GITHUB_REPOSITORY",
+                        "MoeclubM/XBClient",
+                    )
+                }
+            },
         }
     }
 
