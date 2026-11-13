@@ -176,7 +176,7 @@ fn main() -> anyhow::Result<()> {
                 });
                 links_group.add(&row);
             }
-            settings_view.root.add(&links_group);
+            settings_view.add_group(&links_group);
         }
 
         view_stack.add_titled_with_icon(
@@ -242,8 +242,13 @@ fn main() -> anyhow::Result<()> {
 
         {
             let title_lbl = header_title.clone();
+            let sv = settings_view.clone();
             view_stack.connect_visible_child_name_notify(move |s| {
-                let text = match s.visible_child_name().as_deref() {
+                let name = s.visible_child_name();
+                if name.as_deref() == Some("settings") {
+                    sv.reset_to_root();
+                }
+                let text = match name.as_deref() {
                     Some("connect") | None => "",
                     Some("dashboard") => "主页",
                     Some("nodes") => "节点",

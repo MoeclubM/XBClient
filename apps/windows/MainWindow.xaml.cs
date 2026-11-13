@@ -79,6 +79,7 @@ public sealed partial class MainWindow : Window
         _accountView = new AccountPageView(_panelService);
         _settingsView = new SettingsPageView(_netoClient, ApplyThemeMode, RequestElevation);
         AppendCommercialLinks(initialPanel);
+        NavSettingsItem.Tapped += (_, _) => _settingsView.ResetToRoot();
 
         ContentHost.Children.Add(_connectView.Root);
         ContentHost.Children.Add(_dashboardView.Root);
@@ -225,6 +226,7 @@ public sealed partial class MainWindow : Window
             _ => NavConnectItem,
         };
         _syncingNav = false;
+        if (tab == "settings") _settingsView.ResetToRoot();
 
         if (tab == "connect")
         {

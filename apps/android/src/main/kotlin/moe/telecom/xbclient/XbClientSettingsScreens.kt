@@ -47,6 +47,7 @@ internal fun SettingsScreen(
         client = viewModel.netoClient,
         modifier = modifier,
         extraHeaderSlot = {
+            SmallTitle(stringResource(R.string.section_appearance))
             NetoPreferenceCard {
                 OverlayDropdownPreference(
                     title = stringResource(R.string.setting_language),
