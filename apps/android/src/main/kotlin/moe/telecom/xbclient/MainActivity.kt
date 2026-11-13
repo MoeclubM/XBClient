@@ -98,7 +98,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        viewModel.netoClient.refreshSnapshot()
         val state = viewModel.uiState.value
         if (state.loaded) {
             viewModel.syncAppearanceSettings()
