@@ -282,7 +282,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
     val visibleScreen = state.screen
     val backTargetScreen = when (visibleScreen) {
         PassScreen.TICKET_DETAIL -> PassScreen.TICKETS
-        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.SETTINGS -> PassScreen.PROFILE
+        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.SUB_LINKS, PassScreen.SETTINGS -> PassScreen.PROFILE
         PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
         else -> null
     }
@@ -399,7 +399,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
 @Composable
 private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewModel, color: Color, floating: Boolean) {
     val selected = when (state.screen) {
-        PassScreen.PROFILE, PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL, PassScreen.SETTINGS, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.PROFILE
+        PassScreen.PROFILE, PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL, PassScreen.SUB_LINKS, PassScreen.SETTINGS, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
         PassScreen.NODES -> PassScreen.NODES
         PassScreen.DASHBOARD -> PassScreen.DASHBOARD
@@ -511,7 +511,8 @@ private fun MainScreenContent(
                     PassScreen.PROFILE -> if (PxBoardApi.enabled) PxBoardAccount(state, viewModel) else ProfileScreen(state, viewModel)
                     PassScreen.GIFT_CARDS -> if (PxBoardApi.enabled) PxBoardRedeemAndBillingScreen(state, viewModel) else GiftCardsScreen(state, viewModel)
                     PassScreen.ACCOUNT_SECURITY -> if (PxBoardApi.enabled) PxBoardSecurityScreen(state, viewModel) else AccountSecurityScreen(state, viewModel)
-                    PassScreen.INVITE_DETAILS -> if (PxBoardApi.enabled) PxBoardAffiliateScreen(state, viewModel) else InviteDetailsScreen(state)
+                    PassScreen.INVITE_DETAILS -> if (PxBoardApi.enabled) PxBoardAffiliateScreen(state, viewModel) else InviteDetailsScreen(state, viewModel)
+                    PassScreen.SUB_LINKS -> PxBoardSubLinksScreen(state, viewModel)
                     PassScreen.TRAFFIC_LOGS -> TrafficLogsScreen(state)
                     PassScreen.TICKETS -> if (PxBoardApi.enabled) PxBoardTicketsScreen(state, viewModel) else TicketsScreen(state, viewModel)
                     PassScreen.TICKET_DETAIL -> if (PxBoardApi.enabled) PxBoardTicketDetailScreen(state, viewModel) else TicketDetailScreen(state, viewModel)

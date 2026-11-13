@@ -236,10 +236,13 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshOAuthProviders(showErrors = true)
                 refreshOAuthBindings(showLoading = true, showErrors = true)
             }
-            PassScreen.INVITE_DETAILS -> refreshInviteDetails(showLoading = true, showErrors = true)
+            PassScreen.INVITE_DETAILS -> {
+                refreshInvites(showErrors = true)
+                refreshInviteDetails(showLoading = true, showErrors = true)
+            }
             PassScreen.TRAFFIC_LOGS -> refreshTrafficLogs(showLoading = true, showErrors = true)
             PassScreen.TICKETS -> refreshTickets(showLoading = true, showErrors = true)
-            PassScreen.TICKET_DETAIL -> Unit
+            PassScreen.TICKET_DETAIL, PassScreen.SUB_LINKS -> Unit
             PassScreen.PLANS -> Unit
             PassScreen.OPEN_SOURCE_LICENSES -> Unit
             PassScreen.SETTINGS -> Unit
@@ -269,7 +272,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshOAuthProviders(showErrors = true)
                 refreshOAuthBindings(force = true, showLoading = true, showErrors = true)
             }
-            PassScreen.INVITE_DETAILS -> refreshInviteDetails(force = true, showLoading = true, showErrors = true)
+            PassScreen.INVITE_DETAILS -> {
+                refreshInvites(force = true, showLoading = true, showErrors = true)
+                refreshInviteDetails(force = true, showLoading = true, showErrors = true)
+            }
             PassScreen.TRAFFIC_LOGS -> refreshTrafficLogs(force = true, showLoading = true, showErrors = true)
             PassScreen.TICKETS -> refreshTickets(force = true, showLoading = true, showErrors = true)
             PassScreen.TICKET_DETAIL -> _uiState.value.selectedTicket?.let {
@@ -283,6 +289,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             }
             PassScreen.SETTINGS -> refreshUserInfo(showErrors = true)
             PassScreen.OPEN_SOURCE_LICENSES -> Unit
+            PassScreen.SUB_LINKS -> Unit
             PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES -> {
                 refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
                 refreshUserInfo(showErrors = true)
@@ -310,7 +317,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
         when (state.screen) {
             PassScreen.TICKET_DETAIL -> openScreen(PassScreen.TICKETS)
-            PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> openScreen(PassScreen.PROFILE)
+            PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.SUB_LINKS -> openScreen(PassScreen.PROFILE)
             PassScreen.OPEN_SOURCE_LICENSES -> openScreen(PassScreen.SETTINGS)
             PassScreen.SETTINGS -> openScreen(PassScreen.PROFILE)
             PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE -> Unit

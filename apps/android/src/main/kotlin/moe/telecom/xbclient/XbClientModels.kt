@@ -31,6 +31,7 @@ enum class PassScreen {
     TRAFFIC_LOGS,
     TICKETS,
     TICKET_DETAIL,
+    SUB_LINKS,
     SETTINGS,
     OPEN_SOURCE_LICENSES
 }

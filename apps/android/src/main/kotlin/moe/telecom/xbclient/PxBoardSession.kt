@@ -624,7 +624,7 @@ internal class PxBoardSession(
                             }
                         }
                     }
-                    PassScreen.PROFILE -> {
+                    PassScreen.SUB_LINKS -> {
                         if ("subscriptions" in ext || ext.isEmpty()) {
                             val arr = PxBoardApi.rpc("subscriptions", "links.list", auth, JSONObject().put("mine", true)) as? JSONArray
                             if (arr != null) _portalState.update { it.copy(links = parseLinks(arr)) }
@@ -957,7 +957,7 @@ internal class PxBoardSession(
             try {
                 PxBoardApi.rpc("subscriptions", "links.create", auth, JSONObject().put("name", name.trim()).put("bindUserAgent", bindUa))
                 message("订阅链接已创建")
-                loadScreenData(PassScreen.PROFILE)
+                loadScreenData(PassScreen.SUB_LINKS)
                 refresh(force = true)
             } catch (e: Exception) {
                 message(e.message ?: e.toString())
@@ -975,7 +975,7 @@ internal class PxBoardSession(
             try {
                 PxBoardApi.rpc("subscriptions", "links.$action", auth, JSONObject().put("id", id))
                 message(if (action == "rotate") "订阅链接已重置" else "订阅链接已删除")
-                loadScreenData(PassScreen.PROFILE)
+                loadScreenData(PassScreen.SUB_LINKS)
                 refresh(force = true)
             } catch (e: Exception) {
                 message(e.message ?: e.toString())

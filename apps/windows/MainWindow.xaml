@@ -25,6 +25,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock
                         x:Name="PageHeaderText"
@@ -35,6 +36,17 @@
                         x:Name="PageHeaderActionHost"
                         Grid.Column="1"
                         VerticalAlignment="Center" />
+                    <Button
+                        x:Name="NoticeButton"
+                        Grid.Column="2"
+                        Margin="8,0,0,0"
+                        Padding="8,6"
+                        VerticalAlignment="Center"
+                        Visibility="Collapsed"
+                        ToolTipService.ToolTip="公告"
+                        Click="OnNoticeButtonClick">
+                        <FontIcon FontSize="14" Glyph="&#xEA8F;" />
+                    </Button>
                 </Grid>
             </Border>
 

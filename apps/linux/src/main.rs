@@ -18,7 +18,7 @@ fn main() {
 fn main() -> anyhow::Result<()> {
     use crate::account_view::AccountView;
     use crate::auth_view::AuthView;
-    use crate::helpers::describe_block_reason;
+    use crate::helpers::{describe_block_reason, plain_text};
     use crate::plans_view::PlansView;
     use adw::prelude::*;
     use neto_core::{NetoController, init_rustls_provider};
@@ -228,6 +228,43 @@ fn main() -> anyhow::Result<()> {
             .title_widget(&header_title)
             .build();
         header.add_css_class("flat");
+        let notice_btn = gtk::Button::from_icon_name("mail-unread-symbolic");
+        notice_btn.set_tooltip_text(Some("公告"));
+        notice_btn.set_visible(false);
+        header.pack_end(&notice_btn);
+        {
+            let p = panel_activate.clone();
+            notice_btn.connect_clicked(move |btn| {
+                let list = gtk::Box::new(gtk::Orientation::Vertical, 12);
+                list.set_margin_top(12);
+                list.set_margin_bottom(12);
+                list.set_margin_start(12);
+                list.set_margin_end(12);
+                for notice in &p.snapshot().notices {
+                    let title = gtk::Label::new(Some(&notice.title));
+                    title.add_css_class("heading");
+                    title.set_wrap(true);
+                    title.set_xalign(0.0);
+                    let body = gtk::Label::new(Some(&plain_text(&notice.content)));
+                    body.set_wrap(true);
+                    body.set_xalign(0.0);
+                    body.set_selectable(true);
+                    list.append(&title);
+                    list.append(&body);
+                }
+                let scroll = gtk::ScrolledWindow::builder()
+                    .hscrollbar_policy(gtk::PolicyType::Never)
+                    .min_content_height(320)
+                    .max_content_height(460)
+                    .propagate_natural_height(true)
+                    .child(&list)
+                    .build();
+                let dialog = adw::AlertDialog::builder().heading("公告").build();
+                dialog.set_extra_child(Some(&scroll));
+                dialog.add_response("close", "关闭");
+                dialog.present(btn.root().as_ref());
+            });
+        }
 
         let bottom_bar = adw::ViewSwitcherBar::builder()
             .stack(&view_stack)
@@ -243,10 +280,13 @@ fn main() -> anyhow::Result<()> {
         {
             let title_lbl = header_title.clone();
             let sv = settings_view.clone();
+            let av = account_view.clone();
             view_stack.connect_visible_child_name_notify(move |s| {
                 let name = s.visible_child_name();
                 if name.as_deref() == Some("settings") {
                     sv.reset_to_root();
+                } else if name.as_deref() == Some("account") {
+                    av.reset_to_root();
                 }
                 let text = match name.as_deref() {
                     Some("connect") | None => "",
@@ -374,6 +414,7 @@ fn main() -> anyhow::Result<()> {
                 auth_view.apply_snapshot(&psnap);
 
                 if psnap.logged_in {
+                    notice_btn.set_visible(!psnap.notices.is_empty());
                     let show_plans = psnap.panel_type != "pxboard"
                         || psnap.extensions.iter().any(|e| e == "commerce");
                     plans_page.set_visible(show_plans);

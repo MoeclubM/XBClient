@@ -39,7 +39,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val context = LocalContext.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -65,10 +64,11 @@ internal fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel)
         Text(subscriptionText, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
     }
     NetoPreferenceCard {
-        ArrowPreference(title = stringResource(R.string.page_account_security), onClick = { viewModel.openScreen(PassScreen.ACCOUNT_SECURITY) })
         ArrowPreference(title = stringResource(R.string.page_gift_cards), onClick = { viewModel.openScreen(PassScreen.GIFT_CARDS) })
-        ArrowPreference(title = stringResource(R.string.common_settings), onClick = { viewModel.openScreen(PassScreen.SETTINGS) })
-        ArrowPreference(title = stringResource(R.string.common_logout), onClick = viewModel::logout)
+        ArrowPreference(title = stringResource(R.string.page_invite_details), onClick = { viewModel.openScreen(PassScreen.INVITE_DETAILS) })
+        ArrowPreference(title = stringResource(R.string.page_tickets), onClick = { viewModel.openScreen(PassScreen.TICKETS) })
+        ArrowPreference(title = stringResource(R.string.page_traffic_logs), onClick = { viewModel.openScreen(PassScreen.TRAFFIC_LOGS) })
+        ArrowPreference(title = stringResource(R.string.page_account_security), onClick = { viewModel.openScreen(PassScreen.ACCOUNT_SECURITY) })
     }
     RewardAdSection(
         title = stringResource(R.string.reward_points_title),
@@ -78,10 +78,14 @@ internal fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel)
         viewModel = viewModel
     )
     NetoPreferenceCard {
-        ArrowPreference(title = stringResource(R.string.page_traffic_logs), onClick = { viewModel.openScreen(PassScreen.TRAFFIC_LOGS) })
-        ArrowPreference(title = stringResource(R.string.page_invite_details), onClick = { viewModel.openScreen(PassScreen.INVITE_DETAILS) })
-        ArrowPreference(title = stringResource(R.string.page_tickets), onClick = { viewModel.openScreen(PassScreen.TICKETS) })
+        ArrowPreference(title = stringResource(R.string.common_settings), onClick = { viewModel.openScreen(PassScreen.SETTINGS) })
+        ArrowPreference(title = stringResource(R.string.common_logout), onClick = viewModel::logout)
     }
+}
+
+@Composable
+internal fun InviteDetailsScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
     if (state.inviteForce || state.inviteCommissionRate > 0) {
         Section(stringResource(R.string.section_invite)) {
             Panel {
@@ -127,10 +131,6 @@ internal fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel)
             }
         }
     }
-}
-
-@Composable
-internal fun InviteDetailsScreen(state: XbClientUiState) {
     Section(stringResource(R.string.page_invite_details)) {
         Panel {
             Text(stringResource(R.string.invite_details_count, state.commissionTotal), color = MiuixTheme.colorScheme.onSurfaceVariantSummary)

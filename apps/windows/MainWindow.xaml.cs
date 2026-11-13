@@ -80,6 +80,7 @@ public sealed partial class MainWindow : Window
         _settingsView = new SettingsPageView(_netoClient, ApplyThemeMode, RequestElevation);
         AppendCommercialLinks(initialPanel);
         NavSettingsItem.Tapped += (_, _) => _settingsView.ResetToRoot();
+        NavAccountItem.Tapped += (_, _) => _accountView.ResetToRoot();
 
         ContentHost.Children.Add(_connectView.Root);
         ContentHost.Children.Add(_dashboardView.Root);
@@ -227,6 +228,7 @@ public sealed partial class MainWindow : Window
         };
         _syncingNav = false;
         if (tab == "settings") _settingsView.ResetToRoot();
+        if (tab == "account") _accountView.ResetToRoot();
 
         if (tab == "connect")
         {
@@ -276,6 +278,7 @@ public sealed partial class MainWindow : Window
         if (!snap.LoggedIn) return;
 
         NavPlansItem.Visibility = snap.ShowPlansTab ? Visibility.Visible : Visibility.Collapsed;
+        NoticeButton.Visibility = snap.Notices.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         if (_currentTab == "plans" && !snap.ShowPlansTab) SwitchTab("account");
 
         if (_lastBlockReason != snap.BlockReason)
@@ -286,6 +289,39 @@ public sealed partial class MainWindow : Window
         _dashboardView.SetExtraHeader(BuildAccountHeaderCard(snap));
         _plansView.ApplySnapshot(snap);
         _accountView.ApplySnapshot(snap);
+    }
+
+    private async void OnNoticeButtonClick(object sender, RoutedEventArgs e)
+    {
+        var list = new StackPanel { Spacing = 12 };
+        foreach (var notice in _panelService.Snapshot.Notices)
+        {
+            var item = new StackPanel { Spacing = 4 };
+            item.Children.Add(new TextBlock { Text = notice.Title, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
+            if (notice.CreatedAt > 0)
+            {
+                item.Children.Add(new TextBlock
+                {
+                    Text = XbFormat.UnixDate(notice.CreatedAt),
+                    FontSize = 11,
+                    Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+                });
+            }
+            var body = XbFormat.PlainText(notice.Content);
+            if (!string.IsNullOrEmpty(body))
+            {
+                item.Children.Add(new TextBlock { Text = body, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true });
+            }
+            list.Children.Add(item);
+        }
+        var dialog = new ContentDialog
+        {
+            XamlRoot = RootGrid.XamlRoot,
+            Title = "公告",
+            CloseButtonText = "关闭",
+            Content = new ScrollViewer { Content = list, MaxHeight = 460 },
+        };
+        await dialog.ShowAsync();
     }
 
     private UIElement BuildBlockedCard(PanelStateSnapshot snap)

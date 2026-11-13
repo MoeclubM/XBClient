@@ -357,7 +357,7 @@ private fun screenOrder(screen: PassScreen): Int =
         PassScreen.NODES -> 2
         PassScreen.PLANS -> 3
         PassScreen.PROFILE -> 4
-        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 5
+        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL, PassScreen.SUB_LINKS -> 5
         PassScreen.SETTINGS -> 5
         PassScreen.OPEN_SOURCE_LICENSES -> 6
     }
@@ -378,4 +378,5 @@ internal fun screenTitle(screen: PassScreen): String =
         PassScreen.TRAFFIC_LOGS -> stringResource(R.string.page_traffic_logs)
         PassScreen.TICKETS -> stringResource(R.string.page_tickets)
         PassScreen.TICKET_DETAIL -> stringResource(R.string.page_ticket_detail)
+        PassScreen.SUB_LINKS -> "订阅链接"
     }

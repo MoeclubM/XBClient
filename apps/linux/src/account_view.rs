@@ -1,6 +1,5 @@
 #![cfg(target_os = "linux")]
 
-use crate::helpers::plain_text;
 use adw::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -12,17 +11,24 @@ use xbclient_panel::{
 };
 
 pub struct AccountView {
-    pub root: gtk::ScrolledWindow,
+    pub root: gtk::Box,
+    stack: gtk::Stack,
     email_row: adw::ActionRow,
     portal_btn: gtk::Button,
     balance_row: adw::ActionRow,
-    sub_box: gtk::Box,
+    sub_group: adw::PreferencesGroup,
+    billing_nav: adw::ActionRow,
+    invite_nav: adw::ActionRow,
+    tickets_nav: adw::ActionRow,
+    security_nav: adw::ActionRow,
+    billing_title: gtk::Label,
     recharge_group: adw::PreferencesGroup,
     recharge_channel_dropdown: gtk::DropDown,
     recharge_channel_ids: Rc<RefCell<Vec<String>>>,
     redeem_group: adw::PreferencesGroup,
     pub(crate) feedback_label: gtk::Label,
-    dynamic_box: gtk::Box,
+    invite_box: gtk::Box,
+    tickets_box: gtk::Box,
     ticket_detail_box: gtk::Box,
     new_ticket_group: adw::PreferencesGroup,
     pw_mfa_row: adw::EntryRow,
@@ -34,25 +40,72 @@ pub struct AccountView {
     pub(crate) rt: Handle,
 }
 
+fn page_shell(content: &gtk::Box) -> gtk::ScrolledWindow {
+    let scroll = gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .vexpand(true)
+        .build();
+    let clamp = adw::Clamp::builder()
+        .maximum_size(760)
+        .margin_top(12)
+        .margin_bottom(20)
+        .margin_start(14)
+        .margin_end(14)
+        .build();
+    clamp.set_child(Some(content));
+    scroll.set_child(Some(&clamp));
+    scroll
+}
+
+fn subpage(stack: &gtk::Stack, name: &str, title: &str, feedback: &gtk::Label) -> (gtk::Box, gtk::Label) {
+    let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
+    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let back_btn = gtk::Button::from_icon_name("go-previous-symbolic");
+    back_btn.add_css_class("flat");
+    let title_lbl = gtk::Label::new(Some(title));
+    title_lbl.add_css_class("heading");
+    bar.append(&back_btn);
+    bar.append(&title_lbl);
+    content.append(&bar);
+    {
+        let st = stack.clone();
+        let fb = feedback.clone();
+        back_btn.connect_clicked(move |_| {
+            fb.set_visible(false);
+            st.set_visible_child_name("root");
+        });
+    }
+    stack.add_named(&page_shell(&content), Some(name));
+    (content, title_lbl)
+}
+
+fn nav_row(stack: &gtk::Stack, group: &adw::PreferencesGroup, title: &str, target: &'static str, feedback: &gtk::Label) -> adw::ActionRow {
+    let row = adw::ActionRow::builder().title(title).activatable(true).build();
+    row.set_use_markup(false);
+    row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
+    let st = stack.clone();
+    let fb = feedback.clone();
+    row.connect_activated(move |_| {
+        fb.set_visible(false);
+        st.set_visible_child_name(target);
+    });
+    group.add(&row);
+    row
+}
+
 impl AccountView {
     pub fn new(panel: Arc<XbPanelClient>, rt: Handle) -> Rc<Self> {
-        let scroll = gtk::ScrolledWindow::builder()
-            .hscrollbar_policy(gtk::PolicyType::Never)
-            .vexpand(true)
-            .build();
-        let clamp = adw::Clamp::builder()
-            .maximum_size(760)
-            .margin_top(12)
-            .margin_bottom(20)
-            .margin_start(14)
-            .margin_end(14)
-            .build();
+        let stack = gtk::Stack::new();
+        stack.set_transition_type(gtk::StackTransitionType::SlideLeftRight);
         let outer = gtk::Box::new(gtk::Orientation::Vertical, 12);
 
         let feedback_label = gtk::Label::new(None);
         feedback_label.set_wrap(true);
         feedback_label.set_xalign(0.0);
         feedback_label.set_visible(false);
+        feedback_label.set_margin_top(8);
+        feedback_label.set_margin_start(18);
+        feedback_label.set_margin_end(18);
 
         // Account overview
         let acc_group = adw::PreferencesGroup::builder().title("账户信息").build();
@@ -76,8 +129,28 @@ impl AccountView {
         acc_group.add(&email_row);
         acc_group.add(&balance_row);
 
-        let sub_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
-        sub_box.set_visible(false);
+        let sub_group = adw::PreferencesGroup::new();
+        sub_group.set_visible(false);
+        let sub_row = adw::ActionRow::builder().title("订阅地址").build();
+        let sub_copy_btn = gtk::Button::with_label("复制");
+        sub_copy_btn.add_css_class("flat");
+        sub_copy_btn.set_valign(gtk::Align::Center);
+        sub_row.add_suffix(&sub_copy_btn);
+        sub_group.add(&sub_row);
+        {
+            let p = panel.clone();
+            sub_copy_btn.connect_clicked(move |_| {
+                if let Some(display) = gtk::gdk::Display::default() {
+                    display.clipboard().set_text(&p.snapshot().subscribe_url);
+                }
+            });
+        }
+
+        let nav_group = adw::PreferencesGroup::new();
+        let billing_nav = nav_row(&stack, &nav_group, "充值与兑换", "billing", &feedback_label);
+        let invite_nav = nav_row(&stack, &nav_group, "邀请返利", "invite", &feedback_label);
+        let tickets_nav = nav_row(&stack, &nav_group, "工单", "tickets", &feedback_label);
+        let security_nav = nav_row(&stack, &nav_group, "账户安全", "security", &feedback_label);
 
         let recharge_group = adw::PreferencesGroup::builder().title("余额充值").build();
         recharge_group.set_visible(false);
@@ -103,8 +176,8 @@ impl AccountView {
         redeem_row.add_suffix(&redeem_btn);
         redeem_group.add(&redeem_row);
 
-        // Dynamic sections (invite, notices, tickets list)
-        let dynamic_box = gtk::Box::new(gtk::Orientation::Vertical, 12);
+        let invite_box = gtk::Box::new(gtk::Orientation::Vertical, 12);
+        let tickets_box = gtk::Box::new(gtk::Orientation::Vertical, 12);
         let ticket_detail_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
 
         // New ticket group
@@ -135,18 +208,27 @@ impl AccountView {
 
         let security_box = gtk::Box::new(gtk::Orientation::Vertical, 12);
 
-        outer.append(&feedback_label);
         outer.append(&acc_group);
-        outer.append(&sub_box);
-        outer.append(&recharge_group);
-        outer.append(&redeem_group);
-        outer.append(&dynamic_box);
-        outer.append(&ticket_detail_box);
-        outer.append(&new_ticket_group);
-        outer.append(&pw_group);
-        outer.append(&security_box);
-        clamp.set_child(Some(&outer));
-        scroll.set_child(Some(&clamp));
+        outer.append(&sub_group);
+        outer.append(&nav_group);
+        stack.add_named(&page_shell(&outer), Some("root"));
+
+        let (billing_page, billing_title) = subpage(&stack, "billing", "充值与兑换", &feedback_label);
+        billing_page.append(&recharge_group);
+        billing_page.append(&redeem_group);
+        let (invite_page, _) = subpage(&stack, "invite", "邀请返利", &feedback_label);
+        invite_page.append(&invite_box);
+        let (tickets_page, _) = subpage(&stack, "tickets", "工单", &feedback_label);
+        tickets_page.append(&new_ticket_group);
+        tickets_page.append(&tickets_box);
+        tickets_page.append(&ticket_detail_box);
+        let (security_page, _) = subpage(&stack, "security", "账户安全", &feedback_label);
+        security_page.append(&pw_group);
+        security_page.append(&security_box);
+        stack.set_visible_child_name("root");
+        let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        root.append(&feedback_label);
+        root.append(&stack);
 
         {
             let p = panel.clone();
@@ -389,17 +471,24 @@ impl AccountView {
         }
 
         Rc::new(Self {
-            root: scroll,
+            root,
+            stack,
             email_row,
             portal_btn,
             balance_row,
-            sub_box,
+            sub_group,
+            billing_nav,
+            invite_nav,
+            tickets_nav,
+            security_nav,
+            billing_title,
             recharge_group,
             recharge_channel_dropdown,
             recharge_channel_ids,
             redeem_group,
             feedback_label,
-            dynamic_box,
+            invite_box,
+            tickets_box,
             ticket_detail_box,
             new_ticket_group,
             pw_mfa_row,
@@ -410,6 +499,11 @@ impl AccountView {
             panel,
             rt,
         })
+    }
+
+    pub fn reset_to_root(&self) {
+        self.feedback_label.set_visible(false);
+        self.stack.set_visible_child_name("root");
     }
 
     pub fn apply_snapshot(self: &Rc<Self>, snap: &PanelStateSnapshot) {
@@ -432,6 +526,38 @@ impl AccountView {
         self.redeem_group.set_visible(show_redeem);
         self.recharge_group.set_visible(show_recharge);
         self.new_ticket_group.set_visible(show_tickets);
+        self.billing_nav.set_visible(show_redeem || show_recharge);
+        self.invite_nav.set_visible(show_invite);
+        self.tickets_nav.set_visible(show_tickets);
+        let billing_title = match (show_recharge, show_redeem) {
+            (true, true) => "充值与兑换",
+            (true, false) => "余额充值",
+            _ => "兑换码",
+        };
+        self.billing_nav.set_title(billing_title);
+        self.billing_title.set_text(billing_title);
+        let money = |v| format_money_cents(v, &snap.currency_symbol, &snap.currency_unit);
+        self.billing_nav.set_subtitle(&format!("余额 {}", money(snap.balance)));
+        self.invite_nav.set_subtitle(&if snap.invite_commission_rate > 0 {
+            format!("返利 {}% · 佣金 {}", snap.invite_commission_rate, money(snap.commission_balance))
+        } else {
+            format!("佣金 {}", money(snap.commission_balance))
+        });
+        let open_tickets = snap.tickets.iter().filter(|t| !t.closed).count();
+        self.tickets_nav.set_subtitle(&if open_tickets > 0 {
+            format!("{open_tickets} 个处理中")
+        } else {
+            "提交问题与查看回复".to_string()
+        });
+        let mut security_parts = vec!["修改密码"];
+        if is_px {
+            security_parts.push(if snap.mfa_enabled { "两步验证已开启" } else { "两步验证未开启" });
+        }
+        if show_oauth {
+            security_parts.push("第三方登录");
+        }
+        self.security_nav.set_subtitle(&security_parts.join(" · "));
+        self.sub_group.set_visible(!snap.subscribe_url.is_empty());
         if !show_tickets {
             while let Some(c) = self.ticket_detail_box.first_child() {
                 self.ticket_detail_box.remove(&c);
@@ -487,37 +613,16 @@ impl AccountView {
             snap.referral_url,
             snap.invite_commission_rate,
             snap.invite_codes.join(","),
-            format!(
-                "{}#{}",
-                snap.notices
-                    .iter()
-                    .map(|n| format!("{}:{}", n.id, n.title))
-                    .collect::<Vec<_>>()
-                    .join(","),
-                snap.tickets
-                    .iter()
-                    .map(|t| format!("{}:{}:{}", t.id, t.status_text, t.messages.len()))
-                    .collect::<Vec<_>>()
-                    .join(",")
-            ),
+            snap.tickets
+                .iter()
+                .map(|t| format!("{}:{}:{}", t.id, t.status_text, t.messages.len()))
+                .collect::<Vec<_>>()
+                .join(","),
         );
         if *self.last_sig.borrow() == sig {
             return;
         }
         *self.last_sig.borrow_mut() = sig;
-
-        // Subscription URL
-        while let Some(c) = self.sub_box.first_child() {
-            self.sub_box.remove(&c);
-        }
-        if !snap.subscribe_url.is_empty() {
-            let sub_group = adw::PreferencesGroup::builder().title("订阅地址").build();
-            sub_group.add(&build_copy_row("导入链接", &snap.subscribe_url));
-            self.sub_box.append(&sub_group);
-            self.sub_box.set_visible(true);
-        } else {
-            self.sub_box.set_visible(false);
-        }
 
         // Recharge channels
         if show_recharge {
@@ -529,8 +634,10 @@ impl AccountView {
             self.recharge_channel_dropdown.set_selected(0);
         }
 
-        while let Some(c) = self.dynamic_box.first_child() {
-            self.dynamic_box.remove(&c);
+        for container in [&self.invite_box, &self.tickets_box] {
+            while let Some(c) = container.first_child() {
+                container.remove(&c);
+            }
         }
 
         // Invite section
@@ -540,10 +647,7 @@ impl AccountView {
             } else {
                 String::new()
             };
-            let invite_group = adw::PreferencesGroup::builder()
-                .title("邀请返利")
-                .description(&invite_desc)
-                .build();
+            let invite_group = adw::PreferencesGroup::builder().description(&invite_desc).build();
             if !snap.referral_url.is_empty() {
                 invite_group.add(&build_copy_row("推广链接", &snap.referral_url));
             }
@@ -568,21 +672,7 @@ impl AccountView {
                 });
                 invite_group.set_header_suffix(Some(&gen_btn));
             }
-            self.dynamic_box.append(&invite_group);
-        }
-
-        // Notices section
-        if !snap.notices.is_empty() {
-            let n_group = adw::PreferencesGroup::builder().title("站点公告").build();
-            for notice in snap.notices.iter().take(6) {
-                let row = adw::ActionRow::builder()
-                    .title(&notice.title)
-                    .subtitle(&plain_text(&notice.content))
-                    .build();
-                row.set_use_markup(false);
-                n_group.add(&row);
-            }
-            self.dynamic_box.append(&n_group);
+            self.invite_box.append(&invite_group);
         }
 
         // Tickets list
@@ -619,7 +709,7 @@ impl AccountView {
                 row.add_suffix(&view_btn);
                 t_group.add(&row);
             }
-            self.dynamic_box.append(&t_group);
+            self.tickets_box.append(&t_group);
         }
 
         // Native 2FA & OAuth Bindings (PxBoard)

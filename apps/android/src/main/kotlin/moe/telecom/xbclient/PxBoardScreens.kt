@@ -500,10 +500,6 @@ internal fun PxBoardPlansScreen(state: XbClientUiState, viewModel: XbClientViewM
 
 @Composable
 internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel) {
-    val context = LocalContext.current
-    val portal by viewModel.pxboardSession.portalState.collectAsStateWithLifecycle()
-    var linkName by rememberSaveable { mutableStateOf("") }
-    var bindUa by rememberSaveable { mutableStateOf(false) }
     val ext = state.nativeExtensions
 
     Card(
@@ -533,6 +529,12 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
     }
 
     NetoPreferenceCard {
+        if ("subscriptions" in ext) {
+            ArrowPreference(
+                title = "订阅链接",
+                onClick = { viewModel.openScreen(PassScreen.SUB_LINKS) },
+            )
+        }
         if ("commerce" in ext || "redeem" in ext) {
             ArrowPreference(
                 title = when {
@@ -543,36 +545,21 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
                 onClick = { viewModel.openScreen(PassScreen.GIFT_CARDS) },
             )
         }
-        if ("support" in ext) {
-            ArrowPreference(
-                title = "工单与使用帮助",
-                onClick = { viewModel.openScreen(PassScreen.TICKETS) },
-            )
-        }
         if ("affiliate" in ext) {
             ArrowPreference(
                 title = "推广返佣",
                 onClick = { viewModel.openScreen(PassScreen.INVITE_DETAILS) },
             )
         }
-        ArrowPreference(
-            title = stringResource(R.string.page_account_security),
-            onClick = { viewModel.openScreen(PassScreen.ACCOUNT_SECURITY) },
-        )
-        ArrowPreference(
-            title = stringResource(R.string.common_settings),
-            onClick = { viewModel.openScreen(PassScreen.SETTINGS) },
-        )
-        if (state.paymentEnabled) {
+        if ("support" in ext) {
             ArrowPreference(
-                title = stringResource(R.string.panel_user_center),
-                summary = "在浏览器打开完整网页控制台",
-                onClick = { viewModel.openPxBoardPortal("/user") },
+                title = "工单与使用帮助",
+                onClick = { viewModel.openScreen(PassScreen.TICKETS) },
             )
         }
         ArrowPreference(
-            title = stringResource(R.string.common_logout),
-            onClick = viewModel::logout,
+            title = stringResource(R.string.page_account_security),
+            onClick = { viewModel.openScreen(PassScreen.ACCOUNT_SECURITY) },
         )
     }
 
@@ -584,8 +571,32 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
         viewModel = viewModel,
     )
 
-    if ("subscriptions" in ext) {
-        Section("订阅链接") {
+    NetoPreferenceCard {
+        ArrowPreference(
+            title = stringResource(R.string.common_settings),
+            onClick = { viewModel.openScreen(PassScreen.SETTINGS) },
+        )
+        if (state.paymentEnabled) {
+            ArrowPreference(
+                title = stringResource(R.string.panel_user_center),
+                onClick = { viewModel.openPxBoardPortal("/user") },
+            )
+        }
+        ArrowPreference(
+            title = stringResource(R.string.common_logout),
+            onClick = viewModel::logout,
+        )
+    }
+}
+
+@Composable
+internal fun PxBoardSubLinksScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+    val context = LocalContext.current
+    val portal by viewModel.pxboardSession.portalState.collectAsStateWithLifecycle()
+    var linkName by rememberSaveable { mutableStateOf("") }
+    var bindUa by rememberSaveable { mutableStateOf(false) }
+    run {
+        Section("新建") {
             Panel {
                 TextField(
                     value = linkName,
