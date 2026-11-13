@@ -77,12 +77,12 @@
     <string name="action_generate_invite">生成邀请码</string>
 
     <string name="subscription_no_plan_title">未开通套餐</string>
-    <string name="subscription_no_plan_body">当前账号没有可用套餐或流量包，请兑换套餐/流量包/重置流量后再使用节点。</string>
+    <string name="subscription_no_plan_body">当前账号暂无有效套餐或流量包。</string>
     <string name="subscription_expired_title">套餐已过期</string>
-    <string name="subscription_expired_body">当前套餐已过期，请兑换套餐/流量包/重置流量后再使用节点。</string>
+    <string name="subscription_expired_body">当前套餐已到期。</string>
     <string name="subscription_traffic_exceeded_title">流量已用尽</string>
-    <string name="subscription_traffic_exceeded_body">当前套餐或流量包流量已用尽，请兑换套餐/流量包/重置流量后再使用节点。</string>
-    <string name="subscription_redeem_button">去兑换套餐/流量包/重置流量</string>
+    <string name="subscription_traffic_exceeded_body">当前计费周期流量已耗尽。</string>
+    <string name="subscription_redeem_button">开通或兑换套餐</string>
     <string name="subscription_not_synced">订阅未同步</string>
     <string name="subscription_synced">订阅已同步</string>
 
@@ -123,7 +123,7 @@
 
     <string name="page_settings_subtitle">设置外观、DNS、IPv6 与按应用规则。</string>
     <string name="onboarding_language_title">选择应用语言</string>
-    <string name="onboarding_language_subtitle">先选择界面语言，之后可在设置中随时修改。</string>
+    <string name="onboarding_language_subtitle">选择界面显示语言。</string>
     <string name="onboarding_continue">继续</string>
     <string name="setting_language">语言</string>
     <string name="setting_theme">颜色模式</string>

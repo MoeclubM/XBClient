@@ -457,7 +457,7 @@ internal fun PxBoardPlansScreen(state: XbClientUiState, viewModel: XbClientViewM
             if (walletShort) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    if (state.paymentEnabled) "余额不足，请选择在线支付或前往账单充值" else "账户余额不足，请先使用兑换码补充余额或兑换套餐",
+                    if (state.paymentEnabled) "当前余额不足，可切换在线支付或充值余额" else "当前余额不足，可使用兑换码补充",
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
             }
@@ -636,7 +636,7 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
                                 )
                             } else {
                                 TextButton(
-                                    text = "前往验证",
+                                    text = "安全验证",
                                     onClick = { viewModel.openPxBoardPortal("/user/subscriptions") },
                                     modifier = Modifier.weight(1f),
                                     colors = ButtonDefaults.textButtonColorsPrimary(),

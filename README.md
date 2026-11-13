@@ -17,7 +17,7 @@
 
 - **面板一体**：登录 / 注册 / 第三方登录，套餐购买与兑换，工单，流量记录，邀请返利，站点公告。
 - **全平台原生 UI**：Android 采用 Jetpack Compose + Miuix，Windows 采用 WinUI 3（.NET 9），Linux Wayland 采用 GTK4 + libadwaita，无 Electron / WebView 壳开销。
-- **连接与节点分离**：独立无标题连接页、独立底栏节点页、支持自定义卡片与排序的 FlClash 风格主页仪表盘。
+- **连接、节点与会话分离**：独立无标题连接页、底栏节点与会话页、可自定义模块与排序的主页仪表盘，支持活跃会话监控、多策略组路由、规则匹配测试与出口连通检测。
 - **TUN 与分流**：全局、规则或直连模式；Android 支持分应用代理；Windows 与 Linux Wayland 支持系统代理与 TUN 双接管及系统托盘。
 - **协议齐全**：Flux、Sudoku、AnyTLS、Hysteria2、Trojan、VLESS、VMess、Mieru、Naive、TUIC、Shadowsocks，以及 HTTP / SOCKS5。
 - **多语言**：中文、英语、日语、俄语、波斯语，可跟随系统。

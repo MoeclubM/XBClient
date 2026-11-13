@@ -60,19 +60,16 @@ internal fun SettingsScreen(
                 )
                 SwitchPreference(
                     title = stringResource(R.string.setting_theme_blur),
-                    summary = stringResource(R.string.setting_theme_blur_summary),
                     checked = state.enableBlur,
                     onCheckedChange = viewModel::setEnableBlur,
                 )
                 SwitchPreference(
                     title = stringResource(R.string.setting_theme_floating_bar),
-                    summary = stringResource(R.string.setting_theme_floating_bar_summary),
                     checked = state.floatingBottomBar,
                     onCheckedChange = viewModel::setFloatingBottomBar,
                 )
                 ArrowPreference(
                     title = stringResource(R.string.setting_reset_onboarding),
-                    summary = stringResource(R.string.setting_reset_onboarding_summary),
                     startAction = {
                         Icon(Icons.Rounded.RestartAlt, contentDescription = null, tint = MiuixTheme.colorScheme.onBackground, modifier = Modifier.padding(end = 6.dp))
                     },
@@ -89,7 +86,7 @@ internal fun SettingsScreen(
             }
         },
         extraFooterSlot = {
-            SmallTitle(stringResource(R.string.app_name))
+            SmallTitle(stringResource(R.string.section_about))
             NetoPreferenceCard {
                 ArrowPreference(
                     title = stringResource(R.string.app_name),

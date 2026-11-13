@@ -177,7 +177,7 @@ public sealed class PlansPageView
                 }
                 periodCombo.SelectedIndex = 0;
 
-                var buyBtn = new Button { Content = "立即购买" };
+                var buyBtn = new Button { Content = "购买" };
                 NetoUiFactory.ApplyPrimaryButton(buyBtn, true);
                 var currentPlan = plan;
                 buyBtn.Click += async (_, _) =>

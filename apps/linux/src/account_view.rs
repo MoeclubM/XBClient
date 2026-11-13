@@ -79,14 +79,13 @@ impl AccountView {
         let sub_box = gtk::Box::new(gtk::Orientation::Vertical, 8);
         sub_box.set_visible(false);
 
-        // Wallet recharge (PxBoard online payment)
         let recharge_group = adw::PreferencesGroup::builder().title("余额充值").build();
         recharge_group.set_visible(false);
         let recharge_amount_row = adw::EntryRow::builder().title("充值金额（如 20）").build();
         let recharge_ch_row = adw::ActionRow::builder().title("支付渠道").build();
         let recharge_channel_dropdown = gtk::DropDown::from_strings(&[]);
         recharge_channel_dropdown.set_valign(gtk::Align::Center);
-        let recharge_btn = gtk::Button::with_label("前往充值");
+        let recharge_btn = gtk::Button::with_label("充值");
         recharge_btn.add_css_class("suggested-action");
         recharge_btn.set_valign(gtk::Align::Center);
         recharge_ch_row.add_suffix(&recharge_channel_dropdown);

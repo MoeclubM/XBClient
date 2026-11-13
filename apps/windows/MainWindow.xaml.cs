@@ -21,6 +21,7 @@ public sealed partial class MainWindow : Window
     private readonly ConnectPageView _connectView;
     private readonly DashboardPageView _dashboardView;
     private readonly NodesPageView _nodesView;
+    private readonly ConnectionsPageView _connectionsView;
     private readonly PlansPageView _plansView;
     private readonly AccountPageView _accountView;
     private readonly SettingsPageView _settingsView;
@@ -65,8 +66,15 @@ public sealed partial class MainWindow : Window
         AuthHost.Children.Add(_authView.Root);
 
         _connectView = new ConnectPageView(_netoClient, () => SwitchTab("nodes"), () => SwitchTab("account"), RequestElevation);
-        _dashboardView = new DashboardPageView(_netoClient, () => SwitchTab("nodes"), () => SwitchTab("account"), RequestElevation, detachHeaderActions: true);
+        _dashboardView = new DashboardPageView(
+            _netoClient,
+            () => SwitchTab("nodes"),
+            () => SwitchTab("account"),
+            RequestElevation,
+            detachHeaderActions: true,
+            onOpenConnections: () => SwitchTab("connections"));
         _nodesView = new NodesPageView(_netoClient);
+        _connectionsView = new ConnectionsPageView(_netoClient, detachHeaderActions: true);
         _plansView = new PlansPageView(_panelService);
         _accountView = new AccountPageView(_panelService);
         _settingsView = new SettingsPageView(_netoClient, ApplyThemeMode, RequestElevation);
@@ -75,6 +83,7 @@ public sealed partial class MainWindow : Window
         ContentHost.Children.Add(_connectView.Root);
         ContentHost.Children.Add(_dashboardView.Root);
         ContentHost.Children.Add(_nodesView.Root);
+        ContentHost.Children.Add(_connectionsView.Root);
         ContentHost.Children.Add(_plansView.Root);
         ContentHost.Children.Add(_accountView.Root);
         ContentHost.Children.Add(_settingsView.Root);
@@ -119,6 +128,7 @@ public sealed partial class MainWindow : Window
         {
             NetoWindowHelper.SetClipboardText(NetoWindowHelper.BuildTerminalProxyCommand(_netoClient.Snapshot));
         });
+        _tray.CloseAllConnectionsRequested += () => DispatcherQueue.TryEnqueue(async () => await _netoClient.CloseAllConnectionsAsync());
         _tray.RestartElevatedRequested += () => DispatcherQueue.TryEnqueue(RequestElevation);
         _tray.SessionEnding += () => NetoNativeBridge.Shutdown();
         _tray.ExitRequested += () => DispatcherQueue.TryEnqueue(ExitApplication);
@@ -208,6 +218,7 @@ public sealed partial class MainWindow : Window
         {
             "dashboard" => NavDashboardItem,
             "nodes" => NavNodesItem,
+            "connections" => NavConnectionsItem,
             "plans" => NavPlansItem,
             "account" => NavAccountItem,
             "settings" => NavSettingsItem,
@@ -227,20 +238,31 @@ public sealed partial class MainWindow : Window
             {
                 "dashboard" => "主页",
                 "nodes" => "节点",
+                "connections" => "会话",
                 "plans" => "套餐",
                 "account" => "我的",
                 "settings" => "设置",
                 _ => "",
             };
-            PageHeaderActionHost.Content = tab == "dashboard" ? _dashboardView.HeaderActions : null;
+            PageHeaderActionHost.Content = tab switch
+            {
+                "dashboard" => _dashboardView.HeaderActions,
+                "connections" => _connectionsView.HeaderActions,
+                _ => null,
+            };
         }
 
         _connectView.Root.Visibility = tab == "connect" ? Visibility.Visible : Visibility.Collapsed;
         _dashboardView.Root.Visibility = tab == "dashboard" ? Visibility.Visible : Visibility.Collapsed;
         _nodesView.Root.Visibility = tab == "nodes" ? Visibility.Visible : Visibility.Collapsed;
+        _connectionsView.Root.Visibility = tab == "connections" ? Visibility.Visible : Visibility.Collapsed;
         _plansView.Root.Visibility = tab == "plans" ? Visibility.Visible : Visibility.Collapsed;
         _accountView.Root.Visibility = tab == "account" ? Visibility.Visible : Visibility.Collapsed;
         _settingsView.Root.Visibility = tab == "settings" ? Visibility.Visible : Visibility.Collapsed;
+        if (tab == "connections")
+        {
+            _connectionsView.ApplySnapshot(_netoClient.Snapshot);
+        }
     }
 
     private void ApplyPanelSnapshot(PanelStateSnapshot snap)
@@ -281,7 +303,7 @@ public sealed partial class MainWindow : Window
         }
         var btn = new Button
         {
-            Content = snap.ShowPlansTab ? "前往套餐开通" : "前往兑换与账户",
+            Content = snap.ShowPlansTab ? "开通套餐" : "账户与兑换",
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
         NetoUiFactory.ApplyPrimaryButton(btn, true);
@@ -330,6 +352,7 @@ public sealed partial class MainWindow : Window
         _connectView.ApplySnapshot(snap, _netoClient.LastActionError);
         _dashboardView.ApplySnapshot(snap);
         _nodesView.ApplySnapshot(snap);
+        _connectionsView.ApplySnapshot(snap);
         _settingsView.ApplySnapshot(snap);
 
         var portText = string.IsNullOrEmpty(snap.Connection.HttpProxyAddr) ? $"127.0.0.1:{snap.Settings.MixedPort}" : snap.Connection.HttpProxyAddr;

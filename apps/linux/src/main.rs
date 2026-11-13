@@ -27,8 +27,9 @@ fn main() -> anyhow::Result<()> {
         prefer_wayland_backend,
     };
     use neto_ui_gtk::{
-        connect_view::ConnectView, dashboard_view::DashboardView, install_neto_css,
-        nodes_view::NodesView, settings_view::SettingsView,
+        connect_view::ConnectView, connections_view::ConnectionsView,
+        dashboard_view::DashboardView, install_neto_css, nodes_view::NodesView,
+        settings_view::SettingsView,
     };
     use std::path::PathBuf;
     use std::rc::Rc;
@@ -86,8 +87,11 @@ fn main() -> anyhow::Result<()> {
         let open_nodes: Rc<dyn Fn()> = Rc::new(move || {
             stack_for_nodes.set_visible_child_name("nodes");
         });
+        let stack_for_conns = view_stack.clone();
+        let open_connections: Rc<dyn Fn()> = Rc::new(move || {
+            stack_for_conns.set_visible_child_name("connections");
+        });
 
-        // Titleless Connect page + commercial blocked state wrapper
         let connect_view = ConnectView::new(
             ctrl_activate.clone(),
             handle_activate.clone(),
@@ -95,9 +99,9 @@ fn main() -> anyhow::Result<()> {
         );
         let blocked_status = adw::StatusPage::builder()
             .icon_name("dialog-warning-symbolic")
-            .title("暂无可用订阅")
+            .title("未开通套餐")
             .build();
-        let blocked_btn = gtk::Button::with_label("前往开通套餐");
+        let blocked_btn = gtk::Button::with_label("开通套餐");
         blocked_btn.add_css_class("suggested-action");
         blocked_btn.add_css_class("pill");
         blocked_btn.set_halign(gtk::Align::Center);
@@ -116,12 +120,12 @@ fn main() -> anyhow::Result<()> {
         connect_stack.add_named(&connect_view.root, Some("ready"));
         connect_stack.add_named(&blocked_status, Some("blocked"));
 
-        // Dashboard page + commercial account header row
         let dashboard_view = DashboardView::new(
             ctrl_activate.clone(),
             handle_activate.clone(),
             open_nodes,
         );
+        dashboard_view.set_on_open_connections(open_connections);
         let dash_account_row = adw::ActionRow::builder().activatable(true).build();
         dash_account_row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
         {
@@ -143,11 +147,11 @@ fn main() -> anyhow::Result<()> {
         }
 
         let nodes_view = NodesView::new(ctrl_activate.clone(), handle_activate.clone());
+        let connections_view = ConnectionsView::new(ctrl_activate.clone(), handle_activate.clone());
         let plans_view = PlansView::new(panel_activate.clone(), handle_activate.clone());
         let account_view = AccountView::new(panel_activate.clone(), handle_activate.clone());
         let settings_view = SettingsView::new(ctrl_activate.clone());
 
-        // Commercial site links in Settings
         let links = [
             ("官方网站", cfg_activate.website_url.clone()),
             ("服务协议", cfg_activate.user_agreement_url.clone()),
@@ -193,6 +197,12 @@ fn main() -> anyhow::Result<()> {
             "节点",
             "network-server-symbolic",
         );
+        view_stack.add_titled_with_icon(
+            &connections_view.root,
+            Some("connections"),
+            "会话",
+            "network-transmit-receive-symbolic",
+        );
         let plans_page = view_stack.add_titled_with_icon(
             &plans_view.root,
             Some("plans"),
@@ -212,7 +222,6 @@ fn main() -> anyhow::Result<()> {
             "emblem-system-symbolic",
         );
 
-        // HeaderBar: completely hides title text on the Connect page
         let header_title = gtk::Label::new(None);
         header_title.add_css_class("title");
         let header = adw::HeaderBar::builder()
@@ -238,6 +247,7 @@ fn main() -> anyhow::Result<()> {
                     Some("connect") | None => "",
                     Some("dashboard") => "主页",
                     Some("nodes") => "节点",
+                    Some("connections") => "会话",
                     Some("plans") => "套餐",
                     Some("account") => "我的",
                     Some("settings") => "设置",
@@ -267,6 +277,7 @@ fn main() -> anyhow::Result<()> {
         connect_view.apply_snapshot(&snap0);
         dashboard_view.apply_snapshot(&snap0);
         nodes_view.apply_snapshot(&snap0);
+        connections_view.apply_snapshot(&snap0);
         plans_view.apply_snapshot(&psnap0);
         account_view.apply_snapshot(&psnap0);
         settings_view.apply_snapshot(&snap0);
@@ -395,6 +406,7 @@ fn main() -> anyhow::Result<()> {
                 connect_view.apply_snapshot(&snap);
                 dashboard_view.apply_snapshot(&snap);
                 nodes_view.apply_snapshot(&snap);
+                connections_view.apply_snapshot(&snap);
                 settings_view.apply_snapshot(&snap);
 
                 if let Some(th) = holder.borrow().clone() {

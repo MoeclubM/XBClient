@@ -65,6 +65,11 @@
                                 <FontIcon Glyph="&#xE774;" />
                             </SelectorBarItem.Icon>
                         </SelectorBarItem>
+                        <SelectorBarItem x:Name="NavConnectionsItem" Tag="connections" Text="会话">
+                            <SelectorBarItem.Icon>
+                                <FontIcon Glyph="&#xE8CB;" />
+                            </SelectorBarItem.Icon>
+                        </SelectorBarItem>
                         <SelectorBarItem x:Name="NavPlansItem" Tag="plans" Text="套餐">
                             <SelectorBarItem.Icon>
                                 <FontIcon Glyph="&#xE7BF;" />

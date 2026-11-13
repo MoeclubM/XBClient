@@ -110,7 +110,7 @@ public sealed class AccountPageView
         rechargeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _rechargeAmountBox = new TextBox { PlaceholderText = "充值金额（如 20）" };
         _rechargeChannelCombo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
-        var rechargeBtn = new Button { Content = "前往充值" };
+        var rechargeBtn = new Button { Content = "充值" };
         NetoUiFactory.ApplyPrimaryButton(rechargeBtn, true);
         rechargeBtn.Click += async (_, _) =>
         {
@@ -153,7 +153,7 @@ public sealed class AccountPageView
         redeemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         redeemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _redeemBox = new TextBox { PlaceholderText = "输入礼品卡或套餐兑换码" };
-        var redeemBtn = new Button { Content = "立即兑换" };
+        var redeemBtn = new Button { Content = "兑换" };
         NetoUiFactory.ApplyPrimaryButton(redeemBtn, true);
         redeemBtn.Click += async (_, _) =>
         {
