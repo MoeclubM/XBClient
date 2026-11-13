@@ -57,55 +57,46 @@
                 Padding="14,4,14,6"
                 BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                 BorderThickness="0,1,0,0">
-                <Grid>
-                    <SelectorBar
-                        x:Name="BottomSelectorBar"
-                        HorizontalAlignment="Center"
-                        SelectionChanged="OnNavSelectionChanged">
-                        <SelectorBarItem x:Name="NavConnectItem" Tag="connect" Text="连接">
-                            <SelectorBarItem.Icon>
-                                <FontIcon Glyph="&#xE839;" />
-                            </SelectorBarItem.Icon>
-                        </SelectorBarItem>
-                        <SelectorBarItem x:Name="NavDashboardItem" Tag="dashboard" Text="主页">
-                            <SelectorBarItem.Icon>
-                                <FontIcon Glyph="&#xE80F;" />
-                            </SelectorBarItem.Icon>
-                        </SelectorBarItem>
-                        <SelectorBarItem x:Name="NavNodesItem" Tag="nodes" Text="节点">
-                            <SelectorBarItem.Icon>
-                                <FontIcon Glyph="&#xE774;" />
-                            </SelectorBarItem.Icon>
-                        </SelectorBarItem>
-                        <SelectorBarItem x:Name="NavConnectionsItem" Tag="connections" Text="会话">
-                            <SelectorBarItem.Icon>
-                                <FontIcon Glyph="&#xE8CB;" />
-                            </SelectorBarItem.Icon>
-                        </SelectorBarItem>
-                        <SelectorBarItem x:Name="NavPlansItem" Tag="plans" Text="套餐">
-                            <SelectorBarItem.Icon>
-                                <FontIcon Glyph="&#xE7BF;" />
-                            </SelectorBarItem.Icon>
-                        </SelectorBarItem>
-                        <SelectorBarItem x:Name="NavAccountItem" Tag="account" Text="我的">
-                            <SelectorBarItem.Icon>
-                                <FontIcon Glyph="&#xE77B;" />
-                            </SelectorBarItem.Icon>
-                        </SelectorBarItem>
-                        <SelectorBarItem x:Name="NavSettingsItem" Tag="settings" Text="设置">
-                            <SelectorBarItem.Icon>
-                                <FontIcon Glyph="&#xE713;" />
-                            </SelectorBarItem.Icon>
-                        </SelectorBarItem>
-                    </SelectorBar>
-                    <TextBlock
-                        x:Name="BottomStatusText"
-                        HorizontalAlignment="Right"
-                        FontSize="11"
-                        FontFamily="Consolas"
-                        VerticalAlignment="Center"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </Grid>
+                <SelectorBar
+                    x:Name="BottomSelectorBar"
+                    HorizontalAlignment="Center"
+                    SelectionChanged="OnNavSelectionChanged">
+                    <SelectorBarItem x:Name="NavHomeItem" Tag="home" Text="主页">
+                        <SelectorBarItem.Icon>
+                            <FontIcon Glyph="&#xE80F;" />
+                        </SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="NavNodesItem" Tag="nodes" Text="节点">
+                        <SelectorBarItem.Icon>
+                            <FontIcon Glyph="&#xE774;" />
+                        </SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="NavConnectionsItem" Tag="connections" Text="会话">
+                        <SelectorBarItem.Icon>
+                            <FontIcon Glyph="&#xE8CB;" />
+                        </SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="NavRulesItem" Tag="rules" Text="规则">
+                        <SelectorBarItem.Icon>
+                            <FontIcon Glyph="&#xE8FD;" />
+                        </SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="NavPlansItem" Tag="plans" Text="套餐">
+                        <SelectorBarItem.Icon>
+                            <FontIcon Glyph="&#xE7BF;" />
+                        </SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="NavAccountItem" Tag="account" Text="我的">
+                        <SelectorBarItem.Icon>
+                            <FontIcon Glyph="&#xE77B;" />
+                        </SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="NavSettingsItem" Tag="settings" Text="设置">
+                        <SelectorBarItem.Icon>
+                            <FontIcon Glyph="&#xE713;" />
+                        </SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                </SelectorBar>
             </Border>
         </Grid>
     </Grid>

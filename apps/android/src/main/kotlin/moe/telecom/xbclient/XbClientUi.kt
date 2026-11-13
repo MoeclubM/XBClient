@@ -61,7 +61,7 @@ internal val ThemeOptions = listOf(
     "dark" to R.string.theme_dark
 )
 
-internal val MainTabScreens = setOf(PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE)
+internal val MainTabScreens = setOf(PassScreen.HOME, PassScreen.NODES, PassScreen.CONNECTIONS, PassScreen.RULES, PassScreen.PLANS, PassScreen.PROFILE)
 
 internal val OnboardingLanguageTitles = mapOf(
     "" to "Choose language\n选择语言",
@@ -352,22 +352,24 @@ internal fun AnimatedContentTransitionScope<PassScreen>.screenTransition(): Cont
 
 private fun screenOrder(screen: PassScreen): Int =
     when (screen) {
-        PassScreen.CONNECT -> 0
-        PassScreen.DASHBOARD -> 1
-        PassScreen.NODES -> 2
-        PassScreen.PLANS -> 3
-        PassScreen.PROFILE -> 4
-        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL, PassScreen.SUB_LINKS -> 5
-        PassScreen.SETTINGS -> 5
-        PassScreen.OPEN_SOURCE_LICENSES -> 6
+        PassScreen.HOME -> 0
+        PassScreen.NODES -> 1
+        PassScreen.CONNECTIONS -> 2
+        PassScreen.RULES -> 3
+        PassScreen.PLANS -> 4
+        PassScreen.PROFILE -> 5
+        PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL, PassScreen.SUB_LINKS -> 6
+        PassScreen.SETTINGS -> 6
+        PassScreen.OPEN_SOURCE_LICENSES -> 7
     }
 
 @Composable
 internal fun screenTitle(screen: PassScreen): String =
     when (screen) {
-        PassScreen.CONNECT -> ""
-        PassScreen.DASHBOARD -> stringResource(R.string.nav_dashboard)
+        PassScreen.HOME -> ""
         PassScreen.NODES -> stringResource(R.string.nav_nodes)
+        PassScreen.CONNECTIONS -> stringResource(R.string.nav_connections)
+        PassScreen.RULES -> stringResource(R.string.nav_rules)
         PassScreen.PLANS -> stringResource(R.string.nav_plans)
         PassScreen.PROFILE -> stringResource(R.string.nav_profile)
         PassScreen.SETTINGS -> stringResource(R.string.common_settings)

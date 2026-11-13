@@ -3,11 +3,13 @@ resolver = "2"
 members = [
     "crates/xbclient-panel",
     "crates/xbclient-ffi",
+    "crates/xbclient-service",
     "apps/linux",
 ]
 default-members = [
     "crates/xbclient-panel",
     "crates/xbclient-ffi",
+    "crates/xbclient-service",
 ]
 exclude = [
     "deps/neto",
@@ -19,7 +21,7 @@ edition = "2024"
 license = "Apache-2.0"
 
 [workspace.dependencies]
-aerion = { git = "https://github.com/MoeclubM/Aerion.git", rev = "d9ffb5ce0648d94514094cc4dca11f6fc6061928", default-features = false }
+aerion = { git = "https://github.com/MoeclubM/Aerion.git", rev = "e92f81451b971ad31fbc781a58d58c37618e81e3", default-features = false }
 anyhow = "1.0.104"
 base64 = "0.22.1"
 log = "0.4.34"

@@ -9,9 +9,10 @@
     <string name="common_clear_selection">Clear</string>
     <string name="common_back_settings">Back to settings</string>
 
-    <string name="nav_home">Connect</string>
-    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_home">Home</string>
     <string name="nav_nodes">Nodes</string>
+    <string name="nav_connections">Sessions</string>
+    <string name="nav_rules">Rules</string>
     <string name="nav_plans">Plans</string>
     <string name="nav_profile">Profile</string>
 

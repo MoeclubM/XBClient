@@ -17,8 +17,8 @@
 
 - **面板一体**：登录 / 注册 / 第三方登录，套餐购买与兑换，工单，流量记录，邀请返利，站点公告。
 - **全平台原生 UI**：Android 采用 Jetpack Compose + Miuix，Windows 采用 WinUI 3（.NET 9），Linux Wayland 采用 GTK4 + libadwaita，无 Electron / WebView 壳开销。
-- **连接、节点与会话分离**：独立无标题连接页、底栏节点与会话页、可自定义模块与排序的主页仪表盘，支持活跃会话监控、多策略组路由、规则匹配测试与出口连通检测。
-- **TUN 与分流**：全局、规则或直连模式；Android 支持分应用代理；Windows 与 Linux Wayland 支持系统代理与 TUN 双接管及系统托盘。
+- **统一主页与独立会话/规则页**：无页面标题的主页整合连接控制、节点快捷入口、路由模式与可自定义状态卡片；底栏独立提供节点页、会话页（活跃与已关闭连接查看、速率与累计流量、排序筛选、详情复制与断开）和规则页（分流规则检索、路由匹配测试、快捷添加规则与 YAML 规则覆写）。
+- **服务模式 TUN 与分流**：全局、规则或直连模式；Android 支持分应用代理；Windows 采用系统服务模式承载 Wintun TUN（主界面保持普通用户权限运行，首次开启按需单次安装服务）；Linux Wayland 支持系统代理与 TUN 双接管及系统托盘。
 - **协议齐全**：Flux、Sudoku、AnyTLS、Hysteria2、Trojan、VLESS、VMess、Mieru、Naive、TUIC、Shadowsocks，以及 HTTP / SOCKS5。
 - **多语言**：中文、英语、日语、俄语、波斯语，可跟随系统。
 
@@ -47,7 +47,7 @@
 | 平台 | 安装包 | 连接方式 |
 | --- | --- | --- |
 | Android | arm64 APK / Play AAB | 系统 VPN（`NetoVpnService`） |
-| Windows | WinUI 3 x64 安装程序 / 便携包 | 系统代理或 Wintun TUN（支持界面/托盘一键提权） |
+| Windows | WinUI 3 x64 安装程序 / 便携包 | 系统代理或系统服务模式 Wintun TUN（`neto-service.exe`） |
 | Linux Wayland | GTK4 deb（amd64 / arm64） | 系统代理或 TUN + StatusNotifierItem 托盘 |
 
 ## 使用教程
@@ -57,8 +57,7 @@
 到 [Releases](https://github.com/MoeclubM/XBClient/releases) 下载对应平台的安装包：
 
 - Android：安装 APK，按系统提示允许安装未知来源（如需要）。
-- Windows：运行安装程序。使用 TUN 时请右键「以管理员身份运行」。
-- Windows 系统代理无需管理员权限，详细行为与恢复方式见 [Windows 使用说明](docs/windows.md)。
+- Windows：运行安装程序并直接以普通用户身份打开客户端即可；首次开启 TUN 时会自动请求单次授权安装并启动后台 TUN 系统服务，后续开关无需再次提权。详细说明见 [Windows 使用说明](docs/windows.md)。
 - Linux：安装 deb 后，TUN 需要能访问 `/dev/net/tun`。
 
 ### 2. 登录
@@ -75,7 +74,7 @@
 
 ### 4. 分流（可选）
 
-- **规则分流**：订阅若带了 Clash / Mihomo `rules`，连接时会按规则走代理或直连。也可以在设置里粘贴自定义 YAML。
+- **规则与覆写**：在「规则」页可检索当前分流规则、测试目标域名/IP 路由命中，或切换至「规则覆写」快捷置顶添加单条规则及编辑保存完整自定义 YAML。
 - **应用分流（仅 Android）**：白名单只让选中的 App 走节点，黑名单则让选中的 App 直连。
 - **DNS / IPv6**：可在设置中指定节点解析 DNS、代理 DNS、直连 DNS，以及 Fake-IP 或 IPv6。
 

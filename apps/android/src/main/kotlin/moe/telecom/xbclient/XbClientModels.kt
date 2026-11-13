@@ -20,9 +20,10 @@ enum class AuthMode {
 }
 
 enum class PassScreen {
-    CONNECT,
-    DASHBOARD,
+    HOME,
     NODES,
+    CONNECTIONS,
+    RULES,
     PLANS,
     PROFILE,
     GIFT_CARDS,

@@ -27,9 +27,8 @@ fn main() -> anyhow::Result<()> {
         prefer_wayland_backend,
     };
     use neto_ui_gtk::{
-        connect_view::ConnectView, connections_view::ConnectionsView,
-        dashboard_view::DashboardView, install_neto_css, nodes_view::NodesView,
-        settings_view::SettingsView,
+        connections_view::ConnectionsView, home_view::HomeView, install_neto_css,
+        nodes_view::NodesView, rules_view::RulesView, settings_view::SettingsView,
     };
     use std::path::PathBuf;
     use std::rc::Rc;
@@ -92,11 +91,6 @@ fn main() -> anyhow::Result<()> {
             stack_for_conns.set_visible_child_name("connections");
         });
 
-        let connect_view = ConnectView::new(
-            ctrl_activate.clone(),
-            handle_activate.clone(),
-            open_nodes.clone(),
-        );
         let blocked_status = adw::StatusPage::builder()
             .icon_name("dialog-warning-symbolic")
             .title("未开通套餐")
@@ -116,16 +110,14 @@ fn main() -> anyhow::Result<()> {
         }
         blocked_status.set_child(Some(&blocked_btn));
 
-        let connect_stack = gtk::Stack::new();
-        connect_stack.add_named(&connect_view.root, Some("ready"));
-        connect_stack.add_named(&blocked_status, Some("blocked"));
-
-        let dashboard_view = DashboardView::new(
+        let home_view = HomeView::new(
             ctrl_activate.clone(),
             handle_activate.clone(),
             open_nodes,
         );
-        dashboard_view.set_on_open_connections(open_connections);
+        home_view.set_on_open_connections(open_connections);
+        home_view.set_show_profiles_summary(false);
+        home_view.set_blocked_widget(Some(&blocked_status));
         let dash_account_row = adw::ActionRow::builder().activatable(true).build();
         dash_account_row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
         {
@@ -139,15 +131,11 @@ fn main() -> anyhow::Result<()> {
         }
         let dash_account_group = adw::PreferencesGroup::new();
         dash_account_group.add(&dash_account_row);
-        if let Some(vp) = dashboard_view.root.child().and_downcast::<gtk::Viewport>()
-            && let Some(clamp) = vp.child().and_downcast::<adw::Clamp>()
-            && let Some(outer) = clamp.child().and_downcast::<gtk::Box>()
-        {
-            outer.prepend(&dash_account_group);
-        }
+        home_view.set_extra_header(Some(&dash_account_group));
 
         let nodes_view = NodesView::new(ctrl_activate.clone(), handle_activate.clone());
         let connections_view = ConnectionsView::new(ctrl_activate.clone(), handle_activate.clone());
+        let rules_view = RulesView::new(ctrl_activate.clone(), handle_activate.clone());
         let plans_view = PlansView::new(panel_activate.clone(), handle_activate.clone());
         let account_view = AccountView::new(panel_activate.clone(), handle_activate.clone());
         let settings_view = SettingsView::new(ctrl_activate.clone());
@@ -180,16 +168,10 @@ fn main() -> anyhow::Result<()> {
         }
 
         view_stack.add_titled_with_icon(
-            &connect_stack,
-            Some("connect"),
-            "连接",
-            "network-vpn-symbolic",
-        );
-        view_stack.add_titled_with_icon(
-            &dashboard_view.root,
-            Some("dashboard"),
+            &home_view.root,
+            Some("home"),
             "主页",
-            "speedometer-symbolic",
+            "go-home-symbolic",
         );
         view_stack.add_titled_with_icon(
             &nodes_view.root,
@@ -202,6 +184,12 @@ fn main() -> anyhow::Result<()> {
             Some("connections"),
             "会话",
             "network-transmit-receive-symbolic",
+        );
+        view_stack.add_titled_with_icon(
+            &rules_view.root,
+            Some("rules"),
+            "规则",
+            "view-list-symbolic",
         );
         let plans_page = view_stack.add_titled_with_icon(
             &plans_view.root,
@@ -289,10 +277,10 @@ fn main() -> anyhow::Result<()> {
                     av.reset_to_root();
                 }
                 let text = match name.as_deref() {
-                    Some("connect") | None => "",
-                    Some("dashboard") => "主页",
+                    Some("home") | None => "",
                     Some("nodes") => "节点",
                     Some("connections") => "会话",
+                    Some("rules") => "规则",
                     Some("plans") => "套餐",
                     Some("account") => "我的",
                     Some("settings") => "设置",
@@ -319,10 +307,10 @@ fn main() -> anyhow::Result<()> {
         let psnap0 = panel_activate.snapshot();
         root_stack.set_visible_child_name(if psnap0.logged_in { "shell" } else { "auth" });
         auth_view.apply_snapshot(&psnap0);
-        connect_view.apply_snapshot(&snap0);
-        dashboard_view.apply_snapshot(&snap0);
+        home_view.apply_snapshot(&snap0);
         nodes_view.apply_snapshot(&snap0);
         connections_view.apply_snapshot(&snap0);
+        rules_view.apply_snapshot(&snap0);
         plans_view.apply_snapshot(&psnap0);
         account_view.apply_snapshot(&psnap0);
         settings_view.apply_snapshot(&snap0);
@@ -422,9 +410,9 @@ fn main() -> anyhow::Result<()> {
                         let (btitle, bdesc) = describe_block_reason(&psnap.block_reason);
                         blocked_status.set_title(btitle);
                         blocked_status.set_description(Some(bdesc));
-                        connect_stack.set_visible_child_name("blocked");
+                        home_view.set_blocked(true);
                     } else {
-                        connect_stack.set_visible_child_name("ready");
+                        home_view.set_blocked(false);
                     }
 
                     dash_account_row.set_title(if psnap.email.is_empty() {
@@ -449,10 +437,10 @@ fn main() -> anyhow::Result<()> {
                 }
 
                 let snap = ctrl.snapshot();
-                connect_view.apply_snapshot(&snap);
-                dashboard_view.apply_snapshot(&snap);
+                home_view.apply_snapshot(&snap);
                 nodes_view.apply_snapshot(&snap);
                 connections_view.apply_snapshot(&snap);
+                rules_view.apply_snapshot(&snap);
                 settings_view.apply_snapshot(&snap);
 
                 if let Some(th) = holder.borrow().clone() {

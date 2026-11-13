@@ -236,7 +236,7 @@ internal class XboardAuthAdapter(
                 val data = body.getJSONObject("data")
                 val next = uiState.value.copy(
                     authMode = AuthMode.LOGIN,
-                    screen = PassScreen.CONNECT,
+                    screen = PassScreen.HOME,
                     authData = data.getString("auth_data"),
                     subscribeToken = data.optString("token"),
                     oauthConfirmToken = "",

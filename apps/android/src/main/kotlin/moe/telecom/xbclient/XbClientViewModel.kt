@@ -39,7 +39,7 @@ data class XbClientUiState(
     val nativeLoginPending: Boolean = false,
     val nativeExtensions: Set<String> = emptySet(),
     val authMode: AuthMode = AuthMode.LOGIN,
-    val screen: PassScreen = PassScreen.CONNECT,
+    val screen: PassScreen = PassScreen.HOME,
     val authData: String = "",
     val subscribeToken: String = "",
     val subscribeUrl: String = "",
@@ -246,7 +246,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             PassScreen.PLANS -> Unit
             PassScreen.OPEN_SOURCE_LICENSES -> Unit
             PassScreen.SETTINGS -> Unit
-            PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES -> {
+            PassScreen.CONNECTIONS, PassScreen.RULES -> Unit
+            PassScreen.HOME, PassScreen.NODES -> {
                 refreshSubscriptionAndNodes()
                 refreshNotices()
             }
@@ -290,7 +291,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             PassScreen.SETTINGS -> refreshUserInfo(showErrors = true)
             PassScreen.OPEN_SOURCE_LICENSES -> Unit
             PassScreen.SUB_LINKS -> Unit
-            PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES -> {
+            PassScreen.CONNECTIONS, PassScreen.RULES -> Unit
+            PassScreen.HOME, PassScreen.NODES -> {
                 refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
                 refreshUserInfo(showErrors = true)
                 refreshNotices(force = true, showLoading = true, showErrors = true)
@@ -320,7 +322,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.SUB_LINKS -> openScreen(PassScreen.PROFILE)
             PassScreen.OPEN_SOURCE_LICENSES -> openScreen(PassScreen.SETTINGS)
             PassScreen.SETTINGS -> openScreen(PassScreen.PROFILE)
-            PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE -> Unit
+            PassScreen.HOME, PassScreen.NODES, PassScreen.CONNECTIONS, PassScreen.RULES, PassScreen.PLANS, PassScreen.PROFILE -> Unit
         }
     }
 
@@ -335,7 +337,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val data = body.getJSONObject("data")
                 val next = _uiState.value.copy(
                     authMode = AuthMode.LOGIN,
-                    screen = PassScreen.CONNECT,
+                    screen = PassScreen.HOME,
                     authData = data.getString("auth_data"),
                     subscribeToken = data.optString("token"),
                     subscribeUrl = data.optString("subscribe_url")
@@ -369,7 +371,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val data = body.getJSONObject("data")
                 val next = _uiState.value.copy(
                     authMode = AuthMode.LOGIN,
-                    screen = PassScreen.CONNECT,
+                    screen = PassScreen.HOME,
                     authData = data.getString("auth_data"),
                     subscribeToken = data.optString("token"),
                     subscribeUrl = data.optString("subscribe_url")

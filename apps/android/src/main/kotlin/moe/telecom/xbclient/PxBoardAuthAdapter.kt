@@ -139,7 +139,7 @@ internal class PxBoardAuthAdapter(
         state.update {
             it.copy(
                 authMode = AuthMode.LOGIN,
-                screen = PassScreen.CONNECT,
+                screen = PassScreen.HOME,
                 authData = "PxBoard $token",
                 userEmail = email,
                 nativeLoginPending = false,

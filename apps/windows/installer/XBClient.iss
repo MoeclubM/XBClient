@@ -64,11 +64,53 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: 
 Filename: "{app}\XBClient.exe"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+function SanitizeServiceAppId(const AppId: String): String;
+var
+  I: Integer;
+  C: Char;
+  Clean: String;
+begin
+  Clean := '';
+  for I := 1 to Length(AppId) do
+  begin
+    C := AppId[I];
+    if ((C >= '0') and (C <= '9')) or ((C >= 'A') and (C <= 'Z')) or ((C >= 'a') and (C <= 'z')) or (C = '-') or (C = '_') then
+      Clean := Clean + C;
+  end;
+  if Clean = '' then
+    Result := 'XBClient'
+  else
+    Result := Clean;
+end;
+
+function HasInstalledTunService(): Boolean;
+var
+  SvcKey: String;
+begin
+  SvcKey := 'SYSTEM\CurrentControlSet\Services\' + SanitizeServiceAppId('{#MyAppName}') + 'TunService';
+  Result := RegKeyExists(HKLM, SvcKey) or RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\XBClientTunService');
+end;
+
+procedure RunServiceCommand(const Args: String);
+var
+  SvcExe: String;
+  ResultCode: Integer;
+begin
+  SvcExe := ExpandConstant('{app}\neto-service.exe');
+  if not FileExists(SvcExe) then Exit;
+  if IsAdminInstallMode() then
+    Exec(SvcExe, Args, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)
+  else
+    ShellExec('runas', SvcExe, Args, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
 procedure StopRunningClient();
 var
   ResultCode: Integer;
 begin
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM XBClient.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if HasInstalledTunService() then
+    RunServiceCommand('stop --id "{#MyAppName}"');
 end;
 
 function InitializeSetup(): Boolean;
@@ -77,9 +119,17 @@ begin
   Result := True;
 end;
 
-function InitializeUninstall(): Boolean;
+procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  StopRunningClient();
+  if (CurStep = ssPostInstall) and HasInstalledTunService() then
+    RunServiceCommand('install --id "{#MyAppName}"');
+end;
+
+function InitializeUninstall(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM XBClient.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := True;
 end;
 
@@ -87,10 +137,13 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
   begin
-    if RegKeyExists(HKCU, 'Software\XBClient\SystemProxy') then
+    if HasInstalledTunService() then
+      RunServiceCommand('uninstall --id "{#MyAppName}"');
+    if RegKeyExists(HKCU, 'Software\{#MyAppName}\SystemProxy') or RegKeyExists(HKCU, 'Software\XBClient\SystemProxy') then
     begin
       RegWriteDWordValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Internet Settings', 'ProxyEnable', 0);
       RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Internet Settings', 'ProxyServer');
+      RegDeleteKeyIncludingSubkeys(HKCU, 'Software\{#MyAppName}');
       RegDeleteKeyIncludingSubkeys(HKCU, 'Software\XBClient');
     end;
   end;

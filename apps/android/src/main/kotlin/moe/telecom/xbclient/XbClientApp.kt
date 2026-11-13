@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
+import moe.telecom.neto.sdk.NetoConnectionsPane
+import moe.telecom.neto.sdk.NetoRulesPane
 import moe.telecom.neto.sdk.NetoTheme
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -296,7 +298,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
     val floatingBarColor = if (backdrop != null) Color.Transparent else MiuixTheme.colorScheme.surfaceContainer
     Scaffold(
         topBar = {
-            if (visibleScreen != PassScreen.CONNECT) {
+            if (visibleScreen != PassScreen.HOME) {
                 BlurredBar(backdrop) {
                     TopAppBar(
                         color = barColor,
@@ -401,11 +403,19 @@ private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewMod
     val selected = when (state.screen) {
         PassScreen.PROFILE, PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL, PassScreen.SUB_LINKS, PassScreen.SETTINGS, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
+        PassScreen.RULES -> PassScreen.RULES
+        PassScreen.CONNECTIONS -> PassScreen.CONNECTIONS
         PassScreen.NODES -> PassScreen.NODES
-        PassScreen.DASHBOARD -> PassScreen.DASHBOARD
-        PassScreen.CONNECT -> PassScreen.CONNECT
+        PassScreen.HOME -> PassScreen.HOME
     }
-    val navScreens = listOf(PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE).filter { !PxBoardApi.enabled || it != PassScreen.PLANS || "commerce" in state.nativeExtensions || state.planRewardAdEnabled }
+    val navScreens = listOf(
+        PassScreen.HOME,
+        PassScreen.NODES,
+        PassScreen.CONNECTIONS,
+        PassScreen.RULES,
+        PassScreen.PLANS,
+        PassScreen.PROFILE,
+    ).filter { !PxBoardApi.enabled || it != PassScreen.PLANS || "commerce" in state.nativeExtensions || state.planRewardAdEnabled }
     if (floating) {
         FloatingNavigationBar(
             color = color,
@@ -438,8 +448,9 @@ private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewMod
 private fun navIcon(screen: PassScreen): ImageVector =
     ImageVector.vectorResource(
         when (screen) {
-            PassScreen.DASHBOARD -> R.drawable.ic_nav_dashboard
             PassScreen.NODES -> R.drawable.ic_nav_nodes
+            PassScreen.CONNECTIONS -> R.drawable.ic_nav_connections
+            PassScreen.RULES -> R.drawable.ic_nav_rules
             PassScreen.PLANS -> R.drawable.ic_nav_plans
             PassScreen.PROFILE -> R.drawable.ic_nav_profile
             else -> R.drawable.ic_nav_home
@@ -450,8 +461,9 @@ private fun navIcon(screen: PassScreen): ImageVector =
 private fun navLabel(screen: PassScreen): String =
     stringResource(
         id = when (screen) {
-            PassScreen.DASHBOARD -> R.string.nav_dashboard
             PassScreen.NODES -> R.string.nav_nodes
+            PassScreen.CONNECTIONS -> R.string.nav_connections
+            PassScreen.RULES -> R.string.nav_rules
             PassScreen.PLANS -> R.string.nav_plans
             PassScreen.PROFILE -> R.string.nav_profile
             else -> R.string.nav_home
@@ -475,24 +487,28 @@ private fun MainScreenContent(
         .overScrollVertical()
         .nestedScroll(scrollBehavior.nestedScrollConnection)
     when (screen) {
-        PassScreen.CONNECT -> ConnectScreen(
+        PassScreen.HOME -> HomeScreen(
             state = state,
             snapshot = netoSnapshot,
             actionError = netoActionError,
             viewModel = viewModel,
             modifier = modifier.fillMaxSize().padding(bottom = extraBottom),
         )
-        PassScreen.DASHBOARD -> DashboardScreen(
-            state = state,
-            snapshot = netoSnapshot,
-            viewModel = viewModel,
-            modifier = listModifier.padding(bottom = extraBottom),
-        )
         PassScreen.NODES -> NodesScreen(
             state = state,
             snapshot = netoSnapshot,
             viewModel = viewModel,
             modifier = listModifier.padding(bottom = extraBottom),
+        )
+        PassScreen.CONNECTIONS -> NetoConnectionsPane(
+            snapshot = netoSnapshot,
+            client = viewModel.netoClient,
+            modifier = modifier.fillMaxSize().padding(bottom = extraBottom),
+        )
+        PassScreen.RULES -> NetoRulesPane(
+            snapshot = netoSnapshot,
+            client = viewModel.netoClient,
+            modifier = modifier.fillMaxSize().padding(bottom = extraBottom),
         )
         PassScreen.SETTINGS -> SettingsScreen(
             state = state,

@@ -31,6 +31,7 @@
     <Manifest Include="$(ApplicationManifest)" />
     <Content Include="Assets\app.ico" CopyToOutputDirectory="PreserveNewest" />
     <None Include="native\*.dll" Condition="Exists('native')" CopyToOutputDirectory="PreserveNewest" Link="%(Filename)%(Extension)" />
+    <None Include="native\*.exe" Condition="Exists('native')" CopyToOutputDirectory="PreserveNewest" Link="%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

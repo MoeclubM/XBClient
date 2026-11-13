@@ -1,66 +1,60 @@
 package moe.telecom.xbclient
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import moe.telecom.neto.sdk.NetoConnectPane
-import moe.telecom.neto.sdk.NetoDashboardPane
+import moe.telecom.neto.sdk.NetoHomePane
 import moe.telecom.neto.sdk.NetoNodesPane
 import moe.telecom.neto.sdk.NetoSnapshot
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun ConnectScreen(
+internal fun HomeScreen(
     state: XbClientUiState,
     snapshot: NetoSnapshot,
     actionError: String?,
     viewModel: XbClientViewModel,
     modifier: Modifier = Modifier,
 ) {
-    NetoConnectPane(
+    NetoHomePane(
         snapshot = snapshot,
+        client = viewModel.netoClient,
         onToggleConnect = viewModel::toggleVpn,
-        onSelectRoutingMode = viewModel.netoClient::setRoutingMode,
         onOpenNodes = { viewModel.openScreen(PassScreen.NODES) },
-        modifier = modifier,
+        onOpenProfiles = { viewModel.openScreen(PassScreen.PROFILE) },
+        onOpenConnections = { viewModel.openScreen(PassScreen.CONNECTIONS) },
         actionError = actionError,
+        applyStatusBarPadding = true,
+        showProfilesSummaryWidget = false,
+        modifier = modifier,
+        extraHeaderSlot = {
+            CommercialAccountHeaderCard(state, viewModel)
+        },
         blockedContent = if (state.subscriptionBlocked) {
             { SubscriptionBlockedCard(state, viewModel) }
         } else {
             null
-        },
-    )
-}
-
-@Composable
-internal fun DashboardScreen(
-    state: XbClientUiState,
-    snapshot: NetoSnapshot,
-    viewModel: XbClientViewModel,
-    modifier: Modifier = Modifier,
-) {
-    NetoDashboardPane(
-        snapshot = snapshot,
-        client = viewModel.netoClient,
-        onOpenNodes = { viewModel.openScreen(PassScreen.NODES) },
-        onOpenProfiles = { viewModel.openScreen(PassScreen.PROFILE) },
-        modifier = modifier,
-        extraHeaderSlot = {
-            CommercialAccountHeaderCard(state, viewModel)
         },
     )
 }
@@ -93,23 +87,34 @@ private fun CommercialAccountHeaderCard(
         if (state.subscriptionSummary.isNotBlank()) add(state.subscriptionSummary)
         add(stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)))
     }.joinToString(" · ")
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        ArrowPreference(
-            title = state.userEmail.ifBlank { stringResource(R.string.app_name) },
-            summary = summaryParts,
-            onClick = {
-                val target = if (!PxBoardApi.enabled || "commerce" in state.nativeExtensions) {
-                    PassScreen.PLANS
-                } else {
-                    PassScreen.PROFILE
-                }
-                viewModel.openScreen(target)
-            },
-        )
+        Card(modifier = Modifier.weight(1f)) {
+            ArrowPreference(
+                title = state.userEmail.ifBlank { stringResource(R.string.app_name) },
+                summary = summaryParts,
+                onClick = {
+                    val target = if (!PxBoardApi.enabled || "commerce" in state.nativeExtensions) {
+                        PassScreen.PLANS
+                    } else {
+                        PassScreen.PROFILE
+                    }
+                    viewModel.openScreen(target)
+                },
+            )
+        }
+        IconButton(onClick = viewModel::showNotices) {
+            Icon(
+                imageVector = ImageVector.vectorResource(R.drawable.ic_notice),
+                contentDescription = stringResource(R.string.section_announcement),
+                tint = MiuixTheme.colorScheme.onBackground,
+            )
+        }
     }
 }
 
