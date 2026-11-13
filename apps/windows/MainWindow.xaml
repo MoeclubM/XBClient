@@ -7,7 +7,7 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid>
+    <Grid x:Name="RootGrid">
         <Grid x:Name="AuthHost" Visibility="Visible" />
 
         <Grid x:Name="MainShellGrid" Visibility="Collapsed">
@@ -20,36 +20,74 @@
             <Border
                 x:Name="TopHeaderBorder"
                 Grid.Row="0"
-                Padding="20,12,20,8"
                 Visibility="Collapsed">
-                <TextBlock
-                    x:Name="PageHeaderText"
-                    FontSize="18"
-                    FontWeight="SemiBold" />
+                <Grid MaxWidth="860" HorizontalAlignment="Stretch" Padding="18,10,18,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        x:Name="PageHeaderText"
+                        FontSize="16"
+                        FontWeight="SemiBold"
+                        VerticalAlignment="Center" />
+                    <ContentControl
+                        x:Name="PageHeaderActionHost"
+                        Grid.Column="1"
+                        VerticalAlignment="Center" />
+                </Grid>
             </Border>
 
             <Grid x:Name="ContentHost" Grid.Row="1" />
 
             <Border
                 Grid.Row="2"
-                Padding="12,8,12,10"
+                Padding="14,4,14,6"
                 BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                 BorderThickness="0,1,0,0">
-                <Grid x:Name="BottomNavGrid" ColumnSpacing="8" MaxWidth="720" HorizontalAlignment="Stretch">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition x:Name="NavPlansCol" Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="NavConnectBtn" Grid.Column="0" HorizontalAlignment="Stretch" Tag="connect" Click="OnNavClick" Content="连接" />
-                    <Button x:Name="NavDashboardBtn" Grid.Column="1" HorizontalAlignment="Stretch" Tag="dashboard" Click="OnNavClick" Content="主页" />
-                    <Button x:Name="NavNodesBtn" Grid.Column="2" HorizontalAlignment="Stretch" Tag="nodes" Click="OnNavClick" Content="节点" />
-                    <Button x:Name="NavPlansBtn" Grid.Column="3" HorizontalAlignment="Stretch" Tag="plans" Click="OnNavClick" Content="套餐" />
-                    <Button x:Name="NavAccountBtn" Grid.Column="4" HorizontalAlignment="Stretch" Tag="account" Click="OnNavClick" Content="我的" />
-                    <Button x:Name="NavSettingsBtn" Grid.Column="5" HorizontalAlignment="Stretch" Tag="settings" Click="OnNavClick" Content="设置" />
+                <Grid>
+                    <SelectorBar
+                        x:Name="BottomSelectorBar"
+                        HorizontalAlignment="Center"
+                        SelectionChanged="OnNavSelectionChanged">
+                        <SelectorBarItem x:Name="NavConnectItem" Tag="connect" Text="连接">
+                            <SelectorBarItem.Icon>
+                                <FontIcon Glyph="&#xE839;" />
+                            </SelectorBarItem.Icon>
+                        </SelectorBarItem>
+                        <SelectorBarItem x:Name="NavDashboardItem" Tag="dashboard" Text="主页">
+                            <SelectorBarItem.Icon>
+                                <FontIcon Glyph="&#xE80F;" />
+                            </SelectorBarItem.Icon>
+                        </SelectorBarItem>
+                        <SelectorBarItem x:Name="NavNodesItem" Tag="nodes" Text="节点">
+                            <SelectorBarItem.Icon>
+                                <FontIcon Glyph="&#xE774;" />
+                            </SelectorBarItem.Icon>
+                        </SelectorBarItem>
+                        <SelectorBarItem x:Name="NavPlansItem" Tag="plans" Text="套餐">
+                            <SelectorBarItem.Icon>
+                                <FontIcon Glyph="&#xE7BF;" />
+                            </SelectorBarItem.Icon>
+                        </SelectorBarItem>
+                        <SelectorBarItem x:Name="NavAccountItem" Tag="account" Text="我的">
+                            <SelectorBarItem.Icon>
+                                <FontIcon Glyph="&#xE77B;" />
+                            </SelectorBarItem.Icon>
+                        </SelectorBarItem>
+                        <SelectorBarItem x:Name="NavSettingsItem" Tag="settings" Text="设置">
+                            <SelectorBarItem.Icon>
+                                <FontIcon Glyph="&#xE713;" />
+                            </SelectorBarItem.Icon>
+                        </SelectorBarItem>
+                    </SelectorBar>
+                    <TextBlock
+                        x:Name="BottomStatusText"
+                        HorizontalAlignment="Right"
+                        FontSize="11"
+                        FontFamily="Consolas"
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </Grid>
             </Border>
         </Grid>

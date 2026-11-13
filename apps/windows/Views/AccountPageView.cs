@@ -3,9 +3,9 @@ using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Neto.Sdk.Windows;
 using Neto.Sdk.Windows.Views;
 using System.Globalization;
-using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
 
 namespace XBClient.Windows.Views;
@@ -20,14 +20,14 @@ public sealed class AccountPageView
     private readonly Button _portalBtn;
     private readonly Border _feedbackCard;
     private readonly TextBlock _feedbackText;
-    private readonly StackPanel _subLinkSection;
+    private readonly Border _subLinkCard;
     private readonly StackPanel _subLinkContainer;
-    private readonly StackPanel _rechargeSection;
+    private readonly Border _rechargeCard;
     private readonly TextBox _rechargeAmountBox;
     private readonly ComboBox _rechargeChannelCombo;
-    private readonly StackPanel _redeemSection;
+    private readonly Border _redeemCard;
     private readonly TextBox _redeemBox;
-    private readonly StackPanel _inviteSection;
+    private readonly Border _inviteCard;
     private readonly StackPanel _invitePanel;
     private readonly StackPanel _noticesPanel;
     private readonly StackPanel _ticketsSection;
@@ -43,9 +43,9 @@ public sealed class AccountPageView
     private readonly PasswordBox _oldPasswordBox;
     private readonly TextBox _pwMfaCodeBox;
     private readonly PasswordBox _newPasswordBox;
-    private readonly StackPanel _mfaSection;
+    private readonly Border _mfaCard;
     private readonly StackPanel _mfaBody;
-    private readonly StackPanel _oauthSection;
+    private readonly Border _oauthCard;
     private readonly StackPanel _oauthBody;
     private List<(string Id, string Name)> _rechargeChannels = [];
     private MfaSetupInfo? _mfaSetup;
@@ -58,9 +58,9 @@ public sealed class AccountPageView
 
         var outer = new StackPanel
         {
-            MaxWidth = 820,
-            Spacing = 12,
-            Padding = new Thickness(18, 12, 18, 24),
+            MaxWidth = 860,
+            Spacing = 10,
+            Padding = new Thickness(18, 8, 18, 24),
         };
 
         _feedbackText = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
@@ -68,12 +68,18 @@ public sealed class AccountPageView
         _feedbackCard.Visibility = Visibility.Collapsed;
         outer.Children.Add(_feedbackCard);
 
-        // Account overview
-        var accStack = new StackPanel { Spacing = 8 };
-        _emailText = new TextBlock { FontSize = 15, FontWeight = FontWeights.SemiBold };
-        _quotaText = new TextBlock { FontSize = 12, Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray) };
-        _balanceText = new TextBlock { FontSize = 12, Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray) };
-        var accBtns = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var accGrid = new Grid { ColumnSpacing = 12 };
+        accGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        accGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var accLeft = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+        _emailText = new TextBlock { FontSize = 15, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
+        _quotaText = new TextBlock { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray) };
+        _balanceText = new TextBlock { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray) };
+        accLeft.Children.Add(_emailText);
+        accLeft.Children.Add(_quotaText);
+        accLeft.Children.Add(_balanceText);
+
+        var accBtns = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
         var syncBtn = new Button { Content = "同步账户" };
         _portalBtn = new Button { Content = "网页中心" };
         var logoutBtn = new Button { Content = "退出登录" };
@@ -83,22 +89,21 @@ public sealed class AccountPageView
         accBtns.Children.Add(syncBtn);
         accBtns.Children.Add(_portalBtn);
         accBtns.Children.Add(logoutBtn);
-        accStack.Children.Add(_emailText);
-        accStack.Children.Add(_quotaText);
-        accStack.Children.Add(_balanceText);
-        accStack.Children.Add(accBtns);
-        outer.Children.Add(NetoUiFactory.CreateCard(accStack));
+        Grid.SetColumn(accBtns, 1);
+        accGrid.Children.Add(accLeft);
+        accGrid.Children.Add(accBtns);
+        outer.Children.Add(NetoUiFactory.CreateCard(accGrid));
 
-        // Subscription URL
-        _subLinkSection = new StackPanel { Spacing = 8, Visibility = Visibility.Collapsed };
-        _subLinkSection.Children.Add(NetoUiFactory.CreateSectionHeader("订阅地址"));
+        var subLinkStack = new StackPanel { Spacing = 8 };
+        subLinkStack.Children.Add(NetoUiFactory.CreateInlineCardHeader("订阅地址"));
         _subLinkContainer = new StackPanel { Spacing = 6 };
-        _subLinkSection.Children.Add(NetoUiFactory.CreateCard(_subLinkContainer));
-        outer.Children.Add(_subLinkSection);
+        subLinkStack.Children.Add(_subLinkContainer);
+        _subLinkCard = NetoUiFactory.CreateCard(subLinkStack);
+        _subLinkCard.Visibility = Visibility.Collapsed;
+        outer.Children.Add(_subLinkCard);
 
-        // Wallet recharge (PxBoard online payment)
-        _rechargeSection = new StackPanel { Spacing = 8, Visibility = Visibility.Collapsed };
-        _rechargeSection.Children.Add(NetoUiFactory.CreateSectionHeader("余额充值"));
+        var rechargeStack = new StackPanel { Spacing = 8 };
+        rechargeStack.Children.Add(NetoUiFactory.CreateInlineCardHeader("余额充值"));
         var rechargeGrid = new Grid { ColumnSpacing = 8 };
         rechargeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         rechargeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -137,12 +142,13 @@ public sealed class AccountPageView
         rechargeGrid.Children.Add(_rechargeAmountBox);
         rechargeGrid.Children.Add(_rechargeChannelCombo);
         rechargeGrid.Children.Add(rechargeBtn);
-        _rechargeSection.Children.Add(NetoUiFactory.CreateCard(rechargeGrid));
-        outer.Children.Add(_rechargeSection);
+        rechargeStack.Children.Add(rechargeGrid);
+        _rechargeCard = NetoUiFactory.CreateCard(rechargeStack);
+        _rechargeCard.Visibility = Visibility.Collapsed;
+        outer.Children.Add(_rechargeCard);
 
-        // Redeem card
-        _redeemSection = new StackPanel { Spacing = 8 };
-        _redeemSection.Children.Add(NetoUiFactory.CreateSectionHeader("兑换码"));
+        var redeemStack = new StackPanel { Spacing = 8 };
+        redeemStack.Children.Add(NetoUiFactory.CreateInlineCardHeader("兑换码"));
         var redeemGrid = new Grid { ColumnSpacing = 8 };
         redeemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         redeemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -167,24 +173,25 @@ public sealed class AccountPageView
         Grid.SetColumn(redeemBtn, 1);
         redeemGrid.Children.Add(_redeemBox);
         redeemGrid.Children.Add(redeemBtn);
-        _redeemSection.Children.Add(NetoUiFactory.CreateCard(redeemGrid));
-        outer.Children.Add(_redeemSection);
+        redeemStack.Children.Add(redeemGrid);
+        _redeemCard = NetoUiFactory.CreateCard(redeemStack);
+        outer.Children.Add(_redeemCard);
 
-        // Invite & referral
-        _inviteSection = new StackPanel { Spacing = 8 };
-        _inviteSection.Children.Add(NetoUiFactory.CreateSectionHeader("邀请返利"));
+        var inviteStack = new StackPanel { Spacing = 8 };
+        inviteStack.Children.Add(NetoUiFactory.CreateInlineCardHeader("邀请返利"));
         _invitePanel = new StackPanel { Spacing = 8 };
-        _inviteSection.Children.Add(NetoUiFactory.CreateCard(_invitePanel));
-        outer.Children.Add(_inviteSection);
+        inviteStack.Children.Add(_invitePanel);
+        _inviteCard = NetoUiFactory.CreateCard(inviteStack);
+        outer.Children.Add(_inviteCard);
 
-        // Notices
         _noticesPanel = new StackPanel { Spacing = 8 };
         outer.Children.Add(_noticesPanel);
 
-        // Tickets
         _ticketsSection = new StackPanel { Spacing = 8 };
-        _ticketsSection.Children.Add(NetoUiFactory.CreateSectionHeader("工单支持"));
         var newTicketStack = new StackPanel { Spacing = 8 };
+        var createTicketBtn = new Button { Content = "提交工单" };
+        NetoUiFactory.ApplyPrimaryButton(createTicketBtn, true);
+        newTicketStack.Children.Add(NetoUiFactory.CreateInlineCardHeader("工单支持", createTicketBtn));
         _ticketSubjectBox = new TextBox { PlaceholderText = "工单主题" };
         _ticketContentBox = new TextBox
         {
@@ -193,8 +200,6 @@ public sealed class AccountPageView
             TextWrapping = TextWrapping.Wrap,
             MinHeight = 68,
         };
-        var createTicketBtn = new Button { Content = "提交工单", HorizontalAlignment = HorizontalAlignment.Right };
-        NetoUiFactory.ApplyPrimaryButton(createTicketBtn, true);
         createTicketBtn.Click += async (_, _) =>
         {
             var sub = _ticketSubjectBox.Text.Trim();
@@ -207,7 +212,6 @@ public sealed class AccountPageView
         };
         newTicketStack.Children.Add(_ticketSubjectBox);
         newTicketStack.Children.Add(_ticketContentBox);
-        newTicketStack.Children.Add(createTicketBtn);
         _ticketsSection.Children.Add(NetoUiFactory.CreateCard(newTicketStack));
 
         _ticketsList = new StackPanel { Spacing = 6 };
@@ -247,9 +251,12 @@ public sealed class AccountPageView
         _ticketsSection.Children.Add(_ticketDetailCard);
         outer.Children.Add(_ticketsSection);
 
-        // Password security
-        outer.Children.Add(NetoUiFactory.CreateSectionHeader("修改密码"));
         var pwStack = new StackPanel { Spacing = 8 };
+        var changePwBtn = new Button { Content = "更新密码" };
+        pwStack.Children.Add(NetoUiFactory.CreateInlineCardHeader("修改密码", changePwBtn));
+        var pwGrid = new Grid { ColumnSpacing = 10 };
+        pwGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        pwGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         _oldPasswordBox = new PasswordBox { Header = "当前密码" };
         _pwMfaCodeBox = new TextBox
         {
@@ -259,7 +266,9 @@ public sealed class AccountPageView
             Visibility = Visibility.Collapsed,
         };
         _newPasswordBox = new PasswordBox { Header = "新密码" };
-        var changePwBtn = new Button { Content = "更新密码", HorizontalAlignment = HorizontalAlignment.Right };
+        Grid.SetColumn(_newPasswordBox, 1);
+        pwGrid.Children.Add(_oldPasswordBox);
+        pwGrid.Children.Add(_newPasswordBox);
         changePwBtn.Click += async (_, _) =>
         {
             if (string.IsNullOrEmpty(_oldPasswordBox.Password) || string.IsNullOrEmpty(_newPasswordBox.Password)) return;
@@ -281,27 +290,27 @@ public sealed class AccountPageView
                 ShowFeedback(ex.Message, error: true);
             }
         };
-        pwStack.Children.Add(_oldPasswordBox);
+        pwStack.Children.Add(pwGrid);
         pwStack.Children.Add(_pwMfaCodeBox);
-        pwStack.Children.Add(_newPasswordBox);
-        pwStack.Children.Add(changePwBtn);
         outer.Children.Add(NetoUiFactory.CreateCard(pwStack));
 
-        // Native 2FA (PxBoard)
-        _mfaSection = new StackPanel { Spacing = 8, Visibility = Visibility.Collapsed };
-        _mfaSection.Children.Add(NetoUiFactory.CreateSectionHeader("两步验证"));
+        var mfaStack = new StackPanel { Spacing = 8 };
+        mfaStack.Children.Add(NetoUiFactory.CreateInlineCardHeader("两步验证"));
         _mfaBody = new StackPanel { Spacing = 8 };
-        _mfaSection.Children.Add(NetoUiFactory.CreateCard(_mfaBody));
-        outer.Children.Add(_mfaSection);
+        mfaStack.Children.Add(_mfaBody);
+        _mfaCard = NetoUiFactory.CreateCard(mfaStack);
+        _mfaCard.Visibility = Visibility.Collapsed;
+        outer.Children.Add(_mfaCard);
 
-        // Native OAuth bindings (PxBoard)
-        _oauthSection = new StackPanel { Spacing = 8, Visibility = Visibility.Collapsed };
-        _oauthSection.Children.Add(NetoUiFactory.CreateSectionHeader("第三方账号绑定"));
+        var oauthStack = new StackPanel { Spacing = 8 };
+        oauthStack.Children.Add(NetoUiFactory.CreateInlineCardHeader("第三方账号绑定"));
         _oauthBody = new StackPanel { Spacing = 8 };
-        _oauthSection.Children.Add(NetoUiFactory.CreateCard(_oauthBody));
-        outer.Children.Add(_oauthSection);
+        oauthStack.Children.Add(_oauthBody);
+        _oauthCard = NetoUiFactory.CreateCard(oauthStack);
+        _oauthCard.Visibility = Visibility.Collapsed;
+        outer.Children.Add(_oauthCard);
 
-        Root = new ScrollViewer { Content = outer };
+        Root = NetoUiFactory.CreateCenteredScrollViewer(outer);
     }
 
     public void ApplySnapshot(PanelStateSnapshot snap)
@@ -321,12 +330,12 @@ public sealed class AccountPageView
         var showMfa = snap.IsPxBoard;
         var showOAuth = snap.IsPxBoard && snap.Extensions.Contains("oauth") && (snap.OAuthProviders.Count > 0 || snap.OAuthBindings.Count > 0);
 
-        _redeemSection.Visibility = showRedeem ? Visibility.Visible : Visibility.Collapsed;
-        _inviteSection.Visibility = showInvite ? Visibility.Visible : Visibility.Collapsed;
+        _redeemCard.Visibility = showRedeem ? Visibility.Visible : Visibility.Collapsed;
+        _inviteCard.Visibility = showInvite ? Visibility.Visible : Visibility.Collapsed;
         _ticketsSection.Visibility = showTickets ? Visibility.Visible : Visibility.Collapsed;
-        _rechargeSection.Visibility = showRecharge ? Visibility.Visible : Visibility.Collapsed;
-        _mfaSection.Visibility = showMfa ? Visibility.Visible : Visibility.Collapsed;
-        _oauthSection.Visibility = showOAuth ? Visibility.Visible : Visibility.Collapsed;
+        _rechargeCard.Visibility = showRecharge ? Visibility.Visible : Visibility.Collapsed;
+        _mfaCard.Visibility = showMfa ? Visibility.Visible : Visibility.Collapsed;
+        _oauthCard.Visibility = showOAuth ? Visibility.Visible : Visibility.Collapsed;
 
         var sig = string.Join("|",
             snap.IsPxBoard,
@@ -353,11 +362,11 @@ public sealed class AccountPageView
         if (!string.IsNullOrEmpty(snap.SubscribeUrl))
         {
             _subLinkContainer.Children.Add(BuildCopyRow(snap.SubscribeUrl));
-            _subLinkSection.Visibility = Visibility.Visible;
+            _subLinkCard.Visibility = Visibility.Visible;
         }
         else
         {
-            _subLinkSection.Visibility = Visibility.Collapsed;
+            _subLinkCard.Visibility = Visibility.Collapsed;
         }
 
         // Recharge channels
@@ -459,11 +468,14 @@ public sealed class AccountPageView
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var box = new TextBox { Text = value, IsReadOnly = true };
         var copyBtn = new Button { Content = "复制" };
-        copyBtn.Click += (_, _) =>
+        copyBtn.Click += async (_, _) =>
         {
-            var pkg = new DataPackage();
-            pkg.SetText(value);
-            Clipboard.SetContent(pkg);
+            if (NetoWindowHelper.SetClipboardText(value))
+            {
+                copyBtn.Content = "已复制";
+                await Task.Delay(1000);
+                copyBtn.Content = "复制";
+            }
         };
         Grid.SetColumn(copyBtn, 1);
         g.Children.Add(box);

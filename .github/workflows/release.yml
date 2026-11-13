@@ -206,6 +206,28 @@ jobs:
           export ZIP_PATH="dist/${XBCLIENT_APP_NAME}-win-x64-release-${GITHUB_RUN_ID}.zip"
           powershell -NoProfile -Command "Compress-Archive -Path 'dist/XBClient' -DestinationPath \$env:ZIP_PATH -Force"
 
+      - name: Build Windows installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $ver = $env:GITHUB_REF_NAME.TrimStart('v')
+          $appName = $env:XBCLIENT_APP_NAME
+          $outBase = "$appName-win-x64-setup-$($env:GITHUB_RUN_ID)"
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress --yes
+          }
+          & $iscc "/DMyAppName=$appName" "/DMyAppVersion=$ver" "/DOutputBaseFilename=$outBase" 'apps/windows/installer/XBClient.iss'
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path "dist/$outBase.exe")) { throw "dist/$outBase.exe missing" }
+
+      - name: Upload release Windows installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: xbclient-release-windows-setup-${{ github.ref_name }}-${{ github.run_id }}
+          archive: false
+          path: dist/${{ env.XBCLIENT_APP_NAME }}-win-x64-setup-${{ github.run_id }}.exe
+          if-no-files-found: error
+
       - name: Upload release Windows package
         uses: actions/upload-artifact@v7
         with:
@@ -218,7 +240,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
-          files: dist/${{ env.XBCLIENT_APP_NAME }}-win-x64-release-${{ github.run_id }}.zip
+          files: |
+            dist/${{ env.XBCLIENT_APP_NAME }}-win-x64-setup-${{ github.run_id }}.exe
+            dist/${{ env.XBCLIENT_APP_NAME }}-win-x64-release-${{ github.run_id }}.zip
 
   linux-release:
     name: Linux Wayland GTK4 release deb (${{ matrix.arch }})

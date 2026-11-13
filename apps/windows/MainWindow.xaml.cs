@@ -15,6 +15,8 @@ public sealed partial class MainWindow : Window
 {
     private readonly NetoClient _netoClient;
     private readonly XbPanelService _panelService;
+    private readonly SingleInstanceGuard? _instanceGuard;
+    private readonly IntPtr _hwnd;
     private readonly AuthView _authView;
     private readonly ConnectPageView _connectView;
     private readonly DashboardPageView _dashboardView;
@@ -26,16 +28,26 @@ public sealed partial class MainWindow : Window
     private readonly Win32TrayIcon _tray;
     private string _currentTab = "connect";
     private string _lastBlockReason = "__unset__";
+    private string _appliedTheme = "";
+    private bool _syncingNav;
     private bool _quitting;
 
-    public MainWindow(bool startMinimized)
+    public bool StartedHidden { get; }
+
+    public MainWindow(bool startMinimized, bool isRelaunchElevated, SingleInstanceGuard? instanceGuard)
     {
+        _instanceGuard = instanceGuard;
         InitializeComponent();
 
-        var hwnd = WindowNative.GetWindowHandle(this);
-        var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+        _hwnd = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(_hwnd);
         _appWindow = AppWindow.GetFromWindowId(windowId);
-        _appWindow.Resize(new SizeInt32(900, 660));
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico");
+        if (File.Exists(iconPath))
+        {
+            _appWindow.SetIcon(iconPath);
+        }
+        NetoWindowHelper.ConfigureWindow(_appWindow, 940, 660);
         _appWindow.Closing += OnAppWindowClosing;
 
         var dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "XBClient");
@@ -46,18 +58,18 @@ public sealed partial class MainWindow : Window
         var appTitle = string.IsNullOrWhiteSpace(initialPanel.AppName) ? "XBClient" : initialPanel.AppName;
         Title = appTitle;
 
-        _netoClient = new NetoClient(dataDir, appTitle, "Aerion", DispatcherQueue);
+        _netoClient = new NetoClient(dataDir, "XBClient", "Aerion", DispatcherQueue);
         _panelService = new XbPanelService(initialPanel, DispatcherQueue, () => _netoClient.RefreshSnapshotAsync());
 
         _authView = new AuthView(_panelService);
         AuthHost.Children.Add(_authView.Root);
 
-        _connectView = new ConnectPageView(_netoClient, () => SwitchTab("nodes"));
-        _dashboardView = new DashboardPageView(_netoClient, () => SwitchTab("nodes"), () => SwitchTab("account"));
+        _connectView = new ConnectPageView(_netoClient, () => SwitchTab("nodes"), () => SwitchTab("account"), RequestElevation);
+        _dashboardView = new DashboardPageView(_netoClient, () => SwitchTab("nodes"), () => SwitchTab("account"), RequestElevation, detachHeaderActions: true);
         _nodesView = new NodesPageView(_netoClient);
         _plansView = new PlansPageView(_panelService);
         _accountView = new AccountPageView(_panelService);
-        _settingsView = new SettingsPageView(_netoClient);
+        _settingsView = new SettingsPageView(_netoClient, ApplyThemeMode, RequestElevation);
         AppendCommercialLinks(initialPanel);
 
         ContentHost.Children.Add(_connectView.Root);
@@ -67,30 +79,84 @@ public sealed partial class MainWindow : Window
         ContentHost.Children.Add(_accountView.Root);
         ContentHost.Children.Add(_settingsView.Root);
 
-        _tray = new Win32TrayIcon(hwnd, appTitle);
-        _tray.ShowRequested += () => DispatcherQueue.TryEnqueue(() => { _appWindow.Show(); Activate(); });
+        _tray = new Win32TrayIcon(_hwnd, appTitle);
+        _tray.ShowRequested += ShowFromExternalActivation;
+        _tray.PrimaryClickRequested += () => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (NetoWindowHelper.IsWindowForegroundAndVisible(_appWindow, _hwnd))
+            {
+                _appWindow.Hide();
+            }
+            else
+            {
+                NetoWindowHelper.RestoreAndActivate(this, _appWindow, _hwnd);
+            }
+        });
         _tray.ToggleConnectRequested += () => DispatcherQueue.TryEnqueue(async () =>
         {
             if (_panelService.Snapshot.LoggedIn && string.IsNullOrEmpty(_panelService.Snapshot.BlockReason))
             {
                 await _netoClient.ToggleConnectAsync();
             }
+            else
+            {
+                NetoWindowHelper.RestoreAndActivate(this, _appWindow, _hwnd);
+            }
         });
+        _tray.SelectRoutingModeRequested += mode => DispatcherQueue.TryEnqueue(async () => await _netoClient.SetRoutingModeAsync(mode));
+        _tray.SelectNodeRequested += idx => DispatcherQueue.TryEnqueue(async () => await _netoClient.SelectNodeAsync(idx));
         _tray.ToggleSystemProxyRequested += () => DispatcherQueue.TryEnqueue(async () => await _netoClient.SetSystemProxyAsync(!_netoClient.Snapshot.Settings.SystemProxyEnabled));
-        _tray.ToggleTunRequested += () => DispatcherQueue.TryEnqueue(async () => await _netoClient.SetTunEnabledAsync(!_netoClient.Snapshot.Settings.TunEnabled));
+        _tray.ToggleTunRequested += () => DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (!_netoClient.Snapshot.Settings.TunEnabled && !_netoClient.Snapshot.Connection.CanUseTun)
+            {
+                RequestElevation();
+                return;
+            }
+            await _netoClient.SetTunEnabledAsync(!_netoClient.Snapshot.Settings.TunEnabled);
+        });
+        _tray.CopyProxyCommandRequested += () => DispatcherQueue.TryEnqueue(() =>
+        {
+            NetoWindowHelper.SetClipboardText(NetoWindowHelper.BuildTerminalProxyCommand(_netoClient.Snapshot));
+        });
+        _tray.RestartElevatedRequested += () => DispatcherQueue.TryEnqueue(RequestElevation);
+        _tray.SessionEnding += () => NetoNativeBridge.Shutdown();
         _tray.ExitRequested += () => DispatcherQueue.TryEnqueue(ExitApplication);
 
         _netoClient.SnapshotChanged += ApplyNetoSnapshot;
         _panelService.SnapshotChanged += ApplyPanelSnapshot;
 
-        SwitchTab("connect");
+        var initialTab = Environment.GetCommandLineArgs()
+            .FirstOrDefault(a => a.StartsWith("--tab=", StringComparison.OrdinalIgnoreCase))?[6..]?.ToLowerInvariant() ?? "connect";
+        SwitchTab(initialTab);
         ApplyPanelSnapshot(initialPanel);
         ApplyNetoSnapshot(_netoClient.Snapshot);
         _ = _panelService.InitOrSyncAsync();
 
-        if (startMinimized)
+        StartedHidden = (startMinimized || _netoClient.Snapshot.Settings.SilentStart) && !isRelaunchElevated;
+        if (StartedHidden)
         {
             _appWindow.Hide();
+        }
+    }
+
+    public void ShowFromExternalActivation()
+    {
+        DispatcherQueue.TryEnqueue(() => NetoWindowHelper.RestoreAndActivate(this, _appWindow, _hwnd));
+    }
+
+    private void ApplyThemeMode(string themeMode)
+    {
+        if (_appliedTheme == themeMode) return;
+        _appliedTheme = themeMode;
+        NetoWindowHelper.ApplyTheme(RootGrid, _hwnd, themeMode);
+    }
+
+    private void RequestElevation()
+    {
+        if (NetoWindowHelper.TryRestartElevated(_instanceGuard))
+        {
+            ExitApplication();
         }
     }
 
@@ -108,7 +174,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         var section = new StackPanel { Spacing = 8 };
-        section.Children.Add(NetoUiFactory.CreateSectionHeader("站点与条款"));
+        section.Children.Add(NetoUiFactory.CreateInlineCardHeader("站点与条款"));
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         foreach (var (label, url) in links)
         {
@@ -117,13 +183,14 @@ public sealed partial class MainWindow : Window
             btn.Click += async (_, _) => await _panelService.OpenUrlAsync(target);
             row.Children.Add(btn);
         }
-        section.Children.Add(NetoUiFactory.CreateCard(row));
-        _settingsView.SetExtraFooter(section);
+        section.Children.Add(row);
+        _settingsView.SetExtraFooter(NetoUiFactory.CreateCard(section));
     }
 
-    private void OnNavClick(object sender, RoutedEventArgs e)
+    private void OnNavSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
     {
-        if (sender is Button { Tag: string tag })
+        if (_syncingNav) return;
+        if (sender.SelectedItem is SelectorBarItem { Tag: string tag })
         {
             SwitchTab(tag);
         }
@@ -136,9 +203,22 @@ public sealed partial class MainWindow : Window
             tab = "account";
         }
         _currentTab = tab;
+        _syncingNav = true;
+        BottomSelectorBar.SelectedItem = tab switch
+        {
+            "dashboard" => NavDashboardItem,
+            "nodes" => NavNodesItem,
+            "plans" => NavPlansItem,
+            "account" => NavAccountItem,
+            "settings" => NavSettingsItem,
+            _ => NavConnectItem,
+        };
+        _syncingNav = false;
+
         if (tab == "connect")
         {
             TopHeaderBorder.Visibility = Visibility.Collapsed;
+            PageHeaderActionHost.Content = null;
         }
         else
         {
@@ -152,6 +232,7 @@ public sealed partial class MainWindow : Window
                 "settings" => "设置",
                 _ => "",
             };
+            PageHeaderActionHost.Content = tab == "dashboard" ? _dashboardView.HeaderActions : null;
         }
 
         _connectView.Root.Visibility = tab == "connect" ? Visibility.Visible : Visibility.Collapsed;
@@ -160,13 +241,6 @@ public sealed partial class MainWindow : Window
         _plansView.Root.Visibility = tab == "plans" ? Visibility.Visible : Visibility.Collapsed;
         _accountView.Root.Visibility = tab == "account" ? Visibility.Visible : Visibility.Collapsed;
         _settingsView.Root.Visibility = tab == "settings" ? Visibility.Visible : Visibility.Collapsed;
-
-        NetoUiFactory.ApplyPrimaryButton(NavConnectBtn, tab == "connect");
-        NetoUiFactory.ApplyPrimaryButton(NavDashboardBtn, tab == "dashboard");
-        NetoUiFactory.ApplyPrimaryButton(NavNodesBtn, tab == "nodes");
-        NetoUiFactory.ApplyPrimaryButton(NavPlansBtn, tab == "plans");
-        NetoUiFactory.ApplyPrimaryButton(NavAccountBtn, tab == "account");
-        NetoUiFactory.ApplyPrimaryButton(NavSettingsBtn, tab == "settings");
     }
 
     private void ApplyPanelSnapshot(PanelStateSnapshot snap)
@@ -174,10 +248,10 @@ public sealed partial class MainWindow : Window
         AuthHost.Visibility = snap.LoggedIn ? Visibility.Collapsed : Visibility.Visible;
         MainShellGrid.Visibility = snap.LoggedIn ? Visibility.Visible : Visibility.Collapsed;
         _authView.ApplySnapshot(snap);
+        SyncTray();
         if (!snap.LoggedIn) return;
 
-        NavPlansCol.Width = snap.ShowPlansTab ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-        NavPlansBtn.Visibility = snap.ShowPlansTab ? Visibility.Visible : Visibility.Collapsed;
+        NavPlansItem.Visibility = snap.ShowPlansTab ? Visibility.Visible : Visibility.Collapsed;
         if (_currentTab == "plans" && !snap.ShowPlansTab) SwitchTab("account");
 
         if (_lastBlockReason != snap.BlockReason)
@@ -226,6 +300,7 @@ public sealed partial class MainWindow : Window
         {
             Text = string.IsNullOrEmpty(snap.Email) ? snap.AppName : snap.Email,
             FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis,
         });
         var parts = new List<string>();
         if (!string.IsNullOrEmpty(snap.SubscriptionSummary)) parts.Add(snap.SubscriptionSummary);
@@ -234,6 +309,7 @@ public sealed partial class MainWindow : Window
         {
             Text = string.Join(" · ", parts),
             FontSize = 12,
+            TextTrimming = TextTrimming.CharacterEllipsis,
             Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
         });
         var jumpBtn = new Button
@@ -250,18 +326,23 @@ public sealed partial class MainWindow : Window
 
     private void ApplyNetoSnapshot(NetoSnapshot snap)
     {
+        ApplyThemeMode(snap.Settings.ThemeMode);
         _connectView.ApplySnapshot(snap, _netoClient.LastActionError);
         _dashboardView.ApplySnapshot(snap);
         _nodesView.ApplySnapshot(snap);
         _settingsView.ApplySnapshot(snap);
 
-        var appTitle = string.IsNullOrWhiteSpace(_panelService.Snapshot.AppName) ? "XBClient" : _panelService.Snapshot.AppName;
-        _tray.Connected = snap.Connection.Connected;
-        _tray.SystemProxyEnabled = snap.Settings.SystemProxyEnabled;
-        _tray.TunEnabled = snap.Settings.TunEnabled;
-        _tray.UpdateTooltip(snap.Connection.Connected && !string.IsNullOrEmpty(snap.Connection.ActiveNodeName)
-            ? $"{appTitle} · {snap.Connection.ActiveNodeName}"
-            : appTitle);
+        var portText = string.IsNullOrEmpty(snap.Connection.HttpProxyAddr) ? $"127.0.0.1:{snap.Settings.MixedPort}" : snap.Connection.HttpProxyAddr;
+        BottomStatusText.Text = snap.Connection.CanUseTun ? $"管理员 · {portText}" : portText;
+        SyncTray();
+    }
+
+    private void SyncTray()
+    {
+        var panel = _panelService.Snapshot;
+        var appTitle = string.IsNullOrWhiteSpace(panel.AppName) ? "XBClient" : panel.AppName;
+        var allowConnect = panel.LoggedIn && string.IsNullOrEmpty(panel.BlockReason);
+        _tray.SyncFromSnapshot(_netoClient.Snapshot, appTitle, allowConnect);
     }
 
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
@@ -278,6 +359,7 @@ public sealed partial class MainWindow : Window
         _quitting = true;
         _tray.Dispose();
         _netoClient.Dispose();
+        _instanceGuard?.Dispose();
         Close();
     }
 }

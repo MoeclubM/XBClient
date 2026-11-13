@@ -13,6 +13,7 @@ local.properties
 *.p12
 
 # Rust / Native / Desktop
+/Cargo.lock
 .cargo/
 target/
 dist/

@@ -13,12 +13,10 @@ public sealed class AuthView
     public ScrollViewer Root { get; }
     private readonly XbPanelService _panel;
     private readonly TextBlock _appTitle;
-    private readonly Grid _modeGrid;
-    private readonly ColumnDefinition _registerCol;
-    private readonly ColumnDefinition _resetCol;
-    private readonly Button _modeLoginBtn;
-    private readonly Button _modeRegisterBtn;
-    private readonly Button _modeResetBtn;
+    private readonly SelectorBar _modeSelector;
+    private readonly SelectorBarItem _modeLoginItem;
+    private readonly SelectorBarItem _modeRegisterItem;
+    private readonly SelectorBarItem _modeResetItem;
     private readonly Border _formCard;
     private readonly TextBox _emailBox;
     private readonly PasswordBox _passwordBox;
@@ -38,6 +36,7 @@ public sealed class AuthView
     private string _mode = "login";
     private string? _localInfoMessage;
     private string _providerSig = "";
+    private bool _syncingMode;
 
     public AuthView(XbPanelService panel)
     {
@@ -61,24 +60,19 @@ public sealed class AuthView
         };
         outer.Children.Add(_appTitle);
 
-        _modeGrid = new Grid { ColumnSpacing = 8 };
-        _modeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        _registerCol = new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) };
-        _resetCol = new ColumnDefinition { Width = new GridLength(0) };
-        _modeGrid.ColumnDefinitions.Add(_registerCol);
-        _modeGrid.ColumnDefinitions.Add(_resetCol);
-        _modeLoginBtn = new Button { Content = "登录", HorizontalAlignment = HorizontalAlignment.Stretch };
-        _modeRegisterBtn = new Button { Content = "注册", HorizontalAlignment = HorizontalAlignment.Stretch };
-        _modeResetBtn = new Button { Content = "找回密码", HorizontalAlignment = HorizontalAlignment.Stretch, Visibility = Visibility.Collapsed };
-        _modeLoginBtn.Click += (_, _) => SetMode("login");
-        _modeRegisterBtn.Click += (_, _) => SetMode("register");
-        _modeResetBtn.Click += (_, _) => SetMode("reset");
-        Grid.SetColumn(_modeRegisterBtn, 1);
-        Grid.SetColumn(_modeResetBtn, 2);
-        _modeGrid.Children.Add(_modeLoginBtn);
-        _modeGrid.Children.Add(_modeRegisterBtn);
-        _modeGrid.Children.Add(_modeResetBtn);
-        outer.Children.Add(_modeGrid);
+        _modeSelector = new SelectorBar { HorizontalAlignment = HorizontalAlignment.Center };
+        _modeLoginItem = new SelectorBarItem { Tag = "login", Text = "账号登录" };
+        _modeRegisterItem = new SelectorBarItem { Tag = "register", Text = "注册账号" };
+        _modeResetItem = new SelectorBarItem { Tag = "reset", Text = "找回密码", Visibility = Visibility.Collapsed };
+        _modeSelector.Items.Add(_modeLoginItem);
+        _modeSelector.Items.Add(_modeRegisterItem);
+        _modeSelector.Items.Add(_modeResetItem);
+        _modeSelector.SelectionChanged += (_, _) =>
+        {
+            if (_syncingMode) return;
+            if (_modeSelector.SelectedItem is SelectorBarItem { Tag: string m }) SetMode(m);
+        };
+        outer.Children.Add(_modeSelector);
 
         var formStack = new StackPanel { Spacing = 10 };
         _emailBox = new TextBox { Header = "邮箱", PlaceholderText = "name@example.com" };
@@ -151,16 +145,21 @@ public sealed class AuthView
         outer.Children.Add(_messageCard);
 
         SetMode("login");
-        Root = new ScrollViewer { Content = outer };
+        Root = NetoUiFactory.CreateCenteredScrollViewer(outer, centerVertically: true);
     }
 
     private void SetMode(string mode)
     {
         _mode = mode;
         _localInfoMessage = null;
-        NetoUiFactory.ApplyPrimaryButton(_modeLoginBtn, mode == "login");
-        NetoUiFactory.ApplyPrimaryButton(_modeRegisterBtn, mode == "register");
-        NetoUiFactory.ApplyPrimaryButton(_modeResetBtn, mode == "reset");
+        _syncingMode = true;
+        _modeSelector.SelectedItem = mode switch
+        {
+            "register" => _modeRegisterItem,
+            "reset" => _modeResetItem,
+            _ => _modeLoginItem,
+        };
+        _syncingMode = false;
         _submitBtn.Content = mode switch
         {
             "register" => "注册并登录",
@@ -175,26 +174,26 @@ public sealed class AuthView
         if (_mode == "register" && !snap.RegistrationEnabled)
         {
             _mode = "login";
-            NetoUiFactory.ApplyPrimaryButton(_modeLoginBtn, true);
-            NetoUiFactory.ApplyPrimaryButton(_modeRegisterBtn, false);
+            _syncingMode = true;
+            _modeSelector.SelectedItem = _modeLoginItem;
+            _syncingMode = false;
             _submitBtn.Content = "登录";
         }
         if (_mode == "reset" && !snap.PasswordResetEnabled)
         {
             _mode = "login";
-            NetoUiFactory.ApplyPrimaryButton(_modeLoginBtn, true);
-            NetoUiFactory.ApplyPrimaryButton(_modeResetBtn, false);
+            _syncingMode = true;
+            _modeSelector.SelectedItem = _modeLoginItem;
+            _syncingMode = false;
             _submitBtn.Content = "登录";
         }
 
         _appTitle.Text = string.IsNullOrWhiteSpace(snap.AppName) ? "XBClient" : snap.AppName;
-        _modeGrid.Visibility = (snap.RegistrationEnabled || snap.PasswordResetEnabled)
+        _modeSelector.Visibility = (snap.RegistrationEnabled || snap.PasswordResetEnabled)
             ? Visibility.Visible
             : Visibility.Collapsed;
-        _modeRegisterBtn.Visibility = snap.RegistrationEnabled ? Visibility.Visible : Visibility.Collapsed;
-        _registerCol.Width = snap.RegistrationEnabled ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-        _modeResetBtn.Visibility = snap.PasswordResetEnabled ? Visibility.Visible : Visibility.Collapsed;
-        _resetCol.Width = snap.PasswordResetEnabled ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        _modeRegisterItem.Visibility = snap.RegistrationEnabled ? Visibility.Visible : Visibility.Collapsed;
+        _modeResetItem.Visibility = snap.PasswordResetEnabled ? Visibility.Visible : Visibility.Collapsed;
 
         var challengeBlocksForm = snap.IsPxBoard && (
             (_mode == "login" && snap.LoginChallengeRequired) ||

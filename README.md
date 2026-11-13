@@ -47,7 +47,7 @@
 | 平台 | 安装包 | 连接方式 |
 | --- | --- | --- |
 | Android | arm64 APK / Play AAB | 系统 VPN（`NetoVpnService`） |
-| Windows | WinUI 3 x64 独立压缩包 | 系统代理或 Wintun TUN（需管理员） |
+| Windows | WinUI 3 x64 安装程序 / 便携包 | 系统代理或 Wintun TUN（支持界面/托盘一键提权） |
 | Linux Wayland | GTK4 deb（amd64 / arm64） | 系统代理或 TUN + StatusNotifierItem 托盘 |
 
 ## 使用教程

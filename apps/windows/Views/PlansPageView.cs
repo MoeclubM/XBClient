@@ -15,12 +15,12 @@ public sealed class PlansPageView
     private readonly TextBlock _balanceText;
     private readonly Button _refreshBtn;
     private readonly Button _portalBtn;
-    private readonly Grid _checkoutOptionsRow;
+    private readonly Border _checkoutOptionsCard;
     private readonly TextBox _couponBox;
     private readonly ComboBox _channelCombo;
     private readonly Border _feedbackCard;
     private readonly TextBlock _feedbackText;
-    private readonly StackPanel _plansList;
+    private readonly Grid _plansGrid;
     private List<(string Id, string Label)> _channelOptions = [];
     private string _lastSig = "";
 
@@ -30,9 +30,9 @@ public sealed class PlansPageView
 
         var outer = new StackPanel
         {
-            MaxWidth = 820,
+            MaxWidth = 860,
             Spacing = 10,
-            Padding = new Thickness(18, 12, 18, 24),
+            Padding = new Thickness(18, 8, 18, 24),
         };
 
         var headerGrid = new Grid { ColumnSpacing = 8 };
@@ -57,25 +57,29 @@ public sealed class PlansPageView
         headerGrid.Children.Add(_refreshBtn);
         outer.Children.Add(NetoUiFactory.CreateCard(headerGrid));
 
-        _checkoutOptionsRow = new Grid { ColumnSpacing = 10, Visibility = Visibility.Collapsed };
-        _checkoutOptionsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        _checkoutOptionsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var checkoutOptionsRow = new Grid { ColumnSpacing = 10 };
+        checkoutOptionsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        checkoutOptionsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         _couponBox = new TextBox { Header = "优惠码（选填）" };
         _channelCombo = new ComboBox { Header = "支付方式", HorizontalAlignment = HorizontalAlignment.Stretch };
         Grid.SetColumn(_channelCombo, 1);
-        _checkoutOptionsRow.Children.Add(_couponBox);
-        _checkoutOptionsRow.Children.Add(_channelCombo);
-        outer.Children.Add(NetoUiFactory.CreateCard(_checkoutOptionsRow));
+        checkoutOptionsRow.Children.Add(_couponBox);
+        checkoutOptionsRow.Children.Add(_channelCombo);
+        _checkoutOptionsCard = NetoUiFactory.CreateCard(checkoutOptionsRow);
+        _checkoutOptionsCard.Visibility = Visibility.Collapsed;
+        outer.Children.Add(_checkoutOptionsCard);
 
         _feedbackText = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
         _feedbackCard = NetoUiFactory.CreateCard(_feedbackText, new Thickness(12, 8, 12, 8));
         _feedbackCard.Visibility = Visibility.Collapsed;
         outer.Children.Add(_feedbackCard);
 
-        _plansList = new StackPanel { Spacing = 10 };
-        outer.Children.Add(_plansList);
+        _plansGrid = new Grid { ColumnSpacing = 10, RowSpacing = 10 };
+        _plansGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        _plansGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        outer.Children.Add(_plansGrid);
 
-        Root = new ScrollViewer { Content = outer };
+        Root = NetoUiFactory.CreateCenteredScrollViewer(outer);
     }
 
     public void ApplySnapshot(PanelStateSnapshot snap)
@@ -96,7 +100,7 @@ public sealed class PlansPageView
         _lastSig = sig;
 
         var showChannels = snap.PaymentEnabled && snap.PaymentChannels.Count > 0;
-        _checkoutOptionsRow.Visibility = snap.Plans.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        _checkoutOptionsCard.Visibility = snap.Plans.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         _channelCombo.Visibility = showChannels ? Visibility.Visible : Visibility.Collapsed;
         _channelOptions = [("wallet", "余额支付")];
         if (showChannels)
@@ -107,19 +111,27 @@ public sealed class PlansPageView
         foreach (var (_, label) in _channelOptions) _channelCombo.Items.Add(label);
         _channelCombo.SelectedIndex = 0;
 
-        _plansList.Children.Clear();
+        _plansGrid.Children.Clear();
+        _plansGrid.RowDefinitions.Clear();
         if (snap.Plans.Count == 0)
         {
-            _plansList.Children.Add(NetoUiFactory.CreateCard(new TextBlock
+            _plansGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var emptyCard = NetoUiFactory.CreateCard(new TextBlock
             {
                 Text = "暂无可购买套餐",
                 Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
-            }));
+            });
+            Grid.SetColumnSpan(emptyCard, 2);
+            _plansGrid.Children.Add(emptyCard);
             return;
         }
 
-        foreach (var plan in snap.Plans)
+        var totalRows = (snap.Plans.Count + 1) / 2;
+        for (var r = 0; r < totalRows; r++) _plansGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        for (var pIdx = 0; pIdx < snap.Plans.Count; pIdx++)
         {
+            var plan = snap.Plans[pIdx];
             var cardStack = new StackPanel { Spacing = 8 };
             var topRow = new Grid();
             topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -200,7 +212,15 @@ public sealed class PlansPageView
                 cardStack.Children.Add(actionRow);
             }
 
-            _plansList.Children.Add(NetoUiFactory.CreateCard(cardStack));
+            var card = NetoUiFactory.CreateCard(cardStack);
+            card.VerticalAlignment = VerticalAlignment.Stretch;
+            Grid.SetRow(card, pIdx / 2);
+            Grid.SetColumn(card, pIdx % 2);
+            if (pIdx == snap.Plans.Count - 1 && snap.Plans.Count % 2 == 1)
+            {
+                Grid.SetColumnSpan(card, 2);
+            }
+            _plansGrid.Children.Add(card);
         }
     }
 

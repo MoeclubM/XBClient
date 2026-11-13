@@ -196,6 +196,27 @@ jobs:
           export ZIP_PATH="dist/${XBCLIENT_APP_NAME}-win-x64-beta-${GITHUB_RUN_ID}.zip"
           powershell -NoProfile -Command "Compress-Archive -Path 'dist/XBClient' -DestinationPath \$env:ZIP_PATH -Force"
 
+      - name: Build beta Windows installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $appName = $env:XBCLIENT_APP_NAME
+          $outBase = "$appName-win-x64-beta-setup-$($env:GITHUB_RUN_ID)"
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress --yes
+          }
+          & $iscc "/DMyAppName=$appName" "/DMyAppVersion=0.1.0-beta.$($env:GITHUB_RUN_ID)" "/DOutputBaseFilename=$outBase" 'apps/windows/installer/XBClient.iss'
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path "dist/$outBase.exe")) { throw "dist/$outBase.exe missing" }
+
+      - name: Upload beta Windows installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: xbclient-beta-windows-setup-${{ github.run_id }}
+          archive: false
+          path: dist/${{ env.XBCLIENT_APP_NAME }}-win-x64-beta-setup-${{ github.run_id }}.exe
+          if-no-files-found: error
+
       - name: Upload beta Windows package
         uses: actions/upload-artifact@v7
         with:
