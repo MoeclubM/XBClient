@@ -262,6 +262,7 @@ jobs:
       - name: Build & package Linux Wayland deb
         shell: bash
         run: |
+          ver="${GITHUB_REF_NAME#v}"
           cargo build --release -p xbclient-linux
           pkg_root="dist/pkg-xbclient_${{ matrix.arch }}"
           mkdir -p "$pkg_root/DEBIAN" "$pkg_root/usr/bin" "$pkg_root/usr/share/applications" dist
@@ -270,7 +271,7 @@ jobs:
           sed "s/^Name=.*/Name=${XBCLIENT_APP_NAME}/" apps/linux/data/xbclient.desktop > "$pkg_root/usr/share/applications/xbclient.desktop"
           printf '%s\n' \
             "Package: xbclient" \
-            "Version: 0.1.0" \
+            "Version: ${ver}" \
             "Section: net" \
             "Priority: optional" \
             "Architecture: ${{ matrix.arch }}" \
