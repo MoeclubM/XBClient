@@ -23,6 +23,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import java.util.Locale
+import moe.telecom.neto.sdk.NetoPreferenceCard
+import moe.telecom.neto.sdk.formatNetoBytes
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -62,7 +64,7 @@ internal fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel)
         }
         Text(subscriptionText, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
     }
-    PreferenceCard {
+    NetoPreferenceCard {
         ArrowPreference(title = stringResource(R.string.page_account_security), onClick = { viewModel.openScreen(PassScreen.ACCOUNT_SECURITY) })
         ArrowPreference(title = stringResource(R.string.page_gift_cards), onClick = { viewModel.openScreen(PassScreen.GIFT_CARDS) })
         ArrowPreference(title = stringResource(R.string.common_settings), onClick = { viewModel.openScreen(PassScreen.SETTINGS) })
@@ -75,7 +77,7 @@ internal fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel)
         state = state,
         viewModel = viewModel
     )
-    PreferenceCard {
+    NetoPreferenceCard {
         ArrowPreference(title = stringResource(R.string.page_traffic_logs), onClick = { viewModel.openScreen(PassScreen.TRAFFIC_LOGS) })
         ArrowPreference(title = stringResource(R.string.page_invite_details), onClick = { viewModel.openScreen(PassScreen.INVITE_DETAILS) })
         ArrowPreference(title = stringResource(R.string.page_tickets), onClick = { viewModel.openScreen(PassScreen.TICKETS) })
@@ -178,8 +180,8 @@ internal fun TrafficLogsScreen(state: XbClientUiState) {
                         Text(
                             stringResource(
                                 R.string.traffic_logs_up_down,
-                                formatTrafficBytes(log.upload.toDouble()),
-                                formatTrafficBytes(log.download.toDouble())
+                                formatNetoBytes(log.upload),
+                                formatNetoBytes(log.download)
                             ),
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                         )
@@ -187,7 +189,7 @@ internal fun TrafficLogsScreen(state: XbClientUiState) {
                         Text(
                             stringResource(
                                 R.string.traffic_logs_total_rate,
-                                formatTrafficBytes(total.toDouble()),
+                                formatNetoBytes(total),
                                 String.format(Locale.US, "%.2f", log.serverRate)
                             ),
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary

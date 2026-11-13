@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.util.Base64
 import android.widget.Toast
+import moe.telecom.neto.sdk.NetoPreferenceCard
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -465,7 +466,7 @@ internal fun PxBoardSecurityScreen(state: XbClientUiState, viewModel: XbClientVi
 
     if ("access" in state.nativeExtensions && (portal.expireEnabled || portal.trafficEnabled)) {
         Section("邮件提醒") {
-            PreferenceCard {
+            NetoPreferenceCard {
                 if (portal.expireEnabled) {
                     SwitchPreference(
                         title = "套餐到期前邮件提醒",

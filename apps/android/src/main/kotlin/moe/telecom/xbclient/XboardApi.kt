@@ -1,6 +1,5 @@
 package moe.telecom.xbclient
 
-import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -12,8 +11,6 @@ import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 object XboardApi {
-    private const val SUBSCRIPTION_NODE_TYPES =
-        "anytls,hysteria,trojan,vless,vmess,mieru,sudoku,flux,naive,shadowsocks,tuic,http,socks5,direct,block"
     private val userAgent: String
         get() = BuildConfig.USER_AGENT
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -64,33 +61,6 @@ object XboardApi {
             "xbclient_nodes" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/nodes", authData, emptyMap())
 
             else -> throw IllegalArgumentException("unsupported Xboard action: $action")
-        }
-    }
-
-    fun fetchSubscriptionYaml(subscribeUrl: String): String {
-        val parsed = Uri.parse(subscribeUrl.trim())
-        val builder = parsed.buildUpon().clearQuery()
-        for (name in parsed.queryParameterNames) {
-            if (name != "flag" && name != "types") {
-                for (v in parsed.getQueryParameters(name)) {
-                    builder.appendQueryParameter(name, v)
-                }
-            }
-        }
-        builder.appendQueryParameter("types", SUBSCRIPTION_NODE_TYPES)
-        builder.appendQueryParameter("flag", "aerion")
-        val req = Request.Builder()
-            .url(builder.build().toString())
-            .header("User-Agent", userAgent)
-            .header("Accept", "text/yaml, application/yaml, text/plain;q=0.9, */*;q=0.8")
-            .get()
-            .build()
-        httpClient.newCall(req).execute().use { resp ->
-            val body = resp.body?.string().orEmpty().trim()
-            if (!resp.isSuccessful) {
-                throw IllegalStateException("HTTP ${resp.code}")
-            }
-            return body
         }
     }
 

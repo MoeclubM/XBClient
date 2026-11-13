@@ -3,6 +3,7 @@ package moe.telecom.xbclient
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.widget.Toast
+import moe.telecom.neto.sdk.NetoPreferenceCard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -338,7 +339,7 @@ internal fun PxBoardPlansScreen(state: XbClientUiState, viewModel: XbClientViewM
 
     if (portal.plans.isEmpty()) {
         if (hasCommerce || !state.planRewardAdEnabled) {
-            PreferenceCard {
+            NetoPreferenceCard {
                 Text(
                     stringResource(id = if (state.nodesLoading) R.string.plans_loading else R.string.plans_empty),
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -531,7 +532,7 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
         )
     }
 
-    PreferenceCard {
+    NetoPreferenceCard {
         if ("commerce" in ext || "redeem" in ext) {
             ArrowPreference(
                 title = when {

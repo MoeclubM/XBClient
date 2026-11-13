@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
+import moe.telecom.neto.sdk.NetoTheme
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
@@ -66,6 +67,7 @@ import java.util.Locale
 @Composable
 fun XbClientApp(viewModel: XbClientViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val netoSnapshot by viewModel.netoClient.snapshot.collectAsStateWithLifecycle()
     val baseContext = LocalContext.current
     val languageTag = effectiveLanguageTag(state.appLanguage)
     val appLocale = remember(languageTag) { Locale.forLanguageTag(languageTag) }
@@ -90,7 +92,7 @@ fun XbClientApp(viewModel: XbClientViewModel) {
         LocalConfiguration provides localizedConfiguration,
         LocalLayoutDirection provides layoutDirection
     ) {
-        XbClientTheme(state.themeMode) {
+        NetoTheme(netoSnapshot.settings.themeMode) {
             val routeBackProgress = if (
                 state.isLoggedIn &&
                 state.screen !in MainTabScreens &&
@@ -118,6 +120,7 @@ fun XbClientApp(viewModel: XbClientViewModel) {
 @Composable
 fun XbClientAuthApp(viewModel: XbClientViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val netoSnapshot by viewModel.netoClient.snapshot.collectAsStateWithLifecycle()
     val baseContext = LocalContext.current
     val languageTag = effectiveLanguageTag(state.appLanguage)
     val appLocale = remember(languageTag) { Locale.forLanguageTag(languageTag) }
@@ -142,7 +145,7 @@ fun XbClientAuthApp(viewModel: XbClientViewModel) {
         LocalConfiguration provides localizedConfiguration,
         LocalLayoutDirection provides layoutDirection
     ) {
-        XbClientTheme(state.themeMode) {
+        NetoTheme(netoSnapshot.settings.themeMode) {
             Scaffold {
                 Box(
                     modifier = Modifier.graphicsLayer {
@@ -158,7 +161,7 @@ fun XbClientAuthApp(viewModel: XbClientViewModel) {
                     } else if (!state.vpnDisclosureDone) {
                         VpnDisclosureScreen(viewModel)
                     } else if (!state.isLoggedIn) {
-                        AuthScreen(state, viewModel)
+                        AuthScreen(state, netoSnapshot.settings.themeMode, viewModel)
                     } else {
                         LoadingScreen()
                     }
@@ -280,7 +283,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
     val backTargetScreen = when (visibleScreen) {
         PassScreen.TICKET_DETAIL -> PassScreen.TICKETS
         PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.SETTINGS -> PassScreen.PROFILE
-        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> PassScreen.SETTINGS
+        PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.SETTINGS
         else -> null
     }
     val showBottomBar = visibleScreen in MainTabScreens || (backTargetScreen != null && backTargetScreen in MainTabScreens && backProgress > 0f)
@@ -396,7 +399,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
 @Composable
 private fun MainNavigationBar(state: XbClientUiState, viewModel: XbClientViewModel, color: Color, floating: Boolean) {
     val selected = when (state.screen) {
-        PassScreen.PROFILE, PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL, PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> PassScreen.PROFILE
+        PassScreen.PROFILE, PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL, PassScreen.SETTINGS, PassScreen.OPEN_SOURCE_LICENSES -> PassScreen.PROFILE
         PassScreen.PLANS -> PassScreen.PLANS
         PassScreen.NODES -> PassScreen.NODES
         PassScreen.DASHBOARD -> PassScreen.DASHBOARD
@@ -491,7 +494,12 @@ private fun MainScreenContent(
             viewModel = viewModel,
             modifier = listModifier.padding(bottom = extraBottom),
         )
-        PassScreen.APP_RULES -> AppRulesScreen(state, viewModel, listModifier)
+        PassScreen.SETTINGS -> SettingsScreen(
+            state = state,
+            snapshot = netoSnapshot,
+            viewModel = viewModel,
+            modifier = listModifier.padding(bottom = extraBottom),
+        )
         PassScreen.OPEN_SOURCE_LICENSES -> OpenSourceLicensesScreen(listModifier)
         else -> LazyColumn(
             modifier = listModifier,
@@ -508,8 +516,6 @@ private fun MainScreenContent(
                     PassScreen.TICKETS -> if (PxBoardApi.enabled) PxBoardTicketsScreen(state, viewModel) else TicketsScreen(state, viewModel)
                     PassScreen.TICKET_DETAIL -> if (PxBoardApi.enabled) PxBoardTicketDetailScreen(state, viewModel) else TicketDetailScreen(state, viewModel)
                     PassScreen.PLANS -> if (PxBoardApi.enabled) PxBoardPlansScreen(state, viewModel) else PlansScreen(state, viewModel)
-                    PassScreen.SETTINGS -> SettingsScreen(state, viewModel)
-                    PassScreen.THEME -> ThemeSettingsScreen(state, viewModel)
                     else -> Unit
                 }
             }

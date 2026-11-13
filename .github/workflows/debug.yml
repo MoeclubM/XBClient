@@ -188,12 +188,13 @@ jobs:
           dotnet publish apps/windows/XBClient.Windows.csproj \
             -c Release \
             -r win-x64 \
-            -o dist/XBClient-win-x64
-          test -f dist/XBClient-win-x64/XBClient.exe
-          test -f dist/XBClient-win-x64/xbclient_ffi.dll
-          test -f dist/XBClient-win-x64/wintun.dll
+            -o dist/XBClient
+          test -f dist/XBClient/XBClient.exe
+          test -f dist/XBClient/XBClient.pri
+          test -f dist/XBClient/xbclient_ffi.dll
+          test -f dist/XBClient/wintun.dll
           export ZIP_PATH="dist/${XBCLIENT_APP_NAME}-win-x64-beta-${GITHUB_RUN_ID}.zip"
-          powershell -NoProfile -Command "Compress-Archive -Path 'dist/XBClient-win-x64/*' -DestinationPath \$env:ZIP_PATH -Force"
+          powershell -NoProfile -Command "Compress-Archive -Path 'dist/XBClient' -DestinationPath \$env:ZIP_PATH -Force"
 
       - name: Upload beta Windows package
         uses: actions/upload-artifact@v7

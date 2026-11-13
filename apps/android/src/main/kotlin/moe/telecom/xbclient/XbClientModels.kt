@@ -1,5 +1,6 @@
 package moe.telecom.xbclient
 
+import moe.telecom.neto.sdk.formatNetoBytes
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -7,16 +8,6 @@ import java.util.Date
 import java.util.Locale
 
 const val XBCLIENT_PREFS = "xbclient"
-const val MODE_EXCLUDE = "exclude"
-const val MODE_ALLOW = "allow"
-const val DEFAULT_NODE_DNS = "https://dns.alidns.com/resolve"
-const val DEFAULT_OVERSEAS_DNS = "https://cloudflare-dns.com/dns-query"
-const val DEFAULT_DIRECT_DNS = "223.5.5.5"
-const val DEFAULT_VIRTUAL_DNS_POOL = "198.18.0.0/15"
-const val DEFAULT_NODE_TEST_TARGET = "https://cp.cloudflare.com"
-const val DNS_MODE_OVER_TCP = "over_tcp"
-const val DNS_MODE_VIRTUAL = "virtual"
-const val DNS_MODE_DIRECT = "direct"
 const val REWARD_SCENE_PLAN = "plan"
 const val REWARD_SCENE_POINTS = "points"
 const val SUBSCRIPTION_BLOCK_NO_PLAN = "no_plan"
@@ -41,67 +32,7 @@ enum class PassScreen {
     TICKETS,
     TICKET_DETAIL,
     SETTINGS,
-    THEME,
-    APP_RULES,
     OPEN_SOURCE_LICENSES
-}
-
-data class AnyTlsNode(
-    val protocol: String,
-    val name: String,
-    val host: String,
-    val port: Int,
-    val tags: List<String>,
-    val rawJson: String
-) {
-    fun displayName(index: Int, defaultName: String = "Node ${index + 1}"): String {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty() || trimmed == host || trimmed == "$host:$port" || host.isNotEmpty() && trimmed.contains(host)) {
-            return defaultName
-        }
-        return trimmed
-    }
-
-    val protocolLabel: String
-        get() = when (protocol) {
-            "anytls" -> "AnyTLS"
-            "flux" -> "Flux"
-            "hysteria2" -> "Hysteria2"
-            "hysteria" -> "Hysteria"
-            "ss" -> "Shadowsocks"
-            "vmess" -> "VMess"
-            "vless" -> "VLESS"
-            "trojan" -> "Trojan"
-            "tuic" -> "TUIC"
-            "socks5" -> "SOCKS5"
-            "naive" -> "Naive"
-            "http" -> "HTTP"
-            "mieru" -> "Mieru"
-            "sudoku" -> "Sudoku"
-            "direct" -> "Direct"
-            "block" -> "Block"
-            else -> protocol.uppercase(Locale.US)
-        }
-
-    val connectSupported: Boolean
-        get() = when (protocol) {
-            "anytls",
-            "flux",
-            "hysteria2",
-            "trojan",
-            "vless",
-            "vmess",
-            "mieru",
-            "sudoku",
-            "ss",
-            "naive",
-            "tuic",
-            "http",
-            "socks5",
-            "direct",
-            "block" -> true
-            else -> false
-        }
 }
 
 data class InviteItem(
@@ -144,11 +75,6 @@ data class TicketMessageItem(
     val message: String,
     val createdAt: Long,
     val updatedAt: Long
-)
-
-data class InstalledAppItem(
-    val label: String,
-    val packageName: String
 )
 
 data class OAuthProvider(
@@ -215,95 +141,6 @@ data class NoticeItem(
     val content: String,
     val createdAt: Long
 )
-
-fun JSONObject.toAnyTlsNode(): AnyTlsNode =
-    getString("type").lowercase(Locale.US).let { rawProtocol ->
-        val host = normalizeNodeHost(optString("host").ifBlank { getString("server") })
-        AnyTlsNode(
-            protocol = rawProtocol,
-            name = getString("name").trim(),
-            host = host,
-            port = getInt("port"),
-            tags = nodeTags(this),
-            rawJson = normalizedNodeJson(rawProtocol)
-        )
-    }
-
-fun nodeTags(node: JSONObject): List<String> {
-    val tags = ArrayList<String>()
-    when (val value = node.opt("tags")) {
-        is JSONArray -> {
-            for (index in 0 until value.length()) {
-                val tag = value.getString(index).trim()
-                if (tag.isNotEmpty()) {
-                    tags.add(tag)
-                }
-            }
-        }
-        is String -> value.split(',', '|').map { it.trim() }.filterTo(tags) { it.isNotEmpty() }
-    }
-    for (key in arrayOf("tag", "label", "group")) {
-        if (node.has(key) && !node.isNull(key)) {
-            val tag = node.getString(key).trim()
-            if (tag.isNotEmpty()) {
-                tags.add(tag)
-            }
-        }
-    }
-    return tags.distinct()
-}
-
-private fun JSONObject.normalizedNodeJson(protocol: String): String {
-    val node = JSONObject(toString())
-    val host = normalizeNodeHost(node.optString("host").ifBlank { node.getString("server") })
-    node.put("host", host)
-    node.put("server", host)
-    val currentSni = if (node.isNull("sni")) "" else normalizeNodeHost(node.optString("sni"))
-    if (currentSni.isBlank() || isIpLiteral(currentSni)) {
-        val sni = listOf("server_name", "servername", "server-name").firstNotNullOfOrNull { key ->
-            if (node.isNull(key)) null else node.optString(key).trim().takeIf { it.isNotEmpty() && !isIpLiteral(it) }
-        } ?: if (node.opt("tls") is JSONObject) {
-            val tls = node.getJSONObject("tls")
-            listOf("server_name", "servername", "server-name").firstNotNullOfOrNull { key ->
-                if (tls.isNull(key)) null else tls.optString(key).trim().takeIf { it.isNotEmpty() && !isIpLiteral(it) }
-            }
-        } else {
-            null
-        }
-        if (sni != null) {
-            node.put("sni", sni)
-        } else {
-            node.remove("sni")
-        }
-    }
-    if (!node.optBoolean("insecure", false)) {
-        for (key in arrayOf("skip-cert-verify", "skip_cert_verify", "allow_insecure")) {
-            if (node.has(key)) {
-                node.put("insecure", node.optBoolean(key))
-                break
-            }
-        }
-    }
-    if (protocol in setOf("anytls", "flux", "hysteria2", "trojan", "vless", "vmess", "mieru", "sudoku", "naive", "tuic", "ss", "http", "socks5", "direct", "block")) {
-        node.put("type", protocol)
-    }
-    return node.toString()
-}
-
-fun normalizeNodeHost(value: String): String {
-    val host = value.trim()
-    val inner = if (host.length > 2 && host.first() == '[' && host.last() == ']') {
-        host.substring(1, host.length - 1)
-    } else {
-        ""
-    }
-    return if (inner.contains(":")) inner else host
-}
-
-fun isIpLiteral(value: String): Boolean {
-    val host = normalizeNodeHost(value)
-    return host.matches(Regex("^[0-9.]+$")) || host.matches(Regex("^[0-9A-Fa-f:.]+$")) && host.contains(":")
-}
 
 fun JSONObject.toInviteItem(): InviteItem =
     InviteItem(
@@ -422,9 +259,6 @@ fun JSONObject.toPlanItem(): PlanItem {
     )
 }
 
-fun JSONArray.toAnyTlsNodeList(): List<AnyTlsNode> =
-    List(length()) { index -> getJSONObject(index).toAnyTlsNode() }
-
 fun JSONArray.toInviteItemList(): List<InviteItem> =
     List(length()) { index -> getJSONObject(index).toInviteItem() }
 
@@ -503,7 +337,7 @@ fun rewardContentText(item: JSONObject): String {
         if (!rewards.isNull("transfer_enable")) {
             val transfer = numericValue(rewards.opt("transfer_enable"))
             if (transfer > 0.0) {
-                parts.add("流量 ${formatTrafficBytes(transfer)}")
+                parts.add("流量 ${formatNetoBytes(transfer.toLong())}")
             }
         }
         if (!rewards.isNull("device_limit")) {
@@ -559,7 +393,7 @@ fun giftCardRewardText(rewards: JSONObject): String {
     if (!rewards.isNull("transfer_enable")) {
         val transfer = numericValue(rewards.opt("transfer_enable"))
         if (transfer > 0.0) {
-            parts.add("流量 +${formatTrafficBytes(transfer)}")
+            parts.add("流量 +${formatNetoBytes(transfer.toLong())}")
         }
     }
     if (!rewards.isNull("device_limit")) {
@@ -651,7 +485,7 @@ fun subscriptionSummary(data: JSONObject): String {
         lines.add(planName)
     }
     if (total > 0.0) {
-        lines.add("已用 ${formatTrafficBytes(used)} / ${formatTrafficBytes(total)}")
+        lines.add("已用 ${formatNetoBytes(used.toLong())} / ${formatNetoBytes(total.toLong())}")
     }
     if (expire > 0) {
         lines.add("到期 ${formatUnixDate(expire)}")
@@ -692,20 +526,6 @@ fun formatTrafficGb(value: Double): String = if (value >= 1024.0) {
     String.format(Locale.US, "%.2f TB", value / 1024.0)
 } else {
     String.format(Locale.US, "%.0f GB", value)
-}
-
-fun formatTrafficBytes(value: Double): String {
-    if (value <= 0.0) {
-        return "0 B"
-    }
-    val units = arrayOf("B", "KB", "MB", "GB", "TB")
-    var size = value
-    var index = 0
-    while (size >= 1024.0 && index < units.size - 1) {
-        size /= 1024.0
-        index++
-    }
-    return String.format(Locale.US, "%.2f %s", size, units[index])
 }
 
 fun formatUnixDate(seconds: Long): String =

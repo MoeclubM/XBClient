@@ -187,7 +187,7 @@ internal fun VpnDisclosureScreen(viewModel: XbClientViewModel) {
 }
 
 @Composable
-internal fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
+internal fun AuthScreen(state: XbClientUiState, themeMode: String, viewModel: XbClientViewModel) {
     Scaffold { padding ->
         LazyColumn(
             modifier = Modifier
@@ -198,7 +198,7 @@ internal fun AuthScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
             item {
                 Card(modifier = Modifier.padding(horizontal = 12.dp)) {
                     LanguageChooser(state.appLanguage, viewModel)
-                    ThemeChooser(state.themeMode, state.appLanguage, viewModel)
+                    ThemeChooser(themeMode, state.appLanguage, viewModel)
                 }
                 Spacer(Modifier.height(28.dp))
                 Column(

@@ -18,46 +18,30 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
-import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.ThemeController
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -72,7 +56,7 @@ internal val LanguageOptions = listOf(
 )
 
 internal val ThemeOptions = listOf(
-    "" to R.string.theme_system,
+    "system" to R.string.theme_system,
     "light" to R.string.theme_light,
     "dark" to R.string.theme_dark
 )
@@ -96,17 +80,6 @@ internal val OnboardingLanguageSubtitles = mapOf(
     "ru" to "Выберите язык.\nPlease select a language.",
     "fa" to "لطفاً زبان را انتخاب کنید.\nPlease select a language."
 )
-
-@Composable
-fun XbClientTheme(themeMode: String, content: @Composable () -> Unit) {
-    val mode = when (themeMode) {
-        "dark" -> ColorSchemeMode.MonetDark
-        "light" -> ColorSchemeMode.MonetLight
-        else -> ColorSchemeMode.MonetSystem
-    }
-    val controller = remember(mode) { ThemeController(mode) }
-    MiuixTheme(controller = controller, content = content)
-}
 
 @Composable
 internal fun rememberBlurBackdrop(enabled: Boolean = true): LayerBackdrop? {
@@ -167,20 +140,6 @@ fun Panel(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-internal fun PreferenceCard(
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .padding(bottom = 12.dp),
-        content = content
-    )
-}
-
-@Composable
 internal fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
     val selectedIndex = LanguageOptions.indexOfFirst { it.first == current }.coerceAtLeast(0)
     OverlayDropdownPreference(
@@ -195,7 +154,8 @@ internal fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
 @Composable
 internal fun ThemeChooser(current: String, appLanguage: String, viewModel: XbClientViewModel) {
     val themeOptions = ThemeOptions.map { it.first to themeOptionLabel(it.first, appLanguage) }
-    val selectedIndex = themeOptions.indexOfFirst { it.first == current }.coerceAtLeast(0)
+    val normalized = current.ifBlank { "system" }
+    val selectedIndex = themeOptions.indexOfFirst { it.first == normalized }.coerceAtLeast(0)
     OverlayDropdownPreference(
         title = stringResource(R.string.setting_theme),
         summary = themeOptions[selectedIndex].second,
@@ -203,62 +163,6 @@ internal fun ThemeChooser(current: String, appLanguage: String, viewModel: XbCli
         selectedIndex = selectedIndex,
         onSelectedIndexChange = { viewModel.setThemeMode(themeOptions[it].first) }
     )
-}
-
-@Composable
-internal fun EditPreference(
-    title: String,
-    value: String,
-    onConfirm: (String) -> Unit,
-    summary: String? = null,
-    singleLine: Boolean = true,
-    minLines: Int = 1,
-    visualTransformation: VisualTransformation = VisualTransformation.None
-) {
-    var show by remember { mutableStateOf(false) }
-    var draft by remember { mutableStateOf(value) }
-    ArrowPreference(
-        title = title,
-        summary = summary ?: value.ifBlank { stringResource(R.string.common_unset) },
-        onClick = {
-            draft = value
-            show = true
-        },
-        holdDownState = show
-    )
-    OverlayDialog(
-        show = show,
-        title = title,
-        onDismissRequest = { show = false }
-    ) {
-        TextField(
-            value = draft,
-            onValueChange = { draft = it },
-            singleLine = singleLine,
-            minLines = minLines,
-            visualTransformation = visualTransformation,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        )
-        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            TextButton(
-                text = stringResource(android.R.string.cancel),
-                onClick = { show = false },
-                modifier = Modifier.weight(1f)
-            )
-            Spacer(Modifier.width(20.dp))
-            TextButton(
-                text = stringResource(R.string.common_confirm),
-                onClick = {
-                    onConfirm(draft)
-                    show = false
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.textButtonColorsPrimary()
-            )
-        }
-    }
 }
 
 @Composable
@@ -275,12 +179,6 @@ internal fun hasAuthFooterLinks() =
     BuildConfig.WEBSITE_URL.trim().isNotEmpty() ||
         BuildConfig.USER_AGREEMENT_URL.trim().isNotEmpty() ||
         BuildConfig.PRIVACY_POLICY_URL.trim().isNotEmpty()
-
-internal fun selectedPackages(state: XbClientUiState): Set<String> =
-    (if (state.appRuleMode == MODE_ALLOW) state.allowedApps else state.excludedApps)
-        .split(Regex("[,;\\s]+"))
-        .filter { it.isNotEmpty() }
-        .toSet()
 
 internal fun openBrowser(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -461,7 +359,7 @@ private fun screenOrder(screen: PassScreen): Int =
         PassScreen.PROFILE -> 4
         PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS, PassScreen.TICKET_DETAIL -> 5
         PassScreen.SETTINGS -> 5
-        PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> 6
+        PassScreen.OPEN_SOURCE_LICENSES -> 6
     }
 
 @Composable
@@ -473,8 +371,6 @@ internal fun screenTitle(screen: PassScreen): String =
         PassScreen.PLANS -> stringResource(R.string.nav_plans)
         PassScreen.PROFILE -> stringResource(R.string.nav_profile)
         PassScreen.SETTINGS -> stringResource(R.string.common_settings)
-        PassScreen.THEME -> stringResource(R.string.page_theme)
-        PassScreen.APP_RULES -> stringResource(R.string.section_app_rules)
         PassScreen.OPEN_SOURCE_LICENSES -> stringResource(R.string.about_open_source_licenses)
         PassScreen.GIFT_CARDS -> if (PxBoardApi.enabled) "账单与兑换" else stringResource(R.string.page_gift_cards)
         PassScreen.ACCOUNT_SECURITY -> stringResource(R.string.page_account_security)

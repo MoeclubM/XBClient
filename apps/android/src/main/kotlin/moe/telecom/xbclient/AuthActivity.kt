@@ -35,11 +35,17 @@ class AuthActivity : ComponentActivity() {
         }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.netoClient.snapshot.collect { snap ->
+                    applyEdgeToEdge(snap.settings.themeMode)
+                }
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
                     if (!state.loaded) {
                         return@collect
                     }
-                    applyEdgeToEdge(state.themeMode)
                     if (state.isLoggedIn && state.languageOnboardingDone && state.vpnDisclosureDone && !redirectedToMain) {
                         redirectedToMain = true
                         startActivity(

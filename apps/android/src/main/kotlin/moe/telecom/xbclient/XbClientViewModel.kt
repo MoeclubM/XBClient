@@ -2,7 +2,6 @@ package moe.telecom.xbclient
 
 import android.app.Application
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -24,7 +23,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import moe.telecom.neto.sdk.NetoControllerClient
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -56,10 +54,7 @@ data class XbClientUiState(
     val currencySymbol: String = "",
     val currencyUnit: String = "",
     val plans: List<PlanItem> = emptyList(),
-    val anyTlsNodes: List<AnyTlsNode> = emptyList(),
     val notices: List<NoticeItem> = emptyList(),
-    val selectedNodeIndex: Int = 0,
-    val nodeTestResults: Map<Int, String> = emptyMap(),
     val invites: List<InviteItem> = emptyList(),
     val commissionLogs: List<CommissionLogItem> = emptyList(),
     val commissionTotal: Int = 0,
@@ -73,30 +68,9 @@ data class XbClientUiState(
     val inviteForce: Boolean = false,
     val inviteCommissionRate: Int = 0,
     val inviteCommissionBalance: Int = 0,
-    val excludedApps: String = "",
-    val allowedApps: String = "",
-    val appRuleMode: String = MODE_EXCLUDE,
-    val nodeDns: String = DEFAULT_NODE_DNS,
-    val overseasDns: String = DEFAULT_OVERSEAS_DNS,
-    val directDns: String = DEFAULT_DIRECT_DNS,
-    val nodeTestTarget: String = DEFAULT_NODE_TEST_TARGET,
-    val vpnDnsMode: String = DNS_MODE_VIRTUAL,
-    val virtualDnsPool: String = DEFAULT_VIRTUAL_DNS_POOL,
-    val vpnIpv6Enabled: Boolean = true,
-    val routeConfigYaml: String = "",
-    val customRouteConfigYaml: String = "",
-    val geoipDir: String = "",
-    val routeRuleCount: Int = 0,
-    val routeRulesPreview: List<String> = emptyList(),
-    val vpnRequested: Boolean = false,
-    val vpnStarting: Boolean = false,
-    val vpnConnectedAt: Long = 0L,
-    val vpnSessionRxBytes: Long = 0L,
-    val vpnSessionTxBytes: Long = 0L,
     val userLoading: Boolean = false,
     val nodesLoading: Boolean = false,
     val plansLoading: Boolean = false,
-    val nodesTesting: Boolean = false,
     val invitesLoading: Boolean = false,
     val commissionLogsLoading: Boolean = false,
     val trafficLogsLoading: Boolean = false,
@@ -107,8 +81,6 @@ data class XbClientUiState(
     val giftCardHistoryLoading: Boolean = false,
     val oauthBindingsLoading: Boolean = false,
     val noticesLoading: Boolean = false,
-    val installedApps: List<InstalledAppItem> = emptyList(),
-    val appSearchQuery: String = "",
     val paymentEnabled: Boolean = BuildConfig.APP_PAYMENT_ENABLED,
     val planRewardAdEnabled: Boolean = !PxBoardApi.enabled && BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty(),
     val planRewardedAdUnitId: String = if (!PxBoardApi.enabled) BuildConfig.PLAN_REWARDED_AD_UNIT_ID else "",
@@ -123,7 +95,6 @@ data class XbClientUiState(
     val latestReleaseUrl: String = "",
     val latestDownloadUrl: String = "",
     val appLanguage: String = "",
-    val themeMode: String = "",
     val enableBlur: Boolean = true,
     val floatingBottomBar: Boolean = true,
     val languageOnboardingDone: Boolean = false,
@@ -147,7 +118,7 @@ data class XbClientUiState(
         get() = subscriptionBlockReason.isNotEmpty()
 
     val isRefreshing: Boolean
-        get() = userLoading || nodesLoading || plansLoading || invitesLoading || commissionLogsLoading || trafficLogsLoading || ticketsLoading || ticketDetailLoading || giftCardChecking || giftCardRedeeming || giftCardHistoryLoading || oauthBindingsLoading || nodesTesting || noticesLoading
+        get() = userLoading || nodesLoading || plansLoading || invitesLoading || commissionLogsLoading || trafficLogsLoading || ticketsLoading || ticketDetailLoading || giftCardChecking || giftCardRedeeming || giftCardHistoryLoading || oauthBindingsLoading || noticesLoading
 }
 
 sealed interface XbClientEvent {
@@ -159,13 +130,14 @@ sealed interface XbClientEvent {
 
 class XbClientViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application
-    val netoClient = NetoControllerClient(application, app.getString(R.string.app_name), BuildConfig.USER_AGENT)
+    private val appTitle = app.getString(R.string.app_name)
+    val netoClient = NetoControllerClient(application, appTitle, BuildConfig.USER_AGENT)
     private val _uiState = MutableStateFlow(XbClientUiState())
     val uiState = _uiState.asStateFlow()
     private val _events = MutableSharedFlow<XbClientEvent>()
     val events = _events.asSharedFlow()
-    private val nativePanel = PxBoardSession(viewModelScope, _uiState, ::persistStoredState, ::syncStateToNeto, ::notifyPendingRewardIfCredited, ::emitMessage) { emitEvent(XbClientEvent.OpenExternalUrl(it)) }
-    private val pxboardAuth = PxBoardAuthAdapter(app.getString(R.string.app_name), viewModelScope, _uiState, ::persistStoredState, ::emitMessage, { emitEvent(XbClientEvent.OpenExternalUrl(it)) }, { nativePanel.refresh(force = true) })
+    private val nativePanel = PxBoardSession(appTitle, viewModelScope, _uiState, netoClient, ::persistStoredState, ::notifyPendingRewardIfCredited, ::emitMessage) { emitEvent(XbClientEvent.OpenExternalUrl(it)) }
+    private val pxboardAuth = PxBoardAuthAdapter(appTitle, viewModelScope, _uiState, ::persistStoredState, ::emitMessage, { emitEvent(XbClientEvent.OpenExternalUrl(it)) }, { nativePanel.refresh(force = true) })
     internal val pxboardSession get() = nativePanel
     internal val pxboardAuthAdapter get() = pxboardAuth
     private val xboardAuth = XboardAuthAdapter(viewModelScope, _uiState, ::defaultApiUrl, ::persistStoredState, ::emitMessage, { emitEvent(XbClientEvent.OpenExternalUrl(it)) }) {
@@ -208,7 +180,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             loadStoredState()
             ensureNodeAutoRefresh()
-            loadInstalledApps()
             refreshOAuthProviders()
             val updateProjectUrl = BuildConfig.GITHUB_PROJECT_URL.trim()
             if (updateProjectUrl.isNotBlank() && !isPlayInstallation()) {
@@ -270,9 +241,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             PassScreen.TICKETS -> refreshTickets(showLoading = true, showErrors = true)
             PassScreen.TICKET_DETAIL -> Unit
             PassScreen.PLANS -> Unit
-            PassScreen.APP_RULES -> Unit
             PassScreen.OPEN_SOURCE_LICENSES -> Unit
-            PassScreen.SETTINGS, PassScreen.THEME -> Unit
+            PassScreen.SETTINGS -> Unit
             PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES -> {
                 refreshSubscriptionAndNodes()
                 refreshNotices()
@@ -311,7 +281,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 refreshRewardConfig()
                 refreshUserInfo(showErrors = true)
             }
-            PassScreen.SETTINGS, PassScreen.APP_RULES, PassScreen.THEME -> refreshUserInfo(showErrors = true)
+            PassScreen.SETTINGS -> refreshUserInfo(showErrors = true)
             PassScreen.OPEN_SOURCE_LICENSES -> Unit
             PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES -> {
                 refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
@@ -341,7 +311,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         when (state.screen) {
             PassScreen.TICKET_DETAIL -> openScreen(PassScreen.TICKETS)
             PassScreen.GIFT_CARDS, PassScreen.ACCOUNT_SECURITY, PassScreen.INVITE_DETAILS, PassScreen.TRAFFIC_LOGS, PassScreen.TICKETS -> openScreen(PassScreen.PROFILE)
-            PassScreen.APP_RULES, PassScreen.OPEN_SOURCE_LICENSES, PassScreen.THEME -> openScreen(PassScreen.SETTINGS)
+            PassScreen.OPEN_SOURCE_LICENSES -> openScreen(PassScreen.SETTINGS)
             PassScreen.SETTINGS -> openScreen(PassScreen.PROFILE)
             PassScreen.CONNECT, PassScreen.DASHBOARD, PassScreen.NODES, PassScreen.PLANS, PassScreen.PROFILE -> Unit
         }
@@ -484,7 +454,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val next = XbClientUiState(
             loaded = true,
             appLanguage = current.appLanguage,
-            themeMode = current.themeMode,
             enableBlur = current.enableBlur,
             floatingBottomBar = current.floatingBottomBar,
             languageOnboardingDone = current.languageOnboardingDone,
@@ -497,7 +466,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         _uiState.value = next
         persistState(next)
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { syncStateToNeto(next) }
+            runCatching { netoClient.clearManagedProfile(name = appTitle) }
         }
     }
 
@@ -507,7 +476,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (current.authData.isEmpty() || current.nodesLoading) {
             return
         }
-        if (!force && current.anyTlsNodes.isNotEmpty() && System.currentTimeMillis() - current.nodesUpdatedAt < NODE_AUTO_REFRESH_INTERVAL_MS) {
+        if (!force && netoClient.snapshot.value.nodes.isNotEmpty() && System.currentTimeMillis() - current.nodesUpdatedAt < NODE_AUTO_REFRESH_INTERVAL_MS) {
             return
         }
         if (showLoading) {
@@ -520,61 +489,55 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val data = subscribeBody.getJSONObject("data")
                 val subscribeUrl = data.optString("subscribe_url")
                 val blockReason = subscriptionBlockReason(data)
-                var subscriptionRouteConfigYaml = ""
-                var subscriptionRouteRuleCount = 0
-                var subscriptionRouteRulesPreview = emptyList<String>()
-                if (blockReason.isEmpty() && subscribeUrl.isNotEmpty()) {
-                    netoClient.syncManagedSubscription(
-                        id = "managed-default",
-                        name = app.getString(R.string.app_name),
-                        url = subscribeUrl,
-                        flag = "aerion",
-                        userAgent = BuildConfig.USER_AGENT,
-                    )
-                    subscriptionRouteConfigYaml = runCatching { XboardApi.fetchSubscriptionYaml(subscribeUrl) }.getOrDefault("")
-                    val syncedSnap = netoClient.snapshot.value
-                    subscriptionRouteRuleCount = syncedSnap.ruleCount
-                    subscriptionRouteRulesPreview = syncedSnap.rulesPreview
-                }
-                var pluginNodesLoaded = false
-                val baseNodes = if (blockReason.isEmpty()) {
+                val uploadBytes = numericValue(data.get("u")).toLong()
+                val downloadBytes = numericValue(data.get("d")).toLong()
+                val totalBytes = numericValue(data.get("transfer_enable")).toLong()
+                val expiredAt = if (data.isNull("expired_at")) 0L else numericValue(data.get("expired_at")).toLong()
+                if (blockReason.isNotEmpty()) {
+                    netoClient.clearManagedProfile(name = appTitle, url = subscribeUrl)
+                } else {
+                    if (subscribeUrl.isNotEmpty()) {
+                        netoClient.syncManagedSubscription(
+                            id = "managed-default",
+                            name = appTitle,
+                            url = subscribeUrl,
+                            flag = "aerion",
+                            userAgent = BuildConfig.USER_AGENT,
+                        )
+                    }
                     val xbclientNodesResult = XboardApi.request("xbclient_nodes", defaultApiUrl(), current.authData, JSONObject())
                     if (xbclientNodesResult.getBoolean("ok")) {
                         val nodesBody = requireSuccessfulBody("XBClient 节点同步", xbclientNodesResult)
-                        pluginNodesLoaded = true
-                        nodesBody.getJSONObject("data").getJSONArray("nodes").toAnyTlsNodeList()
-                    } else if (subscribeUrl.isNotEmpty()) {
-                        current.anyTlsNodes
-                    } else {
+                        val pluginNodes = nodesBody.getJSONObject("data").getJSONArray("nodes")
+                        if (pluginNodes.length() > 0 || subscribeUrl.isEmpty()) {
+                            netoClient.upsertManagedProfile(
+                                id = "managed-default",
+                                name = appTitle,
+                                url = subscribeUrl,
+                                nodes = pluginNodes,
+                                preserveRoutes = true,
+                                usedUploadBytes = uploadBytes,
+                                usedDownloadBytes = downloadBytes,
+                                totalBytes = totalBytes,
+                                expireUnix = expiredAt,
+                            )
+                        }
+                    } else if (subscribeUrl.isEmpty()) {
                         throw IllegalStateException(resultError(xbclientNodesResult))
                     }
-                } else {
-                    emptyList()
                 }
-                val nodes = baseNodes
-                val selectedIndex = _uiState.value.selectedNodeIndex.coerceIn(0, (nodes.size - 1).coerceAtLeast(0))
-                val firstConnectableIndex = nodes.indexOfFirst { it.connectSupported }
                 val next = _uiState.value.copy(
                     subscribeToken = data.optString("token"),
                     subscribeUrl = subscribeUrl,
                     subscriptionSummary = subscriptionSummary(data),
                     subscriptionBlockReason = blockReason,
-                    subscriptionTrafficUsedBytes = (numericValue(data.get("u")) + numericValue(data.get("d"))).toLong(),
-                    subscriptionTrafficTotalBytes = numericValue(data.get("transfer_enable")).toLong(),
+                    subscriptionTrafficUsedBytes = uploadBytes + downloadBytes,
+                    subscriptionTrafficTotalBytes = totalBytes,
                     nodesUpdatedAt = System.currentTimeMillis(),
-                    anyTlsNodes = nodes,
-                    selectedNodeIndex = if (nodes.getOrNull(selectedIndex)?.connectSupported == true || firstConnectableIndex < 0) selectedIndex else firstConnectableIndex,
-                    nodeTestResults = emptyMap(),
-                    routeConfigYaml = subscriptionRouteConfigYaml,
-                    routeRuleCount = subscriptionRouteRuleCount,
-                    routeRulesPreview = subscriptionRouteRulesPreview,
                     nodesLoading = false
                 )
                 _uiState.value = next
                 persistStoredState(next)
-                if (blockReason.isNotEmpty() || pluginNodesLoaded) {
-                    syncStateToNeto(next)
-                }
             } catch (error: Exception) {
                 if (showLoading) {
                     _uiState.update { it.copy(nodesLoading = false) }
@@ -1362,41 +1325,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun saveDnsAndTestSettings(nodeDns: String, overseasDns: String, directDns: String, nodeTestTarget: String, vpnDnsMode: String, virtualDnsPool: String) {
-        if (nodeDns.trim().isEmpty() || overseasDns.trim().isEmpty() || directDns.trim().isEmpty() || nodeTestTarget.trim().isEmpty() || virtualDnsPool.trim().isEmpty()) {
-            emitMessage("DNS、Fake-IP 地址池与测试目标不能为空。")
-            return
-        }
-        if (vpnDnsMode !in setOf(DNS_MODE_OVER_TCP, DNS_MODE_VIRTUAL, DNS_MODE_DIRECT)) {
-            emitMessage("DNS 模式无效。")
-            return
-        }
-        updateAndPersist {
-            it.copy(
-                nodeDns = nodeDns.trim(),
-                overseasDns = overseasDns.trim(),
-                directDns = directDns.trim(),
-                nodeTestTarget = nodeTestTarget.trim(),
-                vpnDnsMode = vpnDnsMode,
-                virtualDnsPool = virtualDnsPool.trim()
-            )
-        }
-        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
-        emitMessage("设置已保存。")
-    }
-
-    fun saveRouteConfigYaml(value: String, geoipDir: String) {
-        val routeAssetsDir = geoipDir.trim().ifEmpty { ensureBundledRouteAssets() }
-        updateAndPersist { it.copy(customRouteConfigYaml = value.trim(), geoipDir = routeAssetsDir) }
-        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
-        emitMessage("分流配置已保存。")
-    }
-
-    fun setIpv6Enabled(enabled: Boolean) {
-        updateAndPersist { it.copy(vpnIpv6Enabled = enabled) }
-        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
-    }
-
     fun setAppLanguage(language: String) {
         app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
             .edit()
@@ -1418,12 +1346,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setThemeMode(themeMode: String) {
-        app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString("theme_mode", themeMode)
-            .commit()
-        updateAndPersist { it.copy(themeMode = themeMode) }
-        syncSettingsToNeto(_uiState.value)
+        netoClient.updateSettings(JSONObject().put("theme_mode", themeMode.ifBlank { "system" }))
     }
 
     fun setEnableBlur(enabled: Boolean) {
@@ -1446,8 +1369,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val prefs = app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE)
         val language = prefs.getString("app_language", _uiState.value.appLanguage)
             ?: throw IllegalStateException("app_language preference is null")
-        val theme = prefs.getString("theme_mode", _uiState.value.themeMode)
-            ?: throw IllegalStateException("theme_mode preference is null")
         val enableBlur = prefs.getBoolean("enable_blur", true)
         val floatingBottomBar = prefs.getBoolean("floating_bottom_bar", true)
         _uiState.update { current ->
@@ -1456,7 +1377,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             } else {
                 current.copy(
                     appLanguage = language,
-                    themeMode = theme,
                     enableBlur = enableBlur,
                     floatingBottomBar = floatingBottomBar
                 )
@@ -1464,63 +1384,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun switchAppRuleMode(mode: String) {
-        if (mode != MODE_ALLOW && mode != MODE_EXCLUDE) {
-            return
-        }
-        updateAndPersist { state ->
-            val current = selectedAppPackages(state)
-            if (mode == MODE_ALLOW) {
-                state.copy(appRuleMode = MODE_ALLOW, allowedApps = current, excludedApps = "")
-            } else {
-                state.copy(appRuleMode = MODE_EXCLUDE, excludedApps = current, allowedApps = "")
-            }
-        }
-        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
-    }
-
-    fun setAppSearchQuery(query: String) {
-        _uiState.update { it.copy(appSearchQuery = query) }
-    }
-
-    fun setAppSelected(packageName: String, selected: Boolean) {
-        updateAndPersist { state ->
-            val packages = LinkedHashSet(selectedAppPackages(state).split(Regex("[,;\\s]+")).filter { it.isNotEmpty() })
-            if (selected) {
-                packages.add(packageName)
-            } else {
-                packages.remove(packageName)
-            }
-            val value = packages.joinToString("\n")
-            if (state.appRuleMode == MODE_ALLOW) {
-                state.copy(allowedApps = value, excludedApps = "")
-            } else {
-                state.copy(excludedApps = value, allowedApps = "")
-            }
-        }
-        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
-    }
-
-    fun clearSelectedApps() {
-        updateAndPersist { state ->
-            if (state.appRuleMode == MODE_ALLOW) {
-                state.copy(allowedApps = "")
-            } else {
-                state.copy(excludedApps = "")
-            }
-        }
-        syncSettingsToNeto(_uiState.value, restartIfConnected = true)
-    }
-
     fun toggleVpn() {
         if (netoClient.snapshot.value.connection.connected) {
             netoClient.stopVpn()
-            updateAndPersist { it.copy(vpnRequested = false) }
-            return
-        }
-        val state = _uiState.value
-        if (state.appRuleMode == MODE_ALLOW && selectedPackages(state).isEmpty()) {
-            emitMessage("白名单模式尚未选择应用。")
             return
         }
         if (netoClient.prepareVpnPermission() != null) {
@@ -1532,70 +1398,16 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     fun startNetoVpn() {
         netoClient.startVpn()
-        updateAndPersist { it.copy(vpnRequested = true) }
-    }
-
-    private fun syncSettingsToNeto(state: XbClientUiState, restartIfConnected: Boolean = false) {
-        val allowed = state.allowedApps.split(Regex("[,;\\s]+")).filter { it.isNotEmpty() }
-        val excluded = state.excludedApps.split(Regex("[,;\\s]+")).filter { it.isNotEmpty() }
-        val patch = JSONObject()
-            .put("node_dns", state.nodeDns)
-            .put("overseas_dns", state.overseasDns)
-            .put("direct_dns", state.directDns)
-            .put("node_test_url", state.nodeTestTarget)
-            .put("vpn_dns_mode", state.vpnDnsMode)
-            .put("virtual_dns_pool", state.virtualDnsPool)
-            .put("ipv6_enabled", state.vpnIpv6Enabled)
-            .put("custom_route_yaml", state.customRouteConfigYaml)
-            .put("geoip_dir", state.geoipDir)
-            .put("app_rule_mode", state.appRuleMode)
-            .put("allowed_apps", JSONArray(allowed))
-            .put("excluded_apps", JSONArray(excluded))
-            .put("theme_mode", state.themeMode.ifBlank { "system" })
-        netoClient.updateSettings(patch, restartIfConnected = restartIfConnected)
-    }
-
-    private suspend fun syncStateToNeto(state: XbClientUiState) {
-        val appTitle = app.getString(R.string.app_name)
-        if (!state.isLoggedIn || state.subscriptionBlocked) {
-            netoClient.upsertManagedProfile(
-                id = "managed-default",
-                name = appTitle,
-                url = state.subscribeUrl,
-                nodes = JSONArray(),
-                routeConfigYaml = null,
-                rulesPreview = emptyList(),
-                ruleCount = 0,
-            )
-            if (netoClient.snapshot.value.connection.connected) {
-                netoClient.stopVpn()
-            }
-            return
-        }
-        netoClient.upsertManagedProfile(
-            id = "managed-default",
-            name = appTitle,
-            url = state.subscribeUrl,
-            nodes = JSONArray(nodesJson(state.anyTlsNodes)),
-            routeConfigYaml = state.routeConfigYaml.ifBlank { null },
-            rulesPreview = state.routeRulesPreview,
-            ruleCount = state.routeRuleCount,
-            usedUploadBytes = 0L,
-            usedDownloadBytes = state.subscriptionTrafficUsedBytes,
-            totalBytes = state.subscriptionTrafficTotalBytes,
-        )
     }
 
     private suspend fun loadStoredState() {
-        val bundledRouteAssetsDir = ensureBundledRouteAssets()
         val prefs = app.passVpnDataStore.data.first()
-        val storedGeoipDir = prefs[Keys.GEOIP_DIR]
         val sessionMatches = prefs[Keys.PANEL_ORIGIN] == defaultApiUrl().trimEnd('/') + "|" + BuildConfig.PANEL_TYPE
         val state = XbClientUiState(
             loaded = true,
             authData = if (sessionMatches) prefs[Keys.AUTH_DATA].orEmpty() else "",
             subscribeToken = prefs[Keys.SUBSCRIBE_TOKEN].orEmpty(),
-            subscribeUrl = prefs[Keys.SUBSCRIBE_URL].orEmpty(),
+            subscribeUrl = if (sessionMatches) prefs[Keys.SUBSCRIBE_URL].orEmpty() else "",
             subscriptionSummary = prefs[Keys.SUBSCRIPTION_SUMMARY].orEmpty(),
             subscriptionBlockReason = prefs[Keys.SUBSCRIPTION_BLOCK_REASON].orEmpty(),
             subscriptionTrafficUsedBytes = prefs[Keys.SUBSCRIPTION_TRAFFIC_USED_BYTES] ?: 0L,
@@ -1607,29 +1419,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             currencySymbol = prefs[Keys.CURRENCY_SYMBOL].orEmpty(),
             currencyUnit = prefs[Keys.CURRENCY_UNIT].orEmpty(),
             plans = emptyList(),
-            anyTlsNodes = prefs[Keys.ANYTLS_NODES]?.let { JSONArray(it).toAnyTlsNodeList() } ?: emptyList(),
             notices = emptyList(),
-            selectedNodeIndex = prefs[Keys.SELECTED_NODE_INDEX] ?: 0,
             invites = emptyList(),
             inviteForce = prefs[Keys.INVITE_FORCE] ?: false,
             inviteCommissionRate = prefs[Keys.INVITE_COMMISSION_RATE] ?: 0,
             inviteCommissionBalance = prefs[Keys.INVITE_COMMISSION_BALANCE] ?: 0,
-            excludedApps = prefs[Keys.EXCLUDED_APPS].orEmpty(),
-            allowedApps = prefs[Keys.ALLOWED_APPS].orEmpty(),
-            appRuleMode = prefs[Keys.APP_RULE_MODE] ?: MODE_EXCLUDE,
-            nodeDns = prefs[Keys.NODE_DNS] ?: DEFAULT_NODE_DNS,
-            overseasDns = prefs[Keys.OVERSEAS_DNS] ?: DEFAULT_OVERSEAS_DNS,
-            directDns = prefs[Keys.DIRECT_DNS] ?: DEFAULT_DIRECT_DNS,
-            nodeTestTarget = prefs[Keys.NODE_TEST_TARGET] ?: DEFAULT_NODE_TEST_TARGET,
-            vpnDnsMode = prefs[Keys.VPN_DNS_MODE] ?: DNS_MODE_VIRTUAL,
-            virtualDnsPool = prefs[Keys.VIRTUAL_DNS_POOL] ?: DEFAULT_VIRTUAL_DNS_POOL,
-            vpnIpv6Enabled = prefs[Keys.VPN_IPV6_ENABLED] ?: true,
-            routeConfigYaml = prefs[Keys.ROUTE_CONFIG_YAML].orEmpty(),
-            customRouteConfigYaml = prefs[Keys.CUSTOM_ROUTE_CONFIG_YAML].orEmpty(),
-            geoipDir = storedGeoipDir?.takeIf { it.isNotBlank() } ?: bundledRouteAssetsDir,
-            routeRuleCount = prefs[Keys.ROUTE_RULE_COUNT] ?: 0,
-            routeRulesPreview = prefs[Keys.ROUTE_RULES_PREVIEW].orEmpty().lines().filter { it.isNotBlank() },
-            vpnRequested = prefs[Keys.VPN_RUNNING] ?: false,
             paymentEnabled = BuildConfig.APP_PAYMENT_ENABLED,
             planRewardAdEnabled = !PxBoardApi.enabled && BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty(),
             planRewardedAdUnitId = if (!PxBoardApi.enabled) BuildConfig.PLAN_REWARDED_AD_UNIT_ID else "",
@@ -1639,7 +1433,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             appOpenAdUnitId = BuildConfig.APP_OPEN_AD_UNIT_ID,
             adRewardLogs = emptyList(),
             appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
-            themeMode = prefs[Keys.THEME_MODE].orEmpty(),
             enableBlur = prefs[Keys.ENABLE_BLUR] ?: true,
             floatingBottomBar = prefs[Keys.FLOATING_BOTTOM_BAR] ?: true,
             languageOnboardingDone = prefs[Keys.LANGUAGE_ONBOARDING_DONE] ?: false,
@@ -1649,40 +1442,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             registerCaptchaEnabled = prefs[Keys.REGISTER_CAPTCHA_ENABLED] ?: false,
             registerCaptchaType = prefs[Keys.REGISTER_CAPTCHA_TYPE].orEmpty()
         )
-        _uiState.value = state.copy(
-            anyTlsNodes = if (sessionMatches) state.anyTlsNodes else emptyList(),
-            routeConfigYaml = if (sessionMatches) state.routeConfigYaml else "",
-            subscribeUrl = if (sessionMatches) state.subscribeUrl else "",
-            vpnRequested = sessionMatches && state.vpnRequested,
-            selectedNodeIndex = state.selectedNodeIndex.coerceIn(0, (state.anyTlsNodes.size - 1).coerceAtLeast(0)),
-        )
-        syncSettingsToNeto(_uiState.value)
-        if (_uiState.value.isLoggedIn && (_uiState.value.anyTlsNodes.isNotEmpty() || _uiState.value.subscriptionBlocked)) {
-            runCatching { syncStateToNeto(_uiState.value) }
+        _uiState.value = state
+        if (!sessionMatches || !state.isLoggedIn || state.subscriptionBlocked) {
+            runCatching { netoClient.clearManagedProfile(name = appTitle, url = state.subscribeUrl) }
         }
         if (!PxBoardApi.enabled) xboardAuth.resumeCallback()
-    }
-
-    private fun ensureBundledRouteAssets(): String {
-        val routeDir = File(app.filesDir, "route-assets")
-        val cnFile = File(routeDir, "geoip/cn.txt")
-        cnFile.parentFile?.mkdirs()
-        app.assets.open("route/geoip/cn.txt").use { input ->
-            cnFile.outputStream().use { output ->
-                input.copyTo(output)
-            }
-        }
-        return routeDir.absolutePath
-    }
-
-    private suspend fun loadInstalledApps() {
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val apps = app.packageManager.queryIntentActivities(intent, 0)
-            .map { info -> InstalledAppItem(info.loadLabel(app.packageManager).toString(), info.activityInfo.packageName) }
-            .filter { it.packageName != app.packageName }
-            .distinctBy { it.packageName }
-            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
-        _uiState.update { it.copy(installedApps = apps) }
     }
 
     private fun updateAndPersist(block: (XbClientUiState) -> XbClientUiState) {
@@ -1715,27 +1479,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.COMMISSION_BALANCE] = state.commissionBalance
             prefs[Keys.CURRENCY_SYMBOL] = state.currencySymbol
             prefs[Keys.CURRENCY_UNIT] = state.currencyUnit
-            prefs[Keys.ANYTLS_NODES] = nodesJson(state.anyTlsNodes)
-            prefs[Keys.SELECTED_NODE_INDEX] = state.selectedNodeIndex
             prefs[Keys.INVITE_FORCE] = state.inviteForce
             prefs[Keys.INVITE_COMMISSION_RATE] = state.inviteCommissionRate
             prefs[Keys.INVITE_COMMISSION_BALANCE] = state.inviteCommissionBalance
-            prefs[Keys.EXCLUDED_APPS] = state.excludedApps
-            prefs[Keys.ALLOWED_APPS] = state.allowedApps
-            prefs[Keys.APP_RULE_MODE] = state.appRuleMode
-            prefs[Keys.NODE_DNS] = state.nodeDns
-            prefs[Keys.OVERSEAS_DNS] = state.overseasDns
-            prefs[Keys.DIRECT_DNS] = state.directDns
-            prefs[Keys.NODE_TEST_TARGET] = state.nodeTestTarget
-            prefs[Keys.VPN_DNS_MODE] = state.vpnDnsMode
-            prefs[Keys.VIRTUAL_DNS_POOL] = state.virtualDnsPool
-            prefs[Keys.VPN_IPV6_ENABLED] = state.vpnIpv6Enabled
-            prefs[Keys.ROUTE_CONFIG_YAML] = state.routeConfigYaml
-            prefs[Keys.CUSTOM_ROUTE_CONFIG_YAML] = state.customRouteConfigYaml
-            prefs[Keys.GEOIP_DIR] = state.geoipDir
-            prefs[Keys.ROUTE_RULE_COUNT] = state.routeRuleCount
-            prefs[Keys.ROUTE_RULES_PREVIEW] = state.routeRulesPreview.joinToString("\n")
-            prefs[Keys.VPN_RUNNING] = state.vpnRequested
             prefs[Keys.PAYMENT_ENABLED] = state.paymentEnabled
             prefs[Keys.PLAN_REWARD_AD_ENABLED] = state.planRewardAdEnabled
             prefs[Keys.PLAN_REWARDED_AD_UNIT_ID] = state.planRewardedAdUnitId
@@ -1744,7 +1490,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.APP_OPEN_AD_ENABLED] = state.appOpenAdEnabled
             prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
             prefs[Keys.APP_LANGUAGE] = state.appLanguage
-            prefs[Keys.THEME_MODE] = state.themeMode
             prefs[Keys.ENABLE_BLUR] = state.enableBlur
             prefs[Keys.FLOATING_BOTTOM_BAR] = state.floatingBottomBar
             prefs[Keys.LANGUAGE_ONBOARDING_DONE] = state.languageOnboardingDone
@@ -1754,76 +1499,11 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.REGISTER_CAPTCHA_TYPE] = state.registerCaptchaType
         }
         app.getSharedPreferences(XBCLIENT_PREFS, Context.MODE_PRIVATE).edit()
-            .putString("auth_data", state.authData)
-            .putString("subscribe_token", state.subscribeToken)
-            .putString("subscribe_url", state.subscribeUrl)
-            .putString("subscription_summary", state.subscriptionSummary)
-            .putString("subscription_block_reason", state.subscriptionBlockReason)
-            .putLong("subscription_traffic_used_bytes", state.subscriptionTrafficUsedBytes)
-            .putLong("subscription_traffic_total_bytes", state.subscriptionTrafficTotalBytes)
-            .putLong("nodes_updated_at", state.nodesUpdatedAt)
-            .putString("user_email", state.userEmail)
-            .putInt("balance", state.balance)
-            .putInt("commission_balance", state.commissionBalance)
-            .putString("currency_symbol", state.currencySymbol)
-            .putString("currency_unit", state.currencyUnit)
-            .putString("anytls_nodes", nodesJson(state.anyTlsNodes))
-            .putInt("selected_node_index", state.selectedNodeIndex)
-            .putBoolean("invite_force", state.inviteForce)
-            .putInt("invite_commission_rate", state.inviteCommissionRate)
-            .putInt("invite_commission_balance", state.inviteCommissionBalance)
-            .putString("excluded_apps", state.excludedApps)
-            .putString("allowed_apps", state.allowedApps)
-            .putString("app_rule_mode", state.appRuleMode)
-            .putString("node_dns", state.nodeDns)
-            .putString("overseas_dns", state.overseasDns)
-            .putString("direct_dns", state.directDns)
-            .putString("node_test_target", state.nodeTestTarget)
-            .putString("vpn_dns_mode", state.vpnDnsMode)
-            .putString("virtual_dns_pool", state.virtualDnsPool)
-            .putBoolean("vpn_ipv6_enabled", state.vpnIpv6Enabled)
-            .putString("route_config_yaml", state.routeConfigYaml)
-            .putString("custom_route_config_yaml", state.customRouteConfigYaml)
-            .putString("geoip_dir", state.geoipDir)
-            .putInt("route_rule_count", state.routeRuleCount)
-            .putString("route_rules_preview", state.routeRulesPreview.joinToString("\n"))
-            .putBoolean("vpn_running", state.vpnRequested)
-            .putBoolean("payment_enabled", state.paymentEnabled)
-            .putBoolean("plan_reward_ad_enabled", state.planRewardAdEnabled)
-            .putString("plan_rewarded_ad_unit_id", state.planRewardedAdUnitId)
-            .putBoolean("points_reward_ad_enabled", state.pointsRewardAdEnabled)
-            .putString("points_rewarded_ad_unit_id", state.pointsRewardedAdUnitId)
-            .putBoolean("app_open_ad_enabled", state.appOpenAdEnabled)
-            .putString("app_open_ad_unit_id", state.appOpenAdUnitId)
             .putString("app_language", state.appLanguage)
-            .putString("theme_mode", state.themeMode)
             .putBoolean("enable_blur", state.enableBlur)
             .putBoolean("floating_bottom_bar", state.floatingBottomBar)
-            .putBoolean("language_onboarding_done", state.languageOnboardingDone)
-            .putBoolean("vpn_disclosure_done", state.vpnDisclosureDone)
-            .putBoolean("register_email_verify_enabled", state.registerEmailVerifyEnabled)
-            .putBoolean("register_captcha_enabled", state.registerCaptchaEnabled)
-            .putString("register_captcha_type", state.registerCaptchaType)
             .apply()
     }
-
-    private fun nodesJson(nodes: List<AnyTlsNode>): String =
-        JSONArray().also { array ->
-            for (node in nodes) {
-                val item = JSONObject(node.rawJson)
-                if (node.tags.isNotEmpty()) {
-                    item.put("tags", JSONArray().also { tags ->
-                        for (tag in node.tags) {
-                            tags.put(tag)
-                        }
-                    })
-                }
-                array.put(item)
-            }
-        }.toString()
-
-    private fun selectedAppPackages(state: XbClientUiState): String =
-        if (state.appRuleMode == MODE_ALLOW) state.allowedApps else state.excludedApps
 
     private fun requireSuccessfulBody(title: String, result: JSONObject): JSONObject {
         if (!result.getBoolean("ok")) {
@@ -2001,30 +1681,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val COMMISSION_BALANCE = intPreferencesKey("commission_balance")
         val CURRENCY_SYMBOL = stringPreferencesKey("currency_symbol")
         val CURRENCY_UNIT = stringPreferencesKey("currency_unit")
-        val PLANS = stringPreferencesKey("plans")
-        val ANYTLS_NODES = stringPreferencesKey("anytls_nodes")
-        val NOTICES = stringPreferencesKey("notices")
-        val SELECTED_NODE_INDEX = intPreferencesKey("selected_node_index")
-        val INVITES = stringPreferencesKey("invites")
         val INVITE_FORCE = booleanPreferencesKey("invite_force")
         val INVITE_COMMISSION_RATE = intPreferencesKey("invite_commission_rate")
         val INVITE_COMMISSION_BALANCE = intPreferencesKey("invite_commission_balance")
-        val EXCLUDED_APPS = stringPreferencesKey("excluded_apps")
-        val ALLOWED_APPS = stringPreferencesKey("allowed_apps")
-        val APP_RULE_MODE = stringPreferencesKey("app_rule_mode")
-        val NODE_DNS = stringPreferencesKey("node_dns")
-        val OVERSEAS_DNS = stringPreferencesKey("overseas_dns")
-        val DIRECT_DNS = stringPreferencesKey("direct_dns")
-        val NODE_TEST_TARGET = stringPreferencesKey("node_test_target")
-        val VPN_DNS_MODE = stringPreferencesKey("vpn_dns_mode")
-        val VIRTUAL_DNS_POOL = stringPreferencesKey("virtual_dns_pool")
-        val VPN_IPV6_ENABLED = booleanPreferencesKey("vpn_ipv6_enabled")
-        val ROUTE_CONFIG_YAML = stringPreferencesKey("route_config_yaml")
-        val CUSTOM_ROUTE_CONFIG_YAML = stringPreferencesKey("custom_route_config_yaml")
-        val GEOIP_DIR = stringPreferencesKey("geoip_dir")
-        val ROUTE_RULE_COUNT = intPreferencesKey("route_rule_count")
-        val ROUTE_RULES_PREVIEW = stringPreferencesKey("route_rules_preview")
-        val VPN_RUNNING = booleanPreferencesKey("vpn_running")
         val PAYMENT_ENABLED = booleanPreferencesKey("payment_enabled")
         val PLAN_REWARD_AD_ENABLED = booleanPreferencesKey("plan_reward_ad_enabled")
         val PLAN_REWARDED_AD_UNIT_ID = stringPreferencesKey("plan_rewarded_ad_unit_id")
@@ -2033,12 +1692,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val APP_OPEN_AD_ENABLED = booleanPreferencesKey("app_open_ad_enabled")
         val APP_OPEN_AD_UNIT_ID = stringPreferencesKey("app_open_ad_unit_id")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
-        val THEME_MODE = stringPreferencesKey("theme_mode")
         val ENABLE_BLUR = booleanPreferencesKey("enable_blur")
         val FLOATING_BOTTOM_BAR = booleanPreferencesKey("floating_bottom_bar")
         val LANGUAGE_ONBOARDING_DONE = booleanPreferencesKey("language_onboarding_done")
         val VPN_DISCLOSURE_DONE = booleanPreferencesKey("vpn_disclosure_done")
-        val OAUTH_PROVIDERS = stringPreferencesKey("oauth_providers")
         val REGISTER_EMAIL_VERIFY_ENABLED = booleanPreferencesKey("register_email_verify_enabled")
         val REGISTER_CAPTCHA_ENABLED = booleanPreferencesKey("register_captcha_enabled")
         val REGISTER_CAPTCHA_TYPE = stringPreferencesKey("register_captcha_type")

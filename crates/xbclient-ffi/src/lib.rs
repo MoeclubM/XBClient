@@ -61,10 +61,10 @@ pub extern "C" fn xbclient_panel_init(data_dir: *const c_char) -> *mut c_char {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn xbclient_keep_neto_symbols() -> usize {
-    (neto_ffi::neto_init as usize)
-        ^ (neto_ffi::neto_call as usize)
-        ^ (neto_ffi::neto_shutdown as usize)
-        ^ (neto_ffi::neto_free_string as usize)
+    (neto_ffi::neto_init as *const () as usize)
+        ^ (neto_ffi::neto_call as *const () as usize)
+        ^ (neto_ffi::neto_shutdown as *const () as usize)
+        ^ (neto_ffi::neto_free_string as *const () as usize)
 }
 
 #[unsafe(no_mangle)]

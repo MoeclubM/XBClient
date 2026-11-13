@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import moe.telecom.neto.sdk.NetoControllerClient
+import moe.telecom.neto.sdk.formatNetoBytes
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -193,10 +195,11 @@ internal data class PxBoardPortalUiState(
 )
 
 internal class PxBoardSession(
+    private val appTitle: String,
     private val scope: CoroutineScope,
     private val state: MutableStateFlow<XbClientUiState>,
+    private val netoClient: NetoControllerClient,
     private val persist: suspend (XbClientUiState) -> Unit,
-    private val onSyncNeto: suspend (XbClientUiState) -> Unit,
     private val onRewardLogsUpdated: (List<AdRewardLogItem>) -> Unit,
     private val message: (String) -> Unit,
     private val open: (String) -> Unit,
@@ -292,7 +295,7 @@ internal class PxBoardSession(
         val useKnownRevision = !force &&
             cachedRevisionAuth == auth &&
             cachedRevision.isNotEmpty() &&
-            (current.anyTlsNodes.isNotEmpty() || current.subscriptionBlockReason.isNotEmpty())
+            (netoClient.snapshot.value.nodes.isNotEmpty() || current.subscriptionBlockReason.isNotEmpty())
         state.update { it.copy(nodesLoading = true) }
         scope.launch(Dispatchers.IO) {
             try {
@@ -356,10 +359,6 @@ internal class PxBoardSession(
                     items
                 }
 
-                var nodes = state.value.anyTlsNodes
-                var routeConfigYaml = state.value.routeConfigYaml
-                var routeRuleCount = state.value.routeRuleCount
-                var routeRulesPreview = state.value.routeRulesPreview
                 var subscribeUrl = state.value.subscribeUrl
                 var summary = state.value.subscriptionSummary
                 var blocked = state.value.subscriptionBlockReason
@@ -386,7 +385,7 @@ internal class PxBoardSession(
                         ""
                     } else {
                         buildList {
-                            add("${formatTrafficBytes(usedBytes.toDouble())} / " + if (acc.optBoolean("unlimited")) "∞" else formatTrafficBytes(totalBytes.toDouble()))
+                            add("${formatNetoBytes(usedBytes)} / " + if (acc.optBoolean("unlimited")) "∞" else formatNetoBytes(totalBytes))
                             if (expiredAtUnix > 0L) add(formatUnixDate(expiredAtUnix))
                         }.joinToString(" · ")
                     }
@@ -396,24 +395,26 @@ internal class PxBoardSession(
 
                     if (!profile.optBoolean("unchanged", false)) {
                         if (blocked.isNotEmpty()) {
-                            nodes = emptyList()
-                            routeConfigYaml = ""
-                            routeRuleCount = 0
-                            routeRulesPreview = emptyList()
+                            netoClient.clearManagedProfile(name = appTitle, url = subscribeUrl)
                         } else {
-                            val parsedNodes = ArrayList<AnyTlsNode>()
                             val rawNodes = profile.optJSONArray("nodes") ?: JSONArray()
-                            for (i in 0 until rawNodes.length()) {
-                                runCatching { rawNodes.getJSONObject(i).toAnyTlsNode() }
-                                    .onSuccess { parsedNodes.add(it) }
-                                    .onFailure { message(it.message ?: it.toString()) }
-                            }
-                            nodes = parsedNodes
                             val r = profile.optJSONObject("routing") ?: JSONObject()
-                            routeConfigYaml = r.optString("routeConfigYaml").takeUnless { it == "null" }.orEmpty()
-                            routeRuleCount = r.optInt("ruleCount", 0)
+                            val routeConfigYaml = r.optString("routeConfigYaml").takeUnless { it == "null" }?.ifBlank { null }
+                            val routeRuleCount = r.optInt("ruleCount", 0)
                             val previewArr = r.optJSONArray("rulesPreview") ?: r.optJSONArray("rules") ?: JSONArray()
-                            routeRulesPreview = List(previewArr.length().coerceAtMost(20)) { idx -> previewArr.getString(idx) }
+                            val routeRulesPreview = List(previewArr.length().coerceAtMost(20)) { idx -> previewArr.getString(idx) }
+                            netoClient.upsertManagedProfile(
+                                id = "managed-default",
+                                name = appTitle,
+                                url = subscribeUrl,
+                                nodes = rawNodes,
+                                routeConfigYaml = routeConfigYaml,
+                                rulesPreview = routeRulesPreview,
+                                ruleCount = routeRuleCount,
+                                usedDownloadBytes = usedBytes,
+                                totalBytes = totalBytes,
+                                expireUnix = expiredAtUnix,
+                            )
                         }
                         cachedRevisionAuth = auth
                         cachedRevision = profile.optString("revision")
@@ -467,18 +468,12 @@ internal class PxBoardSession(
                         subscriptionBlockReason = blocked,
                         subscriptionTrafficUsedBytes = usedBytes,
                         subscriptionTrafficTotalBytes = totalBytes,
-                        anyTlsNodes = nodes,
                         nodesLoading = false,
-                        selectedNodeIndex = cur.selectedNodeIndex.coerceIn(0, (nodes.size - 1).coerceAtLeast(0)),
                         nodesUpdatedAt = System.currentTimeMillis(),
-                        routeConfigYaml = routeConfigYaml,
-                        routeRuleCount = routeRuleCount,
-                        routeRulesPreview = routeRulesPreview,
                     )
                 }
                 if (adLogs != null) onRewardLogsUpdated(adLogs)
                 persist(state.value)
-                onSyncNeto(state.value)
             } catch (e: Exception) { state.update { it.copy(nodesLoading = false) }; message(e.message ?: e.toString()) }
         }
     }

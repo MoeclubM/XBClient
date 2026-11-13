@@ -60,11 +60,17 @@ class MainActivity : ComponentActivity() {
         }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.netoClient.snapshot.collect { snap ->
+                    applyEdgeToEdge(snap.settings.themeMode)
+                }
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
                     if (!state.loaded) {
                         return@collect
                     }
-                    applyEdgeToEdge(state.themeMode)
                     if ((!state.isLoggedIn || !state.languageOnboardingDone || !state.vpnDisclosureDone) && !redirectedToAuth) {
                         redirectedToAuth = true
                         startActivity(
@@ -92,6 +98,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        viewModel.netoClient.refreshSnapshot()
         val state = viewModel.uiState.value
         if (state.loaded) {
             viewModel.syncAppearanceSettings()

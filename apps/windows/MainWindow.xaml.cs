@@ -26,7 +26,6 @@ public sealed partial class MainWindow : Window
     private readonly Win32TrayIcon _tray;
     private string _currentTab = "connect";
     private string _lastBlockReason = "__unset__";
-    private bool _linksAppended;
     private bool _quitting;
 
     public MainWindow(bool startMinimized)
@@ -97,16 +96,19 @@ public sealed partial class MainWindow : Window
 
     private void AppendCommercialLinks(PanelStateSnapshot snap)
     {
-        if (_linksAppended || _settingsView.Root.Content is not StackPanel outer) return;
         var links = new List<(string Label, string Url)>
         {
             ("官方网站", snap.WebsiteUrl),
             ("服务协议", snap.UserAgreementUrl),
             ("隐私政策", snap.PrivacyPolicyUrl),
         }.Where(x => !string.IsNullOrWhiteSpace(x.Url)).ToList();
-        if (links.Count == 0) return;
-        _linksAppended = true;
-        outer.Children.Add(NetoUiFactory.CreateSectionHeader("站点与条款"));
+        if (links.Count == 0)
+        {
+            _settingsView.SetExtraFooter(null);
+            return;
+        }
+        var section = new StackPanel { Spacing = 8 };
+        section.Children.Add(NetoUiFactory.CreateSectionHeader("站点与条款"));
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         foreach (var (label, url) in links)
         {
@@ -115,7 +117,8 @@ public sealed partial class MainWindow : Window
             btn.Click += async (_, _) => await _panelService.OpenUrlAsync(target);
             row.Children.Add(btn);
         }
-        outer.Children.Add(NetoUiFactory.CreateCard(row));
+        section.Children.Add(NetoUiFactory.CreateCard(row));
+        _settingsView.SetExtraFooter(section);
     }
 
     private void OnNavClick(object sender, RoutedEventArgs e)
