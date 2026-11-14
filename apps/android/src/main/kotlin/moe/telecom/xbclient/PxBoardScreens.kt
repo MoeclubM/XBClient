@@ -64,48 +64,39 @@ internal fun PxBoardLogin(state: XbClientUiState, viewModel: XbClientViewModel) 
         }
     }
 
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
-        if (authState.registrationProviders.isNotEmpty() || authState.passwordResetEnabled) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-            ) {
-                TextButton(
-                    text = stringResource(R.string.auth_login),
-                    onClick = { tab = "login" },
-                    modifier = Modifier.weight(1f),
-                    colors = if (tab == "login") ButtonDefaults.textButtonColorsPrimary() else ButtonDefaults.textButtonColors(),
-                )
-                if (authState.registrationProviders.isNotEmpty()) {
-                    TextButton(
-                        text = stringResource(R.string.auth_register),
-                        onClick = { tab = "register" },
-                        modifier = Modifier.weight(1f),
-                        colors = if (tab == "register") ButtonDefaults.textButtonColorsPrimary() else ButtonDefaults.textButtonColors(),
-                    )
-                }
-                if (authState.passwordResetEnabled) {
-                    TextButton(
-                        text = "找回密码",
-                        onClick = { tab = "reset" },
-                        modifier = Modifier.weight(1f),
-                        colors = if (tab == "reset") ButtonDefaults.textButtonColorsPrimary() else ButtonDefaults.textButtonColors(),
-                    )
-                }
-            }
+    val modeItems = buildList {
+        add("login" to stringResource(R.string.auth_login))
+        if (authState.registrationProviders.isNotEmpty()) {
+            add("register" to stringResource(R.string.auth_register))
+        }
+        if (authState.passwordResetEnabled) {
+            add("reset" to "找回密码")
+        }
+    }
+    if (modeItems.none { it.first == tab }) {
+        tab = "login"
+    }
+
+    Column(Modifier.fillMaxWidth()) {
+        if (modeItems.size > 1) {
+            AuthSegmentBar(
+                items = modeItems,
+                selectedKey = tab,
+                onSelect = { tab = it },
+            )
+            Spacer(Modifier.height(12.dp))
         }
 
-        Card(modifier = Modifier.fillMaxWidth(), insideMargin = PaddingValues(18.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
             when (tab) {
                 "register" -> if (regProvider != null) {
                     if (authState.registrationProviders.size > 1) {
-                        OverlayDropdownPreference(
-                            title = "注册方式",
-                            items = authState.registrationProviders.map { it.title },
-                            selectedIndex = regProviderIdx.coerceIn(0, authState.registrationProviders.lastIndex),
-                            onSelectedIndexChange = { regProviderIdx = it },
+                        AuthSegmentBar(
+                            items = authState.registrationProviders.mapIndexed { idx, p -> idx.toString() to p.title },
+                            selectedKey = regProviderIdx.coerceIn(0, authState.registrationProviders.lastIndex).toString(),
+                            onSelect = { regProviderIdx = it.toIntOrNull() ?: 0 },
                         )
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(12.dp))
                     }
                     if (!authState.registerChallengeRequired) {
                         for (field in regProvider.fields) {
@@ -135,6 +126,7 @@ internal fun PxBoardLogin(state: XbClientUiState, viewModel: XbClientViewModel) 
                             }
                             Spacer(Modifier.height(10.dp))
                         }
+                        Spacer(Modifier.height(4.dp))
                         Button(
                             onClick = {
                                 val payload = LinkedHashMap<String, Any?>()
@@ -273,34 +265,34 @@ internal fun PxBoardLogin(state: XbClientUiState, viewModel: XbClientViewModel) 
                         ) {
                             Text(stringResource(R.string.auth_login))
                         }
-                        Spacer(Modifier.height(10.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                     }
-                    Button(
-                        onClick = { viewModel.loginPxBoard() },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = if (authState.loginChallengeRequired) ButtonDefaults.buttonColorsPrimary() else ButtonDefaults.buttonColors(),
-                        enabled = !state.nativeLoginPending && !authState.busy,
-                    ) {
-                        Text(
-                            if (state.nativeLoginPending) stringResource(R.string.panel_authorizing)
-                            else if (authState.loginChallengeRequired) stringResource(R.string.auth_login)
-                            else "浏览器授权登录"
-                        )
-                    }
-                    for (provider in state.oauthProviders) {
-                        Spacer(Modifier.height(10.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
-                            onClick = { viewModel.loginPxBoard(provider.driver) },
+                            onClick = { viewModel.loginPxBoard() },
                             modifier = Modifier.fillMaxWidth(),
+                            colors = if (authState.loginChallengeRequired) ButtonDefaults.buttonColorsPrimary() else ButtonDefaults.buttonColors(),
                             enabled = !state.nativeLoginPending && !authState.busy,
                         ) {
-                            Text(stringResource(R.string.auth_oauth_login_button, provider.label))
+                            Text(
+                                if (state.nativeLoginPending) stringResource(R.string.panel_authorizing)
+                                else if (authState.loginChallengeRequired) stringResource(R.string.auth_login)
+                                else "浏览器授权登录"
+                            )
                         }
-                    }
-                    if (state.nativeLoginPending) {
-                        Spacer(Modifier.height(10.dp))
-                        Button(onClick = viewModel::cancelPxBoardLogin, modifier = Modifier.fillMaxWidth()) {
-                            Text(stringResource(R.string.panel_cancel))
+                        for (provider in state.oauthProviders) {
+                            Button(
+                                onClick = { viewModel.loginPxBoard(provider.driver) },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !state.nativeLoginPending && !authState.busy,
+                            ) {
+                                Text(stringResource(R.string.auth_oauth_login_button, provider.label))
+                            }
+                        }
+                        if (state.nativeLoginPending) {
+                            Button(onClick = viewModel::cancelPxBoardLogin, modifier = Modifier.fillMaxWidth()) {
+                                Text(stringResource(R.string.panel_cancel))
+                            }
                         }
                     }
                 }

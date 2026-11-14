@@ -27,9 +27,9 @@
     <string name="auth_oauth_login_title">ورود با سرویس دیگر</string>
     <string name="auth_oauth_login_button">ورود با %1$s</string>
     <string name="auth_invite_code_optional">کد دعوت، اختیاری</string>
-    <string name="auth_email_code_optional">کد ایمیل، اختیاری</string>
+    <string name="auth_email_code_optional">کد ایمیل</string>
     <string name="auth_captcha_optional">توکن CAPTCHA، اختیاری</string>
-    <string name="auth_send_email_code">ارسال کد ایمیل</string>
+    <string name="auth_send_email_code">ارسال کد</string>
     <string name="auth_back_login">بازگشت به ورود</string>
     <string name="auth_oauth_confirm_title">تأیید ثبت‌نام OAuth</string>
     <string name="auth_oauth_confirm_message">ساخت یا اتصال حساب با %1$s را تأیید کنید: %2$s</string>
@@ -126,7 +126,7 @@
     <string name="onboarding_language_subtitle">ابتدا زبان رابط را انتخاب کنید. بعداً می‌توانید آن را از تنظیمات تغییر دهید.</string>
     <string name="onboarding_continue">ادامه</string>
     <string name="setting_language">زبان</string>
-    <string name="setting_theme">حالت رنگ</string>
+    <string name="setting_theme">پوسته</string>
     <string name="page_theme">پوسته</string>
     <string name="setting_theme_summary">حالت رنگ، تاری و نوار شناور پایین</string>
     <string name="setting_theme_blur">تاری</string>

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -109,7 +110,7 @@ fun XbClientApp(viewModel: XbClientViewModel) {
                     scaleY = 1f - modalBackProgress * 0.025f
                 }
             ) {
-                if (state.loaded && state.isLoggedIn && state.languageOnboardingDone && state.vpnDisclosureDone) {
+                if (state.loaded && state.isLoggedIn && state.vpnDisclosureDone) {
                     MainShell(state, viewModel, routeBackProgress)
                 } else {
                     LoadingScreen()
@@ -148,20 +149,22 @@ fun XbClientAuthApp(viewModel: XbClientViewModel) {
         LocalLayoutDirection provides layoutDirection
     ) {
         NetoTheme(netoSnapshot.settings.themeMode) {
-            Scaffold {
+            Scaffold { padding ->
                 Box(
-                    modifier = Modifier.graphicsLayer {
-                        alpha = 1f - backProgress * 0.08f
-                        scaleX = 1f - backProgress * 0.025f
-                        scaleY = 1f - backProgress * 0.025f
-                    }
+                    modifier = Modifier
+                        .padding(padding)
+                        .imePadding()
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            alpha = 1f - backProgress * 0.08f
+                            scaleX = 1f - backProgress * 0.025f
+                            scaleY = 1f - backProgress * 0.025f
+                        }
                 ) {
                     if (!state.loaded) {
                         LoadingScreen()
-                    } else if (!state.languageOnboardingDone) {
-                        LanguageOnboardingScreen(state, viewModel)
                     } else if (!state.vpnDisclosureDone) {
-                        VpnDisclosureScreen(viewModel)
+                        VpnDisclosureScreen(state, netoSnapshot.settings.themeMode, viewModel)
                     } else if (!state.isLoggedIn) {
                         AuthScreen(state, netoSnapshot.settings.themeMode, viewModel)
                     } else {

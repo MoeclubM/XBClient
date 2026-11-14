@@ -102,7 +102,6 @@ data class XbClientUiState(
     val appLanguage: String = "",
     val enableBlur: Boolean = true,
     val floatingBottomBar: Boolean = true,
-    val languageOnboardingDone: Boolean = false,
     val vpnDisclosureDone: Boolean = false,
     val oauthProviders: List<OAuthProvider> = emptyList(),
     val registerEmailVerifyEnabled: Boolean = false,
@@ -513,7 +512,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             appLanguage = current.appLanguage,
             enableBlur = current.enableBlur,
             floatingBottomBar = current.floatingBottomBar,
-            languageOnboardingDone = current.languageOnboardingDone,
             vpnDisclosureDone = current.vpnDisclosureDone,
             oauthProviders = current.oauthProviders,
             registerEmailVerifyEnabled = current.registerEmailVerifyEnabled,
@@ -1425,16 +1423,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         updateAndPersist { it.copy(appLanguage = language) }
     }
 
-    fun finishLanguageOnboarding(language: String) {
-        updateAndPersist { it.copy(appLanguage = language, languageOnboardingDone = true) }
-    }
-
     fun acceptVpnDisclosure() {
         updateAndPersist { it.copy(vpnDisclosureDone = true) }
-    }
-
-    fun resetOnboarding() {
-        updateAndPersist { it.copy(languageOnboardingDone = false, vpnDisclosureDone = false) }
     }
 
     fun setThemeMode(themeMode: String) {
@@ -1527,7 +1517,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
             enableBlur = prefs[Keys.ENABLE_BLUR] ?: true,
             floatingBottomBar = prefs[Keys.FLOATING_BOTTOM_BAR] ?: true,
-            languageOnboardingDone = prefs[Keys.LANGUAGE_ONBOARDING_DONE] ?: false,
             vpnDisclosureDone = prefs[Keys.VPN_DISCLOSURE_DONE] ?: false,
             oauthProviders = emptyList(),
             registerEmailVerifyEnabled = prefs[Keys.REGISTER_EMAIL_VERIFY_ENABLED] ?: false,
@@ -1584,7 +1573,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.APP_LANGUAGE] = state.appLanguage
             prefs[Keys.ENABLE_BLUR] = state.enableBlur
             prefs[Keys.FLOATING_BOTTOM_BAR] = state.floatingBottomBar
-            prefs[Keys.LANGUAGE_ONBOARDING_DONE] = state.languageOnboardingDone
             prefs[Keys.VPN_DISCLOSURE_DONE] = state.vpnDisclosureDone
             prefs[Keys.REGISTER_EMAIL_VERIFY_ENABLED] = state.registerEmailVerifyEnabled
             prefs[Keys.REGISTER_CAPTCHA_ENABLED] = state.registerCaptchaEnabled
@@ -1743,7 +1731,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val ENABLE_BLUR = booleanPreferencesKey("enable_blur")
         val FLOATING_BOTTOM_BAR = booleanPreferencesKey("floating_bottom_bar")
-        val LANGUAGE_ONBOARDING_DONE = booleanPreferencesKey("language_onboarding_done")
         val VPN_DISCLOSURE_DONE = booleanPreferencesKey("vpn_disclosure_done")
         val REGISTER_EMAIL_VERIFY_ENABLED = booleanPreferencesKey("register_email_verify_enabled")
         val REGISTER_CAPTCHA_ENABLED = booleanPreferencesKey("register_captcha_enabled")

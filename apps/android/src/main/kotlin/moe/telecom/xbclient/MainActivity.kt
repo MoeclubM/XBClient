@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
                     if (!state.loaded) {
                         return@collect
                     }
-                    if ((!state.isLoggedIn || !state.languageOnboardingDone || !state.vpnDisclosureDone) && !redirectedToAuth) {
+                    if ((!state.isLoggedIn || !state.vpnDisclosureDone) && !redirectedToAuth) {
                         redirectedToAuth = true
                         startActivity(
                             Intent(this@MainActivity, AuthActivity::class.java)

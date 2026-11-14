@@ -39,11 +39,15 @@ internal fun SettingsScreen(
         client = viewModel.netoClient,
         modifier = modifier,
         generalExtraSlot = {
+            val languageLabels = LanguageOptions.map { (code, label) ->
+                if (code.isEmpty()) stringResource(R.string.language_system) else label
+            }
+            val selectedLangIdx = LanguageOptions.indexOfFirst { it.first == state.appLanguage }.coerceAtLeast(0)
             OverlayDropdownPreference(
                 title = stringResource(R.string.setting_language),
-                summary = LanguageOptions.firstOrNull { it.first == state.appLanguage }?.second ?: LanguageOptions[0].second,
-                items = LanguageOptions.map { it.second },
-                selectedIndex = LanguageOptions.indexOfFirst { it.first == state.appLanguage }.coerceAtLeast(0),
+                summary = languageLabels[selectedLangIdx],
+                items = languageLabels,
+                selectedIndex = selectedLangIdx,
                 onSelectedIndexChange = { viewModel.setAppLanguage(LanguageOptions[it].first) },
             )
             SwitchPreference(

@@ -17,18 +17,28 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Card
@@ -39,7 +49,6 @@ import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.text.SimpleDateFormat
@@ -62,24 +71,6 @@ internal val ThemeOptions = listOf(
 )
 
 internal val MainTabScreens = setOf(PassScreen.HOME, PassScreen.NODES, PassScreen.CONNECTIONS, PassScreen.RULES, PassScreen.PLANS, PassScreen.PROFILE)
-
-internal val OnboardingLanguageTitles = mapOf(
-    "" to "Choose language\n选择语言",
-    "zh-CN" to "选择语言\nChoose language",
-    "en" to "Choose language",
-    "ja" to "言語を選択\nChoose language",
-    "ru" to "Выберите язык\nChoose language",
-    "fa" to "انتخاب زبان\nChoose language"
-)
-
-internal val OnboardingLanguageSubtitles = mapOf(
-    "" to "Please select a language.\n请选择语言。",
-    "zh-CN" to "请选择语言。\nPlease select a language.",
-    "en" to "Please select a language.",
-    "ja" to "言語を選択してください。\nPlease select a language.",
-    "ru" to "Выберите язык.\nPlease select a language.",
-    "fa" to "لطفاً زبان را انتخاب کنید.\nPlease select a language."
-)
 
 @Composable
 internal fun rememberBlurBackdrop(enabled: Boolean = true): LayerBackdrop? {
@@ -140,29 +131,87 @@ fun Panel(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-internal fun LanguageChooser(current: String, viewModel: XbClientViewModel) {
-    val selectedIndex = LanguageOptions.indexOfFirst { it.first == current }.coerceAtLeast(0)
-    OverlayDropdownPreference(
-        title = stringResource(R.string.setting_language),
-        summary = LanguageOptions[selectedIndex].second,
-        items = LanguageOptions.map { it.second },
-        selectedIndex = selectedIndex,
-        onSelectedIndexChange = { viewModel.setAppLanguage(LanguageOptions[it].first) }
-    )
+internal fun AuthSegmentBar(
+    items: List<Pair<String, String>>,
+    selectedKey: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (items.size <= 1) return
+    val containerShape = RoundedCornerShape(11.dp)
+    val itemShape = RoundedCornerShape(8.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(containerShape)
+            .background(MiuixTheme.colorScheme.surfaceContainer)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        for ((key, label) in items) {
+            val active = key == selectedKey
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(32.dp)
+                    .clip(itemShape)
+                    .then(
+                        if (active) {
+                            Modifier
+                                .background(MiuixTheme.colorScheme.surface)
+                                .border(0.5.dp, MiuixTheme.colorScheme.outline.copy(alpha = 0.22f), itemShape)
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .clickable { onSelect(key) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = label,
+                    style = MiuixTheme.textStyles.body2,
+                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+                    color = if (active) MiuixTheme.colorScheme.onSurface else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
 }
 
 @Composable
-internal fun ThemeChooser(current: String, appLanguage: String, viewModel: XbClientViewModel) {
-    val themeOptions = ThemeOptions.map { it.first to themeOptionLabel(it.first, appLanguage) }
-    val normalized = current.ifBlank { "system" }
-    val selectedIndex = themeOptions.indexOfFirst { it.first == normalized }.coerceAtLeast(0)
-    OverlayDropdownPreference(
-        title = stringResource(R.string.setting_theme),
-        summary = themeOptions[selectedIndex].second,
-        items = themeOptions.map { it.second },
-        selectedIndex = selectedIndex,
-        onSelectedIndexChange = { viewModel.setThemeMode(themeOptions[it].first) }
-    )
+internal fun AuthFooterLinks(context: Context, modifier: Modifier = Modifier) {
+    val links = listOf(
+        R.string.about_website to BuildConfig.WEBSITE_URL.trim(),
+        R.string.about_user_agreement to BuildConfig.USER_AGREEMENT_URL.trim(),
+        R.string.about_privacy_policy to BuildConfig.PRIVACY_POLICY_URL.trim()
+    ).filter { it.second.isNotEmpty() }
+    if (links.isEmpty()) {
+        return
+    }
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
+        for ((index, link) in links.withIndex()) {
+            Text(
+                text = stringResource(link.first),
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                textDecoration = TextDecoration.Underline,
+                modifier = Modifier.clickable { openBrowser(context, link.second) },
+            )
+            if (index != links.lastIndex) {
+                Text(
+                    text = " · ",
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
+        }
+    }
 }
 
 @Composable

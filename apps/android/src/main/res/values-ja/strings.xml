@@ -27,9 +27,9 @@
     <string name="auth_oauth_login_title">サードパーティログイン</string>
     <string name="auth_oauth_login_button">%1$s でログイン</string>
     <string name="auth_invite_code_optional">招待コード（任意）</string>
-    <string name="auth_email_code_optional">メール認証コード（任意）</string>
+    <string name="auth_email_code_optional">メール認証コード</string>
     <string name="auth_captcha_optional">CAPTCHA トークン（任意）</string>
-    <string name="auth_send_email_code">メール認証コードを送信</string>
+    <string name="auth_send_email_code">コード送信</string>
     <string name="auth_back_login">ログインに戻る</string>
     <string name="auth_oauth_confirm_title">OAuth 登録確認</string>
     <string name="auth_oauth_confirm_message">%1$s を使用してアカウントを作成または連携します：%2$s</string>
@@ -126,7 +126,7 @@
     <string name="onboarding_language_subtitle">まず表示言語を選択してください。後で設定から変更できます。</string>
     <string name="onboarding_continue">続行</string>
     <string name="setting_language">言語</string>
-    <string name="setting_theme">カラーモード</string>
+    <string name="setting_theme">外観テーマ</string>
     <string name="page_theme">テーマ</string>
     <string name="setting_theme_summary">カラーモード、ぼかし、フローティングバー</string>
     <string name="setting_theme_blur">ぼかし</string>

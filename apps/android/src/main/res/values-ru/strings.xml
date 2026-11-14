@@ -27,9 +27,9 @@
     <string name="auth_oauth_login_title">Сторонний вход</string>
     <string name="auth_oauth_login_button">Войти через %1$s</string>
     <string name="auth_invite_code_optional">Код приглашения, необязательно</string>
-    <string name="auth_email_code_optional">Код из email, необязательно</string>
+    <string name="auth_email_code_optional">Код из email</string>
     <string name="auth_captcha_optional">Токен CAPTCHA, необязательно</string>
-    <string name="auth_send_email_code">Отправить код на email</string>
+    <string name="auth_send_email_code">Получить код</string>
     <string name="auth_back_login">Назад ко входу</string>
     <string name="auth_oauth_confirm_title">Подтверждение OAuth-регистрации</string>
     <string name="auth_oauth_confirm_message">Подтвердите создание или привязку аккаунта через %1$s: %2$s</string>
@@ -126,7 +126,7 @@
     <string name="onboarding_language_subtitle">Сначала выберите язык интерфейса. Позже его можно изменить в настройках.</string>
     <string name="onboarding_continue">Продолжить</string>
     <string name="setting_language">Язык</string>
-    <string name="setting_theme">Цветовая тема</string>
+    <string name="setting_theme">Тема</string>
     <string name="page_theme">Тема</string>
     <string name="setting_theme_summary">Цвет, размытие и плавающая панель</string>
     <string name="setting_theme_blur">Размытие</string>

@@ -181,7 +181,7 @@ jobs:
       - name: Build xbclient_ffi & WinUI 3 app
         shell: bash
         run: |
-          latest_tag="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.15)"
+          latest_tag="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.16)"
           base_ver="${latest_tag#v}"
           cargo build --release -p xbclient-ffi -p xbclient-service
           mkdir -p apps/windows/native dist
@@ -205,7 +205,7 @@ jobs:
       - name: Build beta Windows installer (Inno Setup)
         shell: pwsh
         run: |
-          $latestTag = (git describe --tags --abbrev=0 2>$null); if (-not $latestTag) { $latestTag = "v0.0.15" }
+          $latestTag = (git describe --tags --abbrev=0 2>$null); if (-not $latestTag) { $latestTag = "v0.0.16" }
           $baseVer = $latestTag.TrimStart('v')
           $appName = $env:XBCLIENT_APP_NAME
           $outBase = "$appName-win-x64-beta-setup-$($env:GITHUB_RUN_ID)"
