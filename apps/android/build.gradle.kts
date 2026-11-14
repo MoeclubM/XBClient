@@ -224,7 +224,7 @@ tasks.matching {
 }
 
 dependencies {
-    implementation("moe.telecom.neto:sdk-android:0.0.6")
+    implementation("moe.telecom.neto:sdk-android:0.0.7")
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.browser:browser:1.10.0")

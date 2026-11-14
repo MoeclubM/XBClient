@@ -44,20 +44,19 @@ internal fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel)
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
             .padding(bottom = 12.dp),
-        insideMargin = PaddingValues(18.dp)
+        insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Text(state.userEmail, style = MiuixTheme.textStyles.title2)
-        Spacer(Modifier.height(10.dp))
-        Text(
+        Spacer(Modifier.height(6.dp))
+        val financeSummary = listOf(
             stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)),
+            stringResource(R.string.commission_amount, formatMoney(state.commissionBalance, state.currencySymbol, state.currencyUnit)),
+        ).joinToString(" · ")
+        Text(
+            financeSummary,
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary
         )
         Spacer(Modifier.height(4.dp))
-        Text(
-            stringResource(R.string.commission_amount, formatMoney(state.commissionBalance, state.currencySymbol, state.currencyUnit)),
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
-        )
-        Spacer(Modifier.height(8.dp))
         val subscriptionText = state.subscriptionSummary.ifEmpty {
             stringResource(id = if (state.subscribeUrl.isEmpty()) R.string.subscription_not_synced else R.string.subscription_synced)
         }

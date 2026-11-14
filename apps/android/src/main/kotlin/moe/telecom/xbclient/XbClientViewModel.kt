@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -12,7 +13,10 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,6 +85,7 @@ data class XbClientUiState(
     val giftCardHistoryLoading: Boolean = false,
     val oauthBindingsLoading: Boolean = false,
     val noticesLoading: Boolean = false,
+    val manualRefreshing: Boolean = false,
     val paymentEnabled: Boolean = BuildConfig.APP_PAYMENT_ENABLED,
     val planRewardAdEnabled: Boolean = !PxBoardApi.enabled && BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty(),
     val planRewardedAdUnitId: String = if (!PxBoardApi.enabled) BuildConfig.PLAN_REWARDED_AD_UNIT_ID else "",
@@ -120,6 +125,12 @@ data class XbClientUiState(
     val isRefreshing: Boolean
         get() = userLoading || nodesLoading || plansLoading || invitesLoading || commissionLogsLoading || trafficLogsLoading || ticketsLoading || ticketDetailLoading || giftCardChecking || giftCardRedeeming || giftCardHistoryLoading || oauthBindingsLoading || noticesLoading
 }
+
+internal fun PassScreen.supportsPullToRefresh(): Boolean =
+    when (this) {
+        PassScreen.NODES, PassScreen.CONNECTIONS, PassScreen.RULES, PassScreen.SETTINGS, PassScreen.OPEN_SOURCE_LICENSES -> false
+        else -> true
+    }
 
 sealed interface XbClientEvent {
     data class Message(val text: String) : XbClientEvent
@@ -170,6 +181,8 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     fun openPxBoardPortal(path: String = "/user") = nativePanel.portal(path)
 
     private var nodeAutoRefreshStarted = false
+    private var manualRefreshJob: Job? = null
+    private var manualRefreshToken = 0L
     private var pendingRewardScene = ""
     private var pendingRewardStartedAt = 0L
     private val hasBuildRewardAds: Boolean
@@ -222,13 +235,19 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun openScreen(screen: PassScreen) {
+        val changed = _uiState.value.screen != screen
+        if (changed) {
+            manualRefreshToken++
+            manualRefreshJob?.cancel()
+            manualRefreshJob = null
+        }
         if (PxBoardApi.enabled) {
-            _uiState.update { it.copy(screen = screen) }
+            _uiState.update { it.copy(screen = screen, manualRefreshing = if (changed) false else it.manualRefreshing) }
             nativePanel.refresh()
             nativePanel.loadScreenData(screen)
             return
         }
-        _uiState.update { it.copy(screen = screen) }
+        _uiState.update { it.copy(screen = screen, manualRefreshing = if (changed) false else it.manualRefreshing) }
         when (screen) {
             PassScreen.PROFILE -> Unit
             PassScreen.GIFT_CARDS -> refreshGiftCardHistory(showLoading = true, showErrors = true)
@@ -255,47 +274,73 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshCurrentPage() {
-        if (PxBoardApi.enabled) {
-            nativePanel.refresh(force = true)
-            nativePanel.loadScreenData(_uiState.value.screen)
+        val screen = _uiState.value.screen
+        if (!screen.supportsPullToRefresh() || _uiState.value.manualRefreshing) {
+            _uiState.update { it.copy(manualRefreshing = false) }
             return
         }
-        when (_uiState.value.screen) {
-            PassScreen.PROFILE -> {
-                refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
-                refreshUserInfo(showErrors = true)
-                refreshInvites(force = true, showLoading = true, showErrors = true)
-                refreshRewardConfig()
-            }
-            PassScreen.GIFT_CARDS -> refreshGiftCardHistory(force = true, showLoading = true, showErrors = true)
-            PassScreen.ACCOUNT_SECURITY -> {
-                refreshUserInfo(showErrors = true)
-                refreshOAuthProviders(showErrors = true)
-                refreshOAuthBindings(force = true, showLoading = true, showErrors = true)
-            }
-            PassScreen.INVITE_DETAILS -> {
-                refreshInvites(force = true, showLoading = true, showErrors = true)
-                refreshInviteDetails(force = true, showLoading = true, showErrors = true)
-            }
-            PassScreen.TRAFFIC_LOGS -> refreshTrafficLogs(force = true, showLoading = true, showErrors = true)
-            PassScreen.TICKETS -> refreshTickets(force = true, showLoading = true, showErrors = true)
-            PassScreen.TICKET_DETAIL -> _uiState.value.selectedTicket?.let {
-                refreshTicketDetail(it.id, showLoading = true, showErrors = true)
-            }
-            PassScreen.PLANS -> {
-                refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
-                refreshPlans(force = true, showLoading = true, showErrors = true)
-                refreshRewardConfig()
-                refreshUserInfo(showErrors = true)
-            }
-            PassScreen.SETTINGS -> refreshUserInfo(showErrors = true)
-            PassScreen.OPEN_SOURCE_LICENSES -> Unit
-            PassScreen.SUB_LINKS -> Unit
-            PassScreen.CONNECTIONS, PassScreen.RULES -> Unit
-            PassScreen.HOME, PassScreen.NODES -> {
-                refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
-                refreshUserInfo(showErrors = true)
-                refreshNotices(force = true, showLoading = true, showErrors = true)
+        val startedAt = SystemClock.elapsedRealtime()
+        val token = ++manualRefreshToken
+        _uiState.update { it.copy(manualRefreshing = true) }
+        manualRefreshJob?.cancel()
+        manualRefreshJob = viewModelScope.launch {
+            try {
+                if (PxBoardApi.enabled) {
+                    nativePanel.refreshAwait(force = true)
+                    nativePanel.loadScreenDataAwait(screen)
+                } else {
+                    when (screen) {
+                        PassScreen.PROFILE -> {
+                            refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
+                            refreshUserInfo(showErrors = true)
+                            refreshInvites(force = true, showLoading = true, showErrors = true)
+                            refreshRewardConfig()
+                        }
+                        PassScreen.GIFT_CARDS -> refreshGiftCardHistory(force = true, showLoading = true, showErrors = true)
+                        PassScreen.ACCOUNT_SECURITY -> {
+                            refreshUserInfo(showErrors = true)
+                            refreshOAuthProviders(showErrors = true)
+                            refreshOAuthBindings(force = true, showLoading = true, showErrors = true)
+                        }
+                        PassScreen.INVITE_DETAILS -> {
+                            refreshInvites(force = true, showLoading = true, showErrors = true)
+                            refreshInviteDetails(force = true, showLoading = true, showErrors = true)
+                        }
+                        PassScreen.TRAFFIC_LOGS -> refreshTrafficLogs(force = true, showLoading = true, showErrors = true)
+                        PassScreen.TICKETS -> refreshTickets(force = true, showLoading = true, showErrors = true)
+                        PassScreen.TICKET_DETAIL -> _uiState.value.selectedTicket?.let {
+                            refreshTicketDetail(it.id, showLoading = true, showErrors = true)
+                        }
+                        PassScreen.PLANS -> {
+                            refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
+                            refreshPlans(force = true, showLoading = true, showErrors = true)
+                            refreshRewardConfig()
+                            refreshUserInfo(showErrors = true)
+                        }
+                        PassScreen.HOME -> {
+                            refreshSubscriptionAndNodes(force = true, showLoading = true, showErrors = true)
+                            refreshUserInfo(showErrors = true)
+                            refreshNotices(force = true, showLoading = true, showErrors = true)
+                        }
+                        else -> Unit
+                    }
+                    val deadline = startedAt + 15_000L
+                    while (_uiState.value.isRefreshing && SystemClock.elapsedRealtime() < deadline) {
+                        delay(60L)
+                    }
+                }
+            } finally {
+                withContext(NonCancellable) {
+                    if (manualRefreshToken == token) {
+                        val remaining = 450L - (SystemClock.elapsedRealtime() - startedAt)
+                        if (remaining > 0L && _uiState.value.screen == screen) {
+                            delay(remaining)
+                        }
+                        if (manualRefreshToken == token) {
+                            _uiState.update { it.copy(manualRefreshing = false) }
+                        }
+                    }
+                }
             }
         }
     }
@@ -450,6 +495,9 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun logout() {
+        manualRefreshToken++
+        manualRefreshJob?.cancel()
+        manualRefreshJob = null
         pxboardAuth.cancelLogin()
         val current = _uiState.value
         netoClient.stopVpn()
@@ -535,24 +583,29 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         throw IllegalStateException(resultError(xbclientNodesResult))
                     }
                 }
-                val next = _uiState.value.copy(
-                    subscribeToken = data.optString("token"),
-                    subscribeUrl = subscribeUrl,
-                    subscriptionSummary = subscriptionSummary(data),
-                    subscriptionBlockReason = blockReason,
-                    subscriptionTrafficUsedBytes = uploadBytes + downloadBytes,
-                    subscriptionTrafficTotalBytes = totalBytes,
-                    nodesUpdatedAt = System.currentTimeMillis(),
-                    nodesLoading = false
-                )
-                _uiState.value = next
-                persistStoredState(next)
-            } catch (error: Exception) {
-                if (showLoading) {
-                    _uiState.update { it.copy(nodesLoading = false) }
+                val now = System.currentTimeMillis()
+                _uiState.update {
+                    it.copy(
+                        subscribeToken = data.optString("token"),
+                        subscribeUrl = subscribeUrl,
+                        subscriptionSummary = subscriptionSummary(data),
+                        subscriptionBlockReason = blockReason,
+                        subscriptionTrafficUsedBytes = uploadBytes + downloadBytes,
+                        subscriptionTrafficTotalBytes = totalBytes,
+                        nodesUpdatedAt = now,
+                        nodesLoading = false
+                    )
                 }
+                persistStoredState(_uiState.value)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 if (showErrors) {
                     emitMessage("节点同步失败：${error.message}")
+                }
+            } finally {
+                if (showLoading) {
+                    _uiState.update { it.copy(nodesLoading = false) }
                 }
             }
         }
@@ -575,15 +628,17 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val result = XboardApi.request("plan_fetch", defaultApiUrl(), authData, JSONObject())
                 val body = requireSuccessfulBody("套餐加载", result)
                 val plans = extractDataArray(body).toPlanItemList()
-                val next = _uiState.value.copy(plans = plans, plansLoading = false)
-                _uiState.value = next
-                persistStoredState(next)
+                _uiState.update { it.copy(plans = plans, plansLoading = false) }
+                persistStoredState(_uiState.value)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
-                if (showLoading) {
-                    _uiState.update { it.copy(plansLoading = false) }
-                }
                 if (showErrors) {
                     emitMessage("套餐加载失败：${error.message}")
+                }
+            } finally {
+                if (showLoading) {
+                    _uiState.update { it.copy(plansLoading = false) }
                 }
             }
         }
@@ -605,16 +660,18 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             try {
                 val body = requireSuccessfulBody("公告加载", XboardApi.request("notices", defaultApiUrl(), authData, JSONObject()))
                 val notices = extractDataArray(body).toNoticeItemList()
-                val next = _uiState.value.copy(notices = notices, noticesLoading = false)
-                _uiState.value = next
-                persistStoredState(next)
+                _uiState.update { it.copy(notices = notices, noticesLoading = false) }
+                persistStoredState(_uiState.value)
                 showDailyNoticeDialog(notices)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
-                if (showLoading) {
-                    _uiState.update { it.copy(noticesLoading = false) }
-                }
                 if (showErrors) {
                     emitMessage("公告加载失败：${error.message}")
+                }
+            } finally {
+                if (showLoading) {
+                    _uiState.update { it.copy(noticesLoading = false) }
                 }
             }
         }
@@ -639,20 +696,24 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 val data = body.getJSONObject("data")
                 val stat = data.getJSONArray("stat")
                 val invites = data.getJSONArray("codes").toInviteItemList()
-                val next = _uiState.value.copy(
-                    invites = invites,
-                    invitesLoading = false,
-                    inviteCommissionRate = stat.getInt(3),
-                    inviteCommissionBalance = stat.getInt(4)
-                )
-                _uiState.value = next
-                persistStoredState(next)
-            } catch (error: Exception) {
-                if (showLoading) {
-                    _uiState.update { it.copy(invitesLoading = false) }
+                _uiState.update {
+                    it.copy(
+                        invites = invites,
+                        invitesLoading = false,
+                        inviteCommissionRate = stat.getInt(3),
+                        inviteCommissionBalance = stat.getInt(4)
+                    )
                 }
+                persistStoredState(_uiState.value)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 if (showErrors) {
                     emitMessage("邀请码加载失败：${error.message}")
+                }
+            } finally {
+                if (showLoading) {
+                    _uiState.update { it.copy(invitesLoading = false) }
                 }
             }
         }
@@ -690,19 +751,23 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             try {
                 val body = requireSuccessfulBody("邀请明细", XboardApi.request("invite_details", defaultApiUrl(), authData, JSONObject()))
                 val logs = body.getJSONArray("data").toCommissionLogItemList()
-                val next = _uiState.value.copy(
-                    commissionLogs = logs,
-                    commissionTotal = body.getInt("total"),
-                    commissionLogsLoading = false
-                )
-                _uiState.value = next
-                persistStoredState(next)
-            } catch (error: Exception) {
-                if (showLoading) {
-                    _uiState.update { it.copy(commissionLogsLoading = false) }
+                _uiState.update {
+                    it.copy(
+                        commissionLogs = logs,
+                        commissionTotal = body.getInt("total"),
+                        commissionLogsLoading = false
+                    )
                 }
+                persistStoredState(_uiState.value)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 if (showErrors) {
                     emitMessage("邀请明细加载失败：${error.message}")
+                }
+            } finally {
+                if (showLoading) {
+                    _uiState.update { it.copy(commissionLogsLoading = false) }
                 }
             }
         }
@@ -722,18 +787,22 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val body = requireSuccessfulBody("流量明细", XboardApi.request("traffic_logs", defaultApiUrl(), authData, JSONObject()))
-                val next = _uiState.value.copy(
-                    trafficLogs = extractDataArray(body).toTrafficLogItemList(),
-                    trafficLogsLoading = false
-                )
-                _uiState.value = next
-                persistStoredState(next)
-            } catch (error: Exception) {
-                if (showLoading) {
-                    _uiState.update { it.copy(trafficLogsLoading = false) }
+                _uiState.update {
+                    it.copy(
+                        trafficLogs = extractDataArray(body).toTrafficLogItemList(),
+                        trafficLogsLoading = false
+                    )
                 }
+                persistStoredState(_uiState.value)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 if (showErrors) {
                     emitMessage("流量明细加载失败：${error.message}")
+                }
+            } finally {
+                if (showLoading) {
+                    _uiState.update { it.copy(trafficLogsLoading = false) }
                 }
             }
         }
@@ -769,12 +838,15 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         giftCardHistoryLoading = false
                     )
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
-                if (showLoading) {
-                    _uiState.update { it.copy(giftCardHistoryLoading = false) }
-                }
                 if (showErrors) {
                     emitMessage("礼品卡记录加载失败：${error.message}")
+                }
+            } finally {
+                if (showLoading) {
+                    _uiState.update { it.copy(giftCardHistoryLoading = false) }
                 }
             }
         }
@@ -884,18 +956,22 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val body = requireSuccessfulBody("工单列表", XboardApi.request("tickets", defaultApiUrl(), authData, JSONObject()))
-                val next = _uiState.value.copy(
-                    tickets = extractDataArray(body).toTicketItemList(),
-                    ticketsLoading = false
-                )
-                _uiState.value = next
-                persistStoredState(next)
-            } catch (error: Exception) {
-                if (showLoading) {
-                    _uiState.update { it.copy(ticketsLoading = false) }
+                _uiState.update {
+                    it.copy(
+                        tickets = extractDataArray(body).toTicketItemList(),
+                        ticketsLoading = false
+                    )
                 }
+                persistStoredState(_uiState.value)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 if (showErrors) {
                     emitMessage("工单列表加载失败：${error.message}")
+                }
+            } finally {
+                if (showLoading) {
+                    _uiState.update { it.copy(ticketsLoading = false) }
                 }
             }
         }
@@ -923,19 +999,23 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 )
                 val data = body.getJSONObject("data")
                 val ticket = data.toTicketItem()
-                val next = _uiState.value.copy(
-                    selectedTicket = ticket,
-                    ticketMessages = data.getJSONArray("message").toTicketMessageItemList(),
-                    ticketDetailLoading = false
-                )
-                _uiState.value = next
-                persistStoredState(next)
-            } catch (error: Exception) {
-                if (showLoading) {
-                    _uiState.update { it.copy(ticketDetailLoading = false) }
+                _uiState.update {
+                    it.copy(
+                        selectedTicket = ticket,
+                        ticketMessages = data.getJSONArray("message").toTicketMessageItemList(),
+                        ticketDetailLoading = false
+                    )
                 }
+                persistStoredState(_uiState.value)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 if (showErrors) {
                     emitMessage("工单详情加载失败：${error.message}")
+                }
+            } finally {
+                if (showLoading) {
+                    _uiState.update { it.copy(ticketDetailLoading = false) }
                 }
             }
         }
@@ -1102,11 +1182,14 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 }
                 persistStoredState(_uiState.value)
                 if (hasBuildRewardAds) refreshAdRewardHistory()
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
-                _uiState.update { it.copy(userLoading = false) }
                 if (showErrors) {
                     emitMessage("用户信息加载失败：${error.message}")
                 }
+            } finally {
+                _uiState.update { it.copy(userLoading = false) }
             }
         }
     }

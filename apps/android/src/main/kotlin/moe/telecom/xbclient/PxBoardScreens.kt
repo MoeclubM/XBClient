@@ -504,24 +504,25 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 12.dp),
-        insideMargin = PaddingValues(18.dp),
+        insideMargin = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Text(state.userEmail, style = MiuixTheme.textStyles.title2)
-        if ("commerce" in ext) {
-            Spacer(Modifier.height(8.dp))
+        val financeParts = buildList {
+            if ("commerce" in ext) {
+                add(stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)))
+            }
+            if ("affiliate" in ext) {
+                add(stringResource(R.string.commission_amount, formatMoney(state.commissionBalance, state.currencySymbol, state.currencyUnit)))
+            }
+        }
+        if (financeParts.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
             Text(
-                stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)),
+                financeParts.joinToString(" · "),
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
         }
-        if ("affiliate" in ext) {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                stringResource(R.string.commission_amount, formatMoney(state.commissionBalance, state.currencySymbol, state.currencyUnit)),
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
-        }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
         Text(
             state.subscriptionSummary.ifEmpty { stringResource(R.string.subscription_not_synced) },
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,

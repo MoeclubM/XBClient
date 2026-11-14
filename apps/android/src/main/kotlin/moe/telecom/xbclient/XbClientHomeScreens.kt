@@ -1,15 +1,13 @@
 package moe.telecom.xbclient
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -87,34 +85,35 @@ private fun CommercialAccountHeaderCard(
         if (state.subscriptionSummary.isNotBlank()) add(state.subscriptionSummary)
         add(stringResource(R.string.balance_amount, formatMoney(state.balance, state.currencySymbol, state.currencyUnit)))
     }.joinToString(" · ")
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Card(modifier = Modifier.weight(1f)) {
-            ArrowPreference(
-                title = state.userEmail.ifBlank { stringResource(R.string.app_name) },
-                summary = summaryParts,
-                onClick = {
-                    val target = if (!PxBoardApi.enabled || "commerce" in state.nativeExtensions) {
-                        PassScreen.PLANS
-                    } else {
-                        PassScreen.PROFILE
-                    }
-                    viewModel.openScreen(target)
-                },
-            )
-        }
-        IconButton(onClick = viewModel::showNotices) {
-            Icon(
-                imageVector = ImageVector.vectorResource(R.drawable.ic_notice),
-                contentDescription = stringResource(R.string.section_announcement),
-                tint = MiuixTheme.colorScheme.onBackground,
-            )
-        }
+        ArrowPreference(
+            title = state.userEmail.ifBlank { stringResource(R.string.app_name) },
+            summary = summaryParts,
+            onClick = {
+                val target = if (!PxBoardApi.enabled || "commerce" in state.nativeExtensions) {
+                    PassScreen.PLANS
+                } else {
+                    PassScreen.PROFILE
+                }
+                viewModel.openScreen(target)
+            },
+            endActions = {
+                IconButton(
+                    onClick = viewModel::showNotices,
+                    modifier = Modifier.size(34.dp),
+                ) {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(R.drawable.ic_notice),
+                        contentDescription = stringResource(R.string.section_announcement),
+                        tint = MiuixTheme.colorScheme.onBackground,
+                    )
+                }
+            },
+        )
     }
 }
 

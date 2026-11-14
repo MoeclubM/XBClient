@@ -315,12 +315,14 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
                             }
                         },
                         actions = {
-                            IconButton(onClick = viewModel::showNotices) {
-                                Icon(
-                                    imageVector = ImageVector.vectorResource(R.drawable.ic_notice),
-                                    contentDescription = stringResource(R.string.section_announcement),
-                                    tint = MiuixTheme.colorScheme.onBackground
-                                )
+                            if (visibleScreen == PassScreen.PROFILE) {
+                                IconButton(onClick = viewModel::showNotices) {
+                                    Icon(
+                                        imageVector = ImageVector.vectorResource(R.drawable.ic_notice),
+                                        contentDescription = stringResource(R.string.section_announcement),
+                                        tint = MiuixTheme.colorScheme.onBackground
+                                    )
+                                }
                             }
                         },
                         scrollBehavior = scrollBehavior
@@ -338,9 +340,7 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
     ) { padding ->
         XbClientDialogs(state, viewModel)
         val extraBottom = if (showBottomBar && floatingBar) floatingBarHeight else 0.dp
-        PullToRefresh(
-            isRefreshing = state.isRefreshing,
-            onRefresh = viewModel::refreshCurrentPage,
+        Box(
             modifier = Modifier
                 .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
                 .padding(
@@ -351,37 +351,43 @@ private fun MainShell(state: XbClientUiState, viewModel: XbClientViewModel, back
                 )
                 .fillMaxSize()
         ) {
-            Box(Modifier.fillMaxSize()) {
-                if (backTargetScreen != null && backProgress > 0f) {
-                    MainScreenContent(
-                        screen = backTargetScreen,
-                        state = state,
-                        viewModel = viewModel,
-                        scrollBehavior = scrollBehavior,
-                        extraBottom = extraBottom,
-                        modifier = Modifier.graphicsLayer {
-                            alpha = 0.35f + backProgress * 0.65f
-                            scaleX = 0.96f + backProgress * 0.04f
-                            scaleY = 0.96f + backProgress * 0.04f
-                            translationX = -size.width * 0.06f * (1f - backProgress)
-                        }
-                    )
-                }
-                AnimatedContent(
-                    targetState = visibleScreen,
-                    transitionSpec = { screenTransition() },
+            if (backTargetScreen != null && backProgress > 0f) {
+                MainScreenContent(
+                    screen = backTargetScreen,
+                    state = state,
+                    viewModel = viewModel,
+                    scrollBehavior = scrollBehavior,
+                    extraBottom = extraBottom,
+                    pullToRefreshEnabled = false,
                     modifier = Modifier.graphicsLayer {
-                        if (backTargetScreen != null && backProgress > 0f) {
-                            translationX = size.width * (0.08f + backProgress * 0.82f)
-                            alpha = 1f - backProgress * 0.16f
-                            scaleX = 1f - backProgress * 0.035f
-                            scaleY = 1f - backProgress * 0.035f
-                        }
-                    },
-                    label = "main-screen"
-                ) { screen ->
-                    MainScreenContent(screen, state, viewModel, scrollBehavior, extraBottom)
-                }
+                        alpha = 0.35f + backProgress * 0.65f
+                        scaleX = 0.96f + backProgress * 0.04f
+                        scaleY = 0.96f + backProgress * 0.04f
+                        translationX = -size.width * 0.06f * (1f - backProgress)
+                    }
+                )
+            }
+            AnimatedContent(
+                targetState = visibleScreen,
+                transitionSpec = { screenTransition() },
+                modifier = Modifier.graphicsLayer {
+                    if (backTargetScreen != null && backProgress > 0f) {
+                        translationX = size.width * (0.08f + backProgress * 0.82f)
+                        alpha = 1f - backProgress * 0.16f
+                        scaleX = 1f - backProgress * 0.035f
+                        scaleY = 1f - backProgress * 0.035f
+                    }
+                },
+                label = "main-screen"
+            ) { screen ->
+                MainScreenContent(
+                    screen = screen,
+                    state = state,
+                    viewModel = viewModel,
+                    scrollBehavior = scrollBehavior,
+                    extraBottom = extraBottom,
+                    pullToRefreshEnabled = screen.supportsPullToRefresh() && screen == visibleScreen,
+                )
             }
         }
         if (showBottomBar && floatingBar) {
@@ -477,28 +483,47 @@ private fun MainScreenContent(
     viewModel: XbClientViewModel,
     scrollBehavior: ScrollBehavior,
     extraBottom: androidx.compose.ui.unit.Dp = 0.dp,
+    pullToRefreshEnabled: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val netoSnapshot by viewModel.netoClient.snapshot.collectAsStateWithLifecycle()
     val netoActionError by viewModel.netoClient.actionError.collectAsStateWithLifecycle()
-    val listModifier = modifier
+    val listModifier = Modifier
         .fillMaxSize()
         .scrollEndHaptic()
         .overScrollVertical()
         .nestedScroll(scrollBehavior.nestedScrollConnection)
+    @Composable
+    fun wrapRefreshable(content: @Composable () -> Unit) {
+        if (pullToRefreshEnabled) {
+            PullToRefresh(
+                isRefreshing = state.manualRefreshing && state.screen == screen,
+                onRefresh = viewModel::refreshCurrentPage,
+                modifier = modifier.fillMaxSize(),
+            ) {
+                content()
+            }
+        } else {
+            Box(modifier = modifier.fillMaxSize()) {
+                content()
+            }
+        }
+    }
     when (screen) {
-        PassScreen.HOME -> HomeScreen(
-            state = state,
-            snapshot = netoSnapshot,
-            actionError = netoActionError,
-            viewModel = viewModel,
-            modifier = modifier.fillMaxSize().padding(bottom = extraBottom),
-        )
+        PassScreen.HOME -> wrapRefreshable {
+            HomeScreen(
+                state = state,
+                snapshot = netoSnapshot,
+                actionError = netoActionError,
+                viewModel = viewModel,
+                modifier = Modifier.fillMaxSize().padding(bottom = extraBottom),
+            )
+        }
         PassScreen.NODES -> NodesScreen(
             state = state,
             snapshot = netoSnapshot,
             viewModel = viewModel,
-            modifier = listModifier.padding(bottom = extraBottom),
+            modifier = modifier.then(listModifier).padding(bottom = extraBottom),
         )
         PassScreen.CONNECTIONS -> NetoConnectionsPane(
             snapshot = netoSnapshot,
@@ -514,26 +539,28 @@ private fun MainScreenContent(
             state = state,
             snapshot = netoSnapshot,
             viewModel = viewModel,
-            modifier = listModifier.padding(bottom = extraBottom),
+            modifier = modifier.then(listModifier).padding(bottom = extraBottom),
         )
-        PassScreen.OPEN_SOURCE_LICENSES -> OpenSourceLicensesScreen(listModifier)
-        else -> LazyColumn(
-            modifier = listModifier,
-            contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp + extraBottom),
-            overscrollEffect = null
-        ) {
-            item {
-                when (screen) {
-                    PassScreen.PROFILE -> if (PxBoardApi.enabled) PxBoardAccount(state, viewModel) else ProfileScreen(state, viewModel)
-                    PassScreen.GIFT_CARDS -> if (PxBoardApi.enabled) PxBoardRedeemAndBillingScreen(state, viewModel) else GiftCardsScreen(state, viewModel)
-                    PassScreen.ACCOUNT_SECURITY -> if (PxBoardApi.enabled) PxBoardSecurityScreen(state, viewModel) else AccountSecurityScreen(state, viewModel)
-                    PassScreen.INVITE_DETAILS -> if (PxBoardApi.enabled) PxBoardAffiliateScreen(state, viewModel) else InviteDetailsScreen(state, viewModel)
-                    PassScreen.SUB_LINKS -> PxBoardSubLinksScreen(state, viewModel)
-                    PassScreen.TRAFFIC_LOGS -> TrafficLogsScreen(state)
-                    PassScreen.TICKETS -> if (PxBoardApi.enabled) PxBoardTicketsScreen(state, viewModel) else TicketsScreen(state, viewModel)
-                    PassScreen.TICKET_DETAIL -> if (PxBoardApi.enabled) PxBoardTicketDetailScreen(state, viewModel) else TicketDetailScreen(state, viewModel)
-                    PassScreen.PLANS -> if (PxBoardApi.enabled) PxBoardPlansScreen(state, viewModel) else PlansScreen(state, viewModel)
-                    else -> Unit
+        PassScreen.OPEN_SOURCE_LICENSES -> OpenSourceLicensesScreen(modifier.then(listModifier))
+        else -> wrapRefreshable {
+            LazyColumn(
+                modifier = listModifier,
+                contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp + extraBottom),
+                overscrollEffect = null
+            ) {
+                item {
+                    when (screen) {
+                        PassScreen.PROFILE -> if (PxBoardApi.enabled) PxBoardAccount(state, viewModel) else ProfileScreen(state, viewModel)
+                        PassScreen.GIFT_CARDS -> if (PxBoardApi.enabled) PxBoardRedeemAndBillingScreen(state, viewModel) else GiftCardsScreen(state, viewModel)
+                        PassScreen.ACCOUNT_SECURITY -> if (PxBoardApi.enabled) PxBoardSecurityScreen(state, viewModel) else AccountSecurityScreen(state, viewModel)
+                        PassScreen.INVITE_DETAILS -> if (PxBoardApi.enabled) PxBoardAffiliateScreen(state, viewModel) else InviteDetailsScreen(state, viewModel)
+                        PassScreen.SUB_LINKS -> PxBoardSubLinksScreen(state, viewModel)
+                        PassScreen.TRAFFIC_LOGS -> TrafficLogsScreen(state)
+                        PassScreen.TICKETS -> if (PxBoardApi.enabled) PxBoardTicketsScreen(state, viewModel) else TicketsScreen(state, viewModel)
+                        PassScreen.TICKET_DETAIL -> if (PxBoardApi.enabled) PxBoardTicketDetailScreen(state, viewModel) else TicketDetailScreen(state, viewModel)
+                        PassScreen.PLANS -> if (PxBoardApi.enabled) PxBoardPlansScreen(state, viewModel) else PlansScreen(state, viewModel)
+                        else -> Unit
+                    }
                 }
             }
         }

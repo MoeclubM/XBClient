@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import moe.telecom.neto.sdk.NetoControllerClient
 import moe.telecom.neto.sdk.formatNetoBytes
 import org.json.JSONArray
@@ -208,6 +211,7 @@ internal class PxBoardSession(
     val portalState = _portalState.asStateFlow()
     private var cachedRevisionAuth = ""
     private var cachedRevision = ""
+    private val refreshMutex = Mutex()
     private var bindJob: Job? = null
     private var bindAttempt = 0
 
@@ -290,14 +294,22 @@ internal class PxBoardSession(
 
     fun refresh(force: Boolean = false) {
         val current = state.value
-        if (current.nodesLoading || current.authData.isEmpty()) return
-        val auth = current.authData
-        val useKnownRevision = !force &&
-            cachedRevisionAuth == auth &&
-            cachedRevision.isNotEmpty() &&
-            (netoClient.snapshot.value.nodes.isNotEmpty() || current.subscriptionBlockReason.isNotEmpty())
-        state.update { it.copy(nodesLoading = true) }
-        scope.launch(Dispatchers.IO) {
+        if (current.authData.isEmpty() || (!force && current.nodesLoading)) return
+        scope.launch { refreshAwait(force) }
+    }
+
+    suspend fun refreshAwait(force: Boolean = false) = withContext(Dispatchers.IO) {
+        if (state.value.authData.isEmpty()) return@withContext
+        if (!force && state.value.nodesLoading) return@withContext
+        refreshMutex.withLock {
+            val current = state.value
+            if (current.authData.isEmpty()) return@withLock
+            val auth = current.authData
+            val useKnownRevision = !force &&
+                cachedRevisionAuth == auth &&
+                cachedRevision.isNotEmpty() &&
+                (netoClient.snapshot.value.nodes.isNotEmpty() || current.subscriptionBlockReason.isNotEmpty())
+            state.update { it.copy(nodesLoading = true) }
             try {
                 val profileInput = JSONObject()
                 if (useKnownRevision) profileInput.put("knownRevision", cachedRevision)
@@ -318,7 +330,7 @@ internal class PxBoardSession(
                 if (meRes?.status != 200 || meRes.data !is JSONObject) {
                     throw IllegalStateException(meRes?.errorMessage?.ifEmpty { "读取账户信息失败" } ?: "读取账户信息失败")
                 }
-                if (state.value.authData != auth) return@launch
+                if (state.value.authData != auth) return@withLock
 
                 val user = meRes.data
                 val mfaEnabled = user.optBoolean("mfaEnabled", false)
@@ -474,7 +486,13 @@ internal class PxBoardSession(
                 }
                 if (adLogs != null) onRewardLogsUpdated(adLogs)
                 persist(state.value)
-            } catch (e: Exception) { state.update { it.copy(nodesLoading = false) }; message(e.message ?: e.toString()) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                message(e.message ?: e.toString())
+            } finally {
+                state.update { it.copy(nodesLoading = false) }
+            }
         }
     }
 
@@ -551,11 +569,15 @@ internal class PxBoardSession(
     }
 
     fun loadScreenData(screen: PassScreen) {
+        if (state.value.authData.isEmpty()) return
+        scope.launch { loadScreenDataAwait(screen) }
+    }
+
+    suspend fun loadScreenDataAwait(screen: PassScreen) = withContext(Dispatchers.IO) {
         val auth = state.value.authData
-        if (auth.isEmpty()) return
+        if (auth.isEmpty()) return@withContext
         val ext = state.value.nativeExtensions
-        scope.launch(Dispatchers.IO) {
-            try {
+        try {
                 when (screen) {
                     PassScreen.PLANS -> {
                         val calls = mutableListOf<PxBoardBatchCall>()
@@ -570,7 +592,7 @@ internal class PxBoardSession(
                             calls.add(PxBoardBatchCall("admob_prepare", "admob", "reward.prepare"))
                             calls.add(PxBoardBatchCall("admob_history", "admob", "reward.history"))
                         }
-                        if (calls.isEmpty()) return@launch
+                        if (calls.isEmpty()) return@withContext
                         val batch = PxBoardApi.batch(calls, auth)
                         val planArr = batch["plans"]?.data as? JSONArray ?: JSONArray()
                         val plans = ArrayList<PxBoardPlan>()
@@ -640,7 +662,7 @@ internal class PxBoardSession(
                         if (BuildConfig.APP_PAYMENT_ENABLED && "payments" in ext) {
                             calls.add(PxBoardBatchCall("channels", "payments", "channels.list"))
                         }
-                        if (calls.isEmpty()) return@launch
+                        if (calls.isEmpty()) return@withContext
                         val batch = PxBoardApi.batch(calls, auth)
                         val claimsArr = batch["claims"]?.data as? JSONArray ?: JSONArray()
                         val claims = List(claimsArr.length()) { i ->
@@ -792,9 +814,10 @@ internal class PxBoardSession(
                     }
                     else -> Unit
                 }
-            } catch (e: Exception) {
-                message(e.message ?: e.toString())
-            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            message(e.message ?: e.toString())
         }
     }
 
