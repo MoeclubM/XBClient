@@ -21,7 +21,7 @@ edition = "2024"
 license = "Apache-2.0"
 
 [workspace.dependencies]
-aerion = { git = "https://github.com/MoeclubM/Aerion.git", rev = "e92f81451b971ad31fbc781a58d58c37618e81e3", default-features = false }
+aerion = { git = "https://github.com/MoeclubM/Aerion.git", rev = "bd67b624b7aa2202b344eaed43d4f75b38a96d42", default-features = false }
 anyhow = "1.0.104"
 base64 = "0.22.1"
 log = "0.4.34"
