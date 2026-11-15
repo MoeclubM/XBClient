@@ -15,7 +15,9 @@ impl AccountView {
                 .title("两步验证")
                 .description("已启用 · 登录和敏感操作需输入 6 位动态验证码")
                 .build();
-            let pw_row = adw::PasswordEntryRow::builder().title("当前登录密码").build();
+            let pw_row = adw::PasswordEntryRow::builder()
+                .title("当前登录密码")
+                .build();
             let code_row = adw::EntryRow::builder().title("6 位动态验证码").build();
             let disable_btn = gtk::Button::with_label("关闭两步验证");
             disable_btn.add_css_class("destructive-action");
@@ -38,31 +40,39 @@ impl AccountView {
                 let p = p.clone();
                 let (tx, rx) = std::sync::mpsc::channel();
                 h.spawn(async move {
-                    let _ = tx.send(p.mfa_disable(&pw, &code).await.map_err(|e| format!("{e:#}")));
+                    let _ = tx.send(
+                        p.mfa_disable(&pw, &code)
+                            .await
+                            .map_err(|e| format!("{e:#}")),
+                    );
                 });
                 let btn_c = btn.clone();
                 let flbl_c = flbl.clone();
                 let v_c = view_c.clone();
-                gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                    Ok(Ok(next_snap)) => {
-                        btn_c.set_sensitive(true);
-                        flbl_c.remove_css_class("error");
-                        flbl_c.set_text("已关闭两步验证。");
-                        flbl_c.set_visible(true);
-                        v_c.apply_snapshot(&next_snap);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Ok(Err(err)) => {
-                        btn_c.set_sensitive(true);
-                        flbl_c.add_css_class("error");
-                        flbl_c.set_text(&err);
-                        flbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                    Err(_) => {
-                        btn_c.set_sensitive(true);
-                        gtk::glib::ControlFlow::Break
+                gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                    match rx.try_recv() {
+                        Ok(Ok(next_snap)) => {
+                            btn_c.set_sensitive(true);
+                            flbl_c.remove_css_class("error");
+                            flbl_c.set_text("已关闭两步验证。");
+                            flbl_c.set_visible(true);
+                            v_c.apply_snapshot(&next_snap);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Ok(Err(err)) => {
+                            btn_c.set_sensitive(true);
+                            flbl_c.add_css_class("error");
+                            flbl_c.set_text(&err);
+                            flbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            gtk::glib::ControlFlow::Continue
+                        }
+                        Err(_) => {
+                            btn_c.set_sensitive(true);
+                            gtk::glib::ControlFlow::Break
+                        }
                     }
                 });
             });
@@ -79,7 +89,9 @@ impl AccountView {
             if !setup.otpauth_url.is_empty() {
                 grp.add(&build_copy_row("导入链接", &setup.otpauth_url));
             }
-            let pw_row = adw::PasswordEntryRow::builder().title("当前登录密码").build();
+            let pw_row = adw::PasswordEntryRow::builder()
+                .title("当前登录密码")
+                .build();
             let code_row = adw::EntryRow::builder().title("6 位动态验证码").build();
             let cancel_btn = gtk::Button::with_label("取消");
             cancel_btn.add_css_class("flat");
@@ -118,34 +130,39 @@ impl AccountView {
                     let p = p.clone();
                     let (tx, rx) = std::sync::mpsc::channel();
                     h.spawn(async move {
-                        let _ = tx.send(p.mfa_enable(&pw, &code).await.map_err(|e| format!("{e:#}")));
+                        let _ =
+                            tx.send(p.mfa_enable(&pw, &code).await.map_err(|e| format!("{e:#}")));
                     });
                     let btn_c = btn.clone();
                     let flbl_c = flbl.clone();
                     let holder_c = setup_holder.clone();
                     let v_c = view_c.clone();
-                    gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                        Ok(Ok(next_snap)) => {
-                            btn_c.set_sensitive(true);
-                            *holder_c.borrow_mut() = None;
-                            *v_c.last_sig.borrow_mut() = String::new();
-                            flbl_c.remove_css_class("error");
-                            flbl_c.set_text("已启用两步验证。");
-                            flbl_c.set_visible(true);
-                            v_c.apply_snapshot(&next_snap);
-                            gtk::glib::ControlFlow::Break
-                        }
-                        Ok(Err(err)) => {
-                            btn_c.set_sensitive(true);
-                            flbl_c.add_css_class("error");
-                            flbl_c.set_text(&err);
-                            flbl_c.set_visible(true);
-                            gtk::glib::ControlFlow::Break
-                        }
-                        Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                        Err(_) => {
-                            btn_c.set_sensitive(true);
-                            gtk::glib::ControlFlow::Break
+                    gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                        match rx.try_recv() {
+                            Ok(Ok(next_snap)) => {
+                                btn_c.set_sensitive(true);
+                                *holder_c.borrow_mut() = None;
+                                *v_c.last_sig.borrow_mut() = String::new();
+                                flbl_c.remove_css_class("error");
+                                flbl_c.set_text("已启用两步验证。");
+                                flbl_c.set_visible(true);
+                                v_c.apply_snapshot(&next_snap);
+                                gtk::glib::ControlFlow::Break
+                            }
+                            Ok(Err(err)) => {
+                                btn_c.set_sensitive(true);
+                                flbl_c.add_css_class("error");
+                                flbl_c.set_text(&err);
+                                flbl_c.set_visible(true);
+                                gtk::glib::ControlFlow::Break
+                            }
+                            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                                gtk::glib::ControlFlow::Continue
+                            }
+                            Err(_) => {
+                                btn_c.set_sensitive(true);
+                                gtk::glib::ControlFlow::Break
+                            }
                         }
                     });
                 });
@@ -266,7 +283,10 @@ impl AccountView {
             let flbl = self.feedback_label.clone();
             let view_c = self.clone();
             unbind_btn.connect_clicked(move |btn| {
-                let pw = pw_r.as_ref().map(|r| r.text().to_string()).unwrap_or_default();
+                let pw = pw_r
+                    .as_ref()
+                    .map(|r| r.text().to_string())
+                    .unwrap_or_default();
                 let code = code_r
                     .as_ref()
                     .map(|r| r.text().trim().to_string())
@@ -291,26 +311,30 @@ impl AccountView {
                 let btn_c = btn.clone();
                 let flbl_c = flbl.clone();
                 let v_c = view_c.clone();
-                gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                    Ok(Ok(next_snap)) => {
-                        btn_c.set_sensitive(true);
-                        flbl_c.remove_css_class("error");
-                        flbl_c.set_text("已解除第三方账号绑定。");
-                        flbl_c.set_visible(true);
-                        v_c.apply_snapshot(&next_snap);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Ok(Err(err)) => {
-                        btn_c.set_sensitive(true);
-                        flbl_c.add_css_class("error");
-                        flbl_c.set_text(&err);
-                        flbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                    Err(_) => {
-                        btn_c.set_sensitive(true);
-                        gtk::glib::ControlFlow::Break
+                gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                    match rx.try_recv() {
+                        Ok(Ok(next_snap)) => {
+                            btn_c.set_sensitive(true);
+                            flbl_c.remove_css_class("error");
+                            flbl_c.set_text("已解除第三方账号绑定。");
+                            flbl_c.set_visible(true);
+                            v_c.apply_snapshot(&next_snap);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Ok(Err(err)) => {
+                            btn_c.set_sensitive(true);
+                            flbl_c.add_css_class("error");
+                            flbl_c.set_text(&err);
+                            flbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            gtk::glib::ControlFlow::Continue
+                        }
+                        Err(_) => {
+                            btn_c.set_sensitive(true);
+                            gtk::glib::ControlFlow::Break
+                        }
                     }
                 });
             });
@@ -371,30 +395,32 @@ impl AccountView {
                 let flbl_c = flbl.clone();
                 let v_c = view_c.clone();
                 let p_snap = p.clone();
-                gtk::glib::timeout_add_local(Duration::from_millis(200), move || match rx.try_recv() {
-                    Ok(Ok(next_snap)) => {
-                        btn_c.set_sensitive(true);
-                        flbl_c.remove_css_class("error");
-                        flbl_c.set_text("第三方账号已绑定。");
-                        flbl_c.set_visible(true);
-                        v_c.apply_snapshot(&next_snap);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Ok(Err(err)) => {
-                        btn_c.set_sensitive(true);
-                        flbl_c.add_css_class("error");
-                        flbl_c.set_text(&err);
-                        flbl_c.set_visible(true);
-                        v_c.apply_snapshot(&p_snap.snapshot());
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Err(std::sync::mpsc::TryRecvError::Empty) => {
-                        v_c.apply_snapshot(&p_snap.snapshot());
-                        gtk::glib::ControlFlow::Continue
-                    }
-                    Err(_) => {
-                        btn_c.set_sensitive(true);
-                        gtk::glib::ControlFlow::Break
+                gtk::glib::timeout_add_local(Duration::from_millis(200), move || {
+                    match rx.try_recv() {
+                        Ok(Ok(next_snap)) => {
+                            btn_c.set_sensitive(true);
+                            flbl_c.remove_css_class("error");
+                            flbl_c.set_text("第三方账号已绑定。");
+                            flbl_c.set_visible(true);
+                            v_c.apply_snapshot(&next_snap);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Ok(Err(err)) => {
+                            btn_c.set_sensitive(true);
+                            flbl_c.add_css_class("error");
+                            flbl_c.set_text(&err);
+                            flbl_c.set_visible(true);
+                            v_c.apply_snapshot(&p_snap.snapshot());
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            v_c.apply_snapshot(&p_snap.snapshot());
+                            gtk::glib::ControlFlow::Continue
+                        }
+                        Err(_) => {
+                            btn_c.set_sensitive(true);
+                            gtk::glib::ControlFlow::Break
+                        }
                     }
                 });
             });

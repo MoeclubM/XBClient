@@ -288,21 +288,6 @@ fun JSONArray.toGiftCardUsageItemList(): List<GiftCardUsageItem> =
 fun JSONArray.toPlanItemList(): List<PlanItem> =
     List(length()) { index -> getJSONObject(index).toPlanItem() }
 
-fun JSONArray.toAdRewardLogItemList(): List<AdRewardLogItem> =
-    List(length()) { index ->
-        val item = getJSONObject(index)
-        AdRewardLogItem(
-            id = item.getInt("id"),
-            scene = item.getString("scene"),
-            transactionId = item.getString("transaction_id"),
-            status = item.getString("status"),
-            error = item.getString("error"),
-            rewardContent = rewardContentText(item),
-            usedAt = numericValue(item.opt("used_at")).toLong(),
-            createdAt = numericValue(item.opt("created_at")).toLong()
-        )
-    }
-
 fun JSONArray.toNoticeItemList(): List<NoticeItem> =
     List(length()) { index ->
         val item = getJSONObject(index)
@@ -318,71 +303,6 @@ fun JSONArray.toNoticeItemList(): List<NoticeItem> =
             createdAt = numericValue(item.opt("created_at")).toLong()
         )
     }
-
-fun rewardContentText(item: JSONObject): String {
-    if (item.has("reward_content") && !item.isNull("reward_content")) {
-        val text = item.getString("reward_content")
-        if (text.isNotBlank()) {
-            return text
-        }
-    }
-    val rewardValue = item.opt("rewards")
-    if (rewardValue is JSONObject) {
-        val rewards = rewardValue
-        val parts = mutableListOf<String>()
-        if (!rewards.isNull("balance")) {
-            val balance = numericValue(rewards.opt("balance"))
-            if (balance > 0.0) {
-                parts.add("余额 " + String.format(Locale.US, "%.2f", balance / 100.0).trimEnd('0').trimEnd('.'))
-            }
-        }
-        if (!rewards.isNull("transfer_enable")) {
-            val transfer = numericValue(rewards.opt("transfer_enable"))
-            if (transfer > 0.0) {
-                parts.add("流量 ${formatNetoBytes(transfer.toLong())}")
-            }
-        }
-        if (!rewards.isNull("device_limit")) {
-            val deviceLimit = numericValue(rewards.opt("device_limit")).toInt()
-            if (deviceLimit > 0) {
-                parts.add("设备数 +$deviceLimit")
-            }
-        }
-        if (!rewards.isNull("reset_package")) {
-            val resetPackage = rewards.get("reset_package")
-            if (when (resetPackage) {
-                    is Boolean -> resetPackage
-                    else -> numericValue(resetPackage) > 0.0
-                }
-            ) {
-                parts.add("重置流量")
-            }
-        }
-        if (!rewards.isNull("plan_id")) {
-            val planId = numericValue(rewards.opt("plan_id")).toInt()
-            if (planId > 0) {
-                parts.add("套餐 #$planId")
-            }
-        }
-        if (!rewards.isNull("plan_validity_days")) {
-            val planValidityDays = numericValue(rewards.opt("plan_validity_days")).toInt()
-            if (planValidityDays > 0) {
-                parts.add("套餐有效期 $planValidityDays 天")
-            }
-        }
-        if (!rewards.isNull("expire_days")) {
-            val expireDays = numericValue(rewards.opt("expire_days")).toInt()
-            if (expireDays > 0) {
-                parts.add("有效期 +$expireDays 天")
-            }
-        }
-        if (parts.isEmpty()) {
-            throw IllegalStateException("广告奖励记录 rewards 为空。")
-        }
-        return parts.joinToString(" · ")
-    }
-    throw IllegalStateException("广告奖励记录缺少 reward_content 或 rewards。")
-}
 
 fun giftCardRewardText(rewards: JSONObject): String {
     val parts = mutableListOf<String>()

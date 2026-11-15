@@ -78,11 +78,6 @@ public sealed partial class MainWindow : Window
         _plansView = new PlansPageView(_panelService);
         _accountView = new AccountPageView(_panelService);
         _settingsView = new SettingsPageView(_netoClient, ApplyThemeMode);
-        _settingsView.ConfigureUpdater(
-            initialPanel.GithubRepo,
-            NetoWindowHelper.GetAppVersion(),
-            () => RootGrid.XamlRoot,
-            ExitApplication);
         AppendCommercialLinks(initialPanel);
         NavSettingsItem.Tapped += (_, _) => _settingsView.ResetToRoot();
         NavAccountItem.Tapped += (_, _) => _accountView.ResetToRoot();
@@ -96,6 +91,13 @@ public sealed partial class MainWindow : Window
         ContentHost.Children.Add(_settingsView.Root);
 
         _tray = new Win32TrayIcon(_hwnd, appTitle);
+        _settingsView.ConfigureUpdater(
+            initialPanel.GithubRepo,
+            NetoWindowHelper.GetAppVersion(),
+            () => RootGrid.XamlRoot,
+            ExitApplication,
+            (title, message, silent) => _tray.ShowNotification(title, message, silent),
+            tooltip => _tray.UpdateTooltip(tooltip));
         _tray.ShowRequested += ShowFromExternalActivation;
         _tray.PrimaryClickRequested += () => DispatcherQueue.TryEnqueue(() =>
         {

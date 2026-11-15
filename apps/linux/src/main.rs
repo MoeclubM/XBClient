@@ -104,17 +104,14 @@ fn main() -> anyhow::Result<()> {
             let p = panel_activate.clone();
             blocked_btn.connect_clicked(move |_| {
                 let s = p.snapshot();
-                let show_plans = s.panel_type != "pxboard" || s.extensions.iter().any(|e| e == "commerce");
+                let show_plans =
+                    s.panel_type != "pxboard" || s.extensions.iter().any(|e| e == "commerce");
                 vs.set_visible_child_name(if show_plans { "plans" } else { "account" });
             });
         }
         blocked_status.set_child(Some(&blocked_btn));
 
-        let home_view = HomeView::new(
-            ctrl_activate.clone(),
-            handle_activate.clone(),
-            open_nodes,
-        );
+        let home_view = HomeView::new(ctrl_activate.clone(), handle_activate.clone(), open_nodes);
         home_view.set_on_open_connections(open_connections);
         home_view.set_show_profiles_summary(false);
         home_view.set_blocked_widget(Some(&blocked_status));
@@ -125,7 +122,8 @@ fn main() -> anyhow::Result<()> {
             let p = panel_activate.clone();
             dash_account_row.connect_activated(move |_| {
                 let s = p.snapshot();
-                let show_plans = s.panel_type != "pxboard" || s.extensions.iter().any(|e| e == "commerce");
+                let show_plans =
+                    s.panel_type != "pxboard" || s.extensions.iter().any(|e| e == "commerce");
                 vs.set_visible_child_name(if show_plans { "plans" } else { "account" });
             });
         }
@@ -155,7 +153,10 @@ fn main() -> anyhow::Result<()> {
                 if url.trim().is_empty() {
                     continue;
                 }
-                let row = adw::ActionRow::builder().title(lbl).activatable(true).build();
+                let row = adw::ActionRow::builder()
+                    .title(lbl)
+                    .activatable(true)
+                    .build();
                 row.add_suffix(&gtk::Image::from_icon_name("adw-external-link-symbolic"));
                 let p = panel_activate.clone();
                 let h = handle_activate.clone();
@@ -163,7 +164,9 @@ fn main() -> anyhow::Result<()> {
                     let p = p.clone();
                     let u = url.clone();
                     h.spawn(async move {
-                        let _ = p.dispatch_json("open_url", serde_json::json!({ "url": u })).await;
+                        let _ = p
+                            .dispatch_json("open_url", serde_json::json!({ "url": u }))
+                            .await;
                     });
                 });
                 links_group.add(&row);
@@ -171,12 +174,7 @@ fn main() -> anyhow::Result<()> {
             settings_view.add_group(&links_group);
         }
 
-        view_stack.add_titled_with_icon(
-            &home_view.root,
-            Some("home"),
-            "主页",
-            "go-home-symbolic",
-        );
+        view_stack.add_titled_with_icon(&home_view.root, Some("home"), "主页", "go-home-symbolic");
         view_stack.add_titled_with_icon(
             &nodes_view.root,
             Some("nodes"),

@@ -57,7 +57,12 @@ fn page_shell(content: &gtk::Box) -> gtk::ScrolledWindow {
     scroll
 }
 
-fn subpage(stack: &gtk::Stack, name: &str, title: &str, feedback: &gtk::Label) -> (gtk::Box, gtk::Label) {
+fn subpage(
+    stack: &gtk::Stack,
+    name: &str,
+    title: &str,
+    feedback: &gtk::Label,
+) -> (gtk::Box, gtk::Label) {
     let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
     let bar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     let back_btn = gtk::Button::from_icon_name("go-previous-symbolic");
@@ -79,8 +84,17 @@ fn subpage(stack: &gtk::Stack, name: &str, title: &str, feedback: &gtk::Label) -
     (content, title_lbl)
 }
 
-fn nav_row(stack: &gtk::Stack, group: &adw::PreferencesGroup, title: &str, target: &'static str, feedback: &gtk::Label) -> adw::ActionRow {
-    let row = adw::ActionRow::builder().title(title).activatable(true).build();
+fn nav_row(
+    stack: &gtk::Stack,
+    group: &adw::PreferencesGroup,
+    title: &str,
+    target: &'static str,
+    feedback: &gtk::Label,
+) -> adw::ActionRow {
+    let row = adw::ActionRow::builder()
+        .title(title)
+        .activatable(true)
+        .build();
     row.set_use_markup(false);
     row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
     let st = stack.clone();
@@ -213,7 +227,8 @@ impl AccountView {
         outer.append(&nav_group);
         stack.add_named(&page_shell(&outer), Some("root"));
 
-        let (billing_page, billing_title) = subpage(&stack, "billing", "充值与兑换", &feedback_label);
+        let (billing_page, billing_title) =
+            subpage(&stack, "billing", "充值与兑换", &feedback_label);
         billing_page.append(&recharge_group);
         billing_page.append(&redeem_group);
         let (invite_page, _) = subpage(&stack, "invite", "邀请返利", &feedback_label);
@@ -299,26 +314,30 @@ impl AccountView {
                 let btn_c = btn.clone();
                 let amt_c = amt_row.clone();
                 let flbl_c = flbl.clone();
-                gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                    Ok(Ok(_)) => {
-                        btn_c.set_sensitive(true);
-                        amt_c.set_text("");
-                        flbl_c.remove_css_class("error");
-                        flbl_c.set_text("已打开外部收银台，完成支付后请点击同步。");
-                        flbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Ok(Err(err)) => {
-                        btn_c.set_sensitive(true);
-                        flbl_c.add_css_class("error");
-                        flbl_c.set_text(&err);
-                        flbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                    Err(_) => {
-                        btn_c.set_sensitive(true);
-                        gtk::glib::ControlFlow::Break
+                gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                    match rx.try_recv() {
+                        Ok(Ok(_)) => {
+                            btn_c.set_sensitive(true);
+                            amt_c.set_text("");
+                            flbl_c.remove_css_class("error");
+                            flbl_c.set_text("已打开外部收银台，完成支付后请点击同步。");
+                            flbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Ok(Err(err)) => {
+                            btn_c.set_sensitive(true);
+                            flbl_c.add_css_class("error");
+                            flbl_c.set_text(&err);
+                            flbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            gtk::glib::ControlFlow::Continue
+                        }
+                        Err(_) => {
+                            btn_c.set_sensitive(true);
+                            gtk::glib::ControlFlow::Break
+                        }
                     }
                 });
             });
@@ -342,26 +361,30 @@ impl AccountView {
                 let btn_c = btn.clone();
                 let rrow_c = rrow.clone();
                 let flbl_c = flbl.clone();
-                gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                    Ok(Ok((msg, _))) => {
-                        btn_c.set_sensitive(true);
-                        rrow_c.set_text("");
-                        flbl_c.remove_css_class("error");
-                        flbl_c.set_text(&msg);
-                        flbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Ok(Err(err)) => {
-                        btn_c.set_sensitive(true);
-                        flbl_c.add_css_class("error");
-                        flbl_c.set_text(&err);
-                        flbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                    Err(_) => {
-                        btn_c.set_sensitive(true);
-                        gtk::glib::ControlFlow::Break
+                gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                    match rx.try_recv() {
+                        Ok(Ok((msg, _))) => {
+                            btn_c.set_sensitive(true);
+                            rrow_c.set_text("");
+                            flbl_c.remove_css_class("error");
+                            flbl_c.set_text(&msg);
+                            flbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Ok(Err(err)) => {
+                            btn_c.set_sensitive(true);
+                            flbl_c.add_css_class("error");
+                            flbl_c.set_text(&err);
+                            flbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            gtk::glib::ControlFlow::Continue
+                        }
+                        Err(_) => {
+                            btn_c.set_sensitive(true);
+                            gtk::glib::ControlFlow::Break
+                        }
                     }
                 });
             });
@@ -382,33 +405,41 @@ impl AccountView {
                 let p = p.clone();
                 let (tx, rx) = std::sync::mpsc::channel();
                 h.spawn(async move {
-                    let _ = tx.send(p.create_ticket(&subj, &body).await.map_err(|e| format!("{e:#}")));
+                    let _ = tx.send(
+                        p.create_ticket(&subj, &body)
+                            .await
+                            .map_err(|e| format!("{e:#}")),
+                    );
                 });
                 let btn_c = btn.clone();
                 let srow_c = srow.clone();
                 let brow_c = brow.clone();
                 let flbl_c = flbl.clone();
-                gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                    Ok(Ok(_)) => {
-                        btn_c.set_sensitive(true);
-                        srow_c.set_text("");
-                        brow_c.set_text("");
-                        flbl_c.remove_css_class("error");
-                        flbl_c.set_text("工单已提交。");
-                        flbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Ok(Err(err)) => {
-                        btn_c.set_sensitive(true);
-                        flbl_c.add_css_class("error");
-                        flbl_c.set_text(&err);
-                        flbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                    Err(_) => {
-                        btn_c.set_sensitive(true);
-                        gtk::glib::ControlFlow::Break
+                gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                    match rx.try_recv() {
+                        Ok(Ok(_)) => {
+                            btn_c.set_sensitive(true);
+                            srow_c.set_text("");
+                            brow_c.set_text("");
+                            flbl_c.remove_css_class("error");
+                            flbl_c.set_text("工单已提交。");
+                            flbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Ok(Err(err)) => {
+                            btn_c.set_sensitive(true);
+                            flbl_c.add_css_class("error");
+                            flbl_c.set_text(&err);
+                            flbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            gtk::glib::ControlFlow::Continue
+                        }
+                        Err(_) => {
+                            btn_c.set_sensitive(true);
+                            gtk::glib::ControlFlow::Break
+                        }
                     }
                 });
             });
@@ -443,28 +474,32 @@ impl AccountView {
                 let mrow_c = mrow.clone();
                 let nrow_c = nrow.clone();
                 let flbl_c = flbl.clone();
-                gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                    Ok(Ok(_)) => {
-                        btn_c.set_sensitive(true);
-                        orow_c.set_text("");
-                        mrow_c.set_text("");
-                        nrow_c.set_text("");
-                        flbl_c.remove_css_class("error");
-                        flbl_c.set_text("密码已更新。");
-                        flbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Ok(Err(err)) => {
-                        btn_c.set_sensitive(true);
-                        flbl_c.add_css_class("error");
-                        flbl_c.set_text(&err);
-                        flbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                    Err(_) => {
-                        btn_c.set_sensitive(true);
-                        gtk::glib::ControlFlow::Break
+                gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                    match rx.try_recv() {
+                        Ok(Ok(_)) => {
+                            btn_c.set_sensitive(true);
+                            orow_c.set_text("");
+                            mrow_c.set_text("");
+                            nrow_c.set_text("");
+                            flbl_c.remove_css_class("error");
+                            flbl_c.set_text("密码已更新。");
+                            flbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Ok(Err(err)) => {
+                            btn_c.set_sensitive(true);
+                            flbl_c.add_css_class("error");
+                            flbl_c.set_text(&err);
+                            flbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            gtk::glib::ControlFlow::Continue
+                        }
+                        Err(_) => {
+                            btn_c.set_sensitive(true);
+                            gtk::glib::ControlFlow::Break
+                        }
                     }
                 });
             });
@@ -509,16 +544,21 @@ impl AccountView {
     pub fn apply_snapshot(self: &Rc<Self>, snap: &PanelStateSnapshot) {
         let is_px = snap.panel_type == "pxboard";
         self.portal_btn.set_visible(snap.payment_enabled);
-        self.new_pw_row
-            .set_title(if is_px { "新密码（至少 10 位）" } else { "新密码" });
+        self.new_pw_row.set_title(if is_px {
+            "新密码（至少 10 位）"
+        } else {
+            "新密码"
+        });
         self.pw_mfa_row.set_visible(is_px && snap.mfa_enabled);
 
         let has_ext = |name: &str| snap.extensions.iter().any(|e| e == name);
         let show_redeem = !is_px || has_ext("redeem");
         let show_invite = !is_px || has_ext("affiliate");
         let show_tickets = !is_px || has_ext("support");
-        let show_recharge =
-            is_px && snap.payment_enabled && has_ext("commerce") && !snap.payment_channels.is_empty();
+        let show_recharge = is_px
+            && snap.payment_enabled
+            && has_ext("commerce")
+            && !snap.payment_channels.is_empty();
         let show_oauth = is_px
             && has_ext("oauth")
             && (!snap.oauth_providers.is_empty() || !snap.oauth_bindings.is_empty());
@@ -537,12 +577,18 @@ impl AccountView {
         self.billing_nav.set_title(billing_title);
         self.billing_title.set_text(billing_title);
         let money = |v| format_money_cents(v, &snap.currency_symbol, &snap.currency_unit);
-        self.billing_nav.set_subtitle(&format!("余额 {}", money(snap.balance)));
-        self.invite_nav.set_subtitle(&if snap.invite_commission_rate > 0 {
-            format!("返利 {}% · 佣金 {}", snap.invite_commission_rate, money(snap.commission_balance))
-        } else {
-            format!("佣金 {}", money(snap.commission_balance))
-        });
+        self.billing_nav
+            .set_subtitle(&format!("余额 {}", money(snap.balance)));
+        self.invite_nav
+            .set_subtitle(&if snap.invite_commission_rate > 0 {
+                format!(
+                    "返利 {}% · 佣金 {}",
+                    snap.invite_commission_rate,
+                    money(snap.commission_balance)
+                )
+            } else {
+                format!("佣金 {}", money(snap.commission_balance))
+            });
         let open_tickets = snap.tickets.iter().filter(|t| !t.closed).count();
         self.tickets_nav.set_subtitle(&if open_tickets > 0 {
             format!("{open_tickets} 个处理中")
@@ -551,7 +597,11 @@ impl AccountView {
         });
         let mut security_parts = vec!["修改密码"];
         if is_px {
-            security_parts.push(if snap.mfa_enabled { "两步验证已开启" } else { "两步验证未开启" });
+            security_parts.push(if snap.mfa_enabled {
+                "两步验证已开启"
+            } else {
+                "两步验证未开启"
+            });
         }
         if show_oauth {
             security_parts.push("第三方登录");
@@ -569,15 +619,20 @@ impl AccountView {
         } else {
             &snap.email
         });
-        self.email_row.set_subtitle(if snap.subscription_summary.is_empty() {
-            "暂无有效套餐"
-        } else {
-            &snap.subscription_summary
-        });
+        self.email_row
+            .set_subtitle(if snap.subscription_summary.is_empty() {
+                "暂无有效套餐"
+            } else {
+                &snap.subscription_summary
+            });
         self.balance_row.set_subtitle(&format!(
             "余额 {} · 佣金 {}",
             format_money_cents(snap.balance, &snap.currency_symbol, &snap.currency_unit),
-            format_money_cents(snap.commission_balance, &snap.currency_symbol, &snap.currency_unit),
+            format_money_cents(
+                snap.commission_balance,
+                &snap.currency_symbol,
+                &snap.currency_unit
+            ),
         ));
 
         let mfa_secret = self
@@ -627,7 +682,11 @@ impl AccountView {
         // Recharge channels
         if show_recharge {
             let ids: Vec<String> = snap.payment_channels.iter().map(|c| c.id.clone()).collect();
-            let names: Vec<&str> = snap.payment_channels.iter().map(|c| c.name.as_str()).collect();
+            let names: Vec<&str> = snap
+                .payment_channels
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect();
             *self.recharge_channel_ids.borrow_mut() = ids;
             self.recharge_channel_dropdown
                 .set_model(Some(&gtk::StringList::new(&names)));
@@ -647,7 +706,9 @@ impl AccountView {
             } else {
                 String::new()
             };
-            let invite_group = adw::PreferencesGroup::builder().description(&invite_desc).build();
+            let invite_group = adw::PreferencesGroup::builder()
+                .description(&invite_desc)
+                .build();
             if !snap.referral_url.is_empty() {
                 invite_group.add(&build_copy_row("推广链接", &snap.referral_url));
             }
@@ -802,7 +863,9 @@ fn show_ticket_detail(
             let res = p
                 .dispatch_json("fetch_ticket_messages", serde_json::json!({ "id": tid }))
                 .await
-                .and_then(|v| serde_json::from_value::<Vec<TicketMessage>>(v).map_err(anyhow::Error::from));
+                .and_then(|v| {
+                    serde_json::from_value::<Vec<TicketMessage>>(v).map_err(anyhow::Error::from)
+                });
             let _ = tx.send(res);
         });
         let holder_c = msgs_holder.clone();

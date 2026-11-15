@@ -43,7 +43,7 @@ internal class XbClientAds(
     private var isShowingFullScreenAd = false
     private var skipNextAppOpen = false
     private val hasConfiguredAds: Boolean
-        get() = BuildConfig.ADMOB_APP_ID.isNotEmpty() && (
+        get() = PxBoardApi.enabled && BuildConfig.ADMOB_APP_ID.isNotEmpty() && (
             BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty() ||
                 BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty() ||
                 BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty()

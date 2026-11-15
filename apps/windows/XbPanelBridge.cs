@@ -267,8 +267,17 @@ public sealed class XbPanelService
 
     public Task GenerateInviteAsync() => RunSnapshotOpAsync("generate_invite", null, syncNeto: false);
 
-    public Task OpenPortalAsync(string path = "/user") =>
-        XbPanelBridge.CallAsync("open_portal", new { path });
+    public async Task OpenPortalAsync(string path = "/user")
+    {
+        try
+        {
+            await XbPanelBridge.CallAsync("open_portal", new { path });
+        }
+        catch (Exception ex)
+        {
+            SetBusy(false, ex.Message);
+        }
+    }
 
     public async Task ChangePasswordAsync(string oldPassword, string newPassword, string? code = null)
     {
@@ -349,8 +358,17 @@ public sealed class XbPanelService
     public Task UnbindOAuthAsync(string id, string password, string code) =>
         CallSnapshotThrowAsync("unbind_oauth", new { id, password, code });
 
-    public Task OpenUrlAsync(string url) =>
-        XbPanelBridge.CallAsync("open_url", new { url });
+    public async Task OpenUrlAsync(string url)
+    {
+        try
+        {
+            await XbPanelBridge.CallAsync("open_url", new { url });
+        }
+        catch (Exception ex)
+        {
+            SetBusy(false, ex.Message);
+        }
+    }
 
     private async Task CallSnapshotThrowAsync(string method, object? parameters)
     {

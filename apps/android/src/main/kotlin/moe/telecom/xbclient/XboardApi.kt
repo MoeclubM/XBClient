@@ -54,11 +54,6 @@ object XboardApi {
             "notices" -> getAuth(normalizedBaseUrl, "/api/v1/user/notice/fetch", authData, emptyMap())
             "traffic_logs" -> getAuth(normalizedBaseUrl, "/api/v1/user/stat/getTrafficLog", authData, emptyMap())
             "user_config" -> getAuth(normalizedBaseUrl, "/api/v1/user/comm/config", authData, emptyMap())
-            // Xboard 插件 API
-            "admob_reward_config" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/config", authData, emptyMap())
-            "xbclient_reward_history" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/reward-history", authData, emptyMap())
-            "xbclient_reward_pending" -> postAuth(normalizedBaseUrl, "/api/v1/admob/user/reward-pending", authData, params)
-            "xbclient_nodes" -> getAuth(normalizedBaseUrl, "/api/v1/admob/user/nodes", authData, emptyMap())
 
             else -> throw IllegalArgumentException("unsupported Xboard action: $action")
         }
@@ -89,9 +84,6 @@ object XboardApi {
             .url(baseUrl + path + queryString(query))
             .header("User-Agent", userAgent)
             .header("Accept", "application/json")
-        if (path == "/api/v1/admob/user/nodes") {
-            builder.header("X-XBClient-Protocols", "sudoku,flux")
-        }
         if (authData.isNotEmpty()) {
             builder.header("Authorization", authData)
         }

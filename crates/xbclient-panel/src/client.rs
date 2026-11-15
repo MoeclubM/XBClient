@@ -50,7 +50,11 @@ pub struct XbPanelClient {
 }
 
 impl XbPanelClient {
-    pub fn new(data_dir: impl Into<PathBuf>, neto: Arc<NetoController>, cfg: BuildConfig) -> Result<Arc<Self>> {
+    pub fn new(
+        data_dir: impl Into<PathBuf>,
+        neto: Arc<NetoController>,
+        cfg: BuildConfig,
+    ) -> Result<Arc<Self>> {
         let data_dir = data_dir.into();
         std::fs::create_dir_all(&data_dir)?;
         let session = load_session(&data_dir).unwrap_or_default();
@@ -96,7 +100,11 @@ impl XbPanelClient {
     }
 
     pub fn snapshot(&self) -> PanelStateSnapshot {
-        self.inner.lock().expect("panel lock poisoned").snapshot.clone()
+        self.inner
+            .lock()
+            .expect("panel lock poisoned")
+            .snapshot
+            .clone()
     }
 
     fn persist_session(&self, sess: &PanelSession) -> Result<()> {
@@ -177,11 +185,26 @@ impl XbPanelClient {
             if !referral.is_empty() {
                 body["referral"] = Value::String(referral);
             }
-            pxboard_rpc(&base_url, &self.cfg.user_agent, "", "registration", "register", body).await?;
+            pxboard_rpc(
+                &base_url,
+                &self.cfg.user_agent,
+                "",
+                "registration",
+                "register",
+                body,
+            )
+            .await?;
             return self.login_password(email, password, None).await;
         }
-        let (auth_data, out_email) =
-            xboard::register_account(&self.cfg, &base_url, email, password, invite_code, email_code).await?;
+        let (auth_data, out_email) = xboard::register_account(
+            &self.cfg,
+            &base_url,
+            email,
+            password,
+            invite_code,
+            email_code,
+        )
+        .await?;
         self.finish_login(auth_data, out_email, base_url).await
     }
 
@@ -215,7 +238,11 @@ impl XbPanelClient {
             .to_string())
     }
 
-    pub async fn confirm_password_reset(&self, token_or_url: &str, new_password: &str) -> Result<()> {
+    pub async fn confirm_password_reset(
+        &self,
+        token_or_url: &str,
+        new_password: &str,
+    ) -> Result<()> {
         let token = extract_reset_token(token_or_url);
         ensure!(!token.is_empty(), "请输入邮件重置码或链接");
         ensure!(new_password.len() >= 10, "新密码至少 10 位");
@@ -336,10 +363,21 @@ impl XbPanelClient {
     pub async fn logout(&self) -> Result<PanelStateSnapshot> {
         let (auth_data, base_url) = {
             let guard = self.inner.lock().expect("panel lock poisoned");
-            (guard.session.auth_data.clone(), guard.snapshot.base_url.clone())
+            (
+                guard.session.auth_data.clone(),
+                guard.snapshot.base_url.clone(),
+            )
         };
         if self.cfg.is_pxboard() && !auth_data.trim().is_empty() {
-            let _ = pxboard_rpc(&base_url, &self.cfg.user_agent, &auth_data, "core", "auth.logout", json!({})).await;
+            let _ = pxboard_rpc(
+                &base_url,
+                &self.cfg.user_agent,
+                &auth_data,
+                "core",
+                "auth.logout",
+                json!({}),
+            )
+            .await;
         }
         self.clear_local_session(base_url).await
     }
@@ -391,7 +429,10 @@ impl XbPanelClient {
             (g.session.auth_data.clone(), g.snapshot.base_url.clone())
         };
         let redirect = if self.cfg.is_pxboard() {
-            pxboard::purchase_plan(&self.cfg, &base_url, &auth_data, plan_id, period_id, coupon, channel_id).await?
+            pxboard::purchase_plan(
+                &self.cfg, &base_url, &auth_data, plan_id, period_id, coupon, channel_id,
+            )
+            .await?
         } else {
             xboard::purchase_plan(
                 &self.cfg,
@@ -424,7 +465,10 @@ impl XbPanelClient {
     }
 
     pub async fn create_ticket(&self, subject: &str, content: &str) -> Result<PanelStateSnapshot> {
-        ensure!(!subject.trim().is_empty() && !content.trim().is_empty(), "请填写工单主题与内容");
+        ensure!(
+            !subject.trim().is_empty() && !content.trim().is_empty(),
+            "请填写工单主题与内容"
+        );
         let (auth_data, base_url) = {
             let g = self.inner.lock().expect("panel lock poisoned");
             (g.session.auth_data.clone(), g.snapshot.base_url.clone())
@@ -517,13 +561,23 @@ impl XbPanelClient {
             (g.session.auth_data.clone(), g.snapshot.base_url.clone())
         };
         if !self.cfg.is_pxboard() {
-            xboard_get(&base_url, &self.cfg.user_agent, &auth_data, "/api/v1/user/invite/save", &[]).await?;
+            xboard_get(
+                &base_url,
+                &self.cfg.user_agent,
+                &auth_data,
+                "/api/v1/user/invite/save",
+                &[],
+            )
+            .await?;
         }
         self.sync_all().await
     }
 
     pub async fn open_portal(&self, redirect_path: &str) -> Result<String> {
-        ensure!(self.cfg.app_payment_enabled, "当前客户端已关闭外部网页收银台");
+        ensure!(
+            self.cfg.app_payment_enabled,
+            "当前客户端已关闭外部网页收银台"
+        );
         let (auth_data, base_url) = {
             let g = self.inner.lock().expect("panel lock poisoned");
             (g.session.auth_data.clone(), g.snapshot.base_url.clone())
@@ -531,9 +585,7 @@ impl XbPanelClient {
         if self.cfg.is_pxboard() {
             return pxboard::open_portal_url(&self.cfg, &base_url, &auth_data, redirect_path).await;
         }
-        let url = format!("{base_url}{redirect_path}");
-        open_external_url(&url)?;
-        Ok(url)
+        xboard::open_portal_url(&self.cfg, &base_url, &auth_data, redirect_path).await
     }
 
     pub async fn recharge_wallet(
@@ -547,7 +599,8 @@ impl XbPanelClient {
             (g.session.auth_data.clone(), g.snapshot.base_url.clone())
         };
         let redirect =
-            pxboard::recharge_wallet(&self.cfg, &base_url, &auth_data, amount_cents, channel_id).await?;
+            pxboard::recharge_wallet(&self.cfg, &base_url, &auth_data, amount_cents, channel_id)
+                .await?;
         let snap = self.sync_all().await.unwrap_or_else(|_| self.snapshot());
         Ok((redirect, snap))
     }
@@ -682,7 +735,8 @@ impl XbPanelClient {
                 next_cancel,
             )
         };
-        let res = pxboard::bind_oauth_flow(&self.cfg, &base_url, &auth_data, provider_id, cancel).await;
+        let res =
+            pxboard::bind_oauth_flow(&self.cfg, &base_url, &auth_data, provider_id, cancel).await;
         {
             let mut g = self.inner.lock().expect("panel lock poisoned");
             g.snapshot.oauth_bind_pending = false;
@@ -739,13 +793,21 @@ impl XbPanelClient {
                 let email = params.get("email").and_then(Value::as_str).unwrap_or("");
                 let password = params.get("password").and_then(Value::as_str).unwrap_or("");
                 let code = params.get("code").and_then(Value::as_str);
-                Ok(serde_json::to_value(self.login_password(email, password, code).await?)?)
+                Ok(serde_json::to_value(
+                    self.login_password(email, password, code).await?,
+                )?)
             }
             "register_account" => {
                 let email = params.get("email").and_then(Value::as_str).unwrap_or("");
                 let password = params.get("password").and_then(Value::as_str).unwrap_or("");
-                let invite = params.get("invite_code").and_then(Value::as_str).unwrap_or("");
-                let code = params.get("email_code").and_then(Value::as_str).unwrap_or("");
+                let invite = params
+                    .get("invite_code")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let code = params
+                    .get("email_code")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 Ok(serde_json::to_value(
                     self.register_account(email, password, invite, code).await?,
                 )?)
@@ -773,11 +835,22 @@ impl XbPanelClient {
             "cancel_browser_login" => Ok(serde_json::to_value(self.cancel_browser_login())?),
             "logout" => Ok(serde_json::to_value(self.logout().await?)?),
             "purchase_plan" => {
-                let plan_id = params.get("plan_id").and_then(Value::as_str).context("missing plan_id")?;
-                let period_id = params.get("period_id").and_then(Value::as_str).unwrap_or("");
+                let plan_id = params
+                    .get("plan_id")
+                    .and_then(Value::as_str)
+                    .context("missing plan_id")?;
+                let period_id = params
+                    .get("period_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 let coupon = params.get("coupon").and_then(Value::as_str).unwrap_or("");
-                let channel_id = params.get("channel_id").and_then(Value::as_str).unwrap_or("");
-                let (redirect, snap) = self.purchase_plan(plan_id, period_id, coupon, channel_id).await?;
+                let channel_id = params
+                    .get("channel_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let (redirect, snap) = self
+                    .purchase_plan(plan_id, period_id, coupon, channel_id)
+                    .await?;
                 Ok(json!({ "redirect_url": redirect, "snapshot": snap }))
             }
             "redeem_code" => {
@@ -788,7 +861,9 @@ impl XbPanelClient {
             "create_ticket" => {
                 let subject = params.get("subject").and_then(Value::as_str).unwrap_or("");
                 let content = params.get("content").and_then(Value::as_str).unwrap_or("");
-                Ok(serde_json::to_value(self.create_ticket(subject, content).await?)?)
+                Ok(serde_json::to_value(
+                    self.create_ticket(subject, content).await?,
+                )?)
             }
             "reply_ticket" => {
                 let id = params.get("id").and_then(Value::as_str).unwrap_or("");
@@ -815,26 +890,42 @@ impl XbPanelClient {
                         let g = self.inner.lock().expect("panel lock poisoned");
                         (g.session.auth_data.clone(), g.snapshot.base_url.clone())
                     };
-                    let msgs = xboard::fetch_ticket_detail(&self.cfg, &base_url, &auth_data, id).await?;
+                    let msgs =
+                        xboard::fetch_ticket_detail(&self.cfg, &base_url, &auth_data, id).await?;
                     Ok(serde_json::to_value(msgs)?)
                 }
             }
             "generate_invite" => Ok(serde_json::to_value(self.generate_invite().await?)?),
             "open_portal" => {
-                let path = params.get("path").and_then(Value::as_str).unwrap_or("/user");
+                let path = params
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .unwrap_or("/user");
                 let url = self.open_portal(path).await?;
                 Ok(json!({ "url": url }))
             }
             "change_password" => {
-                let old_pw = params.get("old_password").and_then(Value::as_str).unwrap_or("");
-                let new_pw = params.get("new_password").and_then(Value::as_str).unwrap_or("");
+                let old_pw = params
+                    .get("old_password")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let new_pw = params
+                    .get("new_password")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 let code = params.get("code").and_then(Value::as_str);
                 let snap = self.change_password(old_pw, new_pw, code).await?;
                 Ok(json!({ "changed": true, "snapshot": snap }))
             }
             "recharge_wallet" => {
-                let amount = params.get("amount_cents").and_then(Value::as_i64).unwrap_or(0);
-                let channel_id = params.get("channel_id").and_then(Value::as_str).unwrap_or("");
+                let amount = params
+                    .get("amount_cents")
+                    .and_then(Value::as_i64)
+                    .unwrap_or(0);
+                let channel_id = params
+                    .get("channel_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 let (redirect, snap) = self.recharge_wallet(amount, channel_id).await?;
                 Ok(json!({ "redirect_url": redirect, "snapshot": snap }))
             }
@@ -850,7 +941,10 @@ impl XbPanelClient {
                 Ok(serde_json::to_value(self.mfa_disable(pw, code).await?)?)
             }
             "bind_oauth" => {
-                let provider_id = params.get("provider_id").and_then(Value::as_str).unwrap_or("");
+                let provider_id = params
+                    .get("provider_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 Ok(serde_json::to_value(self.bind_oauth(provider_id).await?)?)
             }
             "cancel_bind_oauth" => Ok(serde_json::to_value(self.cancel_bind_oauth())?),
@@ -858,7 +952,9 @@ impl XbPanelClient {
                 let id = params.get("id").and_then(Value::as_str).unwrap_or("");
                 let pw = params.get("password").and_then(Value::as_str).unwrap_or("");
                 let code = params.get("code").and_then(Value::as_str).unwrap_or("");
-                Ok(serde_json::to_value(self.unbind_oauth(id, pw, code).await?)?)
+                Ok(serde_json::to_value(
+                    self.unbind_oauth(id, pw, code).await?,
+                )?)
             }
             "open_url" => {
                 let url = params.get("url").and_then(Value::as_str).unwrap_or("");
@@ -893,7 +989,8 @@ mod tests {
 
     #[test]
     fn test_panel_client_session_roundtrip() {
-        let dir = std::env::temp_dir().join(format!("xbclient-panel-test-{}", pxboard::new_request_id()));
+        let dir =
+            std::env::temp_dir().join(format!("xbclient-panel-test-{}", pxboard::new_request_id()));
         let neto = NetoController::new(&dir, "AerionTest", None).unwrap();
         let cfg = BuildConfig {
             default_api_url: "https://panel.example.com".into(),
@@ -930,8 +1027,18 @@ mod tests {
         );
         assert_eq!(extract_referral_code("  user-88  "), "user-88");
         assert_eq!(pxboard::normalize_portal_path("/plans"), "/user/plans");
-        assert_eq!(pxboard::normalize_portal_path("/user/orders"), "/user/orders");
+        assert_eq!(
+            pxboard::normalize_portal_path("/user/orders"),
+            "/user/orders"
+        );
         assert_eq!(pxboard::normalize_portal_path("/admin"), "/user");
+        assert_eq!(xboard::normalize_xboard_redirect("/user"), "dashboard");
+        assert_eq!(xboard::normalize_xboard_redirect("/plans"), "plan");
+        assert_eq!(xboard::normalize_xboard_redirect("/user/plans"), "plan");
+        assert_eq!(
+            xboard::normalize_xboard_redirect("/user/account"),
+            "profile"
+        );
         let rpc_err: anyhow::Error = PxBoardRpcError {
             status: 401,
             code: "mfa_required".into(),
@@ -939,7 +1046,9 @@ mod tests {
         }
         .into();
         assert_eq!(
-            rpc_err.downcast_ref::<PxBoardRpcError>().map(|e| e.code.as_str()),
+            rpc_err
+                .downcast_ref::<PxBoardRpcError>()
+                .map(|e| e.code.as_str()),
             Some("mfa_required")
         );
         let _ = std::fs::remove_dir_all(&dir);

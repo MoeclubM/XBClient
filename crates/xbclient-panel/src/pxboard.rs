@@ -347,23 +347,33 @@ pub async fn open_portal_url(
         .and_then(Value::as_str)
         .context("响应缺少 url")?;
     let full = public_url(base_url, rel);
-    let _ = open_external_url(&full);
+    open_external_url(&full)?;
     Ok(full)
 }
 
 fn period_label(item: &Value) -> String {
-    if let Some(lbl) = item.get("label").and_then(Value::as_str).filter(|s| !s.is_empty()) {
+    if let Some(lbl) = item
+        .get("label")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+    {
         return lbl.to_string();
     }
     match item.get("kind").and_then(Value::as_str).unwrap_or("") {
         "reset" => "重置流量".to_string(),
         "traffic" => "流量包".to_string(),
         _ => {
-            let unit = item.get("durationUnit").and_then(Value::as_str).unwrap_or("");
+            let unit = item
+                .get("durationUnit")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             if unit == "permanent" {
                 "长期".to_string()
             } else {
-                let v = item.get("durationValue").and_then(Value::as_i64).unwrap_or(1);
+                let v = item
+                    .get("durationValue")
+                    .and_then(Value::as_i64)
+                    .unwrap_or(1);
                 format!("{v} {}", if unit == "month" { "个月" } else { "天" })
             }
         }
@@ -381,22 +391,80 @@ pub async fn sync_all(
         &cfg.user_agent,
         auth_data,
         &[
-            BatchCall { key: "me", service: "core", method: "account.me", input: json!({}) },
-            BatchCall { key: "plugins", service: "core", method: "plugins.list", input: json!({}) },
-            BatchCall { key: "profile", service: "subscriptions", method: "client.profile", input: json!({}) },
-            BatchCall { key: "wallet", service: "commerce", method: "wallet.get", input: json!({}) },
-            BatchCall { key: "announcements", service: "support", method: "announcements.list", input: json!({}) },
-            BatchCall { key: "affiliate", service: "affiliate", method: "summary.get", input: json!({}) },
-            BatchCall { key: "plans", service: "commerce", method: "plans.list", input: json!({}) },
-            BatchCall { key: "channels", service: "payments", method: "channels.list", input: json!({}) },
-            BatchCall { key: "tickets", service: "support", method: "tickets.list", input: json!({ "mine": true }) },
-            BatchCall { key: "oauth_providers", service: "oauth", method: "providers.list", input: json!({}) },
-            BatchCall { key: "oauth_bindings", service: "oauth", method: "bindings.list", input: json!({}) },
+            BatchCall {
+                key: "me",
+                service: "core",
+                method: "account.me",
+                input: json!({}),
+            },
+            BatchCall {
+                key: "plugins",
+                service: "core",
+                method: "plugins.list",
+                input: json!({}),
+            },
+            BatchCall {
+                key: "profile",
+                service: "subscriptions",
+                method: "client.profile",
+                input: json!({}),
+            },
+            BatchCall {
+                key: "wallet",
+                service: "commerce",
+                method: "wallet.get",
+                input: json!({}),
+            },
+            BatchCall {
+                key: "announcements",
+                service: "support",
+                method: "announcements.list",
+                input: json!({}),
+            },
+            BatchCall {
+                key: "affiliate",
+                service: "affiliate",
+                method: "summary.get",
+                input: json!({}),
+            },
+            BatchCall {
+                key: "plans",
+                service: "commerce",
+                method: "plans.list",
+                input: json!({}),
+            },
+            BatchCall {
+                key: "channels",
+                service: "payments",
+                method: "channels.list",
+                input: json!({}),
+            },
+            BatchCall {
+                key: "tickets",
+                service: "support",
+                method: "tickets.list",
+                input: json!({ "mine": true }),
+            },
+            BatchCall {
+                key: "oauth_providers",
+                service: "oauth",
+                method: "providers.list",
+                input: json!({}),
+            },
+            BatchCall {
+                key: "oauth_bindings",
+                service: "oauth",
+                method: "bindings.list",
+                input: json!({}),
+            },
         ],
     )
     .await?;
 
-    let me_status = batch.pointer("/me/status").and_then(Value::as_u64).unwrap_or(500);
+    let me_status = batch
+        .pointer("/me/status")
+        .and_then(Value::as_u64)
+        .unwrap_or(500);
     let me_data = batch
         .pointer("/me/data")
         .filter(|_| me_status == 200)
@@ -423,12 +491,18 @@ pub async fn sync_all(
             .filter(|p| p.get("enabled").and_then(Value::as_bool).unwrap_or(false))
             .filter_map(|p| p.get("id").and_then(Value::as_str).map(ToString::to_string))
             .collect();
-        snap.payment_enabled = cfg.app_payment_enabled && snap.extensions.iter().any(|e| e == "commerce");
+        snap.payment_enabled =
+            cfg.app_payment_enabled && snap.extensions.iter().any(|e| e == "commerce");
     }
 
     if snap.extensions.iter().any(|e| e == "oauth") {
-        if batch.pointer("/oauth_providers/status").and_then(Value::as_u64) == Some(200)
-            && let Some(arr) = batch.pointer("/oauth_providers/data").and_then(Value::as_array)
+        if batch
+            .pointer("/oauth_providers/status")
+            .and_then(Value::as_u64)
+            == Some(200)
+            && let Some(arr) = batch
+                .pointer("/oauth_providers/data")
+                .and_then(Value::as_array)
         {
             snap.oauth_providers = arr
                 .iter()
@@ -440,8 +514,13 @@ pub async fn sync_all(
                 })
                 .collect();
         }
-        if batch.pointer("/oauth_bindings/status").and_then(Value::as_u64) == Some(200)
-            && let Some(arr) = batch.pointer("/oauth_bindings/data").and_then(Value::as_array)
+        if batch
+            .pointer("/oauth_bindings/status")
+            .and_then(Value::as_u64)
+            == Some(200)
+            && let Some(arr) = batch
+                .pointer("/oauth_bindings/data")
+                .and_then(Value::as_array)
         {
             snap.oauth_bindings = arr
                 .iter()
@@ -449,10 +528,25 @@ pub async fn sync_all(
                     Some(OAuthBindingEntry {
                         id: r.get("id")?.as_str()?.to_string(),
                         provider_id: r.get("providerId")?.as_str()?.to_string(),
-                        provider_name: r.get("providerName").and_then(Value::as_str).unwrap_or("").to_string(),
-                        display_name: r.get("displayName").and_then(Value::as_str).unwrap_or("").to_string(),
-                        created_at: r.get("createdAt").and_then(Value::as_str).unwrap_or("").to_string(),
-                        requires_password: r.get("requiresPassword").and_then(Value::as_bool).unwrap_or(false),
+                        provider_name: r
+                            .get("providerName")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_string(),
+                        display_name: r
+                            .get("displayName")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_string(),
+                        created_at: r
+                            .get("createdAt")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_string(),
+                        requires_password: r
+                            .get("requiresPassword")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(false),
                     })
                 })
                 .collect();
@@ -465,18 +559,35 @@ pub async fn sync_all(
     if batch.pointer("/wallet/status").and_then(Value::as_u64) == Some(200)
         && let Some(w) = batch.pointer("/wallet/data")
     {
-        snap.balance = w.get("balance").and_then(Value::as_f64).unwrap_or(0.0).round() as i64;
-        snap.currency_symbol = w.get("currencySymbol").and_then(Value::as_str).unwrap_or("").to_string();
-        snap.currency_unit = w.get("currencyName").and_then(Value::as_str).unwrap_or("").to_string();
+        snap.balance = w
+            .get("balance")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0)
+            .round() as i64;
+        snap.currency_symbol = w
+            .get("currencySymbol")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        snap.currency_unit = w
+            .get("currencyName")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
     }
 
     if batch.pointer("/affiliate/status").and_then(Value::as_u64) == Some(200)
         && let Some(a) = batch.pointer("/affiliate/data")
     {
-        snap.commission_balance =
-            a.get("availableAmount").and_then(Value::as_f64).unwrap_or(0.0).round() as i64;
-        snap.invite_commission_rate =
-            a.get("commissionPercent").and_then(Value::as_i64).unwrap_or(0) as i32;
+        snap.commission_balance = a
+            .get("availableAmount")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0)
+            .round() as i64;
+        snap.invite_commission_rate = a
+            .get("commissionPercent")
+            .and_then(Value::as_i64)
+            .unwrap_or(0) as i32;
         snap.referral_url = a
             .get("referralPath")
             .and_then(Value::as_str)
@@ -485,8 +596,13 @@ pub async fn sync_all(
             .unwrap_or_default();
     }
 
-    if batch.pointer("/announcements/status").and_then(Value::as_u64) == Some(200)
-        && let Some(arr) = batch.pointer("/announcements/data").and_then(Value::as_array)
+    if batch
+        .pointer("/announcements/status")
+        .and_then(Value::as_u64)
+        == Some(200)
+        && let Some(arr) = batch
+            .pointer("/announcements/data")
+            .and_then(Value::as_array)
     {
         snap.notices = arr
             .iter()
@@ -494,8 +610,16 @@ pub async fn sync_all(
             .enumerate()
             .map(|(idx, r)| NoticeEntry {
                 id: (idx + 1) as i64,
-                title: r.get("title").and_then(Value::as_str).unwrap_or("").to_string(),
-                content: r.get("content").and_then(Value::as_str).unwrap_or("").to_string(),
+                title: r
+                    .get("title")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                content: r
+                    .get("content")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
                 created_at: 0,
             })
             .collect();
@@ -536,7 +660,11 @@ pub async fn sync_all(
                 Some(CommercialPlan {
                     id,
                     name,
-                    description: p.get("description").and_then(Value::as_str).unwrap_or("").to_string(),
+                    description: p
+                        .get("description")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
                     quota_text,
                     periods,
                 })
@@ -575,13 +703,29 @@ pub async fn sync_all(
                     .map(|ma| {
                         ma.iter()
                             .map(|m| {
-                                let author = m.get("author").and_then(Value::as_str).unwrap_or("").to_string();
+                                let author = m
+                                    .get("author")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or("")
+                                    .to_string();
                                 TicketMessage {
-                                    id: m.get("id").and_then(Value::as_str).unwrap_or("").to_string(),
+                                    id: m
+                                        .get("id")
+                                        .and_then(Value::as_str)
+                                        .unwrap_or("")
+                                        .to_string(),
                                     is_me: author == "user" || author == snap.email,
                                     author,
-                                    message: m.get("content").and_then(Value::as_str).unwrap_or("").to_string(),
-                                    created_at: m.get("createdAt").and_then(Value::as_str).unwrap_or("").to_string(),
+                                    message: m
+                                        .get("content")
+                                        .and_then(Value::as_str)
+                                        .unwrap_or("")
+                                        .to_string(),
+                                    created_at: m
+                                        .get("createdAt")
+                                        .and_then(Value::as_str)
+                                        .unwrap_or("")
+                                        .to_string(),
                                 }
                             })
                             .collect::<Vec<_>>()
@@ -589,10 +733,18 @@ pub async fn sync_all(
                     .unwrap_or_default();
                 Some(TicketEntry {
                     id,
-                    subject: t.get("subject").and_then(Value::as_str).unwrap_or("").to_string(),
+                    subject: t
+                        .get("subject")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
                     status_text: status.to_string(),
                     closed: status == "closed",
-                    updated_at: t.get("updatedAt").and_then(Value::as_str).unwrap_or("").to_string(),
+                    updated_at: t
+                        .get("updatedAt")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
                     messages: msgs,
                 })
             })
@@ -607,17 +759,28 @@ pub async fn sync_all(
             .get("usedBytes")
             .and_then(Value::as_u64)
             .unwrap_or_else(|| {
-                (acc.get("usedGiB").and_then(Value::as_f64).unwrap_or(0.0) * 1073741824.0).round() as u64
+                (acc.get("usedGiB").and_then(Value::as_f64).unwrap_or(0.0) * 1073741824.0).round()
+                    as u64
             });
         let total = acc
             .get("quotaBytes")
             .and_then(Value::as_u64)
             .unwrap_or_else(|| {
-                (acc.get("quotaGiB").and_then(Value::as_f64).unwrap_or(0.0) * 1073741824.0).round() as u64
+                (acc.get("quotaGiB").and_then(Value::as_f64).unwrap_or(0.0) * 1073741824.0).round()
+                    as u64
             });
-        let unlimited = acc.get("unlimited").and_then(Value::as_bool).unwrap_or(false);
-        let exp = acc.get("expiredAtUnix").and_then(Value::as_i64).unwrap_or(0);
-        let raw_block = prof.get("blockReason").and_then(Value::as_str).unwrap_or("");
+        let unlimited = acc
+            .get("unlimited")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let exp = acc
+            .get("expiredAtUnix")
+            .and_then(Value::as_i64)
+            .unwrap_or(0);
+        let raw_block = prof
+            .get("blockReason")
+            .and_then(Value::as_str)
+            .unwrap_or("");
         let block_reason = match raw_block {
             "" | "no_plan" | "expired" | "traffic_exceeded" | "suspended" => raw_block.to_string(),
             _ => "suspended".to_string(),
@@ -625,7 +788,10 @@ pub async fn sync_all(
         let sub_url = prof
             .get("links")
             .and_then(Value::as_array)
-            .and_then(|arr| arr.iter().find_map(|l| l.get("shareUrl").and_then(Value::as_str)))
+            .and_then(|arr| {
+                arr.iter()
+                    .find_map(|l| l.get("shareUrl").and_then(Value::as_str))
+            })
             .filter(|s| !s.is_empty())
             .map(|s| public_url(&snap.base_url, s))
             .unwrap_or_default();
@@ -641,7 +807,11 @@ pub async fn sync_all(
             format!(
                 "{} / {}",
                 format_bytes_brief(used),
-                if unlimited { "不限".to_string() } else { format_bytes_brief(total) }
+                if unlimited {
+                    "不限".to_string()
+                } else {
+                    format_bytes_brief(total)
+                }
             )
         };
 
@@ -664,7 +834,10 @@ pub async fn sync_all(
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .map(ToString::to_string);
-            let rule_count = routing.get("ruleCount").and_then(Value::as_u64).unwrap_or(0) as usize;
+            let rule_count = routing
+                .get("ruleCount")
+                .and_then(Value::as_u64)
+                .unwrap_or(0) as usize;
             let preview = routing
                 .get("rulesPreview")
                 .or_else(|| routing.get("rules"))
@@ -683,13 +856,8 @@ pub async fn sync_all(
                 total_bytes: total,
                 expire_unix: (exp > 0).then_some(exp as u64),
             });
-            let payload = build_profile_from_raw_nodes(
-                raw_nodes,
-                route_yaml,
-                preview,
-                rule_count,
-                user_info,
-            );
+            let payload =
+                build_profile_from_raw_nodes(raw_nodes, route_yaml, preview, rule_count, user_info);
             neto.upsert_managed_profile("managed-default", &cfg.app_name, &sub_url, payload)?;
         }
     }

@@ -81,7 +81,7 @@ jobs:
             echo "::error::XBCLIENT_OAUTH_CALLBACK_SCHEME is empty or not available to this workflow"
             exit 1
           fi
-          if { [ -n "${XBCLIENT_APP_OPEN_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_PLAN_REWARDED_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_POINTS_REWARDED_AD_UNIT_ID:-}" ]; } && [ -z "${XBCLIENT_ADMOB_APP_ID:-}" ]; then
+          if [ "$panel_type" = "pxboard" ] && { [ -n "${XBCLIENT_APP_OPEN_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_PLAN_REWARDED_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_POINTS_REWARDED_AD_UNIT_ID:-}" ]; } && [ -z "${XBCLIENT_ADMOB_APP_ID:-}" ]; then
             echo "::error::XBCLIENT_ADMOB_APP_ID is required when any AdMob ad unit ID is configured"
             exit 1
           fi

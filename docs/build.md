@@ -31,15 +31,15 @@ XBCLIENT_RELEASE_KEY_PASSWORD
 | `XBCLIENT_PANEL_TYPE` | `xboard` | 全平台 | 可选 `xboard` 或 `pxboard` |
 | `XBCLIENT_APP_PAYMENT_ENABLED` | `true` | 全平台 | 设为 `false` 时关闭客户端内在线支付渠道、在线余额充值及外部网页收银台/控制台入口，仅允许账户余额抵扣与兑换码 |
 | `XBCLIENT_OAUTH_CALLBACK_SCHEME` | `pxboard` 下默认 `xbclient` | 全平台 | `XBCLIENT_PANEL_TYPE=xboard` 时必填；`pxboard` 使用浏览器授权轮询，无需依赖自定义回调 scheme |
-| `XBCLIENT_ADMOB_APP_ID` | 空 | Android | 当配置了任一 `*_AD_UNIT_ID` 时必填；全部广告单元留空时可省略，客户端不初始化 MobileAds SDK |
-| `XBCLIENT_APP_OPEN_AD_UNIT_ID` | 空 | Android | 非空即启用 AdMob 开屏广告，在 `pxboard` 与 `xboard` 下均纯客户端生效，无需面板配置 |
-| `XBCLIENT_PLAN_REWARDED_AD_UNIT_ID` | 空 | Android | 非空且面板启用激励发放时在套餐页展示激励广告入口；`pxboard` 由官方 `admob` 插件校验 Google AdMob ECDSA SSV 回调（`/api/v1/extensions/admob/ssv`），`xboard` 由 `Xboard-XBClient` 校验 |
-| `XBCLIENT_POINTS_REWARDED_AD_UNIT_ID` | 空 | Android | 非空且面板启用激励发放时在账户页展示激励广告入口；`pxboard` 由官方 `admob` 插件校验 Google AdMob ECDSA SSV 回调，`xboard` 由 `Xboard-XBClient` 校验 |
+| `XBCLIENT_ADMOB_APP_ID` | 空 | Android（仅 `pxboard`） | 当 `XBCLIENT_PANEL_TYPE=pxboard` 且配置了任一 `*_AD_UNIT_ID` 时必填；`xboard` 或未配置广告单元时不初始化 MobileAds SDK |
+| `XBCLIENT_APP_OPEN_AD_UNIT_ID` | 空 | Android（仅 `pxboard`） | 非空即启用 AdMob 开屏广告，纯客户端生效 |
+| `XBCLIENT_PLAN_REWARDED_AD_UNIT_ID` | 空 | Android（仅 `pxboard`） | 非空且面板启用激励发放时在套餐页展示激励广告入口，由官方 `admob` 插件校验 Google AdMob ECDSA SSV 回调（`/api/v1/extensions/admob/ssv`） |
+| `XBCLIENT_POINTS_REWARDED_AD_UNIT_ID` | 空 | Android（仅 `pxboard`） | 非空且面板启用激励发放时在账户页展示激励广告入口，由官方 `admob` 插件校验 Google AdMob ECDSA SSV 回调 |
 | `XBCLIENT_WEBSITE_URL` | 空 | 全平台 | 官网链接 |
 | `XBCLIENT_PRIVACY_POLICY_URL` | 空 | 全平台 | 隐私政策链接 |
 | `XBCLIENT_USER_AGREEMENT_URL` | 空 | 全平台 | 用户协议链接 |
 
-> **激励广告安全边界**：开屏广告与客户端支付展示开关完全固化在构建参数中；观看激励广告后增加账户余额或赠送套餐属于服务端账本变更，必须由服务端校验 Google AdMob ECDSA SSV 回调签名后入账，不能由客户端本地直接加款。`pxboard` 在面板启用官方 `admob` 插件并开启对应场景后展示激励广告入口，AdMob 控制台 SSV 回调地址填写 `https://<站点域名>/api/v1/extensions/admob/ssv`；`xboard` 则配合 `Xboard-XBClient` 插件完成验签发奖。
+> **激励广告安全边界**：广告功能仅在 `pxboard` 下启用，Xboard 保持纯原生 API 对接且不提供广告与额外客户端插件支持。观看激励广告后增加账户余额或赠送套餐属于服务端账本变更，由 PxBoard 官方 `admob` 插件校验 Google AdMob ECDSA SSV 回调签名（`https://<站点域名>/api/v1/extensions/admob/ssv`）后入账。
 
 平台是否可用，以对应 job 的最终结论为准。  
 Treat the finished Actions job as the source of truth for whether a platform build works.

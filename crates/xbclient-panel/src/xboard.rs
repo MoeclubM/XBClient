@@ -22,19 +22,27 @@ fn num_f64(v: Option<&Value>) -> f64 {
 }
 
 pub async fn load_guest_meta(cfg: &BuildConfig, snap: &mut PanelStateSnapshot) -> Result<()> {
-    let body = xboard_get(&snap.base_url, &cfg.user_agent, "", "/api/v1/guest/comm/config", &[]).await?;
+    let body = xboard_get(
+        &snap.base_url,
+        &cfg.user_agent,
+        "",
+        "/api/v1/guest/comm/config",
+        &[],
+    )
+    .await?;
     snap.registration_enabled = true;
     snap.password_reset_enabled = false;
     snap.login_challenge_required = false;
     snap.register_challenge_required = false;
     snap.reset_challenge_required = false;
     if let Some(data) = body.get("data") {
-        snap.registration_enabled =
-            num_f64(data.get("is_stop_register")) as i64 == 0
-                && data.get("is_stop_register").and_then(Value::as_bool) != Some(true);
-        snap.email_verify_required =
-            num_f64(data.get("is_email_verify")) as i64 == 1
-                || data.get("is_email_verify").and_then(Value::as_bool).unwrap_or(false);
+        snap.registration_enabled = num_f64(data.get("is_stop_register")) as i64 == 0
+            && data.get("is_stop_register").and_then(Value::as_bool) != Some(true);
+        snap.email_verify_required = num_f64(data.get("is_email_verify")) as i64 == 1
+            || data
+                .get("is_email_verify")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
         if let Some(arr) = data.get("oauth_providers").and_then(Value::as_array) {
             snap.oauth_providers = arr
                 .iter()
@@ -127,7 +135,14 @@ pub async fn sync_all(
     auth_data: &str,
     snap: &mut PanelStateSnapshot,
 ) -> Result<()> {
-    let info = xboard_get(&snap.base_url, &cfg.user_agent, auth_data, "/api/v1/user/info", &[]).await?;
+    let info = xboard_get(
+        &snap.base_url,
+        &cfg.user_agent,
+        auth_data,
+        "/api/v1/user/info",
+        &[],
+    )
+    .await?;
     if let Some(d) = info.get("data") {
         if let Some(email) = d.get("email").and_then(Value::as_str) {
             snap.email = email.to_string();
@@ -136,12 +151,26 @@ pub async fn sync_all(
         snap.commission_balance = num_f64(d.get("commission_balance")).round() as i64;
     }
 
-    if let Ok(uconf) =
-        xboard_get(&snap.base_url, &cfg.user_agent, auth_data, "/api/v1/user/comm/config", &[]).await
+    if let Ok(uconf) = xboard_get(
+        &snap.base_url,
+        &cfg.user_agent,
+        auth_data,
+        "/api/v1/user/comm/config",
+        &[],
+    )
+    .await
         && let Some(d) = uconf.get("data")
     {
-        snap.currency_symbol = d.get("currency_symbol").and_then(Value::as_str).unwrap_or("").to_string();
-        snap.currency_unit = d.get("currency").and_then(Value::as_str).unwrap_or("").to_string();
+        snap.currency_symbol = d
+            .get("currency_symbol")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        snap.currency_unit = d
+            .get("currency")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
     }
 
     snap.payment_enabled = cfg.app_payment_enabled;
@@ -249,45 +278,25 @@ pub async fn sync_all(
                 total_bytes: total,
                 expire_unix: (expired_at > 0).then_some(expired_at as u64),
             });
-            let plugin_nodes = xboard_get(
-                &snap.base_url,
-                &cfg.user_agent,
-                auth_data,
-                "/api/v1/admob/user/nodes",
-                &[],
-            )
-            .await
-            .ok()
-            .and_then(|b| {
-                b.pointer("/data/nodes")
-                    .or_else(|| b.get("data"))
-                    .and_then(Value::as_array)
-                    .cloned()
-            })
-            .filter(|arr| !arr.is_empty());
-            let final_payload = match (plugin_nodes, sub_parsed) {
-                (Some(raw_nodes), Some(sp)) => build_profile_from_raw_nodes(
-                    raw_nodes,
-                    sp.route_config_yaml,
-                    sp.rules_preview,
-                    sp.rule_count,
-                    user_info,
-                ),
-                (Some(raw_nodes), None) => {
-                    build_profile_from_raw_nodes(raw_nodes, None, Vec::new(), 0, user_info)
-                }
-                (None, Some(mut sp)) => {
+            let final_payload = match sub_parsed {
+                Some(mut sp) => {
                     sp.user_info = user_info;
                     sp
                 }
-                (None, None) => build_profile_from_raw_nodes(Vec::new(), None, Vec::new(), 0, user_info),
+                None => build_profile_from_raw_nodes(Vec::new(), None, Vec::new(), 0, user_info),
             };
             neto.upsert_managed_profile("managed-default", &cfg.app_name, &sub_url, final_payload)?;
         }
     }
 
-    if let Ok(plans_body) =
-        xboard_get(&snap.base_url, &cfg.user_agent, auth_data, "/api/v1/user/plan/fetch", &[]).await
+    if let Ok(plans_body) = xboard_get(
+        &snap.base_url,
+        &cfg.user_agent,
+        auth_data,
+        "/api/v1/user/plan/fetch",
+        &[],
+    )
+    .await
         && let Some(arr) = plans_body.get("data").and_then(Value::as_array)
     {
         let period_fields = [
@@ -320,31 +329,59 @@ pub async fn sync_all(
                 Some(CommercialPlan {
                     id: id.to_string(),
                     name,
-                    description: p.get("content").and_then(Value::as_str).unwrap_or("").to_string(),
-                    quota_text: if gb > 0.0 { format!("{gb:.0} GB") } else { String::new() },
+                    description: p
+                        .get("content")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
+                    quota_text: if gb > 0.0 {
+                        format!("{gb:.0} GB")
+                    } else {
+                        String::new()
+                    },
                     periods,
                 })
             })
             .collect();
     }
 
-    if let Ok(nbody) =
-        xboard_get(&snap.base_url, &cfg.user_agent, auth_data, "/api/v1/user/notice/fetch", &[]).await
+    if let Ok(nbody) = xboard_get(
+        &snap.base_url,
+        &cfg.user_agent,
+        auth_data,
+        "/api/v1/user/notice/fetch",
+        &[],
+    )
+    .await
         && let Some(arr) = nbody.get("data").and_then(Value::as_array)
     {
         snap.notices = arr
             .iter()
             .map(|r| NoticeEntry {
                 id: num_f64(r.get("id")) as i64,
-                title: r.get("title").and_then(Value::as_str).unwrap_or("").to_string(),
-                content: r.get("content").and_then(Value::as_str).unwrap_or("").to_string(),
+                title: r
+                    .get("title")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                content: r
+                    .get("content")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
                 created_at: num_f64(r.get("created_at")) as i64,
             })
             .collect();
     }
 
-    if let Ok(ibody) =
-        xboard_get(&snap.base_url, &cfg.user_agent, auth_data, "/api/v1/user/invite/fetch", &[]).await
+    if let Ok(ibody) = xboard_get(
+        &snap.base_url,
+        &cfg.user_agent,
+        auth_data,
+        "/api/v1/user/invite/fetch",
+        &[],
+    )
+    .await
         && let Some(d) = ibody.get("data")
     {
         snap.invite_codes = d
@@ -352,7 +389,11 @@ pub async fn sync_all(
             .and_then(Value::as_array)
             .map(|arr| {
                 arr.iter()
-                    .filter_map(|c| c.get("code").and_then(Value::as_str).map(ToString::to_string))
+                    .filter_map(|c| {
+                        c.get("code")
+                            .and_then(Value::as_str)
+                            .map(ToString::to_string)
+                    })
                     .collect()
             })
             .unwrap_or_default();
@@ -361,8 +402,14 @@ pub async fn sync_all(
         }
     }
 
-    if let Ok(tbody) =
-        xboard_get(&snap.base_url, &cfg.user_agent, auth_data, "/api/v1/user/ticket/fetch", &[]).await
+    if let Ok(tbody) = xboard_get(
+        &snap.base_url,
+        &cfg.user_agent,
+        auth_data,
+        "/api/v1/user/ticket/fetch",
+        &[],
+    )
+    .await
         && let Some(arr) = tbody.get("data").and_then(Value::as_array)
     {
         snap.tickets = arr
@@ -371,8 +418,16 @@ pub async fn sync_all(
                 let status = num_f64(t.get("status")) as i64;
                 TicketEntry {
                     id: (num_f64(t.get("id")) as i64).to_string(),
-                    subject: t.get("subject").and_then(Value::as_str).unwrap_or("").to_string(),
-                    status_text: if status == 1 { "已关闭".to_string() } else { "处理中".to_string() },
+                    subject: t
+                        .get("subject")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
+                    status_text: if status == 1 {
+                        "已关闭".to_string()
+                    } else {
+                        "处理中".to_string()
+                    },
                     closed: status == 1,
                     updated_at: String::new(),
                     messages: Vec::new(),
@@ -446,11 +501,64 @@ pub async fn purchase_plan(
     if num_f64(checkout.get("type")) as i64 == -1 {
         return Ok(None);
     }
-    if let Some(url) = checkout.get("data").and_then(Value::as_str).filter(|s| s.starts_with("http")) {
+    if let Some(url) = checkout
+        .get("data")
+        .and_then(Value::as_str)
+        .filter(|s| s.starts_with("http"))
+    {
         let _ = open_external_url(url);
         return Ok(Some(url.to_string()));
     }
     bail!("支付渠道未返回有效收银台链接")
+}
+
+pub fn normalize_xboard_redirect(redirect_path: &str) -> &str {
+    let trimmed = redirect_path
+        .trim()
+        .trim_start_matches('/')
+        .trim_start_matches("#/");
+    match trimmed {
+        "" | "user" | "dashboard" => "dashboard",
+        "plans" | "plan" | "user/plans" => "plan",
+        "orders" | "order" | "user/orders" => "order",
+        "wallet" | "account" | "profile" | "user/wallet" | "user/account" => "profile",
+        "tickets" | "ticket" | "user/support" => "ticket",
+        "invite" | "user/referrals" => "invite",
+        other => other,
+    }
+}
+
+pub async fn open_portal_url(
+    cfg: &BuildConfig,
+    base_url: &str,
+    auth_data: &str,
+    redirect_path: &str,
+) -> Result<String> {
+    let redirect = normalize_xboard_redirect(redirect_path);
+    let body = xboard_post(
+        base_url,
+        &cfg.user_agent,
+        auth_data,
+        "/api/v1/user/getQuickLoginUrl",
+        json!({ "redirect": redirect }),
+    )
+    .await?;
+    let login_url = body
+        .get("data")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .context("网页登录地址为空")?;
+    let parsed_login = url::Url::parse(login_url).context("网页登录地址格式无效")?;
+    let parsed_base = url::Url::parse(base_url).context("面板地址格式无效")?;
+    ensure!(
+        parsed_login.scheme() == parsed_base.scheme()
+            && parsed_login.host_str() == parsed_base.host_str()
+            && parsed_login.port_or_known_default() == parsed_base.port_or_known_default(),
+        "网页登录地址必须来自当前 Xboard 站点"
+    );
+    open_external_url(login_url)?;
+    Ok(login_url.to_string())
 }
 
 pub async fn redeem_gift_card(
@@ -502,7 +610,11 @@ pub async fn fetch_ticket_detail(
                     } else {
                         "客服".to_string()
                     },
-                    message: m.get("message").and_then(Value::as_str).unwrap_or("").to_string(),
+                    message: m
+                        .get("message")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
                     created_at: String::new(),
                 })
                 .collect()

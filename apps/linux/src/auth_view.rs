@@ -88,7 +88,9 @@ impl AuthView {
         send_reset_btn.set_valign(gtk::Align::Center);
         reset_token_row.add_suffix(&send_reset_btn);
         reset_token_row.set_visible(false);
-        let reset_pw_row = adw::PasswordEntryRow::builder().title("新密码（至少 10 位）").build();
+        let reset_pw_row = adw::PasswordEntryRow::builder()
+            .title("新密码（至少 10 位）")
+            .build();
         reset_pw_row.set_visible(false);
 
         form_group.add(&email_row);
@@ -189,29 +191,37 @@ impl AuthView {
                 let p = p.clone();
                 let (tx, rx) = std::sync::mpsc::channel();
                 handle.spawn(async move {
-                    let _ = tx.send(p.send_email_code(&email).await.map_err(|e| format!("{e:#}")));
+                    let _ = tx.send(
+                        p.send_email_code(&email)
+                            .await
+                            .map_err(|e| format!("{e:#}")),
+                    );
                 });
                 let btn_c = btn.clone();
                 let mlbl_c = mlbl.clone();
-                gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                    Ok(Ok(())) => {
-                        btn_c.set_sensitive(true);
-                        mlbl_c.remove_css_class("error");
-                        mlbl_c.set_text("验证码已发送，请查收邮箱。");
-                        mlbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Ok(Err(err)) => {
-                        btn_c.set_sensitive(true);
-                        mlbl_c.add_css_class("error");
-                        mlbl_c.set_text(&err);
-                        mlbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                    Err(_) => {
-                        btn_c.set_sensitive(true);
-                        gtk::glib::ControlFlow::Break
+                gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                    match rx.try_recv() {
+                        Ok(Ok(())) => {
+                            btn_c.set_sensitive(true);
+                            mlbl_c.remove_css_class("error");
+                            mlbl_c.set_text("验证码已发送，请查收邮箱。");
+                            mlbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Ok(Err(err)) => {
+                            btn_c.set_sensitive(true);
+                            mlbl_c.add_css_class("error");
+                            mlbl_c.set_text(&err);
+                            mlbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            gtk::glib::ControlFlow::Continue
+                        }
+                        Err(_) => {
+                            btn_c.set_sensitive(true);
+                            gtk::glib::ControlFlow::Break
+                        }
                     }
                 });
             });
@@ -230,29 +240,37 @@ impl AuthView {
                 let p = p.clone();
                 let (tx, rx) = std::sync::mpsc::channel();
                 handle.spawn(async move {
-                    let _ = tx.send(p.request_password_reset(&email).await.map_err(|e| format!("{e:#}")));
+                    let _ = tx.send(
+                        p.request_password_reset(&email)
+                            .await
+                            .map_err(|e| format!("{e:#}")),
+                    );
                 });
                 let btn_c = btn.clone();
                 let mlbl_c = mlbl.clone();
-                gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                    Ok(Ok(msg)) => {
-                        btn_c.set_sensitive(true);
-                        mlbl_c.remove_css_class("error");
-                        mlbl_c.set_text(&msg);
-                        mlbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Ok(Err(err)) => {
-                        btn_c.set_sensitive(true);
-                        mlbl_c.add_css_class("error");
-                        mlbl_c.set_text(&err);
-                        mlbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                    Err(_) => {
-                        btn_c.set_sensitive(true);
-                        gtk::glib::ControlFlow::Break
+                gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                    match rx.try_recv() {
+                        Ok(Ok(msg)) => {
+                            btn_c.set_sensitive(true);
+                            mlbl_c.remove_css_class("error");
+                            mlbl_c.set_text(&msg);
+                            mlbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Ok(Err(err)) => {
+                            btn_c.set_sensitive(true);
+                            mlbl_c.add_css_class("error");
+                            mlbl_c.set_text(&err);
+                            mlbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            gtk::glib::ControlFlow::Continue
+                        }
+                        Err(_) => {
+                            btn_c.set_sensitive(true);
+                            gtk::glib::ControlFlow::Break
+                        }
                     }
                 });
             });
@@ -284,35 +302,43 @@ impl AuthView {
                     let p = p.clone();
                     let (tx, rx) = std::sync::mpsc::channel();
                     handle.spawn(async move {
-                        let _ = tx.send(p.confirm_password_reset(&tok, &new_pw).await.map_err(|e| format!("{e:#}")));
+                        let _ = tx.send(
+                            p.confirm_password_reset(&tok, &new_pw)
+                                .await
+                                .map_err(|e| format!("{e:#}")),
+                        );
                     });
                     let btn_c = btn.clone();
                     let mlbl_c = mlbl.clone();
                     let rtrow_c = rtrow.clone();
                     let rprow_c = rprow.clone();
                     let lt_c = ltoggle.clone();
-                    gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                        Ok(Ok(())) => {
-                            btn_c.set_sensitive(true);
-                            rtrow_c.set_text("");
-                            rprow_c.set_text("");
-                            lt_c.set_active(true);
-                            mlbl_c.remove_css_class("error");
-                            mlbl_c.set_text("密码已重置，请使用新密码登录。");
-                            mlbl_c.set_visible(true);
-                            gtk::glib::ControlFlow::Break
-                        }
-                        Ok(Err(err)) => {
-                            btn_c.set_sensitive(true);
-                            mlbl_c.add_css_class("error");
-                            mlbl_c.set_text(&err);
-                            mlbl_c.set_visible(true);
-                            gtk::glib::ControlFlow::Break
-                        }
-                        Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                        Err(_) => {
-                            btn_c.set_sensitive(true);
-                            gtk::glib::ControlFlow::Break
+                    gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                        match rx.try_recv() {
+                            Ok(Ok(())) => {
+                                btn_c.set_sensitive(true);
+                                rtrow_c.set_text("");
+                                rprow_c.set_text("");
+                                lt_c.set_active(true);
+                                mlbl_c.remove_css_class("error");
+                                mlbl_c.set_text("密码已重置，请使用新密码登录。");
+                                mlbl_c.set_visible(true);
+                                gtk::glib::ControlFlow::Break
+                            }
+                            Ok(Err(err)) => {
+                                btn_c.set_sensitive(true);
+                                mlbl_c.add_css_class("error");
+                                mlbl_c.set_text(&err);
+                                mlbl_c.set_visible(true);
+                                gtk::glib::ControlFlow::Break
+                            }
+                            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                                gtk::glib::ControlFlow::Continue
+                            }
+                            Err(_) => {
+                                btn_c.set_sensitive(true);
+                                gtk::glib::ControlFlow::Break
+                            }
                         }
                     });
                     return;
@@ -344,23 +370,27 @@ impl AuthView {
                 let mlbl_c = mlbl.clone();
                 let p_c = p.clone();
                 let v_c = view_c.clone();
-                gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                    Ok(Ok(_)) => {
-                        btn_c.set_sensitive(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Ok(Err(err)) => {
-                        btn_c.set_sensitive(true);
-                        v_c.apply_snapshot(&p_c.snapshot());
-                        mlbl_c.add_css_class("error");
-                        mlbl_c.set_text(&err);
-                        mlbl_c.set_visible(true);
-                        gtk::glib::ControlFlow::Break
-                    }
-                    Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                    Err(_) => {
-                        btn_c.set_sensitive(true);
-                        gtk::glib::ControlFlow::Break
+                gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                    match rx.try_recv() {
+                        Ok(Ok(_)) => {
+                            btn_c.set_sensitive(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Ok(Err(err)) => {
+                            btn_c.set_sensitive(true);
+                            v_c.apply_snapshot(&p_c.snapshot());
+                            mlbl_c.add_css_class("error");
+                            mlbl_c.set_text(&err);
+                            mlbl_c.set_visible(true);
+                            gtk::glib::ControlFlow::Break
+                        }
+                        Err(std::sync::mpsc::TryRecvError::Empty) => {
+                            gtk::glib::ControlFlow::Continue
+                        }
+                        Err(_) => {
+                            btn_c.set_sensitive(true);
+                            gtk::glib::ControlFlow::Break
+                        }
                     }
                 });
             });
@@ -370,7 +400,11 @@ impl AuthView {
     }
 
     pub fn apply_snapshot(&self, snap: &PanelStateSnapshot) {
-        self.app_title.set_text(if snap.app_name.is_empty() { "XBClient" } else { &snap.app_name });
+        self.app_title.set_text(if snap.app_name.is_empty() {
+            "XBClient"
+        } else {
+            &snap.app_name
+        });
         let is_px = snap.panel_type == "pxboard";
         let mut m = self.mode.borrow().clone();
         if m == "register" && !snap.registration_enabled {
@@ -397,13 +431,19 @@ impl AuthView {
         self.form_group.set_visible(!challenge_blocks);
         self.submit_btn.set_visible(!challenge_blocks);
         self.password_row.set_visible(!is_reset);
-        self.password_row
-            .set_title(if is_reg && is_px { "密码（至少 10 位）" } else { "密码" });
+        self.password_row.set_title(if is_reg && is_px {
+            "密码（至少 10 位）"
+        } else {
+            "密码"
+        });
         self.mfa_row.set_visible(is_login && snap.mfa_required);
         self.code_row
             .set_visible(is_reg && snap.email_verify_required && !is_px);
-        self.invite_row
-            .set_title(if is_px { "推广码（选填）" } else { "邀请码（选填）" });
+        self.invite_row.set_title(if is_px {
+            "推广码（选填）"
+        } else {
+            "邀请码（选填）"
+        });
         self.invite_row.set_visible(is_reg);
         self.reset_token_row.set_visible(is_reset);
         self.reset_pw_row.set_visible(is_reset);
@@ -443,7 +483,9 @@ impl AuthView {
                         let p = p.clone();
                         let u = target.clone();
                         rt.spawn(async move {
-                            let _ = p.dispatch_json("open_url", serde_json::json!({ "url": u })).await;
+                            let _ = p
+                                .dispatch_json("open_url", serde_json::json!({ "url": u }))
+                                .await;
                         });
                     });
                     self.browser_box.append(&reset_web_btn);
@@ -496,7 +538,10 @@ fn spawn_browser_auth(
     msg_label.set_visible(true);
     let (tx, rx) = std::sync::mpsc::channel();
     rt.spawn(async move {
-        let res = panel.browser_login(provider.as_deref()).await.map_err(|e| format!("{e:#}"));
+        let res = panel
+            .browser_login(provider.as_deref())
+            .await
+            .map_err(|e| format!("{e:#}"));
         let _ = tx.send(res);
     });
     gtk::glib::timeout_add_local(Duration::from_millis(200), move || match rx.try_recv() {

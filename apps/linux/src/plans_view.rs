@@ -192,11 +192,8 @@ impl PlansView {
                 .description(&desc)
                 .build();
             for per in &plan.periods {
-                let price_str = format_money_cents(
-                    per.price_cents,
-                    &snap.currency_symbol,
-                    &snap.currency_unit,
-                );
+                let price_str =
+                    format_money_cents(per.price_cents, &snap.currency_symbol, &snap.currency_unit);
                 let row = adw::ActionRow::builder()
                     .title(&per.label)
                     .subtitle(&price_str)
@@ -234,29 +231,33 @@ impl PlansView {
                     });
                     let btn_c = btn.clone();
                     let flbl_c = flbl.clone();
-                    gtk::glib::timeout_add_local(Duration::from_millis(120), move || match rx.try_recv() {
-                        Ok(Ok((redirect, _))) => {
-                            btn_c.set_sensitive(true);
-                            flbl_c.remove_css_class("error");
-                            flbl_c.set_text(if redirect.is_some() {
-                                "已打开外部收银台，完成支付后请点击刷新。"
-                            } else {
-                                "套餐已开通并同步订阅。"
-                            });
-                            flbl_c.set_visible(true);
-                            gtk::glib::ControlFlow::Break
-                        }
-                        Ok(Err(err)) => {
-                            btn_c.set_sensitive(true);
-                            flbl_c.add_css_class("error");
-                            flbl_c.set_text(&err);
-                            flbl_c.set_visible(true);
-                            gtk::glib::ControlFlow::Break
-                        }
-                        Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
-                        Err(_) => {
-                            btn_c.set_sensitive(true);
-                            gtk::glib::ControlFlow::Break
+                    gtk::glib::timeout_add_local(Duration::from_millis(120), move || {
+                        match rx.try_recv() {
+                            Ok(Ok((redirect, _))) => {
+                                btn_c.set_sensitive(true);
+                                flbl_c.remove_css_class("error");
+                                flbl_c.set_text(if redirect.is_some() {
+                                    "已打开外部收银台，完成支付后请点击刷新。"
+                                } else {
+                                    "套餐已开通并同步订阅。"
+                                });
+                                flbl_c.set_visible(true);
+                                gtk::glib::ControlFlow::Break
+                            }
+                            Ok(Err(err)) => {
+                                btn_c.set_sensitive(true);
+                                flbl_c.add_css_class("error");
+                                flbl_c.set_text(&err);
+                                flbl_c.set_visible(true);
+                                gtk::glib::ControlFlow::Break
+                            }
+                            Err(std::sync::mpsc::TryRecvError::Empty) => {
+                                gtk::glib::ControlFlow::Continue
+                            }
+                            Err(_) => {
+                                btn_c.set_sensitive(true);
+                                gtk::glib::ControlFlow::Break
+                            }
                         }
                     });
                 });

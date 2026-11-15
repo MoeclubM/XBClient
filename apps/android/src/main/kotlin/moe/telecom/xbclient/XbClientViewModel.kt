@@ -87,14 +87,19 @@ data class XbClientUiState(
     val noticesLoading: Boolean = false,
     val manualRefreshing: Boolean = false,
     val paymentEnabled: Boolean = BuildConfig.APP_PAYMENT_ENABLED,
-    val planRewardAdEnabled: Boolean = !PxBoardApi.enabled && BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty(),
-    val planRewardedAdUnitId: String = if (!PxBoardApi.enabled) BuildConfig.PLAN_REWARDED_AD_UNIT_ID else "",
-    val pointsRewardAdEnabled: Boolean = !PxBoardApi.enabled && BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty(),
-    val pointsRewardedAdUnitId: String = if (!PxBoardApi.enabled) BuildConfig.POINTS_REWARDED_AD_UNIT_ID else "",
-    val appOpenAdEnabled: Boolean = BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty(),
-    val appOpenAdUnitId: String = BuildConfig.APP_OPEN_AD_UNIT_ID,
+    val planRewardAdEnabled: Boolean = false,
+    val planRewardedAdUnitId: String = "",
+    val pointsRewardAdEnabled: Boolean = false,
+    val pointsRewardedAdUnitId: String = "",
+    val appOpenAdEnabled: Boolean = PxBoardApi.enabled && BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty(),
+    val appOpenAdUnitId: String = if (PxBoardApi.enabled) BuildConfig.APP_OPEN_AD_UNIT_ID else "",
     val adRewardLogs: List<AdRewardLogItem> = emptyList(),
     val adRewardLogsLoading: Boolean = false,
+    val checkingUpdate: Boolean = false,
+    val downloadingUpdate: Boolean = false,
+    val updateDownloadPercent: Int? = null,
+    val updateDownloadStatus: String = "",
+    val updateDownloadError: String = "",
     val updateAvailable: Boolean = false,
     val latestReleaseVersion: String = "",
     val latestReleaseUrl: String = "",
@@ -156,7 +161,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         refreshNotices(force = true)
         refreshPlans(force = true)
         refreshInvites(force = true)
-        refreshRewardConfig()
     }
     fun loginPxBoard(providerId: String? = null) = pxboardAuth.login(providerId)
     fun cancelPxBoardLogin() = pxboardAuth.cancelLogin()
@@ -185,8 +189,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private var pendingRewardScene = ""
     private var pendingRewardStartedAt = 0L
     private val hasBuildRewardAds: Boolean
-        get() = BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty() ||
-            BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty()
+        get() = PxBoardApi.enabled && (
+            BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty() ||
+                BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty()
+            )
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -472,22 +478,73 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             BrowserOpener.open(context, "https://play.google.com/store/apps/details?id=${context.packageName}")
             return
         }
+        if (_uiState.value.downloadingUpdate) {
+            return
+        }
         val downloadUrl = _uiState.value.latestDownloadUrl.trim()
         val releaseUrl = _uiState.value.latestReleaseUrl.trim()
-        dismissUpdateDialog()
+        val targetVersion = _uiState.value.latestReleaseVersion.ifBlank { "latest" }
         if (downloadUrl.endsWith(".apk", ignoreCase = true)) {
+            _uiState.update {
+                it.copy(
+                    downloadingUpdate = true,
+                    updateDownloadPercent = null,
+                    updateDownloadStatus = "正在连接下载源…",
+                    updateDownloadError = "",
+                )
+            }
             viewModelScope.launch(Dispatchers.IO) {
                 try {
-                    emitMessage("正在下载更新…")
                     val dir = File(context.cacheDir, "apk-updates").apply { mkdirs() }
                     val apkFile = File(dir, "update.apk")
-                    ApkUpdateInstaller.downloadApk(downloadUrl, apkFile, BuildConfig.USER_AGENT)
-                    emitMessage("正在打开安装程序…")
+                    moe.telecom.neto.sdk.NetoUpdateNotifier.downloadWithNotifications(
+                        context = app,
+                        client = netoClient,
+                        appTitle = appTitle,
+                        version = targetVersion,
+                        url = downloadUrl,
+                        targetFile = apkFile,
+                        onProgress = { snap ->
+                            val pct = snap.percent
+                            val line = if (pct != null && snap.totalBytes > 0L) {
+                                "正在下载安装包… $pct% (${moe.telecom.neto.sdk.formatNetoBytes(snap.downloadedBytes)} / ${moe.telecom.neto.sdk.formatNetoBytes(snap.totalBytes)})"
+                            } else if (snap.downloadedBytes > 0L) {
+                                "正在下载安装包… 已下载 ${moe.telecom.neto.sdk.formatNetoBytes(snap.downloadedBytes)}"
+                            } else {
+                                "正在连接下载源…"
+                            }
+                            _uiState.update { cur ->
+                                cur.copy(
+                                    updateDownloadPercent = pct,
+                                    updateDownloadStatus = line,
+                                )
+                            }
+                        },
+                    )
+                    _uiState.update {
+                        it.copy(
+                            downloadingUpdate = false,
+                            updateAvailable = false,
+                            updateDownloadPercent = 100,
+                            updateDownloadStatus = "",
+                        )
+                    }
                     ApkUpdateInstaller.installApk(context, apkFile)
                 } catch (error: Exception) {
+                    _uiState.update {
+                        it.copy(
+                            downloadingUpdate = false,
+                            updateDownloadError = error.message ?: "下载失败",
+                        )
+                    }
                     emitMessage("应用内更新失败：${error.message}")
                 }
             }
+            return
+        }
+        dismissUpdateDialog()
+        if (releaseUrl.isNotEmpty()) {
+            BrowserOpener.open(context, releaseUrl)
             return
         }
         throw IllegalStateException("更新下载地址不是 APK：$releaseUrl")
@@ -551,35 +608,16 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 if (blockReason.isNotEmpty()) {
                     netoClient.clearManagedProfile(name = appTitle, url = subscribeUrl)
                 } else {
-                    if (subscribeUrl.isNotEmpty()) {
-                        netoClient.syncManagedSubscription(
-                            id = "managed-default",
-                            name = appTitle,
-                            url = subscribeUrl,
-                            flag = "aerion",
-                            userAgent = BuildConfig.USER_AGENT,
-                        )
+                    if (subscribeUrl.isEmpty()) {
+                        throw IllegalStateException("订阅地址为空")
                     }
-                    val xbclientNodesResult = XboardApi.request("xbclient_nodes", defaultApiUrl(), current.authData, JSONObject())
-                    if (xbclientNodesResult.getBoolean("ok")) {
-                        val nodesBody = requireSuccessfulBody("XBClient 节点同步", xbclientNodesResult)
-                        val pluginNodes = nodesBody.getJSONObject("data").getJSONArray("nodes")
-                        if (pluginNodes.length() > 0 || subscribeUrl.isEmpty()) {
-                            netoClient.upsertManagedProfile(
-                                id = "managed-default",
-                                name = appTitle,
-                                url = subscribeUrl,
-                                nodes = pluginNodes,
-                                preserveRoutes = true,
-                                usedUploadBytes = uploadBytes,
-                                usedDownloadBytes = downloadBytes,
-                                totalBytes = totalBytes,
-                                expireUnix = expiredAt,
-                            )
-                        }
-                    } else if (subscribeUrl.isEmpty()) {
-                        throw IllegalStateException(resultError(xbclientNodesResult))
-                    }
+                    netoClient.syncManagedSubscription(
+                        id = "managed-default",
+                        name = appTitle,
+                        url = subscribeUrl,
+                        flag = "aerion",
+                        userAgent = BuildConfig.USER_AGENT,
+                    )
                 }
                 val now = System.currentTimeMillis()
                 _uiState.update {
@@ -1101,17 +1139,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (authData.isEmpty()) {
             return
         }
-        if (PxBoardApi.enabled) {
-            nativePanel.refreshRewardConfig()
-            return
-        }
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                loadRewardConfig(authData)
-            } catch (error: Exception) {
-                emitMessage("广告配置加载失败：${error.message}")
-            }
-        }
+        nativePanel.refreshRewardConfig()
     }
 
     fun refreshAdRewardHistory(showLoading: Boolean = false) {
@@ -1120,32 +1148,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (authData.isEmpty()) {
             return
         }
-        if (PxBoardApi.enabled) {
-            nativePanel.refreshRewardHistory(showLoading)
-            return
-        }
-        if (showLoading) {
-            _uiState.update { it.copy(adRewardLogsLoading = true) }
-        }
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val body = requireSuccessfulBody(
-                    "广告奖励记录",
-                    XboardApi.request("xbclient_reward_history", defaultApiUrl(), authData, JSONObject())
-                )
-                val logs = extractDataArray(body).toAdRewardLogItemList()
-                _uiState.update {
-                    it.copy(adRewardLogs = logs, adRewardLogsLoading = false)
-                }
-                notifyPendingRewardIfCredited(logs)
-                persistStoredState(_uiState.value)
-            } catch (error: Exception) {
-                if (showLoading) {
-                    _uiState.update { it.copy(adRewardLogsLoading = false) }
-                }
-                emitMessage("广告奖励记录加载失败：${error.message}")
-            }
-        }
+        nativePanel.refreshRewardHistory(showLoading)
     }
 
     fun refreshUserInfo(showErrors: Boolean = false) {
@@ -1179,7 +1182,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     )
                 }
                 persistStoredState(_uiState.value)
-                if (hasBuildRewardAds) refreshAdRewardHistory()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -1200,40 +1202,28 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                if (PxBoardApi.enabled) {
-                    val data = PxBoardApi.rpc(
-                        "admob",
-                        "reward.prepare",
-                        authData,
-                        JSONObject().put("scene", scene),
-                    ) as JSONObject
-                    val adUnitId: String
-                    val userId: String
-                    val customData: String
-                    if (scene == REWARD_SCENE_POINTS) {
-                        adUnitId = if (data.optBoolean("pointsRewardAdEnabled")) BuildConfig.POINTS_REWARDED_AD_UNIT_ID else ""
-                        userId = data.optString("pointsSsvUserId")
-                        customData = data.optString("pointsSsvCustomData")
-                    } else {
-                        adUnitId = if (data.optBoolean("planRewardAdEnabled")) BuildConfig.PLAN_REWARDED_AD_UNIT_ID else ""
-                        userId = data.optString("planSsvUserId")
-                        customData = data.optString("planSsvCustomData")
-                    }
-                    if (adUnitId.isEmpty()) throw IllegalStateException("广告场景未启用：$scene")
-                    if (userId.isEmpty() || customData.isEmpty()) throw IllegalStateException("服务端激励广告 SSV 未就绪：$scene")
-                    pendingRewardScene = scene
-                    emitEvent(XbClientEvent.ShowRewardAd(adUnitId, userId, customData))
-                    return@launch
+                val data = PxBoardApi.rpc(
+                    "admob",
+                    "reward.prepare",
+                    authData,
+                    JSONObject().put("scene", scene),
+                ) as JSONObject
+                val adUnitId: String
+                val userId: String
+                val customData: String
+                if (scene == REWARD_SCENE_POINTS) {
+                    adUnitId = if (data.optBoolean("pointsRewardAdEnabled")) BuildConfig.POINTS_REWARDED_AD_UNIT_ID else ""
+                    userId = data.optString("pointsSsvUserId")
+                    customData = data.optString("pointsSsvCustomData")
+                } else {
+                    adUnitId = if (data.optBoolean("planRewardAdEnabled")) BuildConfig.PLAN_REWARDED_AD_UNIT_ID else ""
+                    userId = data.optString("planSsvUserId")
+                    customData = data.optString("planSsvCustomData")
                 }
-                val config = loadRewardConfig(authData, scene)
-                if (config.first.isEmpty()) {
-                    throw IllegalStateException("广告场景未启用：$scene")
-                }
-                if (config.second.isEmpty() || config.third.isEmpty()) {
-                    throw IllegalStateException("服务端激励广告 SSV 未就绪：$scene")
-                }
+                if (adUnitId.isEmpty()) throw IllegalStateException("广告场景未启用：$scene")
+                if (userId.isEmpty() || customData.isEmpty()) throw IllegalStateException("服务端激励广告 SSV 未就绪：$scene")
                 pendingRewardScene = scene
-                emitEvent(XbClientEvent.ShowRewardAd(config.first, config.second, config.third))
+                emitEvent(XbClientEvent.ShowRewardAd(adUnitId, userId, customData))
             } catch (error: Exception) {
                 emitMessage("广告配置加载失败：${error.message}")
             }
@@ -1241,47 +1231,31 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun onRewardAdEarned(customData: String) {
+        if (!PxBoardApi.enabled) return
         pendingRewardStartedAt = System.currentTimeMillis() / 1000L - 10L
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                if (PxBoardApi.enabled) {
-                    val auth = _uiState.value.authData
-                    val data = PxBoardApi.rpc(
-                        "admob",
-                        "reward.pending",
-                        auth,
-                        JSONObject().put("customData", customData),
-                    ) as JSONObject
-                    if (data.optBoolean("credited")) {
-                        showRewardCreditedDialog(data.toPxBoardAdRewardLogItem().rewardContent)
-                        pendingRewardScene = ""
-                        pendingRewardStartedAt = 0L
-                        nativePanel.refresh(force = true)
-                        return@launch
-                    }
-                    nativePanel.refreshRewardHistory()
-                    for (attempt in 0 until 5) {
-                        delay(2000L)
-                        if (pendingRewardScene.isEmpty() || _uiState.value.authData != auth) break
-                        nativePanel.refreshRewardHistory()
-                    }
+                val auth = _uiState.value.authData
+                val data = PxBoardApi.rpc(
+                    "admob",
+                    "reward.pending",
+                    auth,
+                    JSONObject().put("customData", customData),
+                ) as JSONObject
+                if (data.optBoolean("credited")) {
+                    showRewardCreditedDialog(data.toPxBoardAdRewardLogItem().rewardContent)
+                    pendingRewardScene = ""
+                    pendingRewardStartedAt = 0L
                     nativePanel.refresh(force = true)
                     return@launch
                 }
-                val result = XboardApi.request(
-                    "xbclient_reward_pending",
-                    defaultApiUrl(),
-                    _uiState.value.authData,
-                    JSONObject().put("custom_data", customData)
-                )
-                val body = requireSuccessfulBody("广告验证记录", result)
-                val data = body.getJSONObject("data")
-                if (data.getBoolean("credited")) {
-                    showRewardCreditedDialog(rewardContentText(data))
-                    pendingRewardScene = ""
-                    pendingRewardStartedAt = 0L
+                nativePanel.refreshRewardHistory()
+                for (attempt in 0 until 5) {
+                    delay(2000L)
+                    if (pendingRewardScene.isEmpty() || _uiState.value.authData != auth) break
+                    nativePanel.refreshRewardHistory()
                 }
-                refreshUserInfo()
+                nativePanel.refresh(force = true)
             } catch (error: Exception) {
                 emitMessage("广告验证记录提交失败：${error.message}")
             }
@@ -1373,45 +1347,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             } catch (error: Exception) {
                 emitMessage("账户金额支付失败：${error.message}")
             }
-        }
-    }
-
-    private suspend fun loadRewardConfig(authData: String, scene: String = REWARD_SCENE_PLAN): Triple<String, String, String> {
-        val result = XboardApi.request("admob_reward_config", defaultApiUrl(), authData, JSONObject())
-        if (!result.getBoolean("ok")) {
-            throw IllegalStateException(resultError(result))
-        }
-        val body = result.getJSONObject("body")
-        body.requireNotXboardFail()
-        val data = body.getJSONObject("data")
-        val planAdUnitId = BuildConfig.PLAN_REWARDED_AD_UNIT_ID
-        val planEnabled = planAdUnitId.isNotEmpty()
-        val planUserId = if (planEnabled) data.optString("plan_ssv_user_id") else ""
-        val planCustomData = if (planEnabled) data.optString("plan_ssv_custom_data") else ""
-        val pointsAdUnitId = BuildConfig.POINTS_REWARDED_AD_UNIT_ID
-        val pointsEnabled = pointsAdUnitId.isNotEmpty()
-        val pointsUserId = if (pointsEnabled) data.optString("points_ssv_user_id") else ""
-        val pointsCustomData = if (pointsEnabled) data.optString("points_ssv_custom_data") else ""
-        _uiState.update {
-            it.copy(
-                paymentEnabled = BuildConfig.APP_PAYMENT_ENABLED,
-                appOpenAdEnabled = BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty(),
-                appOpenAdUnitId = BuildConfig.APP_OPEN_AD_UNIT_ID,
-                planRewardAdEnabled = planEnabled,
-                planRewardedAdUnitId = planAdUnitId,
-                pointsRewardAdEnabled = pointsEnabled,
-                pointsRewardedAdUnitId = pointsAdUnitId
-            )
-        }
-        persistStoredState(_uiState.value)
-        val updateProjectUrl = BuildConfig.GITHUB_PROJECT_URL.trim()
-        if (updateProjectUrl.isNotBlank() && !isPlayInstallation()) {
-            checkGithubReleaseUpdate(updateProjectUrl)
-        }
-        return if (scene == REWARD_SCENE_POINTS) {
-            Triple(pointsAdUnitId, pointsUserId, pointsCustomData)
-        } else {
-            Triple(planAdUnitId, planUserId, planCustomData)
         }
     }
 
@@ -1507,12 +1442,12 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             inviteCommissionRate = prefs[Keys.INVITE_COMMISSION_RATE] ?: 0,
             inviteCommissionBalance = prefs[Keys.INVITE_COMMISSION_BALANCE] ?: 0,
             paymentEnabled = BuildConfig.APP_PAYMENT_ENABLED,
-            planRewardAdEnabled = !PxBoardApi.enabled && BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty(),
-            planRewardedAdUnitId = if (!PxBoardApi.enabled) BuildConfig.PLAN_REWARDED_AD_UNIT_ID else "",
-            pointsRewardAdEnabled = !PxBoardApi.enabled && BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty(),
-            pointsRewardedAdUnitId = if (!PxBoardApi.enabled) BuildConfig.POINTS_REWARDED_AD_UNIT_ID else "",
-            appOpenAdEnabled = BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty(),
-            appOpenAdUnitId = BuildConfig.APP_OPEN_AD_UNIT_ID,
+            planRewardAdEnabled = false,
+            planRewardedAdUnitId = "",
+            pointsRewardAdEnabled = false,
+            pointsRewardedAdUnitId = "",
+            appOpenAdEnabled = PxBoardApi.enabled && BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty(),
+            appOpenAdUnitId = if (PxBoardApi.enabled) BuildConfig.APP_OPEN_AD_UNIT_ID else "",
             adRewardLogs = emptyList(),
             appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
             enableBlur = prefs[Keys.ENABLE_BLUR] ?: true,
@@ -1632,10 +1567,34 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         if (value.isEmpty()) {
             throw IllegalStateException("GitHub 项目地址为空。")
         }
+        val curState = _uiState.value
+        if (curState.checkingUpdate || curState.downloadingUpdate) {
+            if (manual && curState.downloadingUpdate) {
+                _uiState.update { it.copy(updateAvailable = true) }
+            }
+            return
+        }
+        if (manual && curState.latestReleaseVersion.isNotEmpty() && curState.latestDownloadUrl.isNotEmpty()) {
+            _uiState.update { it.copy(updateAvailable = true, updateDownloadError = "") }
+            return
+        }
+        val currentVersion = BuildConfig.VERSION_NAME.removeSuffix(".debug")
+        if (manual) {
+            _uiState.update { it.copy(checkingUpdate = true, updateDownloadError = "") }
+            moe.telecom.neto.sdk.NetoUpdateNotifier.notifyChecking(app, appTitle, currentVersion)
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val currentVersion = BuildConfig.VERSION_NAME.removeSuffix(".debug")
                 val result = netoClient.checkUpdate(value, currentVersion)
+                if (manual || result.hasUpdate) {
+                    moe.telecom.neto.sdk.NetoUpdateNotifier.notifyCheckResult(
+                        context = app,
+                        appTitle = appTitle,
+                        hasUpdate = result.hasUpdate,
+                        latestVersion = result.latestVersion,
+                        currentVersion = currentVersion,
+                    )
+                }
                 if (!result.hasUpdate) {
                     if (manual) {
                         emitMessage("已是最新版本")
@@ -1648,12 +1607,22 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         updateAvailable = true,
                         latestReleaseVersion = result.latestVersion,
                         latestReleaseUrl = result.releaseUrl,
-                        latestDownloadUrl = downloadUrl
+                        latestDownloadUrl = downloadUrl,
+                        updateDownloadError = "",
                     )
                 }
             } catch (error: Exception) {
                 if (manual) {
+                    moe.telecom.neto.sdk.NetoUpdateNotifier.notifyError(
+                        context = app,
+                        appTitle = appTitle,
+                        message = error.message ?: "检查更新失败",
+                    )
                     emitMessage("更新检查失败：${error.message}")
+                }
+            } finally {
+                if (manual) {
+                    _uiState.update { it.copy(checkingUpdate = false) }
                 }
             }
         }

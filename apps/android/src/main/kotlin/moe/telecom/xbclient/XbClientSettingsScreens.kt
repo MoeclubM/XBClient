@@ -66,7 +66,17 @@ internal fun SettingsScreen(
             NetoPreferenceCard {
                 ArrowPreference(
                     title = stringResource(R.string.app_name),
-                    summary = stringResource(R.string.about_version, BuildConfig.VERSION_NAME.removeSuffix(".debug")),
+                    summary = when {
+                        state.checkingUpdate -> "正在检查更新…"
+                        state.downloadingUpdate -> {
+                            val pct = state.updateDownloadPercent
+                            if (pct != null) "正在下载更新… $pct%" else "正在下载更新…"
+                        }
+                        state.latestReleaseVersion.isNotEmpty() -> {
+                            "${stringResource(R.string.about_version, BuildConfig.VERSION_NAME.removeSuffix(".debug"))} · 新版本 ${state.latestReleaseVersion}"
+                        }
+                        else -> stringResource(R.string.about_version, BuildConfig.VERSION_NAME.removeSuffix(".debug"))
+                    },
                     onClick = { viewModel.checkForUpdatesManual() },
                 )
                 val links = listOf(

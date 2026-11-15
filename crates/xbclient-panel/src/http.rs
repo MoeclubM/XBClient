@@ -178,13 +178,7 @@ pub async fn xboard_get(
             qp.append_pair(k, v);
         }
     }
-    let mut headers = build_headers(user_agent, auth_data, false)?;
-    if path == "/api/v1/admob/user/nodes" {
-        headers.insert(
-            "X-XBClient-Protocols",
-            HeaderValue::from_static("sudoku,flux"),
-        );
-    }
+    let headers = build_headers(user_agent, auth_data, false)?;
     let resp = SHARED_HTTP_CLIENT
         .get(url.as_str())
         .headers(headers)
@@ -217,11 +211,15 @@ async fn parse_xboard_response(resp: reqwest::Response) -> Result<Value> {
     let status = resp.status();
     let body: Value = resp.json().await.unwrap_or_else(|_| json!({}));
     if !status.is_success() || body.get("status").and_then(Value::as_str) == Some("fail") {
-        let msg = body
-            .get("message")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-        bail!("{}", if msg.is_empty() { format!("HTTP {}", status.as_u16()) } else { msg.to_string() });
+        let msg = body.get("message").and_then(Value::as_str).unwrap_or("");
+        bail!(
+            "{}",
+            if msg.is_empty() {
+                format!("HTTP {}", status.as_u16())
+            } else {
+                msg.to_string()
+            }
+        );
     }
     Ok(body)
 }
@@ -231,10 +229,37 @@ pub fn open_external_url(url: &str) -> Result<()> {
     ensure!(!target.is_empty(), "目标链接为空");
     #[cfg(target_os = "windows")]
     {
-        std::process::Command::new("rundll32.exe")
-            .args(["url.dll,FileProtocolHandler", target])
-            .spawn()
-            .context("launch browser on Windows")?;
+        use std::os::windows::ffi::OsStrExt;
+        #[link(name = "shell32")]
+        unsafe extern "system" {
+            fn ShellExecuteW(
+                hwnd: *mut core::ffi::c_void,
+                lp_operation: *const u16,
+                lp_file: *const u16,
+                lp_parameters: *const u16,
+                lp_directory: *const u16,
+                n_show_cmd: i32,
+            ) -> isize;
+        }
+        let op: Vec<u16> = std::ffi::OsStr::new("open")
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let file: Vec<u16> = std::ffi::OsStr::new(target)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let rc = unsafe {
+            ShellExecuteW(
+                std::ptr::null_mut(),
+                op.as_ptr(),
+                file.as_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                1,
+            )
+        };
+        ensure!(rc > 32, "打开系统浏览器失败 (ShellExecuteW {rc})");
     }
     #[cfg(target_os = "linux")]
     {

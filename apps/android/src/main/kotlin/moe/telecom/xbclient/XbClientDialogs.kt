@@ -1,5 +1,6 @@
 package moe.telecom.xbclient
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,10 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -72,17 +75,52 @@ internal fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewMode
         summary = stringResource(R.string.update_message, BuildConfig.VERSION_NAME.removeSuffix(".debug"), state.latestReleaseVersion),
         onDismissRequest = viewModel::dismissUpdateDialog
     ) {
+        if (state.downloadingUpdate || state.updateDownloadError.isNotEmpty()) {
+            if (state.downloadingUpdate) {
+                val frac = ((state.updateDownloadPercent ?: 8).coerceIn(4, 100)) / 100f
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(frac)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(MiuixTheme.colorScheme.primary),
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = state.updateDownloadStatus.ifEmpty { "正在下载更新…" },
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                Spacer(Modifier.height(12.dp))
+            } else {
+                Text(
+                    text = "下载失败：${state.updateDownloadError}",
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.error,
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+        }
         Row(modifier = Modifier.fillMaxWidth()) {
             TextButton(
-                text = stringResource(R.string.common_later),
+                text = if (state.downloadingUpdate) "后台下载" else stringResource(R.string.common_later),
                 onClick = viewModel::dismissUpdateDialog,
                 modifier = Modifier.weight(1f)
             )
             Spacer(Modifier.size(12.dp))
             TextButton(
-                text = stringResource(id = if (state.latestDownloadUrl.isEmpty()) R.string.update_open_release else R.string.update_download),
+                text = if (state.downloadingUpdate) "下载中…" else stringResource(id = if (state.latestDownloadUrl.isEmpty()) R.string.update_open_release else R.string.update_download),
                 onClick = { viewModel.openUpdatePage(context) },
                 modifier = Modifier.weight(1f),
+                enabled = !state.downloadingUpdate,
                 colors = ButtonDefaults.textButtonColorsPrimary()
             )
         }

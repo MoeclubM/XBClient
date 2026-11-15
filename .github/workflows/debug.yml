@@ -80,7 +80,7 @@ jobs:
             echo "::error::XBCLIENT_OAUTH_CALLBACK_SCHEME is empty or not available to this workflow"
             exit 1
           fi
-          if { [ -n "${XBCLIENT_APP_OPEN_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_PLAN_REWARDED_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_POINTS_REWARDED_AD_UNIT_ID:-}" ]; } && [ -z "${XBCLIENT_ADMOB_APP_ID:-}" ]; then
+          if [ "$panel_type" = "pxboard" ] && { [ -n "${XBCLIENT_APP_OPEN_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_PLAN_REWARDED_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_POINTS_REWARDED_AD_UNIT_ID:-}" ]; } && [ -z "${XBCLIENT_ADMOB_APP_ID:-}" ]; then
             echo "::error::XBCLIENT_ADMOB_APP_ID is required when any AdMob ad unit ID is configured"
             exit 1
           fi
@@ -181,7 +181,7 @@ jobs:
       - name: Build xbclient_ffi & WinUI 3 app
         shell: bash
         run: |
-          latest_tag="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.18)"
+          latest_tag="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.19)"
           base_ver="${latest_tag#v}"
           cargo build --release -p xbclient-ffi -p xbclient-service
           mkdir -p apps/windows/native dist
@@ -205,7 +205,7 @@ jobs:
       - name: Build beta Windows installer (Inno Setup)
         shell: pwsh
         run: |
-          $latestTag = (git describe --tags --abbrev=0 2>$null); if (-not $latestTag) { $latestTag = "v0.0.18" }
+          $latestTag = (git describe --tags --abbrev=0 2>$null); if (-not $latestTag) { $latestTag = "v0.0.19" }
           $baseVer = $latestTag.TrimStart('v')
           $appName = $env:XBCLIENT_APP_NAME
           $outBase = "$appName-win-x64-beta-setup-$($env:GITHUB_RUN_ID)"
