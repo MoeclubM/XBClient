@@ -86,7 +86,7 @@ internal fun SettingsScreen(
                     R.string.about_source_code to "https://github.com/MoeclubM/XBClient",
                 ).filter { it.second.isNotEmpty() }
                 for ((label, url) in links) {
-                    ArrowPreference(title = stringResource(label), onClick = { openBrowser(context, url) })
+                    ArrowPreference(title = stringResource(label), onClick = { BrowserOpener.open(context, url) })
                 }
                 ArrowPreference(
                     title = stringResource(R.string.about_open_source_licenses),

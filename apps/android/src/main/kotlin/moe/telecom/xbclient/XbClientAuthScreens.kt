@@ -503,8 +503,8 @@ private fun RegisterLegalAgreement(checked: Boolean, onCheckedChange: (Boolean) 
         Column(Modifier.weight(1f).padding(start = 8.dp)) {
             Text(stringResource(R.string.auth_terms_agree), color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LinkText(stringResource(R.string.about_user_agreement)) { openBrowser(context, BuildConfig.USER_AGREEMENT_URL) }
-                LinkText(stringResource(R.string.about_privacy_policy)) { openBrowser(context, BuildConfig.PRIVACY_POLICY_URL) }
+                LinkText(stringResource(R.string.about_user_agreement)) { BrowserOpener.open(context, BuildConfig.USER_AGREEMENT_URL) }
+                LinkText(stringResource(R.string.about_privacy_policy)) { BrowserOpener.open(context, BuildConfig.PRIVACY_POLICY_URL) }
             }
         }
     }

@@ -72,7 +72,13 @@ internal fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewMode
     OverlayDialog(
         show = state.updateAvailable,
         title = stringResource(R.string.update_title),
-        summary = stringResource(R.string.update_message, BuildConfig.VERSION_NAME.removeSuffix(".debug"), state.latestReleaseVersion),
+        summary = buildString {
+            append(stringResource(R.string.update_message, BuildConfig.VERSION_NAME.removeSuffix(".debug"), state.latestReleaseVersion))
+            if (state.latestReleaseNotes.isNotBlank()) {
+                append("\n\n")
+                append(state.latestReleaseNotes)
+            }
+        },
         onDismissRequest = viewModel::dismissUpdateDialog
     ) {
         if (state.downloadingUpdate || state.updateDownloadError.isNotEmpty()) {

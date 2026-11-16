@@ -102,6 +102,7 @@ data class XbClientUiState(
     val updateDownloadError: String = "",
     val updateAvailable: Boolean = false,
     val latestReleaseVersion: String = "",
+    val latestReleaseNotes: String = "",
     val latestReleaseUrl: String = "",
     val latestDownloadUrl: String = "",
     val appLanguage: String = "",
@@ -1606,6 +1607,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                     it.copy(
                         updateAvailable = true,
                         latestReleaseVersion = result.latestVersion,
+                        latestReleaseNotes = result.releaseNotes,
                         latestReleaseUrl = result.releaseUrl,
                         latestDownloadUrl = downloadUrl,
                         updateDownloadError = "",

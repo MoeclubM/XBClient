@@ -60,6 +60,7 @@ public sealed partial class MainWindow : Window
         Title = appTitle;
 
         _netoClient = new NetoClient(dataDir, appTitle, "Aerion", DispatcherQueue);
+        Closed += (_, _) => _netoClient.Dispose();
         _panelService = new XbPanelService(initialPanel, DispatcherQueue, () => _netoClient.RefreshSnapshotAsync());
 
         _authView = new AuthView(_panelService);

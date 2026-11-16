@@ -3,7 +3,7 @@
 #endif
 
 #ifndef MyAppVersion
-  #define MyAppVersion "0.0.19"
+  #define MyAppVersion "0.0.20"
 #endif
 
 #ifndef PublishDir
@@ -108,7 +108,16 @@ procedure StopRunningClient();
 var
   ResultCode: Integer;
 begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM XBClient.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(350);
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM XBClient.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if RegKeyExists(HKCU, 'Software\{#MyAppName}\SystemProxy') or RegKeyExists(HKCU, 'Software\XBClient\SystemProxy') then
+  begin
+    RegWriteDWordValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Internet Settings', 'ProxyEnable', 0);
+    RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Internet Settings', 'ProxyServer');
+    RegDeleteKeyIncludingSubkeys(HKCU, 'Software\{#MyAppName}\SystemProxy');
+    RegDeleteKeyIncludingSubkeys(HKCU, 'Software\XBClient\SystemProxy');
+  end;
   if HasInstalledTunService() then
     RunServiceCommand('stop --id "{#MyAppName}"');
 end;

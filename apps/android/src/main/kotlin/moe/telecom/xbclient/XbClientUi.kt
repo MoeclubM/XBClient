@@ -1,9 +1,7 @@
 package moe.telecom.xbclient
 
 import android.content.Context
-import android.content.Intent
 import android.content.res.Configuration
-import android.net.Uri
 import android.text.TextUtils
 import android.view.View
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -201,7 +199,7 @@ internal fun AuthFooterLinks(context: Context, modifier: Modifier = Modifier) {
                 style = MiuixTheme.textStyles.body2,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 textDecoration = TextDecoration.Underline,
-                modifier = Modifier.clickable { openBrowser(context, link.second) },
+                modifier = Modifier.clickable { BrowserOpener.open(context, link.second) },
             )
             if (index != links.lastIndex) {
                 Text(
@@ -228,15 +226,6 @@ internal fun hasAuthFooterLinks() =
     BuildConfig.WEBSITE_URL.trim().isNotEmpty() ||
         BuildConfig.USER_AGREEMENT_URL.trim().isNotEmpty() ||
         BuildConfig.PRIVACY_POLICY_URL.trim().isNotEmpty()
-
-internal fun openBrowser(context: Context, url: String) {
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        .addCategory(Intent.CATEGORY_BROWSABLE)
-    if (context !is android.app.Activity) {
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    context.startActivity(intent)
-}
 
 internal fun effectiveLanguageTag(selected: String): String {
     if (selected.isNotEmpty()) {
