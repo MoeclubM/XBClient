@@ -29,6 +29,7 @@ XBCLIENT_RELEASE_KEY_PASSWORD
 | Secret | 默认值 | 适用范围 | 说明 |
 | --- | --- | --- | --- |
 | `XBCLIENT_PANEL_TYPE` | `xboard` | 全平台 | 可选 `xboard` 或 `pxboard` |
+| `XBCLIENT_XBOARD_SUBSCRIPTION_FLAG` | `meta` | 全平台（仅 `xboard`） | Xboard 订阅格式，默认使用上游 Clash Meta；支持 Aerion 订阅的面板可设为 `aerion` |
 | `XBCLIENT_APP_PAYMENT_ENABLED` | `true` | 全平台 | 设为 `false` 时关闭客户端内在线支付渠道、在线余额充值及外部网页收银台/控制台入口，仅允许账户余额抵扣与兑换码 |
 | `XBCLIENT_OAUTH_CALLBACK_SCHEME` | `pxboard` 下默认 `xbclient` | 全平台 | `XBCLIENT_PANEL_TYPE=xboard` 时必填；`pxboard` 使用浏览器授权轮询，无需依赖自定义回调 scheme |
 | `XBCLIENT_ADMOB_APP_ID` | 空 | Android（仅 `pxboard`） | 当 `XBCLIENT_PANEL_TYPE=pxboard` 且配置了任一 `*_AD_UNIT_ID` 时必填；`xboard` 或未配置广告单元时不初始化 MobileAds SDK |

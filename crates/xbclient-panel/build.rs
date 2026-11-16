@@ -2,6 +2,7 @@ fn main() {
     for key in [
         "XBCLIENT_DEFAULT_API_URL",
         "XBCLIENT_PANEL_TYPE",
+        "XBCLIENT_XBOARD_SUBSCRIPTION_FLAG",
         "XBCLIENT_APP_NAME",
         "XBCLIENT_APP_PAYMENT_ENABLED",
         "XBCLIENT_USER_AGENT",

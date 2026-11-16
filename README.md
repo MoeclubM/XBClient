@@ -31,6 +31,7 @@
 | Secret | 必填 | 作用 |
 | --- | --- | --- |
 | `XBCLIENT_PANEL_TYPE` | 否 | `xboard`（默认）或 `pxboard` |
+| `XBCLIENT_XBOARD_SUBSCRIPTION_FLAG` | 否 | Xboard 订阅格式：`meta`（默认）或 `aerion`；PxBoard 不受影响 |
 | `XBCLIENT_DEFAULT_API_URL` | 是 | 面板公开地址（不带 `/api/v1` 或 `/rpc/v1`） |
 | `XBCLIENT_APP_NAME` | 是 | 应用显示名称 |
 | `XBCLIENT_APPLICATION_ID` | Android | Android 包名（`applicationId`） |

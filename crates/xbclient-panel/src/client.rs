@@ -995,6 +995,7 @@ mod tests {
         let cfg = BuildConfig {
             default_api_url: "https://panel.example.com".into(),
             panel_type: "pxboard".into(),
+            xboard_subscription_flag: "meta".into(),
             app_name: "XBClient".into(),
             app_payment_enabled: false,
             user_agent: "AerionTest".into(),

@@ -6,7 +6,7 @@ use crate::models::{
 };
 use anyhow::{Context, Result, bail, ensure};
 use neto_core::{
-    NetoController, ParsedProfilePayload, SubscriptionUserInfo, build_profile_from_raw_nodes,
+    NetoController, SubscriptionUserInfo, build_profile_from_raw_nodes,
     fetch_and_parse_subscription,
 };
 use serde_json::{Value, json};
@@ -265,27 +265,29 @@ pub async fn sync_all(
                 let _ = neto.disconnect().await;
             }
         } else {
-            let sub_parsed: Option<ParsedProfilePayload> = if !sub_url.trim().is_empty() {
-                fetch_and_parse_subscription(&sub_url, "aerion", Some(&cfg.user_agent), None)
-                    .await
-                    .ok()
-            } else {
-                None
-            };
+            let mut payload = fetch_and_parse_subscription(
+                &sub_url,
+                &cfg.xboard_subscription_flag,
+                Some(&cfg.user_agent),
+                None,
+            )
+            .await
+            .context("获取 Xboard 订阅失败")?;
             let user_info = Some(SubscriptionUserInfo {
                 upload_bytes: u,
                 download_bytes: dl,
                 total_bytes: total,
                 expire_unix: (expired_at > 0).then_some(expired_at as u64),
             });
-            let final_payload = match sub_parsed {
-                Some(mut sp) => {
-                    sp.user_info = user_info;
-                    sp
-                }
-                None => build_profile_from_raw_nodes(Vec::new(), None, Vec::new(), 0, user_info),
-            };
-            neto.upsert_managed_profile("managed-default", &cfg.app_name, &sub_url, final_payload)?;
+            payload.user_info = user_info;
+            neto.upsert_managed_profile_with_format(
+                "managed-default",
+                &cfg.app_name,
+                &sub_url,
+                payload,
+                false,
+                Some(&cfg.xboard_subscription_flag),
+            )?;
         }
     }
 

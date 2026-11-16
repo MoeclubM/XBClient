@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct BuildConfig {
     pub default_api_url: String,
     pub panel_type: String,
+    pub xboard_subscription_flag: String,
     pub app_name: String,
     pub app_payment_enabled: bool,
     pub user_agent: String,
@@ -74,6 +75,11 @@ impl BuildConfig {
         Self {
             default_api_url: normalize_base_url(&raw_url),
             panel_type,
+            xboard_subscription_flag: env_or_compile(
+                option_env!("XBCLIENT_XBOARD_SUBSCRIPTION_FLAG"),
+                "XBCLIENT_XBOARD_SUBSCRIPTION_FLAG",
+                "meta",
+            ),
             app_name: env_or_compile(
                 option_env!("XBCLIENT_APP_NAME"),
                 "XBCLIENT_APP_NAME",
