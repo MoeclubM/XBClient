@@ -3,7 +3,7 @@
 #endif
 
 #ifndef MyAppVersion
-  #define MyAppVersion "0.0.21"
+  #define MyAppVersion "0.0.22"
 #endif
 
 #ifndef PublishDir
