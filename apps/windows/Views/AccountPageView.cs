@@ -107,8 +107,8 @@ public sealed class AccountPageView
         accGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var accLeft = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
         _emailText = new TextBlock { FontSize = 15, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
-        _quotaText = new TextBlock { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray) };
-        _balanceText = new TextBlock { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray) };
+        _quotaText = new TextBlock { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle") };
+        _balanceText = new TextBlock { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle") };
         accLeft.Children.Add(_emailText);
         accLeft.Children.Add(_quotaText);
         accLeft.Children.Add(_balanceText);
@@ -384,7 +384,7 @@ public sealed class AccountPageView
         {
             FontSize = 12,
             TextTrimming = TextTrimming.CharacterEllipsis,
-            Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+            Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
         };
         var left = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
         left.Children.Add(titleBlock);
@@ -394,7 +394,7 @@ public sealed class AccountPageView
             Glyph = "\uE76C",
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
-            Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+            Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
         };
         var grid = new Grid { ColumnSpacing = 12 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -493,7 +493,7 @@ public sealed class AccountPageView
             {
                 Text = $"返利比例 {snap.InviteCommissionRate}%",
                 FontSize = 12,
-                Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+                Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
             });
         }
         if (!string.IsNullOrEmpty(snap.ReferralUrl))
@@ -531,7 +531,7 @@ public sealed class AccountPageView
                 Text = ticket.StatusText,
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
-                Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+                Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
             };
             var viewBtn = new Button { Content = "查看" };
             var tid = ticket.Id;
@@ -576,7 +576,7 @@ public sealed class AccountPageView
             {
                 Text = "已启用 · 登录和敏感操作需输入 6 位动态验证码",
                 FontSize = 12,
-                Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+                Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
             });
             var pwBox = new PasswordBox { Header = "当前登录密码" };
             var codeBox = new TextBox { Header = "6 位动态验证码", MaxLength = 6 };
@@ -611,7 +611,7 @@ public sealed class AccountPageView
             {
                 Text = "未启用 · 使用身份验证器生成 6 位动态验证码",
                 FontSize = 12,
-                Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+                Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
             });
             var setupBtn = new Button { Content = "设置两步验证" };
             NetoUiFactory.ApplyPrimaryButton(setupBtn, true);
@@ -642,7 +642,7 @@ public sealed class AccountPageView
             Text = "在验证器中添加以下密钥或导入链接，再输入生成的 6 位验证码完成启用：",
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
-            Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+            Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
         });
         _mfaBody.Children.Add(BuildCopyRow(_mfaSetup.Secret));
         if (!string.IsNullOrEmpty(_mfaSetup.OtpauthUrl))
@@ -798,7 +798,7 @@ public sealed class AccountPageView
                 {
                     Text = string.IsNullOrEmpty(m.CreatedAt) ? m.Author : $"{m.Author} · {m.CreatedAt}",
                     FontSize = 11,
-                    Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+                    Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
                 });
                 ms.Children.Add(new TextBlock { Text = m.Message, TextWrapping = TextWrapping.Wrap });
                 _ticketMessagesPanel.Children.Add(NetoUiFactory.CreateCard(ms, new Thickness(10, 6, 10, 6)));

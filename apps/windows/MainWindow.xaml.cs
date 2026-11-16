@@ -41,6 +41,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
 
         _hwnd = WindowNative.GetWindowHandle(this);
+        RootGrid.ActualThemeChanged += (_, _) => NetoWindowHelper.ApplyTheme(RootGrid, _hwnd, _appliedTheme);
         var windowId = Win32Interop.GetWindowIdFromWindow(_hwnd);
         _appWindow = AppWindow.GetFromWindowId(windowId);
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico");
@@ -130,7 +131,11 @@ public sealed partial class MainWindow : Window
         {
             NetoWindowHelper.SetClipboardText(NetoWindowHelper.BuildTerminalProxyCommand(_netoClient.Snapshot));
         });
-        _tray.CloseAllConnectionsRequested += () => DispatcherQueue.TryEnqueue(async () => await _netoClient.CloseAllConnectionsAsync());
+        _tray.CloseAllConnectionsRequested += () => DispatcherQueue.TryEnqueue(async () =>
+        {
+            try { await _netoClient.CloseAllConnectionsAsync(); }
+            catch (Exception ex) { _netoClient.ReportActionError(ex.Message); }
+        });
         _tray.CheckUpdateRequested += () => DispatcherQueue.TryEnqueue(async () =>
         {
             NetoWindowHelper.RestoreAndActivate(this, _appWindow, _hwnd);
@@ -270,14 +275,8 @@ public sealed partial class MainWindow : Window
         _plansView.Root.Visibility = tab == "plans" ? Visibility.Visible : Visibility.Collapsed;
         _accountView.Root.Visibility = tab == "account" ? Visibility.Visible : Visibility.Collapsed;
         _settingsView.Root.Visibility = tab == "settings" ? Visibility.Visible : Visibility.Collapsed;
-        if (tab == "connections")
-        {
-            _connectionsView.ApplySnapshot(_netoClient.Snapshot);
-        }
-        else if (tab == "rules")
-        {
-            _rulesView.ApplySnapshot(_netoClient.Snapshot);
-        }
+        ApplyNetoSnapshot(_netoClient.Snapshot);
+        ApplyPanelSnapshot(_panelService.Snapshot);
     }
 
     private void ApplyPanelSnapshot(PanelStateSnapshot snap)
@@ -298,8 +297,8 @@ public sealed partial class MainWindow : Window
             _homeView.SetBlockedElement(string.IsNullOrEmpty(snap.BlockReason) ? null : BuildBlockedCard(snap));
         }
         _homeView.SetExtraHeader(BuildAccountHeaderCard(snap));
-        _plansView.ApplySnapshot(snap);
-        _accountView.ApplySnapshot(snap);
+        if (_plansView.Root.Visibility == Visibility.Visible) _plansView.ApplySnapshot(snap);
+        if (_accountView.Root.Visibility == Visibility.Visible) _accountView.ApplySnapshot(snap);
     }
 
     private async void OnNoticeButtonClick(object sender, RoutedEventArgs e)
@@ -315,7 +314,7 @@ public sealed partial class MainWindow : Window
                 {
                     Text = XbFormat.UnixDate(notice.CreatedAt),
                     FontSize = 11,
-                    Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+                    Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
                 });
             }
             var body = XbFormat.PlainText(notice.Content);
@@ -344,7 +343,7 @@ public sealed partial class MainWindow : Window
         {
             Text = body,
             TextWrapping = TextWrapping.Wrap,
-            Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+            Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
         });
         if (!string.IsNullOrEmpty(snap.SubscriptionSummary))
         {
@@ -381,7 +380,7 @@ public sealed partial class MainWindow : Window
             Text = string.Join(" · ", parts),
             FontSize = 12,
             TextTrimming = TextTrimming.CharacterEllipsis,
-            Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+            Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
         });
         var jumpBtn = new Button
         {
@@ -398,11 +397,11 @@ public sealed partial class MainWindow : Window
     private void ApplyNetoSnapshot(NetoSnapshot snap)
     {
         ApplyThemeMode(snap.Settings.ThemeMode);
-        _homeView.ApplySnapshot(snap, _netoClient.LastActionError);
-        _nodesView.ApplySnapshot(snap);
-        _connectionsView.ApplySnapshot(snap);
-        _rulesView.ApplySnapshot(snap);
-        _settingsView.ApplySnapshot(snap);
+        if (_homeView.Root.Visibility == Visibility.Visible) _homeView.ApplySnapshot(snap, _netoClient.LastActionError);
+        if (_nodesView.Root.Visibility == Visibility.Visible) _nodesView.ApplySnapshot(snap);
+        if (_connectionsView.Root.Visibility == Visibility.Visible) _connectionsView.ApplySnapshot(snap);
+        if (_rulesView.Root.Visibility == Visibility.Visible) _rulesView.ApplySnapshot(snap);
+        if (_settingsView.Root.Visibility == Visibility.Visible) _settingsView.ApplySnapshot(snap);
 
         SyncTray();
     }

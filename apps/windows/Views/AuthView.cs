@@ -243,7 +243,7 @@ public sealed class AuthView
         }
         else if (snap.BrowserLoginPending)
         {
-            _messageLabel.Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray);
+            NetoUiFactory.UseTextStyle(_messageLabel, "NetoSecondaryTextStyle");
             _messageLabel.Text = "请在已打开的系统浏览器中完成确认。";
             _messageCard.Visibility = Visibility.Visible;
         }

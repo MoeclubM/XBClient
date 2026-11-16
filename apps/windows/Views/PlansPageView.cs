@@ -119,7 +119,7 @@ public sealed class PlansPageView
             var emptyCard = NetoUiFactory.CreateCard(new TextBlock
             {
                 Text = "暂无可购买套餐",
-                Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+                Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
             });
             Grid.SetColumnSpan(emptyCard, 2);
             _plansGrid.Children.Add(emptyCard);
@@ -144,7 +144,7 @@ public sealed class PlansPageView
                     Text = plan.QuotaText,
                     FontSize = 12,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+                    Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
                 };
                 Grid.SetColumn(q, 1);
                 topRow.Children.Add(q);
@@ -159,7 +159,7 @@ public sealed class PlansPageView
                     Text = desc,
                     FontSize = 12,
                     TextWrapping = TextWrapping.Wrap,
-                    Foreground = NetoUiFactory.BrushResource("TextFillColorSecondaryBrush", Colors.Gray),
+                    Style = NetoUiFactory.StyleResource("NetoSecondaryTextStyle"),
                 });
             }
 
