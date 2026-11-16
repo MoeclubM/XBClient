@@ -5,6 +5,8 @@ plugins {
 
 val panelType = providers.environmentVariable("XBCLIENT_PANEL_TYPE").orNull?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: "xboard"
 require(panelType in setOf("xboard", "pxboard")) { "XBCLIENT_PANEL_TYPE must be xboard or pxboard" }
+val xboardSubscriptionFlag = providers.environmentVariable("XBCLIENT_XBOARD_SUBSCRIPTION_FLAG").orNull
+    ?.trim()?.takeIf { it.isNotEmpty() } ?: "meta"
 
 fun parseBoolSecret(name: String, default: Boolean): Boolean =
     when (providers.environmentVariable(name).orNull?.trim()?.lowercase().orEmpty()) {
@@ -127,6 +129,7 @@ android {
         buildConfigField("String", "DEFAULT_API_URL", "\"${escapeBuildConfigString(defaultApiUrl)}\"")
         buildConfigField("String", "USER_AGENT", "\"${escapeBuildConfigString(userAgent)}\"")
         buildConfigField("String", "PANEL_TYPE", "\"$panelType\"")
+        buildConfigField("String", "XBOARD_SUBSCRIPTION_FLAG", "\"${escapeBuildConfigString(xboardSubscriptionFlag)}\"")
         buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"${escapeBuildConfigString(oauthCallbackScheme)}\"")
         buildConfigField("String", "WEBSITE_URL", "\"${escapeBuildConfigString(websiteUrl.trim())}\"")
         buildConfigField("String", "PRIVACY_POLICY_URL", "\"${escapeBuildConfigString(privacyPolicyUrl.trim())}\"")

@@ -616,7 +616,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                         id = "managed-default",
                         name = appTitle,
                         url = subscribeUrl,
-                        flag = "aerion",
+                        flag = BuildConfig.XBOARD_SUBSCRIPTION_FLAG,
                         userAgent = BuildConfig.USER_AGENT,
                     )
                 }
