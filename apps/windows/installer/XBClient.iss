@@ -3,7 +3,7 @@
 #endif
 
 #ifndef MyAppVersion
-  #define MyAppVersion "0.0.20"
+  #define MyAppVersion "0.0.21"
 #endif
 
 #ifndef PublishDir
@@ -104,6 +104,40 @@ begin
     ShellExec('runas', SvcExe, Args, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
+procedure StopServiceByName(const SvcName: String);
+var
+  ResultCode: Integer;
+begin
+  if not RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\' + SvcName) then Exit;
+  if IsAdminInstallMode() then
+    Exec(ExpandConstant('{sys}\sc.exe'), 'stop "' + SvcName + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode)
+  else
+    ShellExec('runas', ExpandConstant('{sys}\sc.exe'), 'stop "' + SvcName + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+procedure StopInstalledTunService();
+var
+  SvcExe: String;
+  AppSvcName: String;
+begin
+  SvcExe := ExpandConstant('{app}\neto-service.exe');
+  AppSvcName := SanitizeServiceAppId('{#MyAppName}') + 'TunService';
+  if FileExists(SvcExe) then
+  begin
+    if RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\' + AppSvcName) then
+      RunServiceCommand('stop --id "{#MyAppName}"');
+    if (AppSvcName <> 'XBClientTunService') and RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\XBClientTunService') then
+      RunServiceCommand('stop --id "XBClient"');
+  end
+  else
+  begin
+    StopServiceByName(AppSvcName);
+    if AppSvcName <> 'XBClientTunService' then
+      StopServiceByName('XBClientTunService');
+  end;
+  Sleep(300);
+end;
+
 procedure StopRunningClient();
 var
   ResultCode: Integer;
@@ -119,18 +153,14 @@ begin
     RegDeleteKeyIncludingSubkeys(HKCU, 'Software\XBClient\SystemProxy');
   end;
   if HasInstalledTunService() then
-    RunServiceCommand('stop --id "{#MyAppName}"');
-end;
-
-function InitializeSetup(): Boolean;
-begin
-  StopRunningClient();
-  Result := True;
+    StopInstalledTunService();
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if (CurStep = ssPostInstall) and HasInstalledTunService() then
+  if CurStep = ssInstall then
+    StopRunningClient()
+  else if (CurStep = ssPostInstall) and HasInstalledTunService() then
     RunServiceCommand('install --id "{#MyAppName}"');
 end;
 
@@ -138,16 +168,23 @@ function InitializeUninstall(): Boolean;
 var
   ResultCode: Integer;
 begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM XBClient.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(350);
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM XBClient.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := True;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  AppSvcName: String;
 begin
   if CurUninstallStep = usUninstall then
   begin
-    if HasInstalledTunService() then
+    AppSvcName := SanitizeServiceAppId('{#MyAppName}') + 'TunService';
+    if RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\' + AppSvcName) then
       RunServiceCommand('uninstall --id "{#MyAppName}"');
+    if (AppSvcName <> 'XBClientTunService') and RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\XBClientTunService') then
+      RunServiceCommand('uninstall --id "XBClient"');
     if RegKeyExists(HKCU, 'Software\{#MyAppName}\SystemProxy') or RegKeyExists(HKCU, 'Software\XBClient\SystemProxy') then
     begin
       RegWriteDWordValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Internet Settings', 'ProxyEnable', 0);
