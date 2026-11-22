@@ -312,6 +312,7 @@ internal fun PxBoardPlansScreen(state: XbClientUiState, viewModel: XbClientViewM
 
     RewardAdSection(
         title = stringResource(R.string.reward_plan_title),
+        description = stringResource(R.string.reward_plan_description),
         enabled = state.planRewardAdEnabled,
         scene = REWARD_SCENE_PLAN,
         state = state,
@@ -558,6 +559,7 @@ internal fun PxBoardAccount(state: XbClientUiState, viewModel: XbClientViewModel
 
     RewardAdSection(
         title = stringResource(R.string.reward_points_title),
+        description = stringResource(R.string.reward_points_description),
         enabled = state.pointsRewardAdEnabled,
         scene = REWARD_SCENE_POINTS,
         state = state,

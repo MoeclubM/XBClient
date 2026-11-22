@@ -36,10 +36,9 @@ val androidApplicationId = providers.environmentVariable("XBCLIENT_APPLICATION_I
     ?: error("XBCLIENT_APPLICATION_ID GitHub Secret is required")
 val appPaymentEnabled = parseBoolSecret("XBCLIENT_APP_PAYMENT_ENABLED", true)
 val adsSupported = panelType == "pxboard"
-val appOpenAdUnitId = if (adsSupported) providers.environmentVariable("XBCLIENT_APP_OPEN_AD_UNIT_ID").orNull?.trim().orEmpty() else ""
 val planRewardedAdUnitId = if (adsSupported) providers.environmentVariable("XBCLIENT_PLAN_REWARDED_AD_UNIT_ID").orNull?.trim().orEmpty() else ""
 val pointsRewardedAdUnitId = if (adsSupported) providers.environmentVariable("XBCLIENT_POINTS_REWARDED_AD_UNIT_ID").orNull?.trim().orEmpty() else ""
-val hasAnyAdUnit = appOpenAdUnitId.isNotEmpty() || planRewardedAdUnitId.isNotEmpty() || pointsRewardedAdUnitId.isNotEmpty()
+val hasAnyAdUnit = planRewardedAdUnitId.isNotEmpty() || pointsRewardedAdUnitId.isNotEmpty()
 val admobAppId = if (adsSupported) providers.environmentVariable("XBCLIENT_ADMOB_APP_ID").orNull?.trim().orEmpty() else ""
 if (hasAnyAdUnit && admobAppId.isEmpty()) {
     error("XBCLIENT_ADMOB_APP_ID GitHub Secret is required when any AdMob ad unit ID is configured")
@@ -123,7 +122,6 @@ android {
         resValue("string", "app_name", appName)
         buildConfigField("Boolean", "APP_PAYMENT_ENABLED", appPaymentEnabled.toString())
         buildConfigField("String", "ADMOB_APP_ID", "\"${escapeBuildConfigString(admobAppId)}\"")
-        buildConfigField("String", "APP_OPEN_AD_UNIT_ID", "\"${escapeBuildConfigString(appOpenAdUnitId)}\"")
         buildConfigField("String", "PLAN_REWARDED_AD_UNIT_ID", "\"${escapeBuildConfigString(planRewardedAdUnitId)}\"")
         buildConfigField("String", "POINTS_REWARDED_AD_UNIT_ID", "\"${escapeBuildConfigString(pointsRewardedAdUnitId)}\"")
         buildConfigField("String", "DEFAULT_API_URL", "\"${escapeBuildConfigString(defaultApiUrl)}\"")
@@ -238,7 +236,6 @@ dependencies {
     implementation("androidx.fragment:fragment:1.9.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
-    implementation("androidx.lifecycle:lifecycle-process:2.11.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0")
     implementation("com.google.android.libraries.ads.mobile.sdk:ads-mobile-sdk:1.6.0")
     implementation("com.squareup.okhttp3:okhttp:5.5.1")

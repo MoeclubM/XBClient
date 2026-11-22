@@ -101,7 +101,6 @@ License: https://www.apache.org/licenses/LICENSE-2.0
 - androidx.lifecycle:lifecycle-livedata-core-ktx
 - androidx.lifecycle:lifecycle-livedata-core
 - androidx.lifecycle:lifecycle-livedata
-- androidx.lifecycle:lifecycle-process
 - androidx.lifecycle:lifecycle-runtime-android
 - androidx.lifecycle:lifecycle-runtime-compose-android
 - androidx.lifecycle:lifecycle-runtime-compose

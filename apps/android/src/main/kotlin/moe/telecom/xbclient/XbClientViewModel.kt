@@ -91,10 +91,9 @@ data class XbClientUiState(
     val planRewardedAdUnitId: String = "",
     val pointsRewardAdEnabled: Boolean = false,
     val pointsRewardedAdUnitId: String = "",
-    val appOpenAdEnabled: Boolean = PxBoardApi.enabled && BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty(),
-    val appOpenAdUnitId: String = if (PxBoardApi.enabled) BuildConfig.APP_OPEN_AD_UNIT_ID else "",
     val adRewardLogs: List<AdRewardLogItem> = emptyList(),
     val adRewardLogsLoading: Boolean = false,
+    val rewardAdLoading: Boolean = false,
     val checkingUpdate: Boolean = false,
     val downloadingUpdate: Boolean = false,
     val updateDownloadPercent: Int? = null,
@@ -141,6 +140,7 @@ sealed interface XbClientEvent {
     data class Message(val text: String) : XbClientEvent
     data object RequestVpnPermission : XbClientEvent
     data class ShowRewardAd(val adUnitId: String, val userId: String, val customData: String) : XbClientEvent
+    data object CancelRewardAd : XbClientEvent
     data class OpenExternalUrl(val url: String) : XbClientEvent
 }
 
@@ -187,6 +187,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
     private var nodeAutoRefreshStarted = false
     private var manualRefreshJob: Job? = null
     private var manualRefreshToken = 0L
+    private var rewardRequestToken = 0L
     private var pendingRewardScene = ""
     private var pendingRewardStartedAt = 0L
     private val hasBuildRewardAds: Boolean
@@ -246,6 +247,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             manualRefreshToken++
             manualRefreshJob?.cancel()
             manualRefreshJob = null
+            cancelRewardAdRequest()
         }
         if (PxBoardApi.enabled) {
             _uiState.update { it.copy(screen = screen, manualRefreshing = if (changed) false else it.manualRefreshing) }
@@ -353,6 +355,10 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
 
     fun navigateBack() {
         val state = _uiState.value
+        if (state.rewardAdLoading) {
+            cancelRewardAdRequest()
+            return
+        }
         if (state.updateAvailable) {
             dismissUpdateDialog()
             return
@@ -555,6 +561,7 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         manualRefreshToken++
         manualRefreshJob?.cancel()
         manualRefreshJob = null
+        cancelRewardAdRequest()
         pxboardAuth.cancelLogin()
         val current = _uiState.value
         netoClient.stopVpn()
@@ -1195,12 +1202,30 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setRewardAdLoading(loading: Boolean) {
+        _uiState.update { it.copy(rewardAdLoading = loading) }
+    }
+
+    fun cancelRewardAdRequest(notifyAds: Boolean = true) {
+        rewardRequestToken++
+        val wasLoading = _uiState.value.rewardAdLoading
+        if (wasLoading) {
+            _uiState.update { it.copy(rewardAdLoading = false) }
+        }
+        if (notifyAds && wasLoading) {
+            emitEvent(XbClientEvent.CancelRewardAd)
+        }
+    }
+
     fun requestRewardAd(scene: String) {
-        if (!hasBuildRewardAds) return
+        if (!hasBuildRewardAds || _uiState.value.rewardAdLoading) return
         val authData = _uiState.value.authData
         if (authData.isEmpty()) {
             return
         }
+        val requestScreen = _uiState.value.screen
+        val token = ++rewardRequestToken
+        _uiState.update { it.copy(rewardAdLoading = true) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val data = PxBoardApi.rpc(
@@ -1223,10 +1248,16 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
                 }
                 if (adUnitId.isEmpty()) throw IllegalStateException("广告场景未启用：$scene")
                 if (userId.isEmpty() || customData.isEmpty()) throw IllegalStateException("服务端激励广告 SSV 未就绪：$scene")
+                if (rewardRequestToken != token || _uiState.value.screen != requestScreen || _uiState.value.authData != authData) {
+                    return@launch
+                }
                 pendingRewardScene = scene
                 emitEvent(XbClientEvent.ShowRewardAd(adUnitId, userId, customData))
             } catch (error: Exception) {
-                emitMessage("广告配置加载失败：${error.message}")
+                if (rewardRequestToken == token) {
+                    _uiState.update { it.copy(rewardAdLoading = false) }
+                    emitMessage("广告配置加载失败：${error.message}")
+                }
             }
         }
     }
@@ -1447,8 +1478,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             planRewardedAdUnitId = "",
             pointsRewardAdEnabled = false,
             pointsRewardedAdUnitId = "",
-            appOpenAdEnabled = PxBoardApi.enabled && BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty(),
-            appOpenAdUnitId = if (PxBoardApi.enabled) BuildConfig.APP_OPEN_AD_UNIT_ID else "",
             adRewardLogs = emptyList(),
             appLanguage = prefs[Keys.APP_LANGUAGE].orEmpty(),
             enableBlur = prefs[Keys.ENABLE_BLUR] ?: true,
@@ -1504,8 +1533,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
             prefs[Keys.PLAN_REWARDED_AD_UNIT_ID] = state.planRewardedAdUnitId
             prefs[Keys.POINTS_REWARD_AD_ENABLED] = state.pointsRewardAdEnabled
             prefs[Keys.POINTS_REWARDED_AD_UNIT_ID] = state.pointsRewardedAdUnitId
-            prefs[Keys.APP_OPEN_AD_ENABLED] = state.appOpenAdEnabled
-            prefs[Keys.APP_OPEN_AD_UNIT_ID] = state.appOpenAdUnitId
             prefs[Keys.APP_LANGUAGE] = state.appLanguage
             prefs[Keys.ENABLE_BLUR] = state.enableBlur
             prefs[Keys.FLOATING_BOTTOM_BAR] = state.floatingBottomBar
@@ -1697,8 +1724,6 @@ class XbClientViewModel(application: Application) : AndroidViewModel(application
         val PLAN_REWARDED_AD_UNIT_ID = stringPreferencesKey("plan_rewarded_ad_unit_id")
         val POINTS_REWARD_AD_ENABLED = booleanPreferencesKey("points_reward_ad_enabled")
         val POINTS_REWARDED_AD_UNIT_ID = stringPreferencesKey("points_rewarded_ad_unit_id")
-        val APP_OPEN_AD_ENABLED = booleanPreferencesKey("app_open_ad_enabled")
-        val APP_OPEN_AD_UNIT_ID = stringPreferencesKey("app_open_ad_unit_id")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val ENABLE_BLUR = booleanPreferencesKey("enable_blur")
         val FLOATING_BOTTOM_BAR = booleanPreferencesKey("floating_bottom_bar")

@@ -33,7 +33,6 @@ XBCLIENT_RELEASE_KEY_PASSWORD
 | `XBCLIENT_APP_PAYMENT_ENABLED` | `true` | 全平台 | 设为 `false` 时关闭客户端内在线支付渠道、在线余额充值及外部网页收银台/控制台入口，仅允许账户余额抵扣与兑换码 |
 | `XBCLIENT_OAUTH_CALLBACK_SCHEME` | `pxboard` 下默认 `xbclient` | 全平台 | `XBCLIENT_PANEL_TYPE=xboard` 时必填；`pxboard` 使用浏览器授权轮询，无需依赖自定义回调 scheme |
 | `XBCLIENT_ADMOB_APP_ID` | 空 | Android（仅 `pxboard`） | 当 `XBCLIENT_PANEL_TYPE=pxboard` 且配置了任一 `*_AD_UNIT_ID` 时必填；`xboard` 或未配置广告单元时不初始化 MobileAds SDK |
-| `XBCLIENT_APP_OPEN_AD_UNIT_ID` | 空 | Android（仅 `pxboard`） | 非空即启用 AdMob 开屏广告，纯客户端生效 |
 | `XBCLIENT_PLAN_REWARDED_AD_UNIT_ID` | 空 | Android（仅 `pxboard`） | 非空且面板启用激励发放时在套餐页展示激励广告入口，由官方 `admob` 插件校验 Google AdMob ECDSA SSV 回调（`/api/v1/extensions/admob/ssv`） |
 | `XBCLIENT_POINTS_REWARDED_AD_UNIT_ID` | 空 | Android（仅 `pxboard`） | 非空且面板启用激励发放时在账户页展示激励广告入口，由官方 `admob` 插件校验 Google AdMob ECDSA SSV 回调 |
 | `XBCLIENT_WEBSITE_URL` | 空 | 全平台 | 官网链接 |
@@ -68,7 +67,7 @@ XBoard 从 `/api/v1/guest/comm/config` 加载 OAuth 插件的服务列表，通�
 
 更新已上架应用：
 
-1. 保留 `XBCLIENT_APPLICATION_ID`、现有上传签名相关 Secrets，按上架合规与变现需求设置 `XBCLIENT_APP_PAYMENT_ENABLED`（例如 Play 包设为 `false`）及 `XBCLIENT_APP_OPEN_AD_UNIT_ID` 等参数，并确认 `XBCLIENT_PANEL_TYPE` 与 `XBCLIENT_DEFAULT_API_URL`。
+1. 保留 `XBCLIENT_APPLICATION_ID`、现有上传签名相关 Secrets，按上架合规与变现需求设置 `XBCLIENT_APP_PAYMENT_ENABLED`（例如 Play 包设为 `false`）及激励广告单元等参数，并确认 `XBCLIENT_PANEL_TYPE` 与 `XBCLIENT_DEFAULT_API_URL`。
 2. 推送代码，由 Beta Builds 生成已签名 APK 和 AAB。正式标签的 Release Builds 同样提供 AAB。所有 Android、Windows、Linux 构建均由 GitHub Actions 完成。
 3. 在原 Google Play Console 应用中，进入“测试和发布 → 测试 → 内部测试”，创建版本并上传新 AAB。不要创建新应用或更换包名。
 4. 先通过 Play 内部测试更新现有安装，检查授权登录、节点连接和用户前台；验证后在原应用正式轨道发布。

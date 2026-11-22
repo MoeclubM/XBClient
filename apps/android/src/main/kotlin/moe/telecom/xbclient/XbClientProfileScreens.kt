@@ -71,6 +71,7 @@ internal fun ProfileScreen(state: XbClientUiState, viewModel: XbClientViewModel)
     }
     RewardAdSection(
         title = stringResource(R.string.reward_points_title),
+        description = stringResource(R.string.reward_points_description),
         enabled = state.pointsRewardAdEnabled,
         scene = REWARD_SCENE_POINTS,
         state = state,

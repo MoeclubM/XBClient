@@ -4,14 +4,9 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.google.android.libraries.ads.mobile.sdk.MobileAds
-import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdEventCallback
-import com.google.android.libraries.ads.mobile.sdk.appopen.AppOpenAdPreloader
 import com.google.android.libraries.ads.mobile.sdk.common.AdRequest
 import com.google.android.libraries.ads.mobile.sdk.common.FullScreenContentError
 import com.google.android.libraries.ads.mobile.sdk.common.LoadAdError
@@ -29,23 +24,20 @@ import kotlinx.coroutines.launch
 
 internal class XbClientAds(
     private val activity: ComponentActivity,
+    private val onRewardLoadingChanged: (Boolean) -> Unit,
     private val onRewardEarned: (String) -> Unit
-) : DefaultLifecycleObserver {
+) {
     private var adsInitialized = false
     private var adsInitializing = false
     private var startedPlanAdUnitId = ""
     private var startedPointsAdUnitId = ""
-    private var startedAppOpenAdUnitId = ""
     private var pendingRewardUserId = ""
     private var pendingRewardCustomData = ""
     private var pendingRewardAdUnitId = ""
     private var pendingRewardShow = false
-    private var isShowingFullScreenAd = false
-    private var skipNextAppOpen = false
     private val hasConfiguredAds: Boolean
         get() = PxBoardApi.enabled && BuildConfig.ADMOB_APP_ID.isNotEmpty() && (
-            BuildConfig.APP_OPEN_AD_UNIT_ID.isNotEmpty() ||
-                BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty() ||
+            BuildConfig.PLAN_REWARDED_AD_UNIT_ID.isNotEmpty() ||
                 BuildConfig.POINTS_REWARDED_AD_UNIT_ID.isNotEmpty()
             )
 
@@ -62,7 +54,7 @@ internal class XbClientAds(
             activity.runOnUiThread {
                 Log.w(TAG, "Rewarded ad failed to preload: $adError")
                 if (!activity.isDestroyed && pendingRewardShow && pendingRewardAdUnitId == preloadId) {
-                    pendingRewardShow = false
+                    clearPendingReward()
                     Toast.makeText(
                         activity,
                         "${activity.getString(R.string.reward_ad_unavailable)}\n${adError.code}: ${adError.message}",
@@ -73,28 +65,19 @@ internal class XbClientAds(
         }
     }
 
-    private val appOpenPreloadCallback = object : PreloadCallback {
-        override fun onAdFailedToPreload(preloadId: String, adError: LoadAdError) {
-            Log.w(TAG, "App open ad failed to preload: $adError")
-        }
-    }
-
     fun start() {
         if (!hasConfiguredAds) return
-        ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         initializeAds()
     }
 
     fun release() {
         if (!hasConfiguredAds) return
-        ProcessLifecycleOwner.get().lifecycle.removeObserver(this)
+        clearPendingReward()
         if (activity.isFinishing && adsInitialized) {
             replaceRewardedPreload(startedPlanAdUnitId, "")
             startedPlanAdUnitId = ""
             replaceRewardedPreload(startedPointsAdUnitId, "")
             startedPointsAdUnitId = ""
-            replaceAppOpenPreload(startedAppOpenAdUnitId, "")
-            startedAppOpenAdUnitId = ""
         }
     }
 
@@ -104,28 +87,25 @@ internal class XbClientAds(
             if (adsInitialized) {
                 replaceRewardedPreload(startedPlanAdUnitId, "")
                 replaceRewardedPreload(startedPointsAdUnitId, "")
-                replaceAppOpenPreload(startedAppOpenAdUnitId, "")
             }
             startedPlanAdUnitId = ""
             startedPointsAdUnitId = ""
-            startedAppOpenAdUnitId = ""
             return
         }
         val planId = if (state.planRewardAdEnabled) state.planRewardedAdUnitId else ""
         val pointsId = if (state.pointsRewardAdEnabled) state.pointsRewardedAdUnitId else ""
-        val appOpenId = if (state.appOpenAdEnabled) state.appOpenAdUnitId else ""
         if (!adsInitialized) {
             startedPlanAdUnitId = planId
             startedPointsAdUnitId = pointsId
-            startedAppOpenAdUnitId = appOpenId
             initializeAds()
             return
         }
-        applyPreloads(planId, pointsId, appOpenId)
+        applyPreloads(planId, pointsId)
     }
 
     fun showRewardedAd(adUnitId: String, userId: String, customData: String) {
         if (!hasConfiguredAds || adUnitId.isEmpty() || activity.isFinishing || activity.isDestroyed) {
+            clearPendingReward()
             return
         }
         if (!adsInitialized) {
@@ -133,6 +113,7 @@ internal class XbClientAds(
             pendingRewardCustomData = customData
             pendingRewardAdUnitId = adUnitId
             pendingRewardShow = true
+            onRewardLoadingChanged(true)
             initializeAds()
             return
         }
@@ -142,14 +123,16 @@ internal class XbClientAds(
             pendingRewardCustomData = customData
             pendingRewardAdUnitId = adUnitId
             pendingRewardShow = true
+            onRewardLoadingChanged(true)
             if (RewardedAdPreloader.getConfiguration(adUnitId) == null) {
                 replaceRewardedPreload("", adUnitId)
             }
-            Toast.makeText(activity, R.string.reward_ad_loading, Toast.LENGTH_SHORT).show()
             return
         }
-        pendingRewardShow = false
-        isShowingFullScreenAd = true
+        clearPendingReward()
+        if (!activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            return
+        }
         ad.setServerSideVerificationOptions(
             ServerSideVerificationOptions(
                 userId = userId,
@@ -158,18 +141,9 @@ internal class XbClientAds(
         )
         ad.setImmersiveMode(false)
         ad.adEventCallback = object : RewardedAdEventCallback {
-            override fun onAdDismissedFullScreenContent() {
-                activity.runOnUiThread {
-                    isShowingFullScreenAd = false
-                    skipNextAppOpen = true
-                }
-            }
-
             override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
                 activity.runOnUiThread {
                     Log.w(TAG, "Rewarded ad failed to show: $fullScreenContentError")
-                    isShowingFullScreenAd = false
-                    skipNextAppOpen = true
                     Toast.makeText(
                         activity,
                         "${activity.getString(R.string.reward_ad_unavailable)}\n${fullScreenContentError.code}: ${fullScreenContentError.message}",
@@ -188,8 +162,8 @@ internal class XbClientAds(
         )
     }
 
-    override fun onStart(owner: LifecycleOwner) {
-        showAppOpenAdIfAvailable()
+    fun cancelPendingRewardAd() {
+        clearPendingReward()
     }
 
     private fun initializeAds() {
@@ -219,7 +193,7 @@ internal class XbClientAds(
                     adsInitializing = false
                     Log.w(TAG, "MobileAds initialization failed.", error)
                     if (!activity.isDestroyed && pendingRewardShow) {
-                        pendingRewardShow = false
+                        clearPendingReward()
                         Toast.makeText(
                             activity,
                             "${activity.getString(R.string.reward_ad_unavailable)}\n${error.message}",
@@ -234,19 +208,17 @@ internal class XbClientAds(
     private fun onAdsInitialized() {
         adsInitialized = true
         adsInitializing = false
-        applyPreloads(startedPlanAdUnitId, startedPointsAdUnitId, startedAppOpenAdUnitId)
+        applyPreloads(startedPlanAdUnitId, startedPointsAdUnitId)
         if (pendingRewardShow) {
             showRewardedAd(pendingRewardAdUnitId, pendingRewardUserId, pendingRewardCustomData)
         }
     }
 
-    private fun applyPreloads(planId: String, pointsId: String, appOpenId: String) {
+    private fun applyPreloads(planId: String, pointsId: String) {
         replaceRewardedPreload(startedPlanAdUnitId, planId)
         startedPlanAdUnitId = planId
         replaceRewardedPreload(startedPointsAdUnitId, pointsId)
         startedPointsAdUnitId = pointsId
-        replaceAppOpenPreload(startedAppOpenAdUnitId, appOpenId)
-        startedAppOpenAdUnitId = appOpenId
     }
 
     private fun replaceRewardedPreload(previous: String, next: String) {
@@ -270,71 +242,22 @@ internal class XbClientAds(
         )
     }
 
-    private fun replaceAppOpenPreload(previous: String, next: String) {
-        if (previous == next) {
-            if (next.isEmpty() || AppOpenAdPreloader.getConfiguration(next) != null) {
-                return
-            }
-        } else if (previous.isNotEmpty()) {
-            AppOpenAdPreloader.destroy(previous)
-        }
-        if (next.isEmpty()) {
-            return
-        }
-        if (AppOpenAdPreloader.getConfiguration(next) != null) {
-            AppOpenAdPreloader.destroy(next)
-        }
-        AppOpenAdPreloader.start(
-            next,
-            PreloadConfiguration(AdRequest.Builder(next).build()),
-            appOpenPreloadCallback
-        )
-    }
-
     private fun onRewardedPreloaded(preloadId: String) {
         if (pendingRewardShow && pendingRewardAdUnitId == preloadId) {
-            pendingRewardShow = false
+            if (!activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                clearPendingReward()
+                return
+            }
             showRewardedAd(preloadId, pendingRewardUserId, pendingRewardCustomData)
         }
     }
 
-    private fun showAppOpenAdIfAvailable() {
-        if (isShowingFullScreenAd) {
-            return
-        }
-        if (skipNextAppOpen) {
-            skipNextAppOpen = false
-            return
-        }
-        if (!adsInitialized || activity.isFinishing || activity.isDestroyed) {
-            return
-        }
-        if (!activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            return
-        }
-        val adUnitId = startedAppOpenAdUnitId
-        if (adUnitId.isEmpty() || !AppOpenAdPreloader.isAdAvailable(adUnitId)) {
-            return
-        }
-        val ad = AppOpenAdPreloader.pollAd(adUnitId) ?: return
-        isShowingFullScreenAd = true
-        ad.adEventCallback = object : AppOpenAdEventCallback {
-            override fun onAdDismissedFullScreenContent() {
-                activity.runOnUiThread {
-                    isShowingFullScreenAd = false
-                    skipNextAppOpen = true
-                }
-            }
-
-            override fun onAdFailedToShowFullScreenContent(fullScreenContentError: FullScreenContentError) {
-                activity.runOnUiThread {
-                    Log.w(TAG, "App open ad failed to show: $fullScreenContentError")
-                    isShowingFullScreenAd = false
-                    skipNextAppOpen = true
-                }
-            }
-        }
-        ad.show(activity)
+    private fun clearPendingReward() {
+        pendingRewardShow = false
+        pendingRewardAdUnitId = ""
+        pendingRewardUserId = ""
+        pendingRewardCustomData = ""
+        onRewardLoadingChanged(false)
     }
 
     companion object {

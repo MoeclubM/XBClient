@@ -31,7 +31,6 @@ jobs:
       XBCLIENT_APPLICATION_ID: ${{ secrets.XBCLIENT_APPLICATION_ID }}
       XBCLIENT_APP_PAYMENT_ENABLED: ${{ secrets.XBCLIENT_APP_PAYMENT_ENABLED }}
       XBCLIENT_ADMOB_APP_ID: ${{ secrets.XBCLIENT_ADMOB_APP_ID }}
-      XBCLIENT_APP_OPEN_AD_UNIT_ID: ${{ secrets.XBCLIENT_APP_OPEN_AD_UNIT_ID }}
       XBCLIENT_PLAN_REWARDED_AD_UNIT_ID: ${{ secrets.XBCLIENT_PLAN_REWARDED_AD_UNIT_ID }}
       XBCLIENT_POINTS_REWARDED_AD_UNIT_ID: ${{ secrets.XBCLIENT_POINTS_REWARDED_AD_UNIT_ID }}
       XBCLIENT_USER_AGENT: ${{ secrets.XBCLIENT_USER_AGENT }}
@@ -81,7 +80,7 @@ jobs:
             echo "::error::XBCLIENT_OAUTH_CALLBACK_SCHEME is empty or not available to this workflow"
             exit 1
           fi
-          if [ "$panel_type" = "pxboard" ] && { [ -n "${XBCLIENT_APP_OPEN_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_PLAN_REWARDED_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_POINTS_REWARDED_AD_UNIT_ID:-}" ]; } && [ -z "${XBCLIENT_ADMOB_APP_ID:-}" ]; then
+          if [ "$panel_type" = "pxboard" ] && { [ -n "${XBCLIENT_PLAN_REWARDED_AD_UNIT_ID:-}" ] || [ -n "${XBCLIENT_POINTS_REWARDED_AD_UNIT_ID:-}" ]; } && [ -z "${XBCLIENT_ADMOB_APP_ID:-}" ]; then
             echo "::error::XBCLIENT_ADMOB_APP_ID is required when any AdMob ad unit ID is configured"
             exit 1
           fi

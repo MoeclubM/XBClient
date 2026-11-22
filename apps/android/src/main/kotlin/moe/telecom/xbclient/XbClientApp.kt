@@ -99,6 +99,7 @@ fun XbClientApp(viewModel: XbClientViewModel) {
             val routeBackProgress = if (
                 state.isLoggedIn &&
                 state.screen !in MainTabScreens &&
+                !state.rewardAdLoading &&
                 !state.updateAvailable &&
                 state.oauthWebViewUrl.isEmpty()
             ) backProgress else 0f

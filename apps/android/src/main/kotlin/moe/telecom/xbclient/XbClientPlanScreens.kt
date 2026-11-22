@@ -35,6 +35,7 @@ internal fun PlansScreen(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
     RewardAdSection(
         title = stringResource(R.string.reward_plan_title),
+        description = stringResource(R.string.reward_plan_description),
         enabled = state.planRewardAdEnabled,
         scene = REWARD_SCENE_PLAN,
         state = state,
@@ -136,6 +137,7 @@ private fun PlanRow(
 @Composable
 internal fun RewardAdSection(
     title: String,
+    description: String,
     enabled: Boolean,
     scene: String,
     state: XbClientUiState,
@@ -170,10 +172,18 @@ internal fun RewardAdSection(
                 }
             }
             Spacer(Modifier.width(14.dp))
-            Text(title, style = MiuixTheme.textStyles.title2, modifier = Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MiuixTheme.textStyles.title2)
+                Spacer(Modifier.height(4.dp))
+                Text(description, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+            }
         }
         Spacer(Modifier.height(16.dp))
-        Button(onClick = { viewModel.requestRewardAd(scene) }, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = { viewModel.requestRewardAd(scene) },
+            enabled = !state.rewardAdLoading,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text(stringResource(R.string.reward_watch))
         }
         if (logs.isNotEmpty()) {

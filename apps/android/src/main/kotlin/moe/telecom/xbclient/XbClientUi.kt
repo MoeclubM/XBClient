@@ -359,7 +359,8 @@ internal fun rewardStatusText(status: String): String =
     }
 
 internal val XbClientUiState.canHandleBack: Boolean
-    get() = updateAvailable ||
+    get() = rewardAdLoading ||
+        updateAvailable ||
         oauthWebViewUrl.isNotEmpty() ||
         !isLoggedIn && authMode == AuthMode.REGISTER ||
         isLoggedIn && screen !in MainTabScreens

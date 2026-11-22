@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ads = XbClientAds(this) { viewModel.onRewardAdEarned(it) }
+        ads = XbClientAds(this, viewModel::setRewardAdLoading) { viewModel.onRewardAdEarned(it) }
         ads.start()
         enableEdgeToEdge()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
                         is XbClientEvent.Message -> Toast.makeText(this@MainActivity, event.text, Toast.LENGTH_SHORT).show()
                         is XbClientEvent.RequestVpnPermission -> requestVpnPermission()
                         is XbClientEvent.ShowRewardAd -> ads.showRewardedAd(event.adUnitId, event.userId, event.customData)
+                        is XbClientEvent.CancelRewardAd -> ads.cancelPendingRewardAd()
                         is XbClientEvent.OpenExternalUrl -> BrowserOpener.open(this@MainActivity, event.url)
                     }
                 }
@@ -102,6 +103,12 @@ class MainActivity : ComponentActivity() {
         if (state.loaded) {
             viewModel.syncAppearanceSettings()
         }
+    }
+
+    override fun onStop() {
+        ads.cancelPendingRewardAd()
+        viewModel.cancelRewardAdRequest(notifyAds = false)
+        super.onStop()
     }
 
     override fun onDestroy() {

@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
@@ -35,6 +36,22 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 internal fun XbClientDialogs(state: XbClientUiState, viewModel: XbClientViewModel) {
     val context = LocalContext.current
+    OverlayDialog(
+        show = state.rewardAdLoading,
+        title = stringResource(R.string.reward_watch),
+        summary = stringResource(R.string.reward_ad_loading),
+        onDismissRequest = { viewModel.cancelRewardAdRequest() }
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            InfiniteProgressIndicator(color = MiuixTheme.colorScheme.primary)
+            Spacer(Modifier.height(16.dp))
+            TextButton(
+                text = stringResource(android.R.string.cancel),
+                onClick = { viewModel.cancelRewardAdRequest() },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
     OverlayDialog(
         show = state.rewardCreditedDialog,
         title = stringResource(R.string.reward_credited_title),
