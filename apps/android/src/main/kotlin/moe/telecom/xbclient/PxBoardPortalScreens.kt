@@ -6,6 +6,7 @@ import android.util.Base64
 import android.widget.Toast
 import moe.telecom.neto.sdk.NetoPreferenceCard
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -182,7 +183,7 @@ internal fun PxBoardTicketsScreen(state: XbClientUiState, viewModel: XbClientVie
     var subject by rememberSaveable { mutableStateOf("") }
     var content by rememberSaveable { mutableStateOf("") }
 
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@rememberLauncherForActivityResult
         if (bytes.size > 2 * 1024 * 1024) {
@@ -218,7 +219,7 @@ internal fun PxBoardTicketsScreen(state: XbClientUiState, viewModel: XbClientVie
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 TextButton(
                     text = "上传图片",
-                    onClick = { imagePicker.launch("image/*") },
+                    onClick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                     enabled = !portal.busy,
                 )
                 Button(

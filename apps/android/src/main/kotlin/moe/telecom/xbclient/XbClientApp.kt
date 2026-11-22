@@ -8,6 +8,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Box
@@ -77,6 +79,8 @@ fun XbClientApp(viewModel: XbClientViewModel) {
     val localizedContext = remember(baseContext, appLocale) { localizedContext(baseContext, appLocale) }
     val localizedConfiguration = remember(localizedContext) { localizedContext.resources.configuration }
     val layoutDirection = remember(appLocale) { appLayoutDirection(appLocale) }
+    val activityResultRegistryOwner = LocalActivityResultRegistryOwner.current
+    val onBackPressedDispatcherOwner = LocalOnBackPressedDispatcherOwner.current
     var backProgress by remember { mutableFloatStateOf(0f) }
     PredictiveBackHandler(enabled = state.loaded && state.isLoggedIn && state.canHandleBack) { progress ->
         try {
@@ -90,11 +94,14 @@ fun XbClientApp(viewModel: XbClientViewModel) {
             throw error
         }
     }
-    CompositionLocalProvider(
+    val localProviders = listOfNotNull(
         LocalContext provides localizedContext,
         LocalConfiguration provides localizedConfiguration,
-        LocalLayoutDirection provides layoutDirection
-    ) {
+        LocalLayoutDirection provides layoutDirection,
+        activityResultRegistryOwner?.let { LocalActivityResultRegistryOwner provides it },
+        onBackPressedDispatcherOwner?.let { LocalOnBackPressedDispatcherOwner provides it },
+    )
+    CompositionLocalProvider(*localProviders.toTypedArray()) {
         NetoTheme(netoSnapshot.settings.themeMode) {
             val routeBackProgress = if (
                 state.isLoggedIn &&
@@ -131,6 +138,8 @@ fun XbClientAuthApp(viewModel: XbClientViewModel) {
     val localizedContext = remember(baseContext, appLocale) { localizedContext(baseContext, appLocale) }
     val localizedConfiguration = remember(localizedContext) { localizedContext.resources.configuration }
     val layoutDirection = remember(appLocale) { appLayoutDirection(appLocale) }
+    val activityResultRegistryOwner = LocalActivityResultRegistryOwner.current
+    val onBackPressedDispatcherOwner = LocalOnBackPressedDispatcherOwner.current
     var backProgress by remember { mutableFloatStateOf(0f) }
     PredictiveBackHandler(enabled = state.loaded && state.canHandleBack) { progress ->
         try {
@@ -144,11 +153,14 @@ fun XbClientAuthApp(viewModel: XbClientViewModel) {
             throw error
         }
     }
-    CompositionLocalProvider(
+    val localProviders = listOfNotNull(
         LocalContext provides localizedContext,
         LocalConfiguration provides localizedConfiguration,
-        LocalLayoutDirection provides layoutDirection
-    ) {
+        LocalLayoutDirection provides layoutDirection,
+        activityResultRegistryOwner?.let { LocalActivityResultRegistryOwner provides it },
+        onBackPressedDispatcherOwner?.let { LocalOnBackPressedDispatcherOwner provides it },
+    )
+    CompositionLocalProvider(*localProviders.toTypedArray()) {
         NetoTheme(netoSnapshot.settings.themeMode) {
             Scaffold { padding ->
                 Box(
@@ -220,10 +232,6 @@ private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
                     webViewClient = object : WebViewClient() {
                         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                             handleOAuthWebUrl(request.url, viewModel)
-
-                        @Deprecated("Deprecated in Java")
-                        override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
-                            handleOAuthWebUrl(Uri.parse(url), viewModel)
                     }
                     webChromeClient = object : WebChromeClient() {
                         override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
@@ -240,16 +248,6 @@ private fun OAuthWebView(url: String, viewModel: XbClientViewModel) {
                                             return true
                                         }
                                         parent.loadUrl(request.url.toString())
-                                        return true
-                                    }
-
-                                    @Deprecated("Deprecated in Java")
-                                    override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                                        val uri = Uri.parse(url)
-                                        if (handleOAuthWebUrl(uri, viewModel)) {
-                                            return true
-                                        }
-                                        parent.loadUrl(url)
                                         return true
                                     }
                                 }

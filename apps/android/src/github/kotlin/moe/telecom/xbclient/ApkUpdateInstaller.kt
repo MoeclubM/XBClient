@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import java.io.File
@@ -34,25 +33,20 @@ object ApkUpdateInstaller {
     }
 
     fun installApk(context: Context, apkFile: File) {
-        val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.PackageInfoFlags.of(0L))
-        } else {
-            @Suppress("DEPRECATION")
-            context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
-        } ?: throw IllegalStateException("下载的安装包无法解析。")
+        val packageInfo = context.packageManager.getPackageArchiveInfo(
+            apkFile.absolutePath,
+            PackageManager.PackageInfoFlags.of(0L)
+        ) ?: throw IllegalStateException("下载的安装包无法解析。")
         if (packageInfo.packageName != context.packageName) {
             throw IllegalStateException("更新安装包包名不匹配：${packageInfo.packageName}")
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val pm = context.packageManager
-            if (!pm.canRequestPackageInstalls()) {
-                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                    data = Uri.parse("package:${context.packageName}")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-                throw IllegalStateException("请允许本应用安装未知来源更新后重试。")
+        if (!context.packageManager.canRequestPackageInstalls()) {
+            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                data = Uri.parse("package:${context.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
+            context.startActivity(intent)
+            throw IllegalStateException("请允许本应用安装未知来源更新后重试。")
         }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
         val intent = Intent(Intent.ACTION_VIEW).apply {
